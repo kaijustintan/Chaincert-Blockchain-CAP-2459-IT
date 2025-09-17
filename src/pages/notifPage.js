@@ -1,0 +1,1 @@
+// Page to show recent activity or notifications (optional)

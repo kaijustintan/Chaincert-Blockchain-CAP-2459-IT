@@ -1,0 +1,165 @@
+/* Full wrapper */
+.login-wrapper {
+  display: flex;
+  min-height: 100vh;
+  font-family: 'Poppins', sans-serif;
+
+  /* Use the same background image from landing page */
+  background: url("https://i.pinimg.com/originals/82/fe/a8/82fea868e674a7c404f5c1a2f87e4c3b.jpg") no-repeat center/cover;
+  position: relative;
+  color: #fff;
+}
+
+/* Add an overlay for opacity */
+.login-wrapper::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  height: 100%;
+  width: 100%;
+  background: rgba(0, 0, 0, 0.55); /* adjust opacity (0.4–0.6 works well) */
+  z-index: 0;
+}
+
+/* Make content above overlay */
+.login-left,
+.login-right {
+  position: relative;
+  z-index: 1;
+}
+
+/* Left section */
+.login-left {
+  flex: 1;
+  padding: 5rem;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
+.login-left h1 {
+  font-size: 2.5rem;
+  font-weight: 700;
+  margin-bottom: 1rem;
+  color: #fff;
+}
+
+.login-left p {
+  font-size: 1.1rem;
+  margin-bottom: 1.2rem;
+  color: #e6e6e6;
+}
+
+.login-left ul {
+  list-style: none;
+  padding: 0;
+}
+
+.login-left li {
+  font-size: 1rem;
+  margin-bottom: 0.8rem;
+  color: #f3f3f3;
+}
+
+/* Right section */
+.login-right {
+  flex: 1;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 2rem;
+}
+
+/* Gradient card */
+.login-box {
+  background: linear-gradient(135deg, #ffffff, #f6f6f6);
+  padding: 2.5rem;
+  border-radius: 1.5rem;
+  box-shadow: 0 10px 25px rgba(0,0,0,0.4);
+  width: 360px;
+  text-align: center;
+  color: #333;
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+
+.login-box:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 15px 35px rgba(0,0,0,0.5);
+}
+
+.brand-name {
+  font-size: 1.8rem;
+  font-weight: bold;
+  color: #6a11cb;
+  margin-bottom: 0.5rem;
+}
+
+.tagline {
+  font-size: 0.9rem;
+  color: #555;
+  margin-bottom: 1.5rem;
+}
+
+/* Form */
+.input-group {
+  text-align: left;
+  margin-bottom: 1rem;
+}
+
+.input-group label {
+  font-size: 0.9rem;
+  font-weight: 500;
+  color: #333;
+}
+
+.input-group input {
+  width: 100%;
+  padding: 0.8rem;
+  border-radius: 0.6rem;
+  border: 1px solid #ccc;
+  margin-top: 0.4rem;
+  font-size: 0.95rem;
+  outline: none;
+  transition: border 0.3s;
+}
+
+.input-group input:focus {
+  border: 1px solid #6a11cb;
+}
+
+/* Button */
+.login-btn {
+  background: linear-gradient(135deg, #6a11cb, #2575fc);
+  color: #fff;
+  border: none;
+  padding: 0.9rem;
+  border-radius: 0.6rem;
+  cursor: pointer;
+  margin-top: 1rem;
+  width: 100%;
+  font-size: 1rem;
+  transition: opacity 0.3s ease;
+}
+
+.login-btn:hover {
+  opacity: 0.9;
+}
+
+/* Links */
+.extra-links {
+  margin-top: 1.5rem;
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.9rem;
+}
+
+.extra-links a {
+  color: #6a11cb;
+  text-decoration: none;
+  transition: text-decoration 0.2s;
+}
+
+.extra-links a:hover {
+  text-decoration: underline;
+}

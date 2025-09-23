@@ -11,6 +11,8 @@ import CredentialDetails from './pages/credentialDetails';
 import AboutPage from './pages/aboutUsPage';
 import HelpPage from './pages/helpPage';
 import Navbar from './components/navBar';
+import Footer from './components/footer';
+
 
 import './styles/App.css';
 
@@ -30,6 +32,9 @@ function App() {
           <Route path="/about" element={<AboutPage />} />
           <Route path="/help" element={<HelpPage />} />
         </Routes>
+        
+        <Footer />
+
       </div>
     </Router>
   );

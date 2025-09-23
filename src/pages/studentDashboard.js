@@ -1,12 +1,6 @@
 import React, { useMemo, useState } from "react";
+import "../styles/studentDashboard.css"; // new CSS file
 
-// -----------------------------------------------------------------------------
-// Student Dashboard / Wallet Page (MOCKUP ONLY)
-// No backend calls, no external libs, no router imports.
-// Everything below is static/mock data + simple UI to demonstrate layout.
-// -----------------------------------------------------------------------------
-
-// ---- Mock Data ---------------------------------------------------------------
 const MOCK_CREDENTIALS = [
   {
     id: "cred-001",
@@ -45,51 +39,14 @@ const MOCK_NOTIFS = [
   { id: "n2", type: "verify", message: "Verification request from: ACME Corp (HR)", ts: "2025-06-01 10:30" },
 ];
 
-// ---- Small Helpers -----------------------------------------------------------
-const formatDate = (iso) => {
-  try { return new Date(iso).toLocaleDateString(); } catch { return iso; }
-};
+const formatDate = (iso) => new Date(iso).toLocaleDateString();
 
-const StatusPill = ({ status }) => {
-  const color = {
-    active: { bg: "#E8F5E9", fg: "#1B5E20", br: "#A5D6A7" },
-    revoked: { bg: "#FFEBEE", fg: "#B71C1C", br: "#EF9A9A" },
-    expired: { bg: "#FFF8E1", fg: "#E65100", br: "#FFE082" },
-    pending: { bg: "#E3F2FD", fg: "#0D47A1", br: "#90CAF9" },
-  }[status] || { bg: "#EEEEEE", fg: "#424242", br: "#E0E0E0" };
-  return (
-    <span style={{
-      background: color.bg,
-      color: color.fg,
-      border: `1px solid ${color.br}`,
-      borderRadius: 999,
-      padding: "4px 10px",
-      fontSize: 12,
-      display: "inline-flex",
-      alignItems: "center",
-      gap: 6,
-    }}>
-      <span style={{ width: 6, height: 6, borderRadius: 999, background: color.fg, opacity: 0.7 }} />
-      {String(status).charAt(0).toUpperCase() + String(status).slice(1)}
-    </span>
-  );
-};
-
-const Card = ({ children }) => (
-  <div style={{
-    border: "1px solid #E5E7EB",
-    borderRadius: 16,
-    padding: 16,
-    boxShadow: "0 1px 2px rgba(0,0,0,0.04)",
-    background: "#fff",
-  }}>
-    {children}
-  </div>
+const StatusPill = ({ status }) => (
+  <span className={`status-pill ${status}`}>{status.charAt(0).toUpperCase() + status.slice(1)}</span>
 );
 
-// ---- Main (Mockup) ----------------------------------------------------------
 export default function StudentDashboard() {
-  const [view, setView] = useState("cards"); // 'cards' | 'list'
+  const [view, setView] = useState("cards");
   const [query, setQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [notifs] = useState(MOCK_NOTIFS);
@@ -104,47 +61,47 @@ export default function StudentDashboard() {
     });
   }, [query, statusFilter]);
 
-  const mockShareUrl = (cred) => `https://example.com/verify?code=${encodeURIComponent(cred.shareCode)}&id=${encodeURIComponent(cred.id)}`;
+  const mockShareUrl = (cred) =>
+    `https://example.com/verify?code=${encodeURIComponent(cred.shareCode)}&id=${encodeURIComponent(cred.id)}`;
 
   return (
-    <div style={{ maxWidth: 1120, margin: "0 auto", padding: 24 }}>
+    <div className="dashboard-container">
       {/* Header */}
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", gap: 12, flexWrap: "wrap" }}>
-        <div>
-          <h1 style={{ margin: 0, fontSize: 24, fontWeight: 700 }}>My Credentials</h1>
-        </div>
-        <div style={{ display: "flex", gap: 8 }}>
-          <button onClick={() => setView("cards")} style={{ padding: "8px 12px", borderRadius: 10, border: "1px solid #E5E7EB", background: view === "cards" ? "#111827" : "#fff", color: view === "cards" ? "#fff" : "#111827" }}>Cards</button>
-          <button onClick={() => setView("list")} style={{ padding: "8px 12px", borderRadius: 10, border: "1px solid #E5E7EB", background: view === "list" ? "#111827" : "#fff", color: view === "list" ? "#fff" : "#111827" }}>List</button>
+      <div className="dashboard-header">
+        <h1>My Credentials</h1>
+        <div className="view-toggle">
+          <button className={view === "cards" ? "active" : ""} onClick={() => setView("cards")}>
+            Cards
+          </button>
+          <button className={view === "list" ? "active" : ""} onClick={() => setView("list")}>
+            List
+          </button>
         </div>
       </div>
 
-      {/* Notifications (optional) */}
+      {/* Notifications */}
       {notifs.length > 0 && (
-        <div style={{ marginTop: 16, display: "grid", gap: 8 }}>
+        <div className="notif-section">
           {notifs.map((n) => (
-            <Card key={n.id}>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 }}>
-                <div style={{ fontSize: 14 }}>
-                  <strong style={{ marginRight: 8 }}>{n.type === "issued" ? "🆕 Issued" : "🔎 Verify"}</strong>
-                  {n.message}
-                </div>
-                <div style={{ fontSize: 12, color: "#6B7280" }}>{n.ts}</div>
+            <div key={n.id} className="notif-card">
+              <div>
+                <strong>{n.type === "issued" ? "🆕 Issued" : "🔎 Verify"}:</strong> {n.message}
               </div>
-            </Card>
+              <span className="notif-time">{n.ts}</span>
+            </div>
           ))}
         </div>
       )}
 
       {/* Controls */}
-      <div style={{ marginTop: 16, display: "grid", gap: 8, gridTemplateColumns: "repeat(3, minmax(0, 1fr))" }}>
+      <div className="controls">
         <input
+          type="text"
           placeholder="Search title, course, issuer…"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
-          style={{ gridColumn: "span 2", padding: "10px 12px", borderRadius: 10, border: "1px solid #E5E7EB" }}
         />
-        <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} style={{ padding: "10px 12px", borderRadius: 10, border: "1px solid #E5E7EB" }}>
+        <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
           <option value="all">All statuses</option>
           <option value="active">Active</option>
           <option value="expired">Expired</option>
@@ -154,95 +111,82 @@ export default function StudentDashboard() {
       </div>
 
       {/* Content */}
-      <div style={{ marginTop: 16 }}>
+      <div className="content">
         {filtered.length === 0 ? (
-          <Card>
-            <div style={{ textAlign: "center", padding: 24, color: "#6B7280" }}>No credentials match your filters.</div>
-          </Card>
+          <div className="empty-card">No credentials match your filters.</div>
         ) : view === "cards" ? (
-          <div style={{ display: "grid", gap: 12, gridTemplateColumns: "repeat(3, minmax(0, 1fr))" }}>
+          <div className="card-grid">
             {filtered.map((cred) => (
-              <Card key={cred.id}>
-                <div style={{ display: "flex", justifyContent: "space-between", gap: 12 }}>
+              <div key={cred.id} className="cred-card">
+                <div className="cred-header">
                   <div>
-                    <div style={{ fontWeight: 600 }}>{cred.title}</div>
-                    <div style={{ fontSize: 13, color: "#6B7280", marginTop: 4 }}>
-                      <div><strong>Course:</strong> {cred.course}</div>
-                      <div><strong>Issuer:</strong> {cred.issuer}</div>
-                      <div><strong>Issued:</strong> {formatDate(cred.dateIssued)}</div>
-                    </div>
+                    <h3>{cred.title}</h3>
+                    <p>
+                      <strong>Course:</strong> {cred.course}
+                      <br />
+                      <strong>Issuer:</strong> {cred.issuer}
+                      <br />
+                      <strong>Issued:</strong> {formatDate(cred.dateIssued)}
+                    </p>
                   </div>
                   <StatusPill status={cred.status} />
                 </div>
-                <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginTop: 12 }}>
-                  <button title="View details (mock)" style={{ padding: "8px 10px", borderRadius: 10, border: "1px solid #E5E7EB", background: "#fff" }} onClick={() => alert(`View details for ${cred.id} (mock)`) }>View details</button>
-                  <button title="Copy share link (mock)" style={{ padding: "8px 10px", borderRadius: 10, border: "1px solid #E5E7EB", background: "#fff" }} onClick={() => { navigator.clipboard?.writeText(mockShareUrl(cred)); alert("Share link copied (mock)"); }}>Copy share link</button>
-                  <button title="Show QR (mock)" style={{ padding: "8px 10px", borderRadius: 10, border: "1px solid #E5E7EB", background: "#fff" }} onClick={() => { setQrLink(mockShareUrl(cred)); setQrOpen(true); }}>Show QR</button>
-                  <button title="Download file (mock)" style={{ padding: "8px 10px", borderRadius: 10, border: "1px solid #E5E7EB", background: "#fff" }} onClick={() => alert(`Downloading ${cred.fileName} (mock)`) }>Download PDF</button>
+                <div className="cred-actions">
+                  <button className="action-btn view" onClick={() => alert(`View details for ${cred.id} (mock)`)}>👁 View</button>
+                  <button className="action-btn share" onClick={() => { navigator.clipboard?.writeText(mockShareUrl(cred)); alert("Share link copied!"); }}>🔗 Share</button>
+                  <button className="action-btn qr" onClick={() => { setQrLink(mockShareUrl(cred)); setQrOpen(true); }}>📱 QR</button>
+                  <button className="action-btn pdf" onClick={() => alert(`Downloading ${cred.fileName} (mock)`)}>⬇ PDF</button>
                 </div>
-              </Card>
+              </div>
             ))}
           </div>
         ) : (
-          <Card>
-            <div style={{ overflowX: "auto" }}>
-              <table style={{ width: "100%", fontSize: 14, borderCollapse: "collapse" }}>
-                <thead>
-                  <tr style={{ background: "#F9FAFB" }}>
-                    {['Title','Course','Issuer','Issued','Status','Actions'].map((h) => (
-                      <th key={h} style={{ textAlign: 'left', padding: '10px 12px', borderBottom: '1px solid #E5E7EB' }}>{h}</th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {filtered.map((cred) => (
-                    <tr key={cred.id}>
-                      <td style={{ padding: '10px 12px', borderTop: '1px solid #E5E7EB', fontWeight: 600 }}>{cred.title}</td>
-                      <td style={{ padding: '10px 12px', borderTop: '1px solid #E5E7EB' }}>{cred.course}</td>
-                      <td style={{ padding: '10px 12px', borderTop: '1px solid #E5E7EB' }}>{cred.issuer}</td>
-                      <td style={{ padding: '10px 12px', borderTop: '1px solid #E5E7EB' }}>{formatDate(cred.dateIssued)}</td>
-                      <td style={{ padding: '10px 12px', borderTop: '1px solid #E5E7EB' }}><StatusPill status={cred.status} /></td>
-                      <td style={{ padding: '10px 12px', borderTop: '1px solid #E5E7EB' }}>
-                        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-                          <button style={{ padding: '6px 8px', borderRadius: 8, border: '1px solid #E5E7EB', background: '#fff' }} onClick={() => alert(`View details for ${cred.id} (mock)`) }>View</button>
-                          <button style={{ padding: '6px 8px', borderRadius: 8, border: '1px solid #E5E7EB', background: '#fff' }} onClick={() => { navigator.clipboard?.writeText(mockShareUrl(cred)); alert('Link copied (mock)'); }}>Share</button>
-                          <button style={{ padding: '6px 8px', borderRadius: 8, border: '1px solid #E5E7EB', background: '#fff' }} onClick={() => { setQrLink(mockShareUrl(cred)); setQrOpen(true); }}>QR</button>
-                          <button style={{ padding: '6px 8px', borderRadius: 8, border: '1px solid #E5E7EB', background: '#fff' }} onClick={() => alert(`Downloading ${cred.fileName} (mock)`) }>PDF</button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </Card>
+          <table className="cred-table">
+            <thead>
+              <tr>
+                <th>Title</th>
+                <th>Course</th>
+                <th>Issuer</th>
+                <th>Issued</th>
+                <th>Status</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {filtered.map((cred) => (
+                <tr key={cred.id}>
+                  <td>{cred.title}</td>
+                  <td>{cred.course}</td>
+                  <td>{cred.issuer}</td>
+                  <td>{formatDate(cred.dateIssued)}</td>
+                  <td><StatusPill status={cred.status} /></td>
+                  <td>
+                  <div className="cred-actions">
+                    <button className="action-btn view" onClick={() => alert(`View details for ${cred.id} (mock)`)}>👁 View</button>
+                    <button className="action-btn share" onClick={() => { navigator.clipboard?.writeText(mockShareUrl(cred)); alert("Link copied!"); }}>🔗 Share</button>
+                    <button className="action-btn qr" onClick={() => { setQrLink(mockShareUrl(cred)); setQrOpen(true); }}>📱 QR</button>
+                    <button className="action-btn pdf" onClick={() => alert(`Downloading ${cred.fileName} (mock)`)}>⬇ PDF</button>
+                  </div>
+                </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         )}
       </div>
 
-      {/* QR Mock Modal */}
+      {/* QR Modal */}
       {qrOpen && (
-        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
-          <div style={{ background: '#fff', borderRadius: 16, padding: 16, width: '100%', maxWidth: 420 }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <h3 style={{ margin: 0, fontSize: 18, fontWeight: 700 }}>Share via QR (Mock)</h3>
-              <button onClick={() => setQrOpen(false)} style={{ padding: '6px 10px', borderRadius: 8, border: '1px solid #E5E7EB', background: '#fff' }}>Close</button>
-            </div>
-            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8, marginTop: 12 }}>
-              {/* Placeholder QR box */}
-              <div style={{ width: 192, height: 192, background: '#F3F4F6', border: '1px dashed #D1D5DB', borderRadius: 8, display: 'grid', placeItems: 'center', fontSize: 12, color: '#6B7280' }}>
-                QR Preview
-              </div>
-              <code style={{ fontSize: 12, background: '#F9FAFB', border: '1px solid #E5E7EB', borderRadius: 8, padding: '6px 8px', width: '100%', overflowX: 'auto' }}>{qrLink}</code>
-              <div style={{ fontSize: 12, color: '#6B7280' }}>Verifiers can scan the QR here in a real build. This is a visual placeholder only.</div>
-            </div>
+        <div className="modal-overlay">
+          <div className="modal">
+            <h3>Share via QR (Mock)</h3>
+            <button className="close-btn" onClick={() => setQrOpen(false)}>Close</button>
+            <div className="qr-preview">QR Preview</div>
+            <code className="qr-link">{qrLink}</code>
+            <p className="qr-note">In a real build, a scannable QR code would appear here.</p>
           </div>
         </div>
       )}
-
-      {/* References note */}
-      <div style={{ marginTop: 28, fontSize: 12, color: '#6B7280' }}>
-        UI inspired by LinkedIn Certifications (overview list) and Blockcerts Wallet (QR-based verification). Mockup only.
-      </div>
     </div>
   );
 }

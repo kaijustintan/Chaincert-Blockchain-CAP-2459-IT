@@ -10,6 +10,8 @@ import VerifierDashboard from './pages/verifierDashboard';
 import CredentialDetails from './pages/credentialDetails';
 import AboutPage from './pages/aboutUsPage';
 import HelpPage from './pages/helpPage';
+import ForgotPassword from './pages/forgotPassword';
+import CreateAccount from './pages/createAccount'
 import Navbar from './components/navBar';
 import Footer from './components/footer';
 
@@ -31,6 +33,8 @@ function App() {
           <Route path="/credential/details" element={<CredentialDetails />} />
           <Route path="/about" element={<AboutPage />} />
           <Route path="/help" element={<HelpPage />} />
+          <Route path="/forgot-password" element={<ForgotPassword />} />
+          <Route path="/register" element={<CreateAccount />} />
         </Routes>
         
         <Footer />

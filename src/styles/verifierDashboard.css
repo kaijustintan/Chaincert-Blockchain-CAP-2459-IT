@@ -1,0 +1,137 @@
+.verifier-container {
+  max-width: 900px;
+  margin: 0 auto;
+  padding: 24px;
+  color: #fff;
+  font-family: "Poppins", sans-serif;
+}
+
+/* Title */
+.verifier-container h1 {
+  font-size: 28px;
+  margin-bottom: 8px;
+  font-weight: 700;
+  color: #fff; 
+}
+
+.verifier-container p {
+  color: #ccc;
+  margin-bottom: 20px;
+}
+
+/* Controls */
+.verify-controls {
+  display: flex;
+  gap: 12px;
+  margin-bottom: 20px;
+}
+
+.verify-controls input {
+  flex: 1;
+  padding: 12px;
+  border-radius: 10px;
+  border: none;
+  outline: none;
+  background: rgba(255, 255, 255, 0.1);
+  color: #fff;
+}
+
+.verify-controls input::placeholder {
+  color: #aaa;
+}
+
+.verify-controls button {
+  padding: 12px 18px;
+  border: none;
+  border-radius: 10px;
+  background: linear-gradient(90deg, #ff00cc, #3333ff);
+  color: #fff;
+  cursor: pointer;
+  font-weight: 600;
+  transition: 0.3s;
+}
+
+.verify-controls button:hover {
+  box-shadow: 0 0 12px rgba(97, 218, 251, 0.6);
+}
+
+/* Verification result */
+.verify-result {
+  background: rgba(255, 255, 255, 0.08);
+  padding: 16px;
+  border-radius: 12px;
+  margin-bottom: 20px;
+}
+
+.verify-result h3 {
+  margin: 0 0 10px;
+  color: #61dafb;
+}
+
+.verify-result .error {
+  color: #ff5555;
+  font-weight: 600;
+}
+
+/* Status pill */
+.status-pill {
+  display: inline-block;
+  padding: 4px 12px;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: capitalize;
+}
+
+.status-pill.active {
+  background: rgba(0, 200, 83, 0.2);
+  color: #00e676;
+}
+
+.status-pill.expired {
+  background: rgba(255, 152, 0, 0.2);
+  color: #ff9800;
+}
+
+.status-pill.revoked {
+  background: rgba(244, 67, 54, 0.2);
+  color: #f44336;
+}
+
+/* Logs */
+.verify-logs {
+  margin-top: 20px;
+}
+
+.verify-logs h2 {
+  margin-bottom: 12px;
+  font-size: 20px;
+  color: #fff;
+}
+
+.verify-logs table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+}
+
+.verify-logs th,
+.verify-logs td {
+  padding: 10px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+  text-align: left;
+}
+
+.verify-logs th {
+  background: rgba(255, 255, 255, 0.15);
+  font-weight: 600;
+}
+
+.verify-logs td {
+  color: #ddd;
+}
+
+.empty {
+  font-size: 14px;
+  color: #bbb;
+}

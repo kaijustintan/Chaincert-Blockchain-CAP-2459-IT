@@ -11,6 +11,7 @@
   font-size: 1.5rem;
   font-weight: bold;
   background: linear-gradient(90deg, #ff00cc, #3333ff);
+  background-clip: text;
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
 }
@@ -24,8 +25,40 @@
 .navbar .nav-links li {
   cursor: pointer;
   transition: color 0.3s ease;
+  color: #fff;
 }
 
 .navbar .nav-links li:hover {
-  color: #00ffff;
+  color: #00ffff ;
+}
+
+/* Link styles */
+.navbar .nav-links li a {
+  text-decoration: none;
+  color: inherit;
+  transition: color 0.3s ease;
+}
+
+.navbar .nav-links li a:hover {
+  text-decoration: none;
+}
+
+/* Active state styles */
+.navbar .nav-links li.active {
+  color: #ff00cc;
+  position: relative;
+}
+
+.navbar .nav-links li.active a {
+  color: #ff00cc;
+}
+
+.navbar .nav-links li.active::after {
+  content: '';
+  position: absolute;
+  bottom: -5px;
+  left: 0;
+  width: 100%;
+  height: 2px;
+  background-color: #ff00cc;
 }

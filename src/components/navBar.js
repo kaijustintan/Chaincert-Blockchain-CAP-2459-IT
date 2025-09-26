@@ -10,13 +10,13 @@ function NavBar() {
       <h2 className="logo">ChainCert</h2>
       <ul className="nav-links">
         <li className={location.pathname === '/' ? 'active' : ''}>
-          <Link to="/">Home</Link>
+          <Link to="/">DASHBOARD NOT LOGIN</Link>
         </li>
         <li className={location.pathname === '/login' ? 'active' : ''}>
           <Link to="/login">Login</Link>
         </li>
         <li className={location.pathname === '/student/dashboard' ? 'active' : ''}>
-          <Link to="/student/dashboard">Dashboard</Link>
+          <Link to="/student/dashboard">Dashboard UPON LOGIN</Link>
         </li>
         <li className={location.pathname === '/admin/dashboard' ? 'active' : ''}>
           <Link to="/admin/dashboard">Admin Dashboard</Link>

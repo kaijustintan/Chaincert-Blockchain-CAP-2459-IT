@@ -12,7 +12,7 @@ import AboutPage from './pages/aboutUsPage';
 import HelpPage from './pages/helpPage';
 import ForgotPassword from './pages/forgotPassword';
 import CreateAccount from './pages/createAccount'
-import Navbar from './components/navBar';
+import Navbar from './components/navBar_User';
 import Footer from './components/footer';
 
 

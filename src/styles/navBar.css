@@ -62,3 +62,54 @@
   height: 2px;
   background-color: #ff00cc;
 }
+
+/* Profile Dropdown */
+.profile-dropdown-container {
+  position: relative;
+  display: inline-block;
+}
+
+.profile-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  margin-left: 20px;
+}
+
+.profile-icon {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background-color: #ccc; /* Replace with the user profile image */
+}
+
+.profile-dropdown {
+  position: absolute;
+  right: 0;
+  top: 40px;
+  background-color: black;
+  border-radius: 8px;
+  box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+  min-width: 150px;
+  z-index: 10;
+}
+
+.profile-dropdown ul {
+  list-style: none;
+  padding: 10px;
+  margin: 0;
+}
+
+.profile-dropdown li {
+  padding: 10px;
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+}
+
+.profile-dropdown li:hover {
+  background-color: #f5f5f5;
+}
+
+.profile-dropdown li:last-child {
+  border-top: 1px solid #eee;
+}

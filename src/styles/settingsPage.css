@@ -1,0 +1,84 @@
+.settings-wrapper {
+  display: flex;
+  min-height: 80vh;
+  background: #f8f9fa;
+  font-family: Arial, sans-serif;
+}
+
+.settings-sidebar {
+  width: 250px;
+  border-right: 1px solid #ddd;
+  background: #fff;
+  padding: 20px 0;
+}
+
+.settings-sidebar ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.settings-sidebar li {
+  padding: 12px 20px;
+  cursor: pointer;
+  color: #333;
+  transition: background 0.2s;
+}
+
+.settings-sidebar li:hover {
+  background: #f1f1f1;
+}
+
+.settings-sidebar li.active {
+  font-weight: bold;
+  background: #e6e6e6;
+  border-left: 4px solid #6b2bd9;
+  color: #6b2bd9;
+}
+
+.settings-content {
+  flex: 1;
+  padding: 30px 40px;
+  background: #fff;
+}
+
+.settings-content h2 {
+  margin-bottom: 20px;
+  color: #222;
+}
+
+.settings-section {
+  margin-bottom: 25px;
+}
+
+.settings-section h4 {
+  margin-bottom: 8px;
+  font-size: 15px;
+  color: #444;
+}
+
+.settings-section p {
+  margin: 0 0 6px;
+  color: #666;
+}
+
+.settings-section a {
+  color: #6b2bd9;
+  text-decoration: none;
+  font-size: 14px;
+}
+
+.settings-section a:hover {
+  text-decoration: underline;
+}
+
+.settings-section a.danger {
+  color: #d9534f;
+  font-weight: bold;
+}
+
+.settings-section select {
+  padding: 6px 10px;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+}

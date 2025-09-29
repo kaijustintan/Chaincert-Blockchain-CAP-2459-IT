@@ -14,6 +14,8 @@ import ForgotPassword from './pages/forgotPassword';
 import CreateAccount from './pages/createAccount'
 import Navbar from './components/navBar_User';
 import Footer from './components/footer';
+import SettingsPage from './pages/settingsPage';
+
 
 
 import './styles/App.css';
@@ -35,6 +37,7 @@ function App() {
           <Route path="/help" element={<HelpPage />} />
           <Route path="/forgot-password" element={<ForgotPassword />} />
           <Route path="/register" element={<CreateAccount />} />
+          <Route path="/settings" element={<SettingsPage />} />
         </Routes>
         
         <Footer />

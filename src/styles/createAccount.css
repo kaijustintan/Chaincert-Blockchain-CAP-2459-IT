@@ -1,0 +1,65 @@
+/* CreateAccount.css - minimal styling, adapt to your theme */
+.create-account-wrapper {
+  display: flex;
+  gap: 32px;
+  justify-content: center;
+  align-items: flex-start;
+  padding: 48px;
+  flex-wrap: wrap;
+}
+
+.form-card {
+  width: 420px;
+  background: #fff;
+  border-radius: 10px;
+  padding: 28px;
+  box-shadow: 0 6px 20px rgba(0,0,0,0.25);
+}
+
+.form-card h2 {
+  text-align: center; /* keep headings centered */
+  color: #6b2bd9; /* purple heading */
+  margin-bottom: 18px;
+}
+
+.form-card form {
+  display: flex;
+  flex-direction: column;
+}
+
+.form-card label {
+  font-size: 0.9rem;
+  margin-top: 10px;
+  margin-bottom: 6px;
+  color: #333;
+  text-align: left; /* ✅ ensures left alignment */
+}
+
+.form-card input,
+.form-card select {
+  padding: 10px 12px;
+  border-radius: 6px;
+  border: 1px solid #e0e0e0;
+  font-size: 0.95rem;
+}
+
+.btn-primary {
+  margin-top: 20px;
+  padding: 12px 18px;
+  background: #6b2bd9; /* match purple */
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.issuer-message {
+  text-align: center;
+  color: #000; /* ✅ make text black */
+  font-size: 0.95rem;
+  line-height: 1.5;
+}
+
+.issuer-message p {
+  margin-bottom: 20px;
+}

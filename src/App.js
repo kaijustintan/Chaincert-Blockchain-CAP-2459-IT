@@ -15,6 +15,15 @@ import CreateAccount from './pages/createAccount'
 import Navbar from './components/navBar_User';
 import Footer from './components/footer';
 import SettingsPage from './pages/settingsPage';
+import ProfilePage from './pages/profilePage';
+import ProfilePreview from './pages/profilePreview';
+import BadgeDetails from './pages/badgeDetailsPage';
+import BadgeDetails_ProfilePreviewPage from './pages/badgeDetails_profilePreviewPage';
+import ShareCredentialPage from './pages/shareCredentialPage';
+
+
+
+
 
 
 
@@ -38,6 +47,13 @@ function App() {
           <Route path="/forgot-password" element={<ForgotPassword />} />
           <Route path="/register" element={<CreateAccount />} />
           <Route path="/settings" element={<SettingsPage />} />
+          <Route path="/profile" element={<ProfilePage />} />
+          <Route path="/profile-preview" element={<ProfilePreview />} />
++         <Route path="/badge-details/:id" element={<BadgeDetails />} />
+          <Route path="/profile-preview/badge-details/:id" element={<BadgeDetails_ProfilePreviewPage />} />
+          <Route path="/share-credential/:id" element={<ShareCredentialPage />} />
+          
+
         </Routes>
         
         <Footer />

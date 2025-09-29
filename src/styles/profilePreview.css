@@ -1,0 +1,74 @@
+.profile-preview {
+  padding: 40px;
+  font-family: Arial, sans-serif;
+  background: #fff;
+  color: #333;
+  text-align: center;
+}
+
+.preview-header {
+  margin-bottom: 40px;
+}
+
+.avatar {
+  width: 90px;
+  height: 90px;
+  margin: 0 auto 10px;
+  background: #eaeaea;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 36px;
+}
+
+.preview-header h2 {
+  font-size: 24px;
+  margin: 0;
+}
+
+.badge-wallet {
+  text-align: left;
+}
+
+.badge-wallet h3 {
+  margin-bottom: 20px;
+  font-size: 20px;
+  color: #222;
+}
+
+.badge-grid {
+  display: flex;
+  gap: 20px;
+  flex-wrap: wrap;
+}
+
+.badge-card {
+  width: 220px;
+  background: #fafafa;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  padding: 16px;
+  text-align: center;
+}
+
+.badge-img {
+  width: 100%;
+  height: auto;
+  margin-bottom: 12px;
+}
+
+.badge-card h4 {
+  font-size: 15px;
+  margin: 8px 0;
+}
+
+.badge-card .issuer {
+  font-size: 13px;
+  color: #666;
+}
+
+.badge-card .date {
+  font-size: 12px;
+  color: #999;
+}

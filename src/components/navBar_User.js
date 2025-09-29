@@ -8,7 +8,11 @@ function NavBar() {
 
   return (
     <nav className="navbar">
-      <h2 className="logo">ChainCert</h2>
+      {/* ✅ Make ChainCert clickable and go to landing page */}
+      <h2 className="logo">
+        <Link to="/" className="logo-link">ChainCert</Link>
+      </h2>
+
       <ul className="nav-links">
         <li className={location.pathname === '/' ? 'active' : ''}>
           <Link to="/">DASHBOARD NOT LOGIN</Link>
@@ -25,25 +29,32 @@ function NavBar() {
         <li className={location.pathname === '/verifier/dashboard' ? 'active' : ''}>
           <Link to="/verifier/dashboard">Verifier Dashboard</Link>
         </li>
+        <li className={location.pathname === '/issuer/dashboard' ? 'active' : ''}>
+          <Link to="/issuer/dashboard">Issuer Dashboard</Link>
+        </li>
         <li className={location.pathname === '/about' ? 'active' : ''}>
           <Link to="/about">About</Link>
         </li>
         <li className={location.pathname === '/help' ? 'active' : ''}>
           <Link to="/help">Help</Link>
         </li>
-        
+
         {/* Profile Dropdown */}
         <div className="profile-dropdown-container">
           <button 
             className="profile-btn" 
             onClick={() => setDropdownOpen(!dropdownOpen)}
           >
-            <img src="https://png.pngtree.com/png-clipart/20200224/original/pngtree-avatar-icon-profile-icon-member-login-vector-isolated-png-image_5247852.jpg" alt="Profile" className="profile-icon" />
+            <img 
+              src="https://png.pngtree.com/png-clipart/20200224/original/pngtree-avatar-icon-profile-icon-member-login-vector-isolated-png-image_5247852.jpg" 
+              alt="Profile" 
+              className="profile-icon" 
+            />
           </button>
           {dropdownOpen && (
             <div className="profile-dropdown">
               <ul>
-                 <li className={location.pathname === '/student/dashboard' ? 'active' : ''}>
+                <li className={location.pathname === '/student/dashboard' ? 'active' : ''}>
                   <Link to="/student/dashboard">Dashboard</Link>
                 </li>
                 <li className={location.pathname === '/profile' ? 'active' : ''}>

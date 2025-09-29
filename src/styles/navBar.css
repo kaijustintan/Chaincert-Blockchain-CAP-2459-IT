@@ -113,3 +113,11 @@
 .profile-dropdown li:last-child {
   border-top: 1px solid #eee;
 }
+.logo-link {
+  text-decoration: none;
+  color: inherit;   /* keeps the same color */
+}
+
+.logo-link:hover {
+  opacity: 0.99;     /* subtle hover effect */
+}

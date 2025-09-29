@@ -7,6 +7,7 @@ import LoginPage from './pages/loginPage';
 import StudentDashboard from './pages/studentDashboard';
 import AdminDashboard from './pages/adminDashboard';
 import VerifierDashboard from './pages/verifierDashboard';
+import IssuerDashboard from './pages/issuerDashboardPage';
 import CredentialDetails from './pages/credentialDetails';
 import AboutPage from './pages/aboutUsPage';
 import HelpPage from './pages/helpPage';
@@ -52,6 +53,7 @@ function App() {
 +         <Route path="/badge-details/:id" element={<BadgeDetails />} />
           <Route path="/profile-preview/badge-details/:id" element={<BadgeDetails_ProfilePreviewPage />} />
           <Route path="/share-credential/:id" element={<ShareCredentialPage />} />
+          <Route path="/issuer/dashboard" element={<IssuerDashboard />} />
           
 
         </Routes>

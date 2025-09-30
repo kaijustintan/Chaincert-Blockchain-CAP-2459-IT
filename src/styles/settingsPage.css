@@ -1,15 +1,16 @@
+/* General wrapper layout */
 .settings-wrapper {
   display: flex;
   min-height: 80vh;
-  background: #f8f9fa;
-  font-family: Arial, sans-serif;
+  font-family: "Poppins", sans-serif;
+  color: #fff; 
 }
 
+/* Sidebar */
 .settings-sidebar {
   width: 250px;
-  border-right: 1px solid #ddd;
-  background: #fff;
   padding: 20px 0;
+  border-right: 1px solid;
 }
 
 .settings-sidebar ul {
@@ -21,45 +22,54 @@
 .settings-sidebar li {
   padding: 12px 20px;
   cursor: pointer;
-  color: #333;
+  color: #ddd; 
   transition: background 0.2s;
+  font-weight: 500;
 }
 
 .settings-sidebar li:hover {
-  background: #f1f1f1;
+  background: #444; /* Darker hover effect */
 }
 
 .settings-sidebar li.active {
   font-weight: bold;
-  background: #e6e6e6;
-  border-left: 4px solid #6b2bd9;
-  color: #6b2bd9;
+  background: #6b2bd9;
+  color: #fff;
+  border-left: 4px solid #fff; /* Highlight active tab with border */
 }
 
+/* Content section */
 .settings-content {
   flex: 1;
   padding: 30px 40px;
-  background: #fff;
+  border-radius: 12px;
+  box-shadow: 0px 4px 12px rgba(0, 0, 0, 0.1);
 }
 
 .settings-content h2 {
   margin-bottom: 20px;
-  color: #222;
+  color: #fff;
+  font-size: 24px;
+  font-weight: 700;
 }
 
+/* Section styling */
 .settings-section {
-  margin-bottom: 25px;
+  padding: 20px;
+  margin-bottom: 30px;
+  border-radius: 12px;
+  box-shadow: 0px 4px 12px rgba(0, 0, 0, 0.1);
 }
 
 .settings-section h4 {
   margin-bottom: 8px;
-  font-size: 15px;
-  color: #444;
+  font-size: 16px;
+  color: #fff;
 }
 
 .settings-section p {
   margin: 0 0 6px;
-  color: #666;
+  color: #ddd; /* Lighter text */
 }
 
 .settings-section a {
@@ -77,8 +87,102 @@
   font-weight: bold;
 }
 
+/* Language preference dropdown */
 .settings-section select {
   padding: 6px 10px;
-  border: 1px solid #ccc;
+  border: 1px solid #555;
   border-radius: 4px;
+  background: #2a2a2a;
+  color: #fff;
+}
+
+/* Buttons */
+.save-btn,
+.secondary-btn,
+.danger-btn,
+.cancel-btn {
+  padding: 10px 16px;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  font-weight: bold;
+  transition: background 0.3s;
+}
+
+.save-btn {
+  background: #6b2bd9;
+  color: #fff;
+}
+
+.secondary-btn {
+  background: #fff;
+  color: #6b2bd9;
+  border: 1px solid #6b2bd9;
+}
+
+.danger-btn {
+  background: #d9534f;
+  color: #fff;
+}
+
+.cancel-btn {
+  background: #f1f1f1;
+  color: #333;
+}
+
+.save-btn:hover,
+.secondary-btn:hover,
+.danger-btn:hover,
+.cancel-btn:hover {
+  transform: scale(1.05);
+  box-shadow: 0px 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+/* Modal styling */
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.7);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 1000;
+}
+
+.modal-content {
+  width: 500px;
+  max-height: 80vh;
+  overflow-y: auto;
+  border-radius: 12px;
+  padding: 20px;
+  position: relative;
+  box-shadow: 0px 6px 20px rgba(0, 0, 0, 0.6);
+  color: #fff;
+}
+
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 15px;
+}
+
+.close-btn {
+  background: none;
+  border: none;
+  font-size: 18px;
+  cursor: pointer;
+  color: #fff;
+}
+
+.modal-body h4 {
+  margin: 10px 0;
+}
+
+.modal-footer {
+  text-align: right;
+  margin-top: 20px;
 }

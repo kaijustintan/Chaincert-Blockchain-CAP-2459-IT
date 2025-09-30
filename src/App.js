@@ -29,6 +29,7 @@ import ShareCredentialPage from './pages/shareCredentialPage';
 
 
 import './styles/App.css';
+import Transcript from './pages/transcript';
 
 function App() {
   return (
@@ -49,6 +50,7 @@ function App() {
           <Route path="/register" element={<CreateAccount />} />
           <Route path="/settings" element={<SettingsPage />} />
           <Route path="/profile" element={<ProfilePage />} />
+          <Route path="/transcript" element={<Transcript />} />
           <Route path="/profile-preview" element={<ProfilePreview />} />
 +         <Route path="/badge-details/:id" element={<BadgeDetails />} />
           <Route path="/profile-preview/badge-details/:id" element={<BadgeDetails_ProfilePreviewPage />} />

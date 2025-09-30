@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import '../styles/profilePage.css';
+import "../styles/profilePage.css";
 
 export default function ProfilePage() {
   const [summary, setSummary] = useState("");
@@ -138,16 +138,32 @@ export default function ProfilePage() {
           <div className="modal-content" onClick={(e) => e.stopPropagation()}>
             <div className="modal-header">
               <h3>Badge Details</h3>
-              <button className="close-btn" onClick={() => setSelectedBadge(null)}>✕</button>
+              <button className="close-btn" onClick={() => setSelectedBadge(null)}>
+                ✕
+              </button>
             </div>
             <div className="modal-body">
-              <img src={selectedBadge.image} alt={selectedBadge.title} className="modal-img" />
+              <img
+                src={selectedBadge.image}
+                alt={selectedBadge.title}
+                className="modal-img"
+              />
               <h4>{selectedBadge.title}</h4>
-              <p><strong>Issuing Organization:</strong> {selectedBadge.issuer}</p>
-              <p><strong>Description:</strong> {selectedBadge.description}</p>
-              <p><strong>Issuing Date:</strong> {selectedBadge.date}</p>
-              <p><strong>Expiration Date:</strong> {selectedBadge.expires}</p>
-              <p><strong>Credential ID:</strong> {selectedBadge.credentialId}</p>
+              <p>
+                <strong>Issuing Organization:</strong> {selectedBadge.issuer}
+              </p>
+              <p>
+                <strong>Description:</strong> {selectedBadge.description}
+              </p>
+              <p>
+                <strong>Issuing Date:</strong> {selectedBadge.date}
+              </p>
+              <p>
+                <strong>Expiration Date:</strong> {selectedBadge.expires}
+              </p>
+              <p>
+                <strong>Credential ID:</strong> {selectedBadge.credentialId}
+              </p>
               <p>
                 <strong>Credential URL:</strong>{" "}
                 <a

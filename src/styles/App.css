@@ -1,5 +1,14 @@
 .App {
   text-align: center;
+  /* Make App a column flex container so footer can stick to bottom when content is short */
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+}
+
+.app-content {
+  /* flex:1 makes this area consume available space so Footer sits at the bottom */
+  flex: 1 0 auto;
 }
 
 .App-logo {

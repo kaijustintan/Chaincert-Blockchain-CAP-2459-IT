@@ -95,3 +95,28 @@
 .footer-faqs-middle:hover {
   transform: scale(1.05);
 }
+
+/* Responsive alignment fixes for smaller screens */
+@media (max-width: 768px) {
+  .footer-container {
+    justify-content: center;
+    padding: 0 16px;
+  }
+
+  .footer-section {
+    flex: 1 1 100%;
+    margin: 12px 0;
+    text-align: center;
+  }
+
+  .social-icons {
+    display: flex;
+    justify-content: center;
+    gap: 12px;
+  }
+
+  .footer-bottom {
+    text-align: center;
+    padding-top: 16px;
+  }
+}

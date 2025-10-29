@@ -21,6 +21,8 @@ import ProfilePreview from './pages/profilePreview';
 import BadgeDetails from './pages/badgeDetailsPage';
 import BadgeDetails_ProfilePreviewPage from './pages/badgeDetails_profilePreviewPage';
 import ShareCredentialPage from './pages/shareCredentialPage';
+import CredentialHistoryPage from './pages/credentialHistoryPage';
+
 
 
 
@@ -54,6 +56,8 @@ function App() {
           <Route path="/profile-preview/badge-details/:id" element={<BadgeDetails_ProfilePreviewPage />} />
           <Route path="/share-credential/:id" element={<ShareCredentialPage />} />
           <Route path="/issuer/dashboard" element={<IssuerDashboard />} />
+          <Route path="/issuer/history" element={<CredentialHistoryPage />} />
+
           
 
         </Routes>

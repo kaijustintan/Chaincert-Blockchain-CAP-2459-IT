@@ -6,21 +6,17 @@ import "../styles/landingHomePage.css";
 import { Link } from 'react-router-dom';
 
 
-
-
 function LandingHomePage() {
   return (
     <div className="landing-container">
-
       <div className="hero">
         <h1>
-          <span className="highlight">A Fast Blockchain.</span> <br />
-          <span className="scalable">Scalable AI.</span>
+          <span className="highlight">The New Standard for Verifiable Trust</span> <br />
         </h1>
         <p>
-          Our technology performing fast blockchain (120K TPS) and it has
-          guaranteed AI-based data security. Proof of Stake, its consensus
-          algorithm enables unlimited speeds.
+          ChainCert solves these problems by anchoring every credential to a tamper-proof, 
+          permissioned Hyperledger Fabric blockchain. Every degree, certificate, or micro-credential 
+          becomes a secure, verifiable digital asset that employers and institutions can trust instantly.
         </p>
         <div className="buttons">
           <button className="btn primary">Get Started</button>

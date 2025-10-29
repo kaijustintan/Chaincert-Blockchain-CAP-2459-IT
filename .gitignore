@@ -29,3 +29,8 @@ backend/connection-*.json
 backend/package-lock.json
 backend/*.tar.gz
 backend/*.backup
+
+# Chaincode specific
+chaincode/node_modules/
+chaincode/package-lock.json
+chaincode/*.tar.gz

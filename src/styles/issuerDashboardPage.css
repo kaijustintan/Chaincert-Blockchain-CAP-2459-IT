@@ -1,65 +1,193 @@
+/* General layout for Issuer Dashboard */
 .issuer-dashboard {
-  padding: 30px;
-  font-family: Arial, sans-serif;
-  background: #fff;
-  color: #333;
+  padding: 32px;
+  font-family: "Poppins", sans-serif;
+  color: #fff;
+  border-radius: 16px;
+  min-height: 100vh;
 }
 
+/* Title styling */
 .issuer-dashboard h2 {
-  margin-bottom: 20px;
+  margin-bottom: 24px;
+  font-size: 26px;
+  font-weight: 700;
+  color: #fff;
+  background: linear-gradient(90deg, #ff00cc, #3333ff);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
 }
 
-.dashboard-header {
+/* Tabs */
+.dashboard-header .tabs {
   display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 20px;
-}
-
-.tabs {
-  display: flex;
-  gap: 10px;
+  gap: 16px;
+  margin-bottom: 24px;
+  justify-content: center;
 }
 
 .tabs button {
+  padding: 12px 18px;
   border: none;
-  background: #f1f1f1;
-  padding: 8px 14px;
-  border-radius: 6px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.1);
+  color: #fff;
   cursor: pointer;
   font-size: 14px;
+  transition: 0.3s;
 }
 
 .tabs button.active {
-  background: #6b2bd9;
-  color: #fff;
+  background: linear-gradient(90deg, #ff00cc, #3333ff);
   font-weight: bold;
+  box-shadow: 0 0 12px rgba(97, 218, 251, 0.6);
 }
 
+.tabs button:hover {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+/* Button to import new templates */
 .create-btn {
-  background: #6b2bd9;
+  background: linear-gradient(90deg, #ff00cc, #3333ff);
   color: #fff;
-  padding: 10px 18px;
+  padding: 12px 18px;
   border: none;
-  border-radius: 6px;
+  border-radius: 10px;
   cursor: pointer;
   font-weight: bold;
+  transition: 0.3s;
 }
 
+.create-btn:hover {
+  box-shadow: 0 0 12px rgba(97, 218, 251, 0.6);
+  transform: scale(1.05);
+}
+
+/* Table Styling */
 .template-table {
   width: 100%;
   border-collapse: collapse;
-  margin-top: 10px;
+  margin-top: 20px;
 }
 
 .template-table th,
 .template-table td {
-  padding: 12px;
-  border-bottom: 1px solid #ddd;
+  padding: 14px 24px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.2);
   text-align: left;
+  color: #ddd;
 }
 
 .template-table th {
-  background: #f9f9f9;
-  font-weight: bold;
+  background: rgba(255, 255, 255, 0.1);
+  font-weight: 600;
+  color: #fff;
+}
+
+.template-table tr:hover {
+  background: rgba(255, 255, 255, 0.05);
+  cursor: pointer;
+}
+
+/* Action Buttons in Table */
+.template-table .action-btn {
+  padding: 6px 12px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.1);
+  color: #fff;
+  font-size: 13px;
+  cursor: pointer;
+  transition: 0.3s;
+  margin-right: 8px;
+}
+
+.template-table .action-btn:hover {
+  background: linear-gradient(90deg, #ff00cc, #3333ff);
+  transform: scale(1.05);
+  box-shadow: 0 0 10px rgba(97, 218, 251, 0.6);
+}
+
+/* Collection Cards Layout */
+.collection-cards {
+  display: grid;
+  gap: 20px;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  margin-top: 20px;
+}
+
+.collection-card {
+  background: rgba(255, 255, 255, 0.08);
+  padding: 20px;
+  border-radius: 16px;
+  text-align: center;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.2);
+}
+
+.collection-card h4 {
+  font-size: 20px;
+  color: #fff;
+  margin-bottom: 12px;
+}
+
+.collection-card p {
+  color: #ddd;
+  margin-bottom: 16px;
+}
+
+.collection-card .action-btn {
+  background: linear-gradient(90deg, #ff00cc, #3333ff);
+  color: #fff;
+  padding: 8px 16px;
+  border: none;
+  border-radius: 8px;
+  font-size: 13px;
+  cursor: pointer;
+  transition: 0.3s;
+}
+
+.collection-card .action-btn:hover {
+  background: linear-gradient(90deg, #ff00cc, #3333ff);
+  transform: scale(1.05);
+}
+
+/* Issue Tab */
+.issue-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 20px;
+}
+
+.issue-table th,
+.issue-table td {
+  padding: 12px 20px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+  text-align: left;
+  color: #ddd;
+}
+
+.issue-table th {
+  background: rgba(255, 255, 255, 0.1);
+  font-weight: 600;
+  color: #fff;
+}
+
+.issue-table tr:hover {
+  background: rgba(255, 255, 255, 0.05);
+  cursor: pointer;
+}
+
+.issue-table .action-btn {
+  padding: 8px 16px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.1);
+  color: #fff;
+  font-size: 13px;
+  cursor: pointer;
+  transition: 0.3s;
+}
+
+.issue-table .action-btn:hover {
+  background: linear-gradient(90deg, #ff00cc, #3333ff);
+  transform: scale(1.05);
 }

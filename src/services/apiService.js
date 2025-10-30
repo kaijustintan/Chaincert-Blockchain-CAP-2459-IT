@@ -58,10 +58,10 @@ const apiService = {
     }
   },
 
-     // Revoke credential
+  // Revoke credential
   revokeCredential: async (credentialId) => {
     try {
-      const response = await axios.put(`${API_BASE_URL}/credentials/${credentialId}/revoke`);
+      const response = await axios.post(`${API_BASE_URL}/revoke`, { credentialId });
       return response.data;
     } catch (error) {
       console.error(`Error revoking credential ${credentialId}:`, error);
@@ -69,10 +69,12 @@ const apiService = {
     }
   },
 
-  // Get credential history
+  // Get credential history - FIXED ENDPOINT!
   getCredentialHistory: async (credentialId) => {
     try {
-      const response = await axios.get(`${API_BASE_URL}/credentials/${credentialId}/history`);
+      // CHANGED FROM: /credentials/${credentialId}/history
+      // CHANGED TO:   /history/${credentialId}
+      const response = await axios.get(`${API_BASE_URL}/history/${credentialId}`);
       return response.data;
     } catch (error) {
       console.error(`Error fetching history for ${credentialId}:`, error);

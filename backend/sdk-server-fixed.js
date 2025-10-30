@@ -110,6 +110,33 @@ app.get('/api/credentials/:id/verify', async (req, res) => {
     }
 });
 
+// ✅ NEW: Shorter route for history (what your frontend expects)
+app.get('/api/history/:id', async (req, res) => {
+    let gateway;
+    try {
+        const { id } = req.params;
+        console.log(`📜 Fetching history for: ${id}`);
+        
+        ({ gateway, contract } = await getContractAndGateway());
+        
+        const result = await contract.evaluateTransaction('GetCredentialHistory', id);
+        const history = JSON.parse(result.toString());
+        
+        console.log(`✅ History found for ${id}:`, history.length, 'records');
+        res.json(history);
+    } catch (error) {
+        console.error(`❌ Error getting history for ${id}:`, error.message);
+        res.status(404).json({ 
+            error: 'History not found', 
+            message: error.message,
+            credentialId: id 
+        });
+    } finally {
+        if (gateway) gateway.disconnect();
+    }
+});
+
+// Keep the old route too for compatibility
 app.get('/api/credentials/:id/history', async (req, res) => {
     let gateway;
     try {
@@ -174,6 +201,40 @@ app.post('/api/credentials', async (req, res) => {
     }
 });
 
+// ✅ NEW: Add /api/revoke endpoint (shorter route)
+app.post('/api/revoke', async (req, res) => {
+    let gateway;
+    try {
+        const { credentialId } = req.body;
+        
+        if (!credentialId) {
+            return res.status(400).json({ error: 'credentialId is required' });
+        }
+        
+        ({ gateway, contract, network } = await getContractAndGateway());
+        
+        const transaction = contract.createTransaction('RevokeCredential');
+        transaction.setEndorsingOrganizations('Org1MSP', 'Org2MSP');
+        
+        const result = await transaction.submit(credentialId);
+        
+        const credential = JSON.parse(result.toString());
+        
+        res.json({
+            success: true,
+            message: 'Credential revoked successfully via SDK',
+            credential
+        });
+        
+    } catch (error) {
+        console.error(`Error revoking credential: ${error.message}`);
+        res.status(500).json({ error: error.message });
+    } finally {
+        if (gateway) gateway.disconnect();
+    }
+});
+
+// Keep the old route too for compatibility
 app.put('/api/credentials/:id/revoke', async (req, res) => {
     let gateway;
     try {
@@ -212,6 +273,8 @@ app.listen(PORT, () => {
     console.log('  GET  /api/credentials/:id');
     console.log('  GET  /api/credentials/:id/verify');
     console.log('  GET  /api/credentials/:id/history');
+    console.log('  GET  /api/history/:id                    [NEW]');
     console.log('  POST /api/credentials');
+    console.log('  POST /api/revoke                         [NEW]');
     console.log('  PUT  /api/credentials/:id/revoke');
 });

@@ -18,6 +18,20 @@
   -webkit-text-fill-color: transparent;
 }
 
+/* Subtitle for credential count */
+.issuer-dashboard h3 {
+  font-size: 20px;
+  font-weight: 600;
+  color: #fff;
+  margin-top: 30px;
+  margin-bottom: 20px;
+}
+
+/* Dashboard Header */
+.dashboard-header {
+  margin-bottom: 24px;
+}
+
 /* Tabs */
 .dashboard-header .tabs {
   display: flex;
@@ -57,6 +71,7 @@
   cursor: pointer;
   font-weight: bold;
   transition: 0.3s;
+  font-size: 14px;
 }
 
 .create-btn:hover {
@@ -64,11 +79,20 @@
   transform: scale(1.05);
 }
 
+.create-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: none;
+}
+
 /* Table Styling */
 .template-table {
   width: 100%;
   border-collapse: collapse;
   margin-top: 20px;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 12px;
+  overflow: hidden;
 }
 
 .template-table th,
@@ -77,35 +101,66 @@
   border-bottom: 1px solid rgba(255, 255, 255, 0.2);
   text-align: left;
   color: #ddd;
+  vertical-align: middle;
 }
 
 .template-table th {
   background: rgba(255, 255, 255, 0.1);
   font-weight: 600;
   color: #fff;
+  text-transform: uppercase;
+  font-size: 13px;
+  letter-spacing: 0.5px;
 }
 
-.template-table tr:hover {
-  background: rgba(255, 255, 255, 0.05);
-  cursor: pointer;
+.template-table tbody tr {
+  transition: all 0.2s ease;
+}
+
+.template-table tbody tr:hover {
+  background: rgba(255, 255, 255, 0.08);
+  cursor: default;
+}
+
+/* Make Actions column centered */
+.template-table th:last-child,
+.template-table td:last-child {
+  text-align: center;
+  min-width: 120px;
+}
+
+/* Status badges */
+.template-table td span {
+  display: inline-block;
 }
 
 /* Action Buttons in Table */
-.template-table .action-btn {
-  padding: 6px 12px;
+.template-table button {
+  padding: 8px 16px;
   border-radius: 8px;
-  background: rgba(255, 255, 255, 0.1);
+  border: none;
   color: #fff;
   font-size: 13px;
+  font-weight: 600;
   cursor: pointer;
-  transition: 0.3s;
-  margin-right: 8px;
+  transition: all 0.3s ease;
 }
 
-.template-table .action-btn:hover {
-  background: linear-gradient(90deg, #ff00cc, #3333ff);
+.template-table button:hover {
   transform: scale(1.05);
-  box-shadow: 0 0 10px rgba(97, 218, 251, 0.6);
+  box-shadow: 0 0 10px rgba(255, 255, 255, 0.3);
+}
+
+/* Revoke button specific styling */
+.template-table button[style*="background: rgb(220, 53, 69)"] {
+  background: linear-gradient(90deg, #dc3545, #c82333) !important;
+}
+
+/* Loading and error states */
+.issuer-dashboard p {
+  color: #ddd;
+  font-size: 16px;
+  line-height: 1.6;
 }
 
 /* Collection Cards Layout */
@@ -122,6 +177,11 @@
   border-radius: 16px;
   text-align: center;
   box-shadow: 0 6px 18px rgba(0, 0, 0, 0.2);
+  transition: transform 0.3s ease;
+}
+
+.collection-card:hover {
+  transform: translateY(-5px);
 }
 
 .collection-card h4 {
@@ -190,4 +250,75 @@
 .issue-table .action-btn:hover {
   background: linear-gradient(90deg, #ff00cc, #3333ff);
   transform: scale(1.05);
+}
+
+/* Modal styles */
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.7);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 1000;
+}
+
+.modal-content {
+  background: white;
+  padding: 30px;
+  border-radius: 8px;
+  max-width: 800px;
+  max-height: 80vh;
+  overflow-y: auto;
+  position: relative;
+  color: #333;
+}
+
+.modal-close {
+  position: absolute;
+  top: 10px;
+  right: 15px;
+  background: none;
+  border: none;
+  font-size: 30px;
+  cursor: pointer;
+  color: #999;
+}
+
+.modal-close:hover {
+  color: #333;
+}
+
+.history-entry {
+  border: 1px solid #ddd;
+  padding: 15px;
+  margin-bottom: 15px;
+  border-radius: 4px;
+  background: #f8f9fa;
+}
+
+/* Responsive design */
+@media (max-width: 768px) {
+  .issuer-dashboard {
+    padding: 16px;
+  }
+
+  .template-table th,
+  .template-table td {
+    padding: 10px 12px;
+    font-size: 12px;
+  }
+
+  .create-btn {
+    padding: 10px 14px;
+    font-size: 12px;
+  }
+
+  .tabs button {
+    padding: 10px 14px;
+    font-size: 12px;
+  }
 }

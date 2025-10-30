@@ -18,18 +18,38 @@ export default function CredentialHistoryPage() {
       setLoading(true);
       setError(null);
       
-      // Fetch history for all known credentials
-      const credentialIds = ['CRED001', 'CRED002', 'CRED003'];
+      // Fetch all credentials first
+      const credentials = await apiService.getAllCredentials();
+      console.log("Fetched credentials:", credentials);
+      
+      if (!credentials || credentials.length === 0) {
+        setAllHistory([]);
+        setLoading(false);
+        return;
+      }
+      
       const allHistories = [];
       
-      for (const id of credentialIds) {
+      // Fetch history for each credential
+      for (const cred of credentials) {
         try {
-          const data = await apiService.getCredentialHistory(id);
-          // Add credential ID to each record
-          const recordsWithId = data.map(record => ({ ...record, credentialId: id }));
+          // Use 'id' field from backend response
+          const credId = cred.id || cred.credentialId;
+          const data = await apiService.getCredentialHistory(credId);
+          console.log(`History for ${credId}:`, data);
+          
+          // Transform Fabric history format to display format
+          const recordsWithId = data.map(record => ({
+            credentialId: credId,
+            timestamp: new Date(record.Timestamp.seconds * 1000).toISOString(),
+            txId: record.TxId,
+            value: JSON.parse(record.Value.toString()),
+            isDeleted: record.IsDelete || false
+          }));
+          
           allHistories.push(...recordsWithId);
         } catch (err) {
-          console.log(`No history for ${id}`);
+          console.log(`No history for ${cred.id}:`, err);
         }
       }
       
@@ -38,10 +58,11 @@ export default function CredentialHistoryPage() {
         new Date(b.timestamp) - new Date(a.timestamp)
       );
       
+      console.log("All sorted history:", sortedHistory);
       setAllHistory(sortedHistory);
     } catch (err) {
       console.error('Error fetching history:', err);
-      setError('Failed to fetch history from blockchain');
+      setError('Failed to fetch history from blockchain: ' + err.message);
     } finally {
       setLoading(false);
     }
@@ -53,14 +74,20 @@ export default function CredentialHistoryPage() {
       try {
         setLoading(true);
         setError(null);
+        
         const data = await apiService.getCredentialHistory(searchId.trim());
         
-        const sortedHistory = data.map(record => ({ ...record, credentialId: searchId.trim() }))
-          .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+        const sortedHistory = data.map(record => ({
+          credentialId: searchId.trim(),
+          timestamp: new Date(record.Timestamp.seconds * 1000).toISOString(),
+          txId: record.TxId,
+          value: JSON.parse(record.Value.toString()),
+          isDeleted: record.IsDelete || false
+        })).sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
         
         setAllHistory(sortedHistory);
       } catch (err) {
-        setError(`Failed to fetch history for ${searchId}`);
+        setError(`Failed to fetch history for ${searchId}: ${err.message}`);
         setAllHistory([]);
       } finally {
         setLoading(false);
@@ -189,8 +216,8 @@ export default function CredentialHistoryPage() {
                     </td>
                     <td>
                       {record.value?.status === 'active' ? 
-                        <span style={{color: 'green'}}>Active</span> : 
-                        <span style={{color: 'red'}}>Revoked</span>
+                        <span style={{color: 'green', fontWeight: 'bold'}}>Active</span> : 
+                        <span style={{color: 'red', fontWeight: 'bold'}}>Revoked</span>
                       }
                     </td>
                     <td>{record.value?.credentialType || 'N/A'}</td>
@@ -208,7 +235,7 @@ export default function CredentialHistoryPage() {
 
       {!loading && allHistory.length === 0 && (
         <div style={{textAlign: 'center', padding: '40px', color: '#666'}}>
-          <p>No history found</p>
+          <p>No history found. Issue some credentials first!</p>
         </div>
       )}
     </div>

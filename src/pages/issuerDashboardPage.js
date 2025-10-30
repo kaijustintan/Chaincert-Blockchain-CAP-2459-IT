@@ -17,7 +17,7 @@ export default function IssuerDashboard() {
   const fetchCredentials = async () => {
     try {
       setLoading(true);
-      const data = await apiService.getAllCredentials();
+     const data = await apiService.getCredentialsByIssuer('ISSUER-DLSU');
       console.log("Fetched credentials:", data);
       setCredentials(data);
       setError(null);

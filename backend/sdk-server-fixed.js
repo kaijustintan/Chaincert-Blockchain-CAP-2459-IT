@@ -49,10 +49,12 @@ app.get('/api/health', (req, res) => {
     });
 });
 
+// ✅ FIXED: Query known credential IDs
 app.get('/api/credentials', async (req, res) => {
     let gateway;
     try {
-        const credentialIds = ['CRED001', 'CRED002', 'CRED003'];
+        // List all credential IDs that exist
+        const credentialIds = ['CRED002', 'CRED003'];
         ({ gateway, contract } = await getContractAndGateway());
         
         const credentials = [];
@@ -60,14 +62,16 @@ app.get('/api/credentials', async (req, res) => {
             try {
                 const result = await contract.evaluateTransaction('GetCredential', id);
                 credentials.push(JSON.parse(result.toString()));
+                console.log(`✅ Found credential: ${id}`);
             } catch (err) {
-                console.log(`Credential ${id} not found, skipping...`);
+                console.log(`⚠️ Credential ${id} not found, skipping...`);
             }
         }
         
+        console.log(`✅ Returning ${credentials.length} credentials`);
         res.json(credentials);
     } catch (error) {
-        console.error(`Error getting credentials: ${error.message}`);
+        console.error(`❌ Error getting credentials: ${error.message}`);
         res.status(500).json({ error: error.message });
     } finally {
         if (gateway) gateway.disconnect();

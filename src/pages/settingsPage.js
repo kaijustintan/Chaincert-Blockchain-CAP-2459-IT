@@ -33,7 +33,7 @@ export default function SettingsPage() {
           <section>
             <h2>Account</h2>
             <div className="settings-section">
-              <h4>Email Addresses</h4>
+              <h4>Email Address</h4>
               <p>kyle_justin_tan@dlsu.edu.ph (default)</p>
               <a href="#">Add an email address</a>
             </div>

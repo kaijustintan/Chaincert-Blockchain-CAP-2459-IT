@@ -74,79 +74,80 @@ class ChainCertContract extends Contract {
         return JSON.stringify(credential);
     }
 
-    async GetCredentialsByHolder(ctx, holderID) {
-        const queryString = {
-            selector: {
-                holderID: holderID
-            }
-        };
-        return await this.getQueryResult(ctx, JSON.stringify(queryString));
-    }
-
-    async GetCredentialsByIssuer(ctx, issuerID) {
-        const queryString = {
-            selector: {
-                issuerID: issuerID
-            }
-        };
-        return await this.getQueryResult(ctx, JSON.stringify(queryString));
-    }
-
     async CredentialExists(ctx, id) {
         const credentialJSON = await ctx.stub.getState(id);
         return credentialJSON && credentialJSON.length > 0;
     }
 
-    async getQueryResult(ctx, queryString) {
-        const iterator = await ctx.stub.getQueryResult(queryString);
+    async GetCredentialsByHolder(ctx, holderID) {
+        const iterator = await ctx.stub.getStateByRange('', '');
         const results = [];
 
         let result = await iterator.next();
         while (!result.done) {
-            const credential = JSON.parse(result.value.value.toString('utf8'));
-            results.push(credential);
+            if (result.value) {
+                const credential = JSON.parse(result.value.value.toString('utf8'));
+                if (credential.holderID === holderID) {
+                    results.push(credential);
+                }
+            }
             result = await iterator.next();
         }
 
         await iterator.close();
         return JSON.stringify(results);
     }
-    
-    async GetCredentialHistory(ctx, credentialId) {
-    console.log(`Getting history for credential: ${credentialId}`);
-    
-    const historyIterator = await ctx.stub.getHistoryForKey(credentialId);
-    const allResults = [];
 
-    let res = await historyIterator.next();
-    while (!res.done) {
-        if (res.value) {
-            const record = {};
-            record.txId = res.value.txId;
-            
-            // FIX: Convert timestamp properly
-            const seconds = res.value.timestamp.seconds;
-            const nanos = res.value.timestamp.nanos;
-            // Convert to milliseconds
-            const timestamp = (seconds * 1000) + Math.floor(nanos / 1000000);
-            record.timestamp = new Date(timestamp).toISOString();
-            
-            record.isDelete = res.value.isDelete;
-            
-            if (!res.value.isDelete && res.value.value) {
-                record.value = JSON.parse(res.value.value.toString('utf8'));
+    async GetCredentialsByIssuer(ctx, issuerID) {
+        const iterator = await ctx.stub.getStateByRange('', '');
+        const results = [];
+
+        let result = await iterator.next();
+        while (!result.done) {
+            if (result.value) {
+                const credential = JSON.parse(result.value.value.toString('utf8'));
+                if (credential.issuerID === issuerID) {
+                    results.push(credential);
+                }
             }
-            
-            allResults.push(record);
+            result = await iterator.next();
         }
-        res = await historyIterator.next();
+
+        await iterator.close();
+        return JSON.stringify(results);
     }
-    
-    await historyIterator.close();
-    return JSON.stringify(allResults);
-}
- 
-       
+
+    async GetCredentialHistory(ctx, credentialId) {
+        console.log(`Getting history for credential: ${credentialId}`);
+
+        const historyIterator = await ctx.stub.getHistoryForKey(credentialId);
+        const allResults = [];
+
+        let res = await historyIterator.next();
+        while (!res.done) {
+            if (res.value) {
+                const record = {};
+                record.txId = res.value.txId;
+
+                const seconds = res.value.timestamp.seconds;
+                const nanos = res.value.timestamp.nanos;
+                const timestamp = (seconds * 1000) + Math.floor(nanos / 1000000);
+                record.timestamp = new Date(timestamp).toISOString();
+
+                record.isDelete = res.value.isDelete;
+
+                if (!res.value.isDelete && res.value.value) {
+                    record.value = JSON.parse(res.value.value.toString('utf8'));
+                }
+
+                allResults.push(record);
+            }
+            res = await historyIterator.next();
+        }
+
+        await historyIterator.close();
+        return JSON.stringify(allResults);
+    }
 }
 
 module.exports = ChainCertContract;

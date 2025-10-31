@@ -6,7 +6,6 @@
   font-family: "Poppins", sans-serif;
 }
 
-
 /* Tabs */
 .admin-tabs {
   display: flex;
@@ -31,7 +30,7 @@
 }
 
 .admin-tabs button:hover {
-  background: rgba(255, 255, 255, 0.2);
+  background: linear-gradient(90deg, #3333ff, #ff00cc);
 }
 
 /* Content */
@@ -45,13 +44,15 @@
   margin-top: 10px;
 }
 
-/* Page Title */
-.admin-title h1 {
-  font-size:28 px;
+/* Page Title*/
+.admin-title,
+.admin-title h1,
+h1.admin-title {
+  font-size: 28px;
   font-weight: 700;
   margin-bottom: 20px;
-  text-align: left;
-  color:#fff;
+  text-align: center;
+  color: #ffffff;
 }
 
 /* Section titles */

@@ -43,7 +43,12 @@
   flex: 1;
   padding: 30px 40px;
   border-radius: 12px;
-  box-shadow: 0px 4px 12px rgba(0, 0, 0, 0.1);
+  /* Frosted glass background */
+  background: rgba(255, 255, 255, 0.03);
+  -webkit-backdrop-filter: blur(8px) saturate(120%);
+  backdrop-filter: blur(8px) saturate(120%);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.45);
 }
 
 .settings-content h2 {
@@ -58,7 +63,12 @@
   padding: 20px;
   margin-bottom: 30px;
   border-radius: 12px;
-  box-shadow: 0px 4px 12px rgba(0, 0, 0, 0.1);
+  /* Frosted glass card for individual sections */
+  background: rgba(255, 255, 255, 0.02);
+  -webkit-backdrop-filter: blur(6px) saturate(120%);
+  backdrop-filter: blur(6px) saturate(120%);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.35);
 }
 
 .settings-section h4 {
@@ -73,9 +83,10 @@
 }
 
 .settings-section a {
-  color: #6b2bd9;
+  color: #ff00cc;
   text-decoration: none;
   font-size: 14px;
+  font-weight: bold;
 }
 
 .settings-section a:hover {

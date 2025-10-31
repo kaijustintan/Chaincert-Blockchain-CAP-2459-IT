@@ -8,210 +8,164 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-const ccpPath = path.resolve(__dirname, 'connection-multi-org.json');
+const ccpPath = '/home/kaitanz_/fabric-samples/test-network/organizations/peerOrganizations/org1.example.com/connection-org1.json';
 const walletPath = path.join(__dirname, 'wallet');
 
 async function getContractAndGateway() {
-    try {
-        const ccpJSON = fs.readFileSync(ccpPath, 'utf8');
-        const ccp = JSON.parse(ccpJSON);
-        const wallet = await Wallets.newFileSystemWallet(walletPath);
-        
-        const identity = await wallet.get('admin');
-        if (!identity) {
-            throw new Error('Admin identity not found');
-        }
+  try {
+    const ccpJSON = fs.readFileSync(ccpPath, 'utf8');
+    const ccp = JSON.parse(ccpJSON);
+    const wallet = await Wallets.newFileSystemWallet(walletPath);
+    const identity = await wallet.get('admin');
+    if (!identity) throw new Error('Admin identity not found');
 
-        const gateway = new Gateway();
-        await gateway.connect(ccp, {
-            wallet,
-            identity: 'admin',
-            discovery: { 
-                enabled: false,
-                asLocalhost: true 
-            }
-        });
+    const gateway = new Gateway();
+    await gateway.connect(ccp, {
+      wallet,
+      identity: 'admin',
+      discovery: { enabled: true, asLocalhost: true }
+    });
 
-        const network = await gateway.getNetwork('chaincert-channel');
-        const contract = network.getContract('chaincert');
-
-        return { gateway, contract, network };
-    } catch (error) {
-        throw error;
-    }
+    const network = await gateway.getNetwork('chaincert-channel');
+    const contract = network.getContract('chaincert');
+    return { gateway, contract };
+  } catch (error) {
+    console.error('❌ Gateway Error:', error.message);
+    throw error;
+  }
 }
 
+// Health check
 app.get('/api/health', (req, res) => {
-    res.json({ 
-        status: 'OK', 
-        message: 'ChainCert API is running',
-        mode: 'Fabric SDK (fabric-network)'
-    });
+  res.json({ status: 'OK' });
 });
 
+// Get ALL credentials ← NEW ENDPOINT
 app.get('/api/credentials', async (req, res) => {
-    let gateway;
-    try {
-        const credentialIds = ['CRED001', 'CRED002', 'CRED003'];
-        ({ gateway, contract } = await getContractAndGateway());
-        
-        const credentials = [];
-        for (const id of credentialIds) {
-            try {
-                const result = await contract.evaluateTransaction('GetCredential', id);
-                credentials.push(JSON.parse(result.toString()));
-            } catch (err) {
-                console.log(`Credential ${id} not found, skipping...`);
-            }
-        }
-        
-        res.json(credentials);
-    } catch (error) {
-        console.error(`Error getting credentials: ${error.message}`);
-        res.status(500).json({ error: error.message });
-    } finally {
-        if (gateway) gateway.disconnect();
-    }
+  let gateway;
+  try {
+    ({ gateway, contract } = await getContractAndGateway());
+    const result = await contract.evaluateTransaction('GetCredentialsByIssuer', 'ISSUER-DLSU');
+    res.json({ success: true, credentials: JSON.parse(result.toString()) });
+  } catch (error) {
+    console.error(`❌ Error: ${error.message}`);
+    res.status(500).json({ success: false, error: error.message });
+  } finally {
+    if (gateway) gateway.disconnect();
+  }
 });
 
-app.get('/api/credentials/:id', async (req, res) => {
-    let gateway;
-    try {
-        const { id } = req.params;
-        ({ gateway, contract } = await getContractAndGateway());
-        
-        const result = await contract.evaluateTransaction('GetCredential', id);
-        const credential = JSON.parse(result.toString());
-        
-        res.json(credential);
-    } catch (error) {
-        console.error(`Error getting credential: ${error.message}`);
-        res.status(500).json({ error: error.message });
-    } finally {
-        if (gateway) gateway.disconnect();
-    }
-});
-
-app.get('/api/credentials/:id/verify', async (req, res) => {
-    let gateway;
-    try {
-        const { id } = req.params;
-        ({ gateway, contract } = await getContractAndGateway());
-        
-        const result = await contract.evaluateTransaction('VerifyCredential', id);
-        const verification = JSON.parse(result.toString());
-        
-        res.json(verification);
-    } catch (error) {
-        console.error(`Error verifying credential: ${error.message}`);
-        res.status(500).json({ error: error.message });
-    } finally {
-        if (gateway) gateway.disconnect();
-    }
-});
-
-app.get('/api/credentials/:id/history', async (req, res) => {
-    let gateway;
-    try {
-        const { id } = req.params;
-        ({ gateway, contract } = await getContractAndGateway());
-        
-        const result = await contract.evaluateTransaction('GetCredentialHistory', id);
-        const history = JSON.parse(result.toString());
-        
-        res.json(history);
-    } catch (error) {
-        console.error(`Error getting history: ${error.message}`);
-        res.status(500).json({ error: error.message });
-    } finally {
-        if (gateway) gateway.disconnect();
-    }
-});
-
+// Create credential
 app.post('/api/credentials', async (req, res) => {
-    let gateway;
-    try {
-        const { id, holderID, issuerID, credentialType, expiryDate, metadata, documentHash } = req.body;
-        
-        if (!id || !holderID || !issuerID || !credentialType || !expiryDate) {
-            return res.status(400).json({ 
-                error: 'Missing required fields',
-                required: ['id', 'holderID', 'issuerID', 'credentialType', 'expiryDate']
-            });
-        }
-
-        ({ gateway, contract, network } = await getContractAndGateway());
-        
-        const transaction = contract.createTransaction('IssueCredential');
-        transaction.setEndorsingOrganizations('Org1MSP', 'Org2MSP');
-        
-        const result = await transaction.submit(
-            id,
-            holderID,
-            issuerID,
-            credentialType,
-            expiryDate,
-            metadata || '',
-            documentHash || ''
-        );
-        
-        const credential = JSON.parse(result.toString());
-        
-        res.status(201).json({
-            success: true,
-            message: 'Credential issued successfully via SDK',
-            credential
-        });
-        
-    } catch (error) {
-        console.error(`Error issuing credential: ${error.message}`);
-        res.status(500).json({ 
-            error: error.message,
-            stack: error.stack
-        });
-    } finally {
-        if (gateway) gateway.disconnect();
+  let gateway;
+  try {
+    const { id, holderID, issuerID, credentialType, expiryDate, metadata, documentHash } = req.body;
+    if (!id || !holderID || !issuerID) {
+      return res.status(400).json({ error: 'Missing required fields' });
     }
+
+    ({ gateway, contract } = await getContractAndGateway());
+    const result = await contract.submitTransaction('IssueCredential',
+      id, holderID, issuerID, credentialType, expiryDate, metadata || '', documentHash || ''
+    );
+    res.status(201).json({ success: true, credential: JSON.parse(result.toString()) });
+  } catch (error) {
+    console.error(`❌ Error: ${error.message}`);
+    res.status(500).json({ success: false, error: error.message });
+  } finally {
+    if (gateway) gateway.disconnect();
+  }
 });
 
+// Get credential
+app.get('/api/credentials/:id', async (req, res) => {
+  let gateway;
+  try {
+    ({ gateway, contract } = await getContractAndGateway());
+    const result = await contract.evaluateTransaction('GetCredential', req.params.id);
+    res.json({ success: true, credential: JSON.parse(result.toString()) });
+  } catch (error) {
+    console.error(`❌ Error: ${error.message}`);
+    res.status(500).json({ success: false, error: error.message });
+  } finally {
+    if (gateway) gateway.disconnect();
+  }
+});
+
+// Verify credential
+app.post('/api/credentials/:id/verify', async (req, res) => {
+  let gateway;
+  try {
+    ({ gateway, contract } = await getContractAndGateway());
+    const result = await contract.evaluateTransaction('VerifyCredential', req.params.id);
+    res.json({ success: true, verification: JSON.parse(result.toString()) });
+  } catch (error) {
+    console.error(`❌ Error: ${error.message}`);
+    res.status(500).json({ success: false, error: error.message });
+  } finally {
+    if (gateway) gateway.disconnect();
+  }
+});
+
+// Revoke credential
 app.put('/api/credentials/:id/revoke', async (req, res) => {
-    let gateway;
-    try {
-        const { id } = req.params;
-        
-        ({ gateway, contract, network } = await getContractAndGateway());
-        
-        const transaction = contract.createTransaction('RevokeCredential');
-        transaction.setEndorsingOrganizations('Org1MSP', 'Org2MSP');
-        
-        const result = await transaction.submit(id);
-        
-        const credential = JSON.parse(result.toString());
-        
-        res.json({
-            success: true,
-            message: 'Credential revoked successfully via SDK',
-            credential
-        });
-        
-    } catch (error) {
-        console.error(`Error revoking credential: ${error.message}`);
-        res.status(500).json({ error: error.message });
-    } finally {
-        if (gateway) gateway.disconnect();
-    }
+  let gateway;
+  try {
+    ({ gateway, contract } = await getContractAndGateway());
+    const result = await contract.submitTransaction('RevokeCredential', req.params.id);
+    res.json({ success: true, credential: JSON.parse(result.toString()) });
+  } catch (error) {
+    console.error(`❌ Error: ${error.message}`);
+    res.status(500).json({ success: false, error: error.message });
+  } finally {
+    if (gateway) gateway.disconnect();
+  }
+});
+
+// Get credentials by holder
+app.get('/api/credentials/holder/:holderID', async (req, res) => {
+  let gateway;
+  try {
+    ({ gateway, contract } = await getContractAndGateway());
+    const result = await contract.evaluateTransaction('GetCredentialsByHolder', req.params.holderID);
+    res.json({ success: true, credentials: JSON.parse(result.toString()) });
+  } catch (error) {
+    console.error(`❌ Error: ${error.message}`);
+    res.status(500).json({ success: false, error: error.message });
+  } finally {
+    if (gateway) gateway.disconnect();
+  }
+});
+
+// Get credentials by issuer
+app.get('/api/credentials/issuer/:issuerID', async (req, res) => {
+  let gateway;
+  try {
+    ({ gateway, contract } = await getContractAndGateway());
+    const result = await contract.evaluateTransaction('GetCredentialsByIssuer', req.params.issuerID);
+    res.json({ success: true, credentials: JSON.parse(result.toString()) });
+  } catch (error) {
+    console.error(`❌ Error: ${error.message}`);
+    res.status(500).json({ success: false, error: error.message });
+  } finally {
+    if (gateway) gateway.disconnect();
+  }
+});
+
+// Get credential history
+app.get('/api/credentials/:id/history', async (req, res) => {
+  let gateway;
+  try {
+    ({ gateway, contract } = await getContractAndGateway());
+    const result = await contract.evaluateTransaction('GetCredentialHistory', req.params.id);
+    res.json({ success: true, history: JSON.parse(result.toString()) });
+  } catch (error) {
+    console.error(`❌ Error: ${error.message}`);
+    res.status(500).json({ success: false, error: error.message });
+  } finally {
+    if (gateway) gateway.disconnect();
+  }
 });
 
 const PORT = 4000;
-app.listen(PORT, () => {
-    console.log(`ChainCert API running on http://localhost:${PORT}`);
-    console.log('Mode: Fabric SDK with CORS enabled');
-    console.log('Endpoints:');
-    console.log('  GET  /api/health');
-    console.log('  GET  /api/credentials');
-    console.log('  GET  /api/credentials/:id');
-    console.log('  GET  /api/credentials/:id/verify');
-    console.log('  GET  /api/credentials/:id/history');
-    console.log('  POST /api/credentials');
-    console.log('  PUT  /api/credentials/:id/revoke');
-});
+app.listen(PORT, () => console.log(`✅ API running on :${PORT}`));

@@ -8,7 +8,6 @@ export default function CredentialHistoryPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
-  // Fetch ALL credential history on page load
   useEffect(() => {
     fetchAllHistory();
   }, []);
@@ -18,30 +17,73 @@ export default function CredentialHistoryPage() {
       setLoading(true);
       setError(null);
       
-      // Fetch history for all known credentials
-      const credentialIds = ['CRED001', 'CRED002', 'CRED003'];
+      const credentials = await apiService.getAllCredentials();
+      console.log("Fetched credentials:", credentials);
+      
+      if (!credentials || credentials.length === 0) {
+        setAllHistory([]);
+        setLoading(false);
+        return;
+      }
+      
       const allHistories = [];
       
-      for (const id of credentialIds) {
+      for (const cred of credentials) {
         try {
-          const data = await apiService.getCredentialHistory(id);
-          // Add credential ID to each record
-          const recordsWithId = data.map(record => ({ ...record, credentialId: id }));
+          const credId = cred.id || cred.credentialId;
+          const data = await apiService.getCredentialHistory(credId);
+          console.log(`Raw history for ${credId}:`, data);
+          
+          // ✅ FIX: Handle different timestamp formats
+          const recordsWithId = data.map(record => {
+            let timestamp;
+            
+            // Check if Timestamp exists and has seconds
+            if (record.Timestamp && record.Timestamp.seconds) {
+              timestamp = new Date(record.Timestamp.seconds * 1000).toISOString();
+            } 
+            // Check if timestamp is already a string
+            else if (record.timestamp) {
+              timestamp = record.timestamp;
+            }
+            // Fallback to current time
+            else {
+              timestamp = new Date().toISOString();
+            }
+            
+            // Parse value if it's a string
+            let value = record.value;
+            if (typeof value === 'string') {
+              value = JSON.parse(value);
+            } else if (record.Value) {
+              // Handle capital V
+              value = typeof record.Value === 'string' ? JSON.parse(record.Value.toString()) : record.Value;
+            }
+            
+            return {
+              credentialId: credId,
+              timestamp: timestamp,
+              txId: record.txId || record.TxId || 'unknown',
+              value: value,
+              isDeleted: record.isDelete || record.IsDelete || false
+            };
+          });
+          
           allHistories.push(...recordsWithId);
         } catch (err) {
-          console.log(`No history for ${id}`);
+          console.error(`Error fetching history for ${cred.id}:`, err);
         }
       }
       
-      // Sort ALL records by timestamp (most recent first)
       const sortedHistory = allHistories.sort((a, b) => 
         new Date(b.timestamp) - new Date(a.timestamp)
       );
       
+      console.log("All sorted history:", sortedHistory);
       setAllHistory(sortedHistory);
     } catch (err) {
       console.error('Error fetching history:', err);
-      setError('Failed to fetch history from blockchain');
+      setError('Failed to fetch history: ' + err.message);
     } finally {
       setLoading(false);
     }
@@ -53,38 +95,66 @@ export default function CredentialHistoryPage() {
       try {
         setLoading(true);
         setError(null);
-        const data = await apiService.getCredentialHistory(searchId.trim());
         
-        const sortedHistory = data.map(record => ({ ...record, credentialId: searchId.trim() }))
-          .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+        const data = await apiService.getCredentialHistory(searchId.trim());
+        console.log('Search result:', data);
+        
+        const sortedHistory = data.map(record => {
+          let timestamp;
+          if (record.Timestamp && record.Timestamp.seconds) {
+            timestamp = new Date(record.Timestamp.seconds * 1000).toISOString();
+          } else if (record.timestamp) {
+            timestamp = record.timestamp;
+          } else {
+            timestamp = new Date().toISOString();
+          }
+          
+          let value = record.value;
+          if (typeof value === 'string') {
+            value = JSON.parse(value);
+          } else if (record.Value) {
+            value = typeof record.Value === 'string' ? JSON.parse(record.Value.toString()) : record.Value;
+          }
+          
+          return {
+            credentialId: searchId.trim(),
+            timestamp: timestamp,
+            txId: record.txId || record.TxId || 'unknown',
+            value: value,
+            isDeleted: record.isDelete || record.IsDelete || false
+          };
+        }).sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
         
         setAllHistory(sortedHistory);
       } catch (err) {
-        setError(`Failed to fetch history for ${searchId}`);
+        console.error('Search error:', err);
+        setError(`Failed to fetch history for ${searchId}: ${err.message}`);
         setAllHistory([]);
       } finally {
         setLoading(false);
       }
     } else {
-      // If search is empty, fetch all again
       fetchAllHistory();
     }
   };
 
   const formatDate = (dateString) => {
-    const date = new Date(dateString);
-    return date.toLocaleString('en-US', { 
-      year: 'numeric', 
-      month: 'short', 
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-      second: '2-digit'
-    });
+    try {
+      const date = new Date(dateString);
+      return date.toLocaleString('en-US', { 
+        year: 'numeric', 
+        month: 'short', 
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit'
+      });
+    } catch (e) {
+      return dateString;
+    }
   };
 
   const getActionType = (records, currentIndex) => {
-    // Find previous record for THIS credential
     const currentCredId = records[currentIndex].credentialId;
     const previousRecord = records.slice(currentIndex + 1).find(r => r.credentialId === currentCredId);
     
@@ -171,7 +241,7 @@ export default function CredentialHistoryPage() {
                 const action = getActionType(allHistory, index);
                 
                 return (
-                  <tr key={`${record.credentialId}-${record.txId}`}>
+                  <tr key={`${record.credentialId}-${record.txId}-${index}`}>
                     <td><strong>{record.credentialId}</strong></td>
                     <td>{formatDate(record.timestamp)}</td>
                     <td>
@@ -189,8 +259,8 @@ export default function CredentialHistoryPage() {
                     </td>
                     <td>
                       {record.value?.status === 'active' ? 
-                        <span style={{color: 'green'}}>Active</span> : 
-                        <span style={{color: 'red'}}>Revoked</span>
+                        <span style={{color: 'green', fontWeight: 'bold'}}>Active</span> : 
+                        <span style={{color: 'red', fontWeight: 'bold'}}>Revoked</span>
                       }
                     </td>
                     <td>{record.value?.credentialType || 'N/A'}</td>
@@ -208,7 +278,7 @@ export default function CredentialHistoryPage() {
 
       {!loading && allHistory.length === 0 && (
         <div style={{textAlign: 'center', padding: '40px', color: '#666'}}>
-          <p>No history found</p>
+          <p>No history found. Issue some credentials first!</p>
         </div>
       )}
     </div>

@@ -44,9 +44,7 @@ async function getContractAndGateway() {
       discovery: { 
         enabled: true, 
         asLocalhost: true,
-        // 🔧 NEW: Refresh discovery every 5 min
         maxAge: 300,
-        // 🔧 NEW: Clear cache every 1 min for fresh peer topology
         clearInterval: 60000
       }
     });
@@ -65,6 +63,11 @@ async function getContractAndGateway() {
     cachedGateway = null;
     throw error;
   }
+}
+
+// 🔧 NEW: Helper function for exponential backoff
+async function sleep(ms) {
+  return new Promise(resolve => setTimeout(resolve, ms));
 }
 
 // Graceful shutdown
@@ -99,7 +102,7 @@ app.get('/api/credentials', async (req, res) => {
   }
 });
 
-// Create credential
+// 🔧 CREATE credential WITH RETRY LOGIC
 app.post('/api/credentials', async (req, res) => {
   try {
     const { id, holderID, issuerID, credentialType, expiryDate, metadata, documentHash } = req.body;
@@ -107,11 +110,50 @@ app.post('/api/credentials', async (req, res) => {
       return res.status(400).json({ error: 'Missing required fields' });
     }
 
-    const { gateway, contract } = await getContractAndGateway();
-    const result = await contract.submitTransaction('IssueCredential',
-      id, holderID, issuerID, credentialType, expiryDate, metadata || '', documentHash || ''
-    );
-    res.status(201).json({ success: true, credential: JSON.parse(result.toString()) });
+    // ✅ RETRY LOGIC - Try up to 3 times
+    const MAX_RETRIES = 3;
+    let lastError;
+    
+    for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+      try {
+        console.log(`📤 Attempt ${attempt}/${MAX_RETRIES}: Issuing credential ${id}...`);
+        
+        const { gateway, contract } = await getContractAndGateway();
+        
+        const result = await contract.submitTransaction(
+          'IssueCredential',
+          id, holderID, issuerID, credentialType, expiryDate, metadata || '', documentHash || ''
+        );
+        
+        console.log(`✅ SUCCESS on attempt ${attempt}`);
+        return res.status(201).json({ success: true, credential: JSON.parse(result.toString()) });
+        
+      } catch (error) {
+        lastError = error;
+        const errorMsg = error.message.toLowerCase();
+        console.error(`❌ Attempt ${attempt} failed: ${error.message}`);
+        
+        // If it's an endorsement error, retry with exponential backoff
+        if ((errorMsg.includes('peer endorsement') || 
+             errorMsg.includes('do not match') || 
+             errorMsg.includes('no valid responses') ||
+             errorMsg.includes('endorsement')) && attempt < MAX_RETRIES) {
+          
+          const backoffMs = Math.pow(2, attempt - 1) * 1000; // 1s, 2s, 4s
+          console.log(`⏳ Waiting ${backoffMs}ms before retry... (attempt ${attempt}/${MAX_RETRIES})`);
+          await sleep(backoffMs);
+          continue; // ← RETRY
+        }
+        
+        // If not endorsement issue or last attempt, throw
+        if (attempt === MAX_RETRIES) {
+          throw error;
+        }
+      }
+    }
+    
+    throw new Error(`Failed after ${MAX_RETRIES} attempts: ${lastError.message}`);
+    
   } catch (error) {
     console.error(`❌ Error: ${error.message}`);
     res.status(500).json({ success: false, error: error.message });
@@ -142,12 +184,45 @@ app.post('/api/credentials/:id/verify', async (req, res) => {
   }
 });
 
-// Revoke credential
+// 🔧 REVOKE credential WITH RETRY LOGIC
 app.put('/api/credentials/:id/revoke', async (req, res) => {
   try {
-    const { gateway, contract } = await getContractAndGateway();
-    const result = await contract.submitTransaction('RevokeCredential', req.params.id);
-    res.json({ success: true, credential: JSON.parse(result.toString()) });
+    const MAX_RETRIES = 3;
+    let lastError;
+    
+    for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+      try {
+        console.log(`📤 Attempt ${attempt}/${MAX_RETRIES}: Revoking credential ${req.params.id}...`);
+        const { gateway, contract } = await getContractAndGateway();
+        const result = await contract.submitTransaction('RevokeCredential', req.params.id);
+        
+        console.log(`✅ SUCCESS on attempt ${attempt}`);
+        return res.json({ success: true, credential: JSON.parse(result.toString()) });
+        
+      } catch (error) {
+        lastError = error;
+        const errorMsg = error.message.toLowerCase();
+        console.error(`❌ Attempt ${attempt} failed: ${error.message}`);
+        
+        if ((errorMsg.includes('peer endorsement') || 
+             errorMsg.includes('do not match') || 
+             errorMsg.includes('no valid responses') ||
+             errorMsg.includes('endorsement')) && attempt < MAX_RETRIES) {
+          
+          const backoffMs = Math.pow(2, attempt - 1) * 1000;
+          console.log(`⏳ Waiting ${backoffMs}ms before retry...`);
+          await sleep(backoffMs);
+          continue;
+        }
+        
+        if (attempt === MAX_RETRIES) {
+          throw error;
+        }
+      }
+    }
+    
+    throw new Error(`Failed after ${MAX_RETRIES} attempts: ${lastError.message}`);
+    
   } catch (error) {
     console.error(`❌ Error: ${error.message}`);
     res.status(500).json({ success: false, error: error.message });

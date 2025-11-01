@@ -45,7 +45,7 @@ app.get('/api/credentials', async (req, res) => {
   let gateway;
   try {
     ({ gateway, contract } = await getContractAndGateway());
-    const result = await contract.evaluateTransaction('GetCredentialsByIssuer', 'ISSUER-DLSU');
+    const result = await contract.evaluateTransaction('GetCredentialsByIssuer', 'ISSUER');
     res.json({ success: true, credentials: JSON.parse(result.toString()) });
   } catch (error) {
     console.error(`❌ Error: ${error.message}`);

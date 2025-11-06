@@ -2,27 +2,33 @@
 
 const FabricCAServices = require('fabric-ca-client');
 const { Wallets } = require('fabric-network');
-const fs = require('fs');
 const path = require('path');
 
 async function enrollOrg2Admin() {
   try {
-    const ccpPath = path.resolve(__dirname, '../fabric-samples/test-network/organizations/peerOrganizations/org2.example.com/connection-org2.json');
-    const ccp = JSON.parse(fs.readFileSync(ccpPath, 'utf8'));
-
-    const caInfo = ccp.certificateAuthorities['ca.org2.example.com'];
-    const ca = new FabricCAServices(caInfo.url, { trustedRoots: [], verify: false }, caInfo.caName);
+    // ✅ FIXED: Direct URL instead of config file
+    const ca = new FabricCAServices(
+        'https://localhost:8054',  // ← Org2 CA port (check docker ps!)
+        { trustedRoots: [], verify: false },
+        'ca-org2'
+    );
 
     const walletPath = path.join(__dirname, 'wallet');
     const wallet = await Wallets.newFileSystemWallet(walletPath);
 
+    // Check if admin-org2 already exists
     const adminExists = await wallet.get('admin-org2');
     if (adminExists) {
       console.log('✅ admin-org2 already exists in wallet');
       return;
     }
 
-    const enrollment = await ca.enroll({ enrollmentID: 'admin', enrollmentSecret: 'adminpw' });
+    // ✅ Enroll with default Org2 admin credentials
+    const enrollment = await ca.enroll({ 
+      enrollmentID: 'admin', 
+      enrollmentSecret: 'adminpw' 
+    });
+
     const x509Identity = {
       credentials: {
         certificate: enrollment.certificate,

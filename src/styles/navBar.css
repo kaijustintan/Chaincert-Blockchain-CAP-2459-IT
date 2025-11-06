@@ -1,13 +1,12 @@
 /* navBar.css */
 .navbar {
   display: flex;
-  /* Removed: justify-content: space-between; */
-  /* This ensures all items are centered vertically */
   align-items: center; 
   padding: 15px 50px;
   background-color: #000;
-  border-bottom: 1px solid #222; /* Added a subtle bottom border */
+  border-bottom: 1px solid #222;
 }
+
 
 .navbar .logo {
   font-size: 1.5rem;
@@ -18,28 +17,29 @@
   -webkit-text-fill-color: transparent;
 }
 
+
 .navbar .nav-links {
   list-style: none;
   display: flex;
-  align-items: center; /* Vertically align links */
-  gap: 25px; /* Increased gap slightly */
-  
-  /* This is the key fix: */
-  /* It pushes the nav-links and all following items to the far right. */
-  margin-left: auto; 
+  align-items: center;
+  gap: 25px;
+  margin-left: auto;
 }
+
 
 .navbar .nav-links li {
   cursor: pointer;
   transition: color 0.3s ease;
-  color: #aaa; /* Toned down default link color for better contrast */
-  font-size: 0.95rem; /* Set a consistent font size */
+  color: #aaa;
+  font-size: 0.95rem;
   font-weight: 500;
 }
 
+
 .navbar .nav-links li:hover {
-  color: #fff; /* Hover to pure white */
+  color: #fff;
 }
+
 
 /* Link styles */
 .navbar .nav-links li a {
@@ -48,9 +48,11 @@
   transition: color 0.3s ease;
 }
 
+
 .navbar .nav-links li a:hover {
   text-decoration: none;
 }
+
 
 /* Active state styles */
 .navbar .nav-links li.active {
@@ -58,90 +60,214 @@
   position: relative;
 }
 
+
 .navbar .nav-links li.active a {
   color: #ff00cc;
 }
 
+
 .navbar .nav-links li.active::after {
   content: '';
   position: absolute;
-  bottom: -5px; /* Kept this, but you can change to -3px */
+  bottom: -5px;
   left: 0;
   width: 100%;
   height: 2px;
   background-color: #ff00cc;
 }
 
-/* Profile Dropdown */
+
+/* Login button styling */
+.nav-links .login-link {
+  background: #667eea;
+  color: white !important;
+  padding: 8px 16px;
+  border-radius: 4px;
+  transition: background 0.3s;
+}
+
+
+.nav-links .login-link:hover {
+  background: #764ba2;
+}
+
+
+/* Create Account button styling */
+.nav-links .create-account-link {
+  background: linear-gradient(135deg, #ff00ff, #8b00ff);
+  color: white !important;
+  padding: 8px 16px;
+  border-radius: 4px;
+  transition: background 0.3s;
+}
+
+
+.nav-links .create-account-link:hover {
+  background: linear-gradient(135deg, #cc00cc, #6600cc);
+  box-shadow: 0 0 10px rgba(255, 0, 255, 0.5);
+}
+
+
+/* Profile Dropdown Container */
 .profile-dropdown-container {
   position: relative;
   display: inline-block;
-  /* This aligns the icon button with the text links */
   display: flex;
   align-items: center;
 }
+
 
 .profile-btn {
   background: none;
   border: none;
   cursor: pointer;
   margin-left: 20px;
-  padding: 0; /* Removed default button padding */
-  display: flex; /* Helps center the icon */
+  padding: 0;
+  display: flex;
 }
 
+
 .profile-icon {
-  width: 32px; /* Slightly smaller icon */
+  width: 32px;
   height: 32px;
   border-radius: 50%;
-  
-  /* Replaced gray background with a white icon */
   background-color: #fff;
-  /* This is a simple SVG for a user icon, URL-encoded */
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%23000'%3E%3Cpath d='M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z'/%3E%3C/svg%3E");
   background-size: 60%;
   background-position: center;
   background-repeat: no-repeat;
-  border: 2px solid #fff; /* Added a white border */
+  border: 2px solid #fff;
+  transition: transform 0.2s;
 }
 
+
+.profile-btn:hover .profile-icon {
+  transform: scale(1.1);
+}
+
+
+/* Dropdown Menu */
 .profile-dropdown {
   position: absolute;
   right: 0;
-  top: 50px; /* Increased top position to clear navbar */
-  background-color: #111; /* Darker dropdown */
+  top: 50px;
+  background-color: #111;
   border-radius: 8px;
-  box-shadow: 0 5px 25px rgba(0, 0, 0, 0.3); /* Stronger shadow */
-  min-width: 150px;
+  box-shadow: 0 5px 25px rgba(0, 0, 0, 0.3);
+  min-width: 200px;
   z-index: 10;
   border: 1px solid #333;
 }
 
+
 .profile-dropdown ul {
   list-style: none;
-  padding: 10px;
+  padding: 0;
   margin: 0;
 }
 
+
 .profile-dropdown li {
-  padding: 10px;
+  padding: 12px 16px;
   cursor: pointer;
   transition: background-color 0.2s ease;
-  color: #fff; /* Text color for dropdown items */
+  color: #fff;
+  border-bottom: 1px solid #222;
 }
 
-.profile-dropdown li:hover {
-  background-color: #222; /* Darker hover */
-}
 
 .profile-dropdown li:last-child {
-  border-top: 1px solid #333; /* Darker border */
+  border-bottom: none;
 }
 
+
+.profile-dropdown li:hover {
+  background-color: #222;
+}
+
+
+.profile-dropdown li a {
+  text-decoration: none;
+  color: inherit;
+  display: block;
+  width: 100%;
+}
+
+
+.profile-dropdown li a:hover {
+  text-decoration: none;
+}
+
+
+/* User Info Header in Dropdown */
+.profile-dropdown .user-info {
+  padding: 12px 16px !important;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%) !important;
+  color: white !important;
+  text-align: center;
+  cursor: default !important;
+  border-bottom: 1px solid #555 !important;
+}
+
+
+.profile-dropdown .user-info strong {
+  display: block;
+  font-size: 14px;
+  margin-bottom: 4px;
+  color: white;
+}
+
+
+.profile-dropdown .user-info small {
+  display: block;
+  font-size: 12px;
+  opacity: 0.9;
+  text-transform: capitalize;
+  color: white;
+}
+
+
+/* Divider line */
+.profile-dropdown .divider {
+  height: 1px;
+  background: #333;
+  margin: 4px 0 !important;
+  padding: 0 !important;
+  list-style: none;
+  border: none;
+}
+
+
+.profile-dropdown .divider:hover {
+  background-color: #333;
+}
+
+
+/* Sign out button */
+.signout-btn {
+  background: none;
+  border: none;
+  color: #ff4444;
+  cursor: pointer;
+  width: 100%;
+  text-align: left;
+  padding: 0;
+  font-weight: 600;
+  transition: color 0.2s;
+}
+
+
+.signout-btn:hover {
+  color: #ff6666;
+}
+
+
+/* Logo Link */
 .logo-link {
   text-decoration: none;
   color: inherit;
 }
+
 
 .logo-link:hover {
   opacity: 0.99;

@@ -1,4 +1,5 @@
-/* CreateAccount.css - minimal styling, adapt to your theme */
+/* CreateAccount.css - updated with role selection */
+
 .create-account-wrapper {
   display: flex;
   gap: 32px;
@@ -6,20 +7,118 @@
   align-items: flex-start;
   padding: 48px;
   flex-wrap: wrap;
+  position: relative;
 }
 
+/* ROLE SELECTION SCREEN */
+.create-account-wrapper.role-selection-wrapper {
+  justify-content: center;
+  align-items: center;
+  min-height: calc(100vh - 200px);
+}
+
+.role-selection-container {
+  text-align: center;
+  animation: slideIn 0.5s ease-out;
+}
+
+.role-selection-container h1 {
+  font-size: 2rem;
+  color: #6b2bd9;
+  margin-bottom: 10px;
+  text-align: center;
+}
+
+.role-selection-container p {
+  color: #666;
+  font-size: 1rem;
+  margin-bottom: 40px;
+  text-align: center;
+}
+
+.role-buttons {
+  display: flex;
+  gap: 30px;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+
+.role-button {
+  background: #fff;
+  border: 2px solid #e0e0e0;
+  border-radius: 15px;
+  padding: 40px 30px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  min-width: 280px;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+}
+
+.role-button:hover {
+  transform: translateY(-8px);
+  border-color: #6b2bd9;
+  box-shadow: 0 8px 20px rgba(107, 43, 217, 0.2);
+}
+
+.role-button.user-role-btn:hover {
+  border-color: #667eea;
+  box-shadow: 0 8px 20px rgba(102, 126, 234, 0.2);
+}
+
+.role-icon {
+  font-size: 3rem;
+  margin-bottom: 20px;
+  display: inline-block;
+}
+
+.role-button h3 {
+  color: #333;
+  font-size: 1.3rem;
+  margin-bottom: 10px;
+}
+
+.role-button p {
+  color: #999;
+  font-size: 0.9rem;
+}
+
+/* BACK BUTTON */
+.back-button {
+  position: fixed;
+  top: 80px;
+  left: 20px;
+  background: #fff;
+  border: 2px solid #6b2bd9;
+  color: #6b2bd9;
+  padding: 10px 16px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 0.9rem;
+  transition: all 0.3s;
+  font-weight: 600;
+  z-index: 100;
+}
+
+.back-button:hover {
+  background: #6b2bd9;
+  color: #fff;
+}
+
+/* FORM CARD */
 .form-card {
   width: 420px;
   background: #fff;
   border-radius: 10px;
   padding: 28px;
   box-shadow: 0 6px 20px rgba(0,0,0,0.25);
+  animation: slideIn 0.5s ease-out;
 }
 
 .form-card h2 {
-  text-align: center; /* keep headings centered */
-  color: #6b2bd9; /* purple heading */
+  text-align: center;
+  color: #6b2bd9;
   margin-bottom: 18px;
+  margin-top: 0;
 }
 
 .form-card form {
@@ -32,7 +131,8 @@
   margin-top: 10px;
   margin-bottom: 6px;
   color: #333;
-  text-align: left; /* ✅ ensures left alignment */
+  text-align: left;
+  font-weight: 500;
 }
 
 .form-card input,
@@ -41,25 +141,98 @@
   border-radius: 6px;
   border: 1px solid #e0e0e0;
   font-size: 0.95rem;
+  transition: all 0.3s;
 }
 
+.form-card input:focus,
+.form-card select:focus {
+  outline: none;
+  border-color: #6b2bd9;
+  box-shadow: 0 0 5px rgba(107, 43, 217, 0.2);
+  background-color: #f9f7ff;
+}
+
+.form-card input::placeholder {
+  color: #ccc;
+}
+
+/* BUTTONS */
 .btn-primary {
   margin-top: 20px;
   padding: 12px 18px;
-  background: #6b2bd9; /* match purple */
+  background: #6b2bd9;
   color: #fff;
   border: none;
   border-radius: 6px;
   font-weight: 600;
   cursor: pointer;
+  transition: all 0.3s;
+  font-size: 1rem;
 }
+
+.btn-primary:hover:not(:disabled) {
+  background: #5a20c0;
+  box-shadow: 0 4px 12px rgba(107, 43, 217, 0.3);
+  transform: translateY(-2px);
+}
+
+.btn-primary:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
 .issuer-message {
   text-align: center;
-  color: #000; /* ✅ make text black */
+  color: #000;
   font-size: 0.95rem;
-  line-height: 1.5;
+  line-height: 1.6;
+  padding: 20px;
 }
 
 .issuer-message p {
   margin-bottom: 20px;
+  color: #333;
+}
+
+/* ANIMATIONS */
+@keyframes slideIn {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* RESPONSIVE */
+@media (max-width: 768px) {
+  .create-account-wrapper {
+    padding: 20px;
+  }
+
+  .role-buttons {
+    flex-direction: column;
+    gap: 20px;
+  }
+
+  .role-button {
+    min-width: 100%;
+  }
+
+  .form-card {
+    width: 100%;
+    max-width: 420px;
+  }
+
+  .back-button {
+    position: relative;
+    margin-bottom: 15px;
+    display: block;
+  }
+
+  .role-selection-container h1 {
+    font-size: 1.5rem;
+  }
 }

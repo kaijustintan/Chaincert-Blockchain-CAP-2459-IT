@@ -15,12 +15,19 @@ class ChainCertContract extends Contract {
             throw new Error(`Credential ${id} already exists`);
         }
 
+        // ✅ FIXED: Use transaction timestamp instead of new Date()
+        // This is deterministic and same across all endorsing peers
+        const txTimestamp = ctx.stub.getTxTimestamp();
+        const issuedDate = new Date(
+            txTimestamp.seconds * 1000 + Math.floor(txTimestamp.nanos / 1000000)
+        ).toISOString();
+
         const credential = {
             id: id,
             holderID: holderID,
             issuerID: issuerID,
             credentialType: credentialType,
-            issuedDate: new Date().toISOString(),
+            issuedDate: issuedDate,  // ← Now deterministic
             expiryDate: expiryDate,
             status: 'active',
             metadata: metadata,

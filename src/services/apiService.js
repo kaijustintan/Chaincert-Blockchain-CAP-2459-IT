@@ -15,7 +15,7 @@ const apiService = {
     }
   },
 
-  // Get ALL credentials ← NEW FUNCTION
+  // Get ALL credentials
   getAllCredentials: async () => {
     try {
       const response = await axios.get(`${API_BASE_URL}/credentials`);
@@ -26,7 +26,7 @@ const apiService = {
     }
   },
 
-  // Get credentials by issuer (FIXED - was getAllCredentials)
+  // Get credentials by issuer
   getCredentialsByIssuer: async (issuerID) => {
     try {
       const response = await axios.get(`${API_BASE_URL}/credentials/issuer/${issuerID}`);
@@ -46,6 +46,7 @@ const apiService = {
       console.error('Error fetching credentials:', error);
       throw error;
     }
+  },  // ← Added missing closing brace and comma
 
   // Get credential by ID
   getCredentialById: async (credentialId) => {
@@ -56,6 +57,7 @@ const apiService = {
       console.error(`Error fetching credential ${credentialId}:`, error);
       throw error;
     }
+  },  // ← Added missing closing brace and comma
 
   // Verify credential
   verifyCredential: async (credentialId) => {
@@ -85,6 +87,7 @@ const apiService = {
       console.error('Error issuing credential:', error);
       throw error;
     }
+  },  // ← Added missing closing brace and comma
 
   // Revoke credential
   revokeCredential: async (credentialId) => {
@@ -95,6 +98,7 @@ const apiService = {
       console.error(`Error revoking credential ${credentialId}:`, error);
       throw error;
     }
+  },  // ← Added missing closing brace and comma
 
   // Get credential history
   getCredentialHistory: async (credentialId) => {
@@ -108,4 +112,4 @@ const apiService = {
   }
 };
 
-export default ApiService;
+export default apiService;  // ← Fixed capitalization (was ApiService)

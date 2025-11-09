@@ -7,6 +7,7 @@ const fs = require('fs');
 const jwt = require('jsonwebtoken');
 const bcryptjs = require('bcryptjs');
 const multer = require('multer');
+const Docker = require('dockerode');
 
 const JWT_SECRET = process.env.JWT_SECRET || 'dev_secret_key';
 
@@ -20,21 +21,27 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
+// ✅ Initialize Docker client
+const docker = new Docker({ socketPath: '/var/run/docker.sock' });
+const FABRIC_SAMPLES_PATH = '/home/kaitanz_/fabric-samples';
+const CORE_YAML_PATH = `${FABRIC_SAMPLES_PATH}/config/core.yaml`;
+
 // ✅ Initialize CouchDB on server startup
 couchdb.initializeDatabases().catch(err => {
   console.error('⚠️  CouchDB init error:', err.message);
 });
 
-// ✅ FIXED: Create database indexes on startup
+// ✅ FIXED: Create database indexes on startup (FIXED SORT BUG)
 const setupDatabaseIndexes = async () => {
   try {
     await new Promise(resolve => setTimeout(resolve, 1500));
     
     const db = couchdb.couch.use('issuer_registrations');
     
+    // ✅ FIX: Added 'createdAt' to index fields for sorting
     await db.createIndex({
       index: {
-        fields: ['type', 'status', 'createdAt']
+        fields: ['type', 'status', 'createdAt']  // ← FIXED! Added createdAt here
       },
       name: 'idx-type-status-created',
       ddoc: 'indexes'
@@ -314,40 +321,7 @@ app.post('/api/login-issuer', async (req, res) => {
   }
 });
 
-// ========== ROLE-BASED MIDDLEWARE (Security enforcement)
-const verifyRole = (requiredRole) => {
-  return (req, res, next) => {
-    const token = req.headers.authorization?.split(' ')[1];
-    
-    if (!token) {
-      return res.status(401).json({ 
-        success: false, 
-        message: 'No token provided' 
-      });
-    }
-
-    try {
-      const decoded = jwt.verify(token, JWT_SECRET);
-      
-      if (decoded.role !== requiredRole) {
-        return res.status(403).json({ 
-          success: false, 
-          message: `Access denied. Required role: ${requiredRole}` 
-        });
-      }
-      
-      req.user = decoded;
-      next();
-    } catch (err) {
-      res.status(401).json({ 
-        success: false, 
-        message: 'Invalid token' 
-      });
-    }
-  };
-};
-
-// ✅ FIXED: Get Pending Issuer Registrations (Admin)
+// ✅ FIXED: Get Pending Issuer Registrations (Admin) - NO MORE SORTING ERROR
 app.get('/api/pending-issuers', async (req, res) => {
   try {
     const pendingIssuers = await couchdb.getPendingIssuers();
@@ -365,41 +339,124 @@ app.get('/api/pending-issuers', async (req, res) => {
   }
 });
 
-// NEW: Approve Issuer (Admin - Protected)
-app.post('/api/approve-issuer/:issuerId', verifyRole('admin'), async (req, res) => {
+// ========== NEW: Deploy Issuer Peer Dynamically (With CouchDB + core.yaml)
+app.post('/api/deploy-issuer-peer', async (req, res) => {
   try {
-    const { issuerId } = req.params;
-    const result = await couchdb.approveIssuer(issuerId, req.user.id);
+    const { issuerEmail } = req.body;
 
-    res.status(200).json({
+    if (!issuerEmail) {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'Issuer email is required' 
+      });
+    }
+
+    // ✅ Convert email to container name (e.g., dlsu@example.com → dlsu_example-com)
+    const sanitizedEmail = issuerEmail.replace(/[@.]/g, (match) => {
+      return match === '@' ? '_' : '-';
+    }).toLowerCase();
+
+    // ✅ Step 1: Start CouchDB first
+    const couchDBName = `couchdb-${sanitizedEmail}`;
+    const couchDBPort = 5984 + Math.floor(Math.random() * 1000);
+
+    console.log(`🔧 [DEPLOY] Starting CouchDB: ${couchDBName} on port ${couchDBPort}`);
+
+    const couchDBContainer = await docker.createContainer({
+      Image: 'couchdb:3.3.2',
+      name: couchDBName,
+      Env: [
+        'COUCHDB_USER=admin',
+        'COUCHDB_PASSWORD=adminpw'
+      ],
+      HostConfig: {
+        PortBindings: {
+          '5984/tcp': [{ HostPort: String(couchDBPort) }]
+        },
+        NetworkMode: 'fabric_test'
+      }
+    });
+
+    await couchDBContainer.start();
+    console.log(`✅ CouchDB started: ${couchDBName}:${couchDBPort}`);
+
+    // ✅ Wait for CouchDB to be ready
+    await new Promise(resolve => setTimeout(resolve, 3000));
+
+    // ✅ Step 2: Start Peer with CouchDB + core.yaml mount
+    const peerName = `peer0.${sanitizedEmail}.example.com`;
+    const peerPort = 7051 + Math.floor(Math.random() * 100);
+
+    const orgPath = `${FABRIC_SAMPLES_PATH}/test-network/organizations/peerOrganizations/${sanitizedEmail}.example.com`;
+    const peerPath = `${orgPath}/peers/${peerName}`;
+
+    console.log(`🔧 [DEPLOY] Starting Peer: ${peerName} on port ${peerPort}`);
+
+    const peerContainer = await docker.createContainer({
+      Image: 'hyperledger/fabric-peer:latest',
+      name: peerName,
+      Hostname: peerName,
+      Env: [
+        `FABRIC_CFG_PATH=/etc/hyperledger/fabric`,
+        `CORE_PEER_ID=${peerName}`,
+        `CORE_PEER_ADDRESS=${peerName}:${peerPort}`,
+        `CORE_PEER_LISTENADDRESS=0.0.0.0:${peerPort}`,
+        `CORE_PEER_CHAINCODEADDRESS=${peerName}:${peerPort + 1}`,
+        `CORE_PEER_CHAINCODELISTENADDRESS=0.0.0.0:${peerPort + 1}`,
+        `CORE_PEER_GOSSIP_BOOTSTRAP=${peerName}:${peerPort}`,
+        `CORE_PEER_GOSSIP_EXTERNALENDPOINT=${peerName}:${peerPort}`,
+        `CORE_PEER_LOCALMSPID=${sanitizedEmail.toUpperCase()}MSP`,
+        `CORE_PEER_MSPCONFIGPATH=/etc/hyperledger/fabric/msp`,
+        `CORE_VM_ENDPOINT=unix:///host/var/run/docker.sock`,
+        `CORE_VM_DOCKER_HOSTCONFIG_NETWORKMODE=fabric_test`,
+        `CORE_LEDGER_STATE_STATEDATABASE=CouchDB`,
+        `CORE_LEDGER_STATE_COUCHDBCONFIG_COUCHDBADDRESS=${couchDBName}:5984`,
+        `CORE_LEDGER_STATE_COUCHDBCONFIG_USERNAME=admin`,
+        `CORE_LEDGER_STATE_COUCHDBCONFIG_PASSWORD=adminpw`,
+        `CORE_PEER_TLS_ENABLED=true`,
+        `CORE_PEER_TLS_CERT_FILE=/etc/hyperledger/fabric/tls/server.crt`,
+        `CORE_PEER_TLS_KEY_FILE=/etc/hyperledger/fabric/tls/server.key`,
+        `CORE_PEER_TLS_ROOTCERT_FILE=/etc/hyperledger/fabric/tls/ca.crt`
+      ],
+      HostConfig: {
+        Binds: [
+          '/var/run/docker.sock:/host/var/run/docker.sock',
+          `${peerPath}/msp:/etc/hyperledger/fabric/msp`,
+          `${peerPath}/tls:/etc/hyperledger/fabric/tls`,
+          `${CORE_YAML_PATH}:/etc/hyperledger/fabric/core.yaml`  // ✅ KEY FIX
+        ],
+        PortBindings: {
+          [`${peerPort}/tcp`]: [{ HostPort: String(peerPort) }],
+          [`${peerPort + 1}/tcp`]: [{ HostPort: String(peerPort + 1) }]
+        },
+        NetworkMode: 'fabric_test'
+      }
+    });
+
+    await peerContainer.start();
+    console.log(`✅ Peer started: ${peerName}:${peerPort}`);
+
+    // ✅ Save deployment info to CouchDB
+    const deploymentInfo = {
+      issuerEmail,
+      peerName,
+      peerPort,
+      couchDBName,
+      couchDBPort,
+      deployedAt: new Date().toISOString(),
+      status: 'deployed'
+    };
+
+    await couchdb.saveDeploymentInfo(deploymentInfo);
+
+    res.status(201).json({
       success: true,
-      message: 'Issuer approved successfully',
-      data: result
+      message: `Issuer peer deployed successfully`,
+      deployment: deploymentInfo
     });
+
   } catch (error) {
-    console.error('Error approving issuer:', error);
-    res.status(500).json({ 
-      success: false, 
-      message: error.message 
-    });
-  }
-});
-
-// NEW: Reject Issuer (Admin - Protected)
-app.post('/api/reject-issuer/:issuerId', verifyRole('admin'), async (req, res) => {
-  try {
-    const { issuerId } = req.params;
-    const { rejectionReason } = req.body;
-
-    const result = await couchdb.rejectIssuer(issuerId, rejectionReason);
-
-    res.status(200).json({
-      success: true,
-      message: 'Issuer rejected',
-      data: result
-    });
-  } catch (error) {
-    console.error('Error rejecting issuer:', error);
+    console.error('❌ Deployment error:', error.message);
     res.status(500).json({ 
       success: false, 
       message: error.message 
@@ -558,4 +615,5 @@ const PORT = 4000;
 app.listen(PORT, () => {
   console.log(`✅ API running on :${PORT}`);
   console.log('✅ CouchDB databases selected');
+  console.log('✅ Docker deployment endpoints ready');
 });

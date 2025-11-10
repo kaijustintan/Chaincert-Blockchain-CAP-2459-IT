@@ -57,7 +57,8 @@ const authRoutes = require('./routes/authRoutes');
 app.use('/api/auth', authRoutes);
 
 // SUBJECTIVE - KAI PATH TO CONNECTION PROFILE (Ubuntu/Linux)
-const ccpPath = '/home/kaitanz_/fabric-samples/test-network/organizations/peerOrganizations/org1.example.com/connection-org1.json';
+// const ccpPath = '/home/kaitanz_/fabric-samples/test-network/organizations/peerOrganizations/org1.example.com/connection-org1.json';
+const ccpPath = '/home/polo/fabric-samples-full/test-network/organizations/peerOrganizations/org1.example.com/connection-org1.json';
 const walletPath = path.join(__dirname, 'wallet');
 
 let cachedGateway = null;
@@ -558,4 +559,7 @@ const PORT = 4000;
 app.listen(PORT, () => {
   console.log(`✅ API running on :${PORT}`);
   console.log('✅ CouchDB databases selected');
+  console.log('🔥 Server is RUNNING and waiting for requests...');
 });
+
+setInterval(() => {}, 1000);

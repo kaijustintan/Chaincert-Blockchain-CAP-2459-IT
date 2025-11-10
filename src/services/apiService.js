@@ -1,13 +1,10 @@
-import axios from 'axios';
-
-const API_BASE_URL = 'http://localhost:4000/api';
+import axios from './axiosInstance';
 
 const apiService = {
-
   // Health check
   healthCheck: async () => {
     try {
-      const response = await axios.get(`${API_BASE_URL}/health`);
+      const response = await axios.get('/health');
       return response.data;
     } catch (error) {
       console.error('Health check failed:', error);
@@ -15,10 +12,10 @@ const apiService = {
     }
   },
 
-  // Get ALL credentials
+  // Get ALL credentials ← NEW FUNCTION
   getAllCredentials: async () => {
     try {
-      const response = await axios.get(`${API_BASE_URL}/credentials`);
+      const response = await axios.get('/credentials');
       return response.data.credentials || [];
     } catch (error) {
       console.error('Error fetching all credentials:', error);
@@ -29,7 +26,7 @@ const apiService = {
   // Get credentials by issuer
   getCredentialsByIssuer: async (issuerID) => {
     try {
-      const response = await axios.get(`${API_BASE_URL}/credentials/issuer/${issuerID}`);
+      const response = await axios.get(`/credentials/issuer/${issuerID}`);
       return response.data.credentials;
     } catch (error) {
       console.error('Error fetching credentials:', error);
@@ -40,29 +37,27 @@ const apiService = {
   // Get credentials by holder
   getCredentialsByHolder: async (holderID) => {
     try {
-      const response = await axios.get(`${API_BASE_URL}/credentials/holder/${holderID}`);
+      const response = await axios.get(`/credentials/holder/${holderID}`);
       return response.data.credentials;
     } catch (error) {
       console.error('Error fetching credentials:', error);
       throw error;
     }
-  },  // ← Added missing closing brace and comma
 
   // Get credential by ID
   getCredentialById: async (credentialId) => {
     try {
-      const response = await axios.get(`${API_BASE_URL}/credentials/${credentialId}`);
+      const response = await axios.get(`/credentials/${credentialId}`);
       return response.data.credential;
     } catch (error) {
       console.error(`Error fetching credential ${credentialId}:`, error);
       throw error;
     }
-  },  // ← Added missing closing brace and comma
 
   // Verify credential
   verifyCredential: async (credentialId) => {
     try {
-      const response = await axios.post(`${API_BASE_URL}/credentials/${credentialId}/verify`);
+      const response = await axios.post(`/credentials/${credentialId}/verify`);
       return response.data.verification;
     } catch (error) {
       console.error(`Error verifying credential ${credentialId}:`, error);
@@ -73,7 +68,7 @@ const apiService = {
   // Issue new credential
   issueCredential: async (credentialData) => {
     try {
-      const response = await axios.post(`${API_BASE_URL}/credentials`, {
+      const response = await axios.post('/credentials', {
         id: credentialData.id,
         holderID: credentialData.holderID,
         issuerID: credentialData.issuerID,
@@ -87,23 +82,21 @@ const apiService = {
       console.error('Error issuing credential:', error);
       throw error;
     }
-  },  // ← Added missing closing brace and comma
 
   // Revoke credential
   revokeCredential: async (credentialId) => {
     try {
-      const response = await axios.put(`${API_BASE_URL}/credentials/${credentialId}/revoke`);
+      const response = await axios.put(`/credentials/${credentialId}/revoke`);
       return response.data.credential;
     } catch (error) {
       console.error(`Error revoking credential ${credentialId}:`, error);
       throw error;
     }
-  },  // ← Added missing closing brace and comma
 
   // Get credential history
   getCredentialHistory: async (credentialId) => {
     try {
-      const response = await axios.get(`${API_BASE_URL}/credentials/${credentialId}/history`);
+      const response = await axios.get(`/credentials/${credentialId}/history`);
       return response.data.history;
     } catch (error) {
       console.error(`Error fetching history for ${credentialId}:`, error);
@@ -112,4 +105,4 @@ const apiService = {
   }
 };
 
-export default apiService;  // ← Fixed capitalization (was ApiService)
+export default ApiService;

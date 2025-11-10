@@ -9,6 +9,7 @@ let organizationsDb = null;
 let usersDb = null;
 let issuerRegistrationsDb = null;
 let notificationsDb = null;
+let deploymentsDb = null;
 
 async function initializeDatabases() {
   try {
@@ -16,6 +17,7 @@ async function initializeDatabases() {
     usersDb = couch.use('users');
     issuerRegistrationsDb = couch.use('issuer_registrations');
     notificationsDb = couch.use('notifications');
+    deploymentsDb = couch.use('deployments');
     console.log('✅ CouchDB databases selected');
   } catch (error) {
     console.error('⚠️  Error initializing databases:', error.message);
@@ -23,11 +25,9 @@ async function initializeDatabases() {
   }
 }
 
-// ✅ FIXED: Hash password before saving
 async function saveUser(user) {
   if (!usersDb) await initializeDatabases();
   
-  // ✅ Hash password if it's plain text (not already hashed)
   if (user.password && !user.password.startsWith('$2b$')) {
     user.password = await bcryptjs.hash(user.password, 10);
   }
@@ -117,11 +117,35 @@ async function getIssuerById(issuerId) {
 
 async function approveIssuer(issuerId, adminId) {
   if (!issuerRegistrationsDb) await initializeDatabases();
+  
+  console.log(`[COUCHDB] Approving issuer: ${issuerId}`);
+  
   const issuerDoc = await issuerRegistrationsDb.get(issuerId);
-  issuerDoc.status = 'approved';
-  issuerDoc.approvedAt = new Date().toISOString();
+  
+  console.log(`[COUCHDB] Retrieved issuer:`, {
+    _id: issuerDoc._id,
+    contactName: issuerDoc.contactName,
+    email: issuerDoc.email,
+    orgName: issuerDoc.orgName
+  });
+  
+  issuerDoc.status = 'deploying';
   issuerDoc.approvedBy = adminId;
-  return await issuerRegistrationsDb.insert(issuerDoc);
+  issuerDoc.approvedAt = new Date().toISOString();
+  issuerDoc.deployStartTime = new Date().toISOString();
+  
+  await issuerRegistrationsDb.insert(issuerDoc);
+  
+  console.log(`[COUCHDB] Issuer status updated to 'deploying'`);
+  
+  return {
+    _id: issuerDoc._id,
+    contactName: issuerDoc.contactName,
+    email: issuerDoc.email,
+    orgName: issuerDoc.orgName,
+    status: issuerDoc.status,
+    _rev: issuerDoc._rev
+  };
 }
 
 async function rejectIssuer(issuerId, rejectionReason) {
@@ -189,9 +213,39 @@ async function markNotificationAsRead(notificationId) {
   return await notificationsDb.insert(notif);
 }
 
+async function saveDeploymentInfo(data) {
+  if (!deploymentsDb) await initializeDatabases();
+  
+  const deploymentDoc = {
+    _id: `deploy_${data.issuerEmail.replace(/@/g, '_').replace(/\./g, '_')}_${Date.now()}`,
+    type: 'deployment',
+    issuerEmail: data.issuerEmail,
+    peerName: data.peerName,
+    peerPort: data.peerPort,
+    couchDBName: data.couchDBName,
+    couchDBPort: data.couchDBPort,
+    status: data.status || 'deployed',
+    deployedAt: data.deployedAt || new Date().toISOString()
+  };
+  
+  return await deploymentsDb.insert(deploymentDoc);
+}
+
+async function getDeploymentByEmail(issuerEmail) {
+  if (!deploymentsDb) await initializeDatabases();
+  const result = await deploymentsDb.find({
+    selector: {
+      type: 'deployment',
+      issuerEmail: issuerEmail
+    }
+  });
+  return result.docs.length > 0 ? result.docs[0] : null;
+}
+
 module.exports = {
   nano,
   couch,
+  issuerRegistrationsDb: issuerRegistrationsDb,  // ✅ Exported for external access
   initializeDatabases,
   saveOrganization,
   saveUser,
@@ -210,5 +264,7 @@ module.exports = {
   createNotification,
   getAllNotifications,
   getUnreadNotifications,
-  markNotificationAsRead
+  markNotificationAsRead,
+  saveDeploymentInfo,
+  getDeploymentByEmail
 };

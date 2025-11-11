@@ -45,9 +45,14 @@ async function getOrganization(id) {
   return await organizationsDb.get(id);
 }
 
-async function getUser(id) {
-  if (!usersDb) await initializeDatabases();
-  return await usersDb.get(id);
+async function getUser(userId) {
+  try {
+    const user = await usersDb.get(userId);
+    return user;
+  } catch (error) {
+    console.error('Error getting user:', error);
+    throw error;
+  }
 }
 
 async function getAllOrganizations() {
@@ -60,6 +65,51 @@ async function getAllUsers() {
   if (!usersDb) await initializeDatabases();
   const result = await usersDb.list({ include_docs: true });
   return result.rows.map(row => row.doc);
+}
+
+// NEWLY ADDED FUNCTION (For Change Password sa settings)
+async function updateUser(userId, userData) {
+  try {
+    const currentDoc = await usersDb.get(userId);
+    
+    const updatedDoc = {
+      ...currentDoc,
+      ...userData,
+      _id: currentDoc._id,
+      _rev: currentDoc._rev
+    };
+    
+    const response = await usersDb.insert(updatedDoc);
+    console.log('User updated successfully:', response);
+    return response;
+  } catch (error) {
+    console.error('Error updating user:', error);
+    throw error;
+  }
+}
+
+//  NEWLY ADDED - For Profile Summary
+async function updateProfile(userId, profileData) {
+  try {
+    const currentDoc = await usersDb.get(userId);
+    
+    // Update profile fields
+    const updatedDoc = {
+      ...currentDoc,
+      summary: profileData.summary || currentDoc.summary || '',
+      isPublic: profileData.isPublic !== undefined ? profileData.isPublic : currentDoc.isPublic,
+      profileUpdatedAt: new Date(),
+      _id: currentDoc._id,
+      _rev: currentDoc._rev
+    };
+    
+    const response = await usersDb.insert(updatedDoc);
+    console.log('Profile updated successfully:', response);
+    return response;
+  } catch (error) {
+    console.error('Error updating profile:', error);
+    throw error;
+  }
 }
 
 async function updateOrganization(id, updates) {
@@ -251,6 +301,8 @@ module.exports = {
   saveUser,
   getOrganization,
   getUser,
+  updateUser, // ← NEWLY ADDED - OLOPS
+  updateProfile,  // ← NEWLY ADDED - OLOPS
   getAllOrganizations,
   getAllUsers,
   updateOrganization,
@@ -268,3 +320,5 @@ module.exports = {
   saveDeploymentInfo,
   getDeploymentByEmail
 };
+
+

@@ -1,10 +1,67 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
+import apiService from "../services/apiService";
 import "../styles/profilePage.css";
 
 export default function ProfilePage() {
+  // Get user data from localStorage (set during login)
+  const user = JSON.parse(localStorage.getItem('user') || '{}');
+  const userEmail = user.email || localStorage.getItem('email') || '';
+  const userName = user.username || user.name || user.fullName || 'User';
+  const userRole = user.role || localStorage.getItem('role') || 'student';
+  const userId = user._id || user.id || '';
+
   const [summary, setSummary] = useState("");
   const [isPublic, setIsPublic] = useState(true);
   const [selectedBadge, setSelectedBadge] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [isSaving, setIsSaving] = useState(false);
+  const [saveMessage, setSaveMessage] = useState('');
+
+  // Generate profile URL based on username
+  const profileUrl = `https://www.chaincert.com/users/${userName.toLowerCase().replace(/\s+/g, '-')}`;
+
+  // Load user profile data on component mount
+  useEffect(() => {
+    loadUserProfile();
+  }, []);
+
+  const loadUserProfile = async () => {
+    try {
+      const response = await apiService.getUserInfo(userId);
+      if (response.success && response.user) {
+        setSummary(response.user.summary || '');
+        setIsPublic(response.user.isPublic !== undefined ? response.user.isPublic : true);
+      }
+    } catch (error) {
+      console.error('Error loading profile:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleSaveProfile = async () => {
+    setIsSaving(true);
+    setSaveMessage('');
+
+    try {
+      const response = await apiService.updateProfile({
+        userId: userId,
+        summary: summary,
+        isPublic: isPublic
+      });
+
+      if (response.success) {
+        setSaveMessage('✅ Profile saved successfully!');
+        setTimeout(() => setSaveMessage(''), 3000);
+      }
+    } catch (error) {
+      console.error('Error saving profile:', error);
+      setSaveMessage('❌ Failed to save profile');
+      setTimeout(() => setSaveMessage(''), 3000);
+    } finally {
+      setIsSaving(false);
+    }
+  };
 
   const badges = [
     {
@@ -15,7 +72,7 @@ export default function ProfilePage() {
       date: "Aug 1, 2024",
       expires: "This credential does not expire",
       credentialId: "b6b4f34c-5053-431c-8cd9-8d2dc22bcc22",
-      image: "/images/badge1.png",
+      image: "🎓",
     },
     {
       id: 2,
@@ -25,7 +82,7 @@ export default function ProfilePage() {
       date: "Apr 16, 2024",
       expires: "This credential does not expire",
       credentialId: "a7e1f34c-2223-431c-8cd9-9d2dc22bcc11",
-      image: "/images/badge2.png",
+      image: "🌐",
     },
     {
       id: 3,
@@ -35,7 +92,7 @@ export default function ProfilePage() {
       date: "Nov 26, 2024",
       expires: "This credential does not expire",
       credentialId: "c8f4d44a-3333-555c-9cd9-1a2bc22bcc55",
-      image: "/images/badge3.png",
+      image: "🛡️",
     },
   ];
 
@@ -44,17 +101,28 @@ export default function ProfilePage() {
     { id: 2, name: "Application Security", evidence: "1 source of skill evidence" },
   ];
 
+  const handleCopyUrl = () => {
+    navigator.clipboard.writeText(profileUrl);
+    alert('Profile URL copied to clipboard!');
+  };
+
+  if (loading) {
+    return <div className="profile-page">Loading profile...</div>;
+  }
+
   return (
     <div className="profile-page">
       {/* Profile Header */}
       <div className="profile-header">
         <div className="avatar">👤</div>
         <div className="profile-info">
-          <h2>Kyle Justin Tan</h2>
-          <p className="profile-link">https://www.chaincert.com/users/kyle-justin-tan</p>
+          <h2>{userName}</h2>
+          <p className="profile-link">{profileUrl}</p>
           <div className="profile-actions">
-            <button className="link-btn">Edit URL</button> |{" "}
-            <button className="link-btn">Copy URL</button> |{" "}
+            <button className="link-btn">Edit URL</button>
+            <span> | </span>
+            <button className="link-btn" onClick={handleCopyUrl}>Copy URL</button>
+            <span> | </span>
             <button
               className="link-btn"
               onClick={() => window.open("/profile-preview", "_blank")}
@@ -62,17 +130,44 @@ export default function ProfilePage() {
               Preview Public Profile
             </button>
           </div>
+                {summary && (
+            <div className="profile-summary-display">
+              <p>{summary}</p>
+            </div>
+          )}
         </div>
         <div className="edit-btn">
-          <button>Edit</button>
+          <button>Edit Profile</button>
         </div>
       </div>
 
+      {/* Account Information */}
+      <section className="profile-section">
+        <h3>Account Information</h3>
+        <div className="info-grid">
+          <div className="info-item">
+            <label>Full Name</label>
+            <span>{userName}</span>
+          </div>
+          <div className="info-item">
+            <label>Email Address</label>
+            <span>{userEmail}</span>
+          </div>
+          <div className="info-item">
+            <label>Account Role</label>
+            <span className="role-badge">{userRole}</span>
+          </div>
+          <div className="info-item">
+            <label>User ID</label>
+            <span className="user-id">{userId || 'N/A'}</span>
+          </div>
+        </div>
+      </section>
+
       {/* Profile Summary */}
       <section className="profile-section">
-        <h3>Profile</h3>
+        <h3>Personal Summary</h3>
         <div className="summary-box">
-          <label>Personal Summary</label>
           <textarea
             value={summary}
             onChange={(e) => setSummary(e.target.value)}
@@ -80,9 +175,9 @@ export default function ProfilePage() {
             maxLength={600}
           />
           <div className="summary-footer">
-            <span>{summary.length} / 600 characters</span>
+            <span className="char-count">{summary.length} / 600 characters</span>
             <div className="visibility-toggle">
-              <label>Allow my profile to be publicly visible</label>
+              <label>Public Profile</label>
               <input
                 type="checkbox"
                 checked={isPublic}
@@ -90,7 +185,18 @@ export default function ProfilePage() {
               />
             </div>
           </div>
-          <button className="save-btn">Save</button>
+          <button 
+            className="save-btn" 
+            onClick={handleSaveProfile}
+            disabled={isSaving}
+          >
+            {isSaving ? 'Saving...' : 'Save Changes'}
+          </button>
+          {saveMessage && (
+            <div className={`save-message ${saveMessage.includes('✅') ? 'success' : 'error'}`}>
+              {saveMessage}
+            </div>
+          )}
         </div>
       </section>
 
@@ -98,7 +204,7 @@ export default function ProfilePage() {
       <section className="profile-section">
         <div className="section-header">
           <h3>Badge Wallet</h3>
-          <button className="secondary-btn">+ Upload Other Badges</button>
+          <button className="secondary-btn">+ Upload Badge</button>
         </div>
         <div className="badges">
           {badges.map((badge) => (
@@ -107,9 +213,10 @@ export default function ProfilePage() {
               className="badge-card"
               onClick={() => setSelectedBadge(badge)}
             >
-              <img src={badge.image} alt={badge.title} className="badge-image" />
+              <div className="badge-image">{badge.image}</div>
               <h4>{badge.title}</h4>
-              <p>{badge.date}</p>
+              <p className="badge-date">{badge.date}</p>
+              <p className="badge-issuer">Issued by {badge.issuer}</p>
             </div>
           ))}
         </div>
@@ -119,14 +226,16 @@ export default function ProfilePage() {
       <section className="profile-section">
         <div className="section-header">
           <h3>Skills Wallet</h3>
-          <button className="secondary-btn">+ Add Skills</button>
+          <button className="secondary-btn">+ Add Skill</button>
         </div>
         <div className="skills">
           {skills.map((skill) => (
             <div key={skill.id} className="skill-card">
-              <h4>{skill.name}</h4>
-              <p>{skill.evidence}</p>
-              <button className="small-btn">Reorder/Edit</button>
+              <div className="skill-info">
+                <h4>{skill.name}</h4>
+                <p>{skill.evidence}</p>
+              </div>
+              <button className="small-btn">Edit</button>
             </div>
           ))}
         </div>
@@ -143,40 +252,17 @@ export default function ProfilePage() {
               </button>
             </div>
             <div className="modal-body">
-              <img
-                src={selectedBadge.image}
-                alt={selectedBadge.title}
-                className="modal-img"
-              />
+              <div className="modal-badge-image">{selectedBadge.image}</div>
               <h4>{selectedBadge.title}</h4>
-              <p>
-                <strong>Issuing Organization:</strong> {selectedBadge.issuer}
-              </p>
-              <p>
-                <strong>Description:</strong> {selectedBadge.description}
-              </p>
-              <p>
-                <strong>Issuing Date:</strong> {selectedBadge.date}
-              </p>
-              <p>
-                <strong>Expiration Date:</strong> {selectedBadge.expires}
-              </p>
-              <p>
-                <strong>Credential ID:</strong> {selectedBadge.credentialId}
-              </p>
-              <p>
-                <strong>Credential URL:</strong>{" "}
-                <a
-                  href={`/badge-details/${selectedBadge.id}`}
-                  target="_blank"
-                  rel="noreferrer"
-                >
-                  See Badge Details Page
-                </a>
-              </p>
+              <div className="modal-details">
+                <p><strong>Issuing Organization:</strong> {selectedBadge.issuer}</p>
+                <p><strong>Description:</strong> {selectedBadge.description}</p>
+                <p><strong>Issuing Date:</strong> {selectedBadge.date}</p>
+                <p><strong>Expiration Date:</strong> {selectedBadge.expires}</p>
+                <p><strong>Credential ID:</strong> {selectedBadge.credentialId}</p>
+              </div>
             </div>
             <div className="modal-footer">
-              {/* ✅ Opens shareCredentialPage */}
               <button
                 className="share-btn"
                 onClick={() =>

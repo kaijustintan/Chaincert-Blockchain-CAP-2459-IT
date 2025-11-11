@@ -1,5 +1,7 @@
 import axios from './axiosInstance';
 
+const API_BASE_URL = 'http://localhost:4000/api'; // ADDED THIS FOR THE CHANGE PASSWORD
+
 const apiService = {
   // Health check
   healthCheck: async () => {
@@ -12,7 +14,134 @@ const apiService = {
     }
   },
 
-  // Get ALL credentials ← NEW FUNCTION
+  // User Registration
+  registerUser: async (userData) => {
+    try {
+      const response = await axios.post('/register', userData);
+      return response.data;
+    } catch (error) {
+      console.error('User registration failed:', error);
+      throw error;
+    }
+  },
+
+  // User Login
+  login: async (credentials) => {
+    try {
+      const response = await axios.post('/login', credentials);
+      return response.data;
+    } catch (error) {
+      console.error('Login failed:', error);
+      throw error;
+    }
+  },
+
+  // ========== NEW ISSUER METHODS ==========
+  
+  // Issuer Registration - FIXED: Accept pre-built FormData
+  registerIssuer: async (formData) => {
+    try {
+      // formData is already built by the component
+      // Just send it directly - axios will handle FormData automatically
+      const response = await axios.post('/register-issuer', formData);
+      return response.data;
+    } catch (error) {
+      console.error('Issuer registration failed:', error);
+      throw error;
+    }
+  },
+
+  // Issuer Login
+  loginIssuer: async (credentials) => {
+    try {
+      const response = await axios.post('/login-issuer', credentials);
+      return response.data;
+    } catch (error) {
+      console.error('Issuer login failed:', error);
+      throw error;
+    }
+  },
+
+  // NEWLY ADDED - OLOPS
+  changePassword: async (passwordData) => {
+    try {
+      const response = await axios.post(`${API_BASE_URL}/auth/change-password`, {
+        email: passwordData.email,
+        currentPassword: passwordData.currentPassword,
+        newPassword: passwordData.newPassword
+      });
+      return response.data;
+    } catch (error) {
+      console.error('Error changing password:', error);
+      throw error;
+    }
+  },
+
+  // Profile Summary 
+  updateProfile: async (profileData) => {
+    try {
+      const response = await axios.post('/auth/update-profile', {
+        userId: profileData.userId,
+        summary: profileData.summary,
+        isPublic: profileData.isPublic
+      });
+      return response.data;
+    } catch (error) {
+      console.error('Error updating profile:', error);
+      throw error;
+    }
+  },
+
+  // Edited this for Profile Summary Display
+  getUserInfo: async (userId) => {
+    try {
+      const response = await axios.get(`/auth/user/${userId}`);
+      return response.data;
+    } catch (error) {
+      console.error('Error getting user info:', error);
+      throw error;
+    }
+  },
+
+  // ✅ FIXED: Get Pending Issuers (Admin) - Returns full response
+  getPendingIssuers: async () => {
+    try {
+      const response = await axios.get('/pending-issuers');
+      // ✅ Return entire response so adminDashboard.js can access response.data
+      return response.data;
+    } catch (error) {
+      console.error('Error fetching pending issuers:', error);
+      throw error;
+    }
+  },
+
+  // ✅ FIXED: Approve Issuer (Admin) - Added /auth prefix
+  approveIssuer: async (issuerId) => {
+    try {
+      const response = await axios.post(`/auth/approve-issuer/${issuerId}`);
+      return response.data;
+    } catch (error) {
+      console.error('Error approving issuer:', error);
+      throw error;
+    }
+  },
+
+  // ✅ FIXED: Reject Issuer (Admin) - Added /auth prefix
+  rejectIssuer: async (issuerId, rejectionReason) => {
+    try {
+      const response = await axios.post(`/auth/reject-issuer/${issuerId}`, {
+        rejectionReason
+      });
+      return response.data;
+    } catch (error) {
+      console.error('Error rejecting issuer:', error);
+      throw error;
+    }
+  },
+
+  // ========== EXISTING CREDENTIAL METHODS ==========
+  
+  // Get ALL credentials
   getAllCredentials: async () => {
     try {
       const response = await axios.get('/credentials');
@@ -43,6 +172,7 @@ const apiService = {
       console.error('Error fetching credentials:', error);
       throw error;
     }
+  },
 
   // Get credential by ID
   getCredentialById: async (credentialId) => {
@@ -53,6 +183,7 @@ const apiService = {
       console.error(`Error fetching credential ${credentialId}:`, error);
       throw error;
     }
+  },
 
   // Verify credential
   verifyCredential: async (credentialId) => {
@@ -82,6 +213,7 @@ const apiService = {
       console.error('Error issuing credential:', error);
       throw error;
     }
+  },
 
   // Revoke credential
   revokeCredential: async (credentialId) => {
@@ -92,6 +224,7 @@ const apiService = {
       console.error(`Error revoking credential ${credentialId}:`, error);
       throw error;
     }
+  },
 
   // Get credential history
   getCredentialHistory: async (credentialId) => {
@@ -105,4 +238,4 @@ const apiService = {
   }
 };
 
-export default ApiService;
+export default apiService;

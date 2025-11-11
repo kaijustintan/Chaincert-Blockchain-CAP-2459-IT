@@ -345,7 +345,6 @@ module.exports = {
   getUser,
   updateUser, // ← NEWLY ADDED - OLOPS
   updateProfile,  // ← NEWLY ADDED - OLOPS
-  getAllOrganizations,
   getAllUsers,
   checkIfOrgAccredited,  // ✅ EXPORT NEW FUNCTION
   createIssuerRegistration,

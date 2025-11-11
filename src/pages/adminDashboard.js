@@ -10,31 +10,26 @@ export default function AdminDashboard() {
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState("");
 
-  // ✅ Fetch pending issuers on component load
+  // Fetch pending issuers on component load
   useEffect(() => {
     fetchPendingIssuers();
   }, []);
 
-  // ✅ FIXED: Proper data handling from API response
+  // Proper data handling from API response
   const fetchPendingIssuers = async () => {
     try {
       setLoading(true);
       const response = await apiService.getPendingIssuers();
-      
-      // ✅ Handle API response structure: { success: true, data: [...] }
       const allIssuers = Array.isArray(response.data) ? response.data : [];
-      
       // Separate into pending and approved
       const pending = allIssuers.filter(issuer => issuer.status === "pending");
       const approved = allIssuers.filter(issuer => issuer.status === "approved");
-      
       setPendingIssuers(pending);
       setApprovedIssuers(approved);
       setMessage("");
     } catch (error) {
       console.error("Error fetching issuers:", error);
       setMessage("Failed to load issuers");
-      // Set empty arrays on error
       setPendingIssuers([]);
       setApprovedIssuers([]);
     } finally {
@@ -42,7 +37,7 @@ export default function AdminDashboard() {
     }
   };
 
-  // ✅ Approve issuer
+  // Approve issuer
   const handleApproveIssuer = async (issuerId) => {
     try {
       await apiService.approveIssuer(issuerId);
@@ -54,7 +49,7 @@ export default function AdminDashboard() {
     }
   };
 
-  // ✅ Reject issuer
+  // Reject issuer
   const handleRejectIssuer = async (issuerId) => {
     const rejectionReason = prompt("Enter rejection reason (optional):");
     try {
@@ -73,32 +68,32 @@ export default function AdminDashboard() {
 
       {/* Tabs */}
       <div className="admin-tabs">
-        <button 
-          onClick={() => setTab("credentials")} 
+        <button
+          onClick={() => setTab("credentials")}
           className={tab === "credentials" ? "active" : ""}
         >
           Credentials
         </button>
-        <button 
-          onClick={() => setTab("issuers")} 
+        <button
+          onClick={() => setTab("issuers")}
           className={tab === "issuers" ? "active" : ""}
         >
           Manage Issuers
         </button>
-        <button 
-          onClick={() => setTab("verifications")} 
+        <button
+          onClick={() => setTab("verifications")}
           className={tab === "verifications" ? "active" : ""}
         >
           Verifications
         </button>
-        <button 
-          onClick={() => setTab("logs")} 
+        <button
+          onClick={() => setTab("logs")}
           className={tab === "logs" ? "active" : ""}
         >
           Logs
         </button>
-        <button 
-          onClick={() => setTab("settings")} 
+        <button
+          onClick={() => setTab("settings")}
           className={tab === "settings" ? "active" : ""}
         >
           Settings
@@ -126,7 +121,6 @@ export default function AdminDashboard() {
         {tab === "issuers" && (
           <div>
             <h2>Issuer Management</h2>
-            
             {loading ? (
               <p>Loading issuers...</p>
             ) : (
@@ -142,6 +136,7 @@ export default function AdminDashboard() {
                           <th>Contact Name</th>
                           <th>Email</th>
                           <th>Status</th>
+                          <th>Accredited</th>
                           <th>Actions</th>
                         </tr>
                       </thead>
@@ -153,13 +148,20 @@ export default function AdminDashboard() {
                             <td>{issuer.email}</td>
                             <td className="status-pending">{issuer.status}</td>
                             <td>
-                              <button 
+                              {issuer.accredited ? (
+                                <span className="badge green">Yes</span>
+                              ) : (
+                                <span className="badge red">No</span>
+                              )}
+                            </td>
+                            <td>
+                              <button
                                 className="btn-approve"
                                 onClick={() => handleApproveIssuer(issuer._id)}
                               >
                                 ✅ Approve
                               </button>
-                              <button 
+                              <button
                                 className="btn-reject"
                                 onClick={() => handleRejectIssuer(issuer._id)}
                               >
@@ -184,6 +186,7 @@ export default function AdminDashboard() {
                           <th>Contact Name</th>
                           <th>Email</th>
                           <th>Status</th>
+                          <th>Accredited</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -193,6 +196,13 @@ export default function AdminDashboard() {
                             <td>{issuer.contactName}</td>
                             <td>{issuer.email}</td>
                             <td className="status-approved">{issuer.status}</td>
+                            <td>
+                              {issuer.accredited ? (
+                                <span className="badge green">Yes</span>
+                              ) : (
+                                <span className="badge red">No</span>
+                              )}
+                            </td>
                           </tr>
                         ))}
                       </tbody>

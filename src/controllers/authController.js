@@ -1,25 +1,20 @@
-// backend/controllers/authController.js
 const couchDB = require('../couchDB_service');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
+
 
 const authController = {
   // POST /api/auth/register - User registration
   register: async (req, res) => {
     try {
       const { username, email, password, role, org } = req.body;
-
       if (!username || !password || !email) {
         return res.status(400).json({
           success: false,
           message: 'Username, password, and email are required'
         });
       }
-
-      // Hash password
       const hashedPassword = await bcrypt.hash(password, 10);
-
-      // Create user document
       const userData = {
         type: 'user',
         username,
@@ -30,10 +25,7 @@ const authController = {
         createdAt: new Date(),
         isActive: true
       };
-
-      // ✅ CORRECTED: Use saveUser function instead of db.insert
       const result = await couchDB.saveUser(userData);
-
       return res.status(201).json({
         success: true,
         message: 'User registered successfully',
@@ -48,30 +40,25 @@ const authController = {
     }
   },
 
+
   // POST /api/auth/login - User login
   login: async (req, res) => {
     try {
       const { email, password } = req.body;
-
       if (!email || !password) {
         return res.status(400).json({
           success: false,
           message: 'Email and password are required'
         });
       }
-
-      // ✅ CORRECTED: Use getAllUsers function
       const users = await couchDB.getAllUsers();
       const user = users.find(u => u.email === email && u.type === 'user');
-
       if (!user) {
         return res.status(401).json({
           success: false,
           message: 'User not found'
         });
       }
-
-      // Check password
       const passwordMatch = await bcrypt.compare(password, user.password);
       if (!passwordMatch) {
         return res.status(401).json({
@@ -79,8 +66,6 @@ const authController = {
           message: 'Invalid password'
         });
       }
-
-      // Generate JWT token
       const token = jwt.sign(
         {
           userId: user._id,
@@ -91,7 +76,6 @@ const authController = {
         process.env.JWT_SECRET || 'your_jwt_secret',
         { expiresIn: '7d' }
       );
-
       return res.status(200).json({
         success: true,
         message: 'Login successful',
@@ -112,19 +96,18 @@ const authController = {
     }
   },
 
+
   // GET /api/auth/user/:id - Get user info
   getUserInfo: async (req, res) => {
     try {
       const { id } = req.params;
       const user = await couchDB.getUser(id);
-
       if (!user) {
         return res.status(404).json({
           success: false,
           message: 'User not found'
         });
       }
-
       return res.status(200).json({
         success: true,
         user: {
@@ -142,12 +125,12 @@ const authController = {
     }
   },
 
+
   // GET /api/auth/users - Get all users (Admin only)
   getAllUsers: async (req, res) => {
     try {
       const users = await couchDB.getAllUsers();
       const filteredUsers = users.filter(u => u.type === 'user');
-
       return res.status(200).json({
         success: true,
         message: 'Users retrieved successfully',
@@ -162,12 +145,18 @@ const authController = {
     }
   },
 
+
   // ========== ISSUER REGISTRATION ENDPOINTS ==========
+
 
   // POST /api/auth/register-issuer
   registerIssuer: async (req, res) => {
     try {
       const { orgName, contactName, email, password, confirmPassword } = req.body;
+      
+      console.log('=== ISSUER REGISTRATION DEBUG START ===');
+      console.log('[1] Organization Name from request:', orgName);
+
 
       if (!orgName || !contactName || !email || !password) {
         return res.status(400).json({
@@ -175,31 +164,94 @@ const authController = {
           message: 'All fields are required'
         });
       }
-
       if (password !== confirmPassword) {
         return res.status(400).json({
           success: false,
           message: 'Passwords do not match'
         });
       }
-
       const hashedPassword = await bcrypt.hash(password, 10);
 
-      const issuerData = {
-        orgName,
-        contactName,
-        email,
-        password: hashedPassword,
-        documents: req.files || []
-      };
 
-      // ✅ CORRECTED: Use createIssuerRegistration function
-      const result = await couchDB.createIssuerRegistration(issuerData);
+      // Check the accredited_organizations database for accredited status
+      let accredited = false;
+      
+      console.log('[2] Fetching accredited organizations...');
+      const accreditedOrgs = await couchDB.getAllAccreditedOrganizations();
+      
+      console.log('[3] Total accredited orgs found:', accreditedOrgs.length);
+      console.log('[4] Accredited orgs list:');
+      accreditedOrgs.forEach((org, index) => {
+        console.log(`    Org ${index + 1}:`, {
+          _id: org._id,
+          orgName: org.orgName || 'N/A',
+          isAccredited: org.isAccredited,
+          status: org.status
+        });
+      });
+
+
+      if (orgName) {
+        // FIXED: Only use orgName field (not org.name)
+        const inputOrgTrimmed = orgName.trim();
+        console.log('[5] Input org (preserving case):', inputOrgTrimmed);
+
+
+        accredited = accreditedOrgs.some(org => {
+          // ✅ ONLY CHECK orgName field (since both DBs use orgName)
+          const orgNameFromDB = (org.orgName || '').trim();
+          
+          // CASE-INSENSITIVE comparison
+          const nameMatch = orgNameFromDB.toLowerCase() === inputOrgTrimmed.toLowerCase();
+          const isActiveAccredited = org.isAccredited === true && org.status === 'active';
+          
+          const matchResult = nameMatch && isActiveAccredited;
+          
+          console.log(`[6] Checking org "${orgNameFromDB}":`, {
+            orgNameFromDB,
+            inputOrgTrimmed,
+            nameMatch,
+            isActiveAccredited,
+            finalMatch: matchResult
+          });
+          
+          return matchResult;
+        });
+
+
+        console.log('[7] Final accredited value:', accredited);
+      }
+
+
+        const issuerData = {
+      orgName: orgName,
+      contactName: contactName,
+      email: email,
+      password: hashedPassword,
+      documents: req.files || [],
+      accredited: Boolean(accredited) // ✅ FORCE IT TO BOOLEAN
+    };
+
+    console.log('[8] Issuer data being sent to CouchDB - EXPLICIT CHECKS:', {
+      orgName: issuerData.orgName,
+      accredited: issuerData.accredited,
+      accreditedRaw: accredited,
+      accreditedType: typeof issuerData.accredited,
+      fullIssuerData: JSON.stringify(issuerData)
+    });
+
+    const result = await couchDB.createIssuerRegistration(issuerData);
+
+      
+      console.log('[9] Registration result:', result);
+      console.log('=== ISSUER REGISTRATION DEBUG END ===\n');
+
 
       res.status(201).json({
         success: true,
         message: 'Issuer registration submitted successfully',
-        issuerId: result.id
+        issuerId: result.id,
+        accredited: accredited
       });
     } catch (error) {
       console.error('Issuer registration error:', error);
@@ -210,12 +262,11 @@ const authController = {
     }
   },
 
+
   // GET /api/auth/pending-issuers
   getPendingIssuers: async (req, res) => {
     try {
-      // ✅ CORRECTED: Use getPendingIssuers function
       const pendingIssuers = await couchDB.getPendingIssuers();
-
       res.status(200).json({
         success: true,
         data: pendingIssuers
@@ -229,14 +280,12 @@ const authController = {
     }
   },
 
+
   // POST /api/auth/approve-issuer/:issuerId
   approveIssuer: async (req, res) => {
     try {
       const { issuerId } = req.params;
-
-      // ✅ CORRECTED: Use approveIssuer function
       const result = await couchDB.approveIssuer(issuerId, req.user?.id || 'admin');
-
       res.status(200).json({
         success: true,
         message: 'Issuer approved successfully',
@@ -251,15 +300,13 @@ const authController = {
     }
   },
 
+
   // POST /api/auth/reject-issuer/:issuerId
   rejectIssuer: async (req, res) => {
     try {
       const { issuerId } = req.params;
       const { rejectionReason } = req.body;
-
-      // ✅ CORRECTED: Use rejectIssuer function
       const result = await couchDB.rejectIssuer(issuerId, rejectionReason);
-
       res.status(200).json({
         success: true,
         message: 'Issuer rejected',
@@ -274,29 +321,24 @@ const authController = {
     }
   },
 
+
   // POST /api/auth/login-issuer
   loginIssuer: async (req, res) => {
     try {
       const { email, password } = req.body;
-
       if (!email || !password) {
         return res.status(400).json({
           success: false,
           message: 'Email and password are required'
         });
       }
-
-      // ✅ CORRECTED: Use getApprovedIssuer function
       const issuer = await couchDB.getApprovedIssuer(email);
-
       if (!issuer) {
         return res.status(401).json({
           success: false,
           message: 'Issuer not found or not approved yet'
         });
       }
-
-      // Check password
       const passwordMatch = await bcrypt.compare(password, issuer.password);
       if (!passwordMatch) {
         return res.status(401).json({
@@ -304,8 +346,6 @@ const authController = {
           message: 'Invalid password'
         });
       }
-
-      // Generate JWT
       const token = jwt.sign(
         {
           _id: issuer._id,
@@ -316,7 +356,6 @@ const authController = {
         process.env.JWT_SECRET || 'your_jwt_secret',
         { expiresIn: '7d' }
       );
-
       res.status(200).json({
         success: true,
         token,
@@ -336,5 +375,6 @@ const authController = {
     }
   }
 };
+
 
 module.exports = authController;

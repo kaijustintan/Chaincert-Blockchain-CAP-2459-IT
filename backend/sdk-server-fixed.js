@@ -21,6 +21,7 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
+<<<<<<< Updated upstream
 // ✅ Initialize Docker client
 const docker = new Docker({ socketPath: '/var/run/docker.sock' });
 const FABRIC_SAMPLES_PATH = '/home/kaitanz_/fabric-samples';
@@ -65,6 +66,10 @@ app.use('/api/auth', authRoutes);
 
 // SUBJECTIVE - KAI PATH TO CONNECTION PROFILE (Ubuntu/Linux)
 const ccpPath = '/home/kaitanz_/fabric-samples/test-network/organizations/peerOrganizations/org1.example.com/connection-org1.json';
+=======
+// const ccpPath = '/home/kaitanz_/fabric-samples/test-network/organizations/peerOrganizations/org1.example.com/connection-org1.json';
+const ccpPath = '/home/polo/fabric-samples-full/test-network/organizations/peerOrganizations/org1.example.com/connection-org1.json';
+>>>>>>> Stashed changes
 const walletPath = path.join(__dirname, 'wallet');
 
 let cachedGateway = null;

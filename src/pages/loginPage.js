@@ -1,11 +1,17 @@
+<<<<<<< Updated upstream
 // frontend/src/pages/loginPage.js
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import apiService from '../services/apiService';
+=======
+import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import ApiService from '../services/apiService';
+>>>>>>> Stashed changes
 import "../styles/loginPage.css";
 
 function LoginPage() {
-  const [email, setEmail] = useState('');
+  const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
@@ -13,6 +19,7 @@ function LoginPage() {
 
   const handleLogin = async (e) => {
     e.preventDefault();
+<<<<<<< Updated upstream
     setError('');
     setLoading(true);
     
@@ -64,6 +71,44 @@ function LoginPage() {
     }
     
     setLoading(false);
+=======
+    setLoading(true);
+    setError('');
+
+    try {
+      console.log("Attempting login with:", username);
+      
+      const response = await ApiService.login(username, password);
+      
+      if (response.success) {
+        console.log("Login successful:", response.user);
+        
+        // Redirect based on user role
+        const user = response.user;
+        switch(user.role) {
+          case 'issuer':
+            navigate('/issuer/dashboard');
+            break;
+          case 'holder':
+            navigate('/student/dashboard');
+            break;
+          case 'verifier':
+            navigate('/verifier/dashboard');
+            break;
+          case 'admin':
+            navigate('/admin/dashboard');
+            break;
+          default:
+            navigate('/dashboard');
+        }
+      }
+    } catch (err) {
+      console.error("Login error:", err);
+      setError('Invalid username or password. Please try again.');
+    } finally {
+      setLoading(false);
+    }
+>>>>>>> Stashed changes
   };
 
   return (
@@ -87,16 +132,32 @@ function LoginPage() {
           <p className="tagline">Secure • Verifiable • Blockchain Credentials</p>
 
           <form className="login-form" onSubmit={handleLogin}>
+            {error && (
+              <div className="error-banner">
+                <span>⚠️</span> {error}
+              </div>
+            )}
+
             <div className="input-group">
-              <label htmlFor="email">Email</label>
+              <label htmlFor="username">Username</label>
               <input
+<<<<<<< Updated upstream
                 type="email"
                 id="email"
                 name="email"
                 placeholder="Enter your email"
                 value={email}
                 onChange={e => setEmail(e.target.value)}
+=======
+                type="text"
+                id="username"
+                name="username"
+                placeholder="Enter your username"
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
+>>>>>>> Stashed changes
                 required
+                disabled={loading}
               />
             </div>
             <div className="input-group">
@@ -109,14 +170,20 @@ function LoginPage() {
                 value={password}
                 onChange={e => setPassword(e.target.value)}
                 required
+                disabled={loading}
               />
             </div>
+<<<<<<< Updated upstream
             {error && <div style={{ color: 'red', marginBottom: '8px' }}>{error}</div>}
             <button 
               type="submit" 
               className="login-btn"
               disabled={loading}
             >
+=======
+
+            <button type="submit" className="login-btn" disabled={loading}>
+>>>>>>> Stashed changes
               {loading ? 'Logging in...' : 'Login'}
             </button>
           </form>
@@ -124,6 +191,12 @@ function LoginPage() {
           <div className="extra-links">
             <a href="/forgot-password">Forgot Password?</a>
             <a href="/register">Create Account</a>
+          </div>
+
+          <div className="demo-credentials">
+            <p><strong>Demo Accounts:</strong></p>
+            <small>Issuer: issuer1 / password123</small><br/>
+            <small>Holder: student1 / password123</small>
           </div>
         </div>
       </div>

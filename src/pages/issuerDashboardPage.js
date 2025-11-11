@@ -48,13 +48,41 @@ export default function IssuerDashboard() {
   const fetchCredentials = async () => {
     try {
       setLoading(true);
+<<<<<<< Updated upstream
       const data = await apiService.getCredentialsByIssuer("ISSUER");
+=======
+      setError(null); // Reset error before fetching
+      
+      // Try to fetch credentials
+      const data = await apiService.getCredentialsByIssuer('ISSUER-DLSU');
+>>>>>>> Stashed changes
       console.log("Fetched credentials:", data);
-      setCredentials(data);
-      setError(null);
+      
+      // Handle different response formats
+      if (Array.isArray(data)) {
+        setCredentials(data);
+      } else if (data && Array.isArray(data.credentials)) {
+        setCredentials(data.credentials);
+      } else if (data && data.data && Array.isArray(data.data)) {
+        setCredentials(data.data);
+      } else {
+        console.warn("Unexpected data format:", data);
+        setCredentials([]);
+      }
     } catch (err) {
       console.error("Error fetching credentials:", err);
-      setError(err.message);
+      
+      // More detailed error message
+      if (err.response) {
+        // The request was made and the server responded with a status code
+        setError(`Server error: ${err.response.status} - ${err.response.data?.message || err.message}`);
+      } else if (err.request) {
+        // The request was made but no response was received
+        setError("No response from server. Make sure backend is running at http://localhost:4000");
+      } else {
+        // Something happened in setting up the request
+        setError(err.message);
+      }
     } finally {
       setLoading(false);
     }
@@ -141,12 +169,40 @@ export default function IssuerDashboard() {
   if (error) {
     return (
       <div className="issuer-dashboard">
+<<<<<<< Updated upstream
         <p style={{ color: "#ff6b6b" }}>
           <strong>Error loading credentials:</strong> {error}
         </p>
         <p style={{ color: "#999" }}>
           Make sure backend is running at http://localhost:4000
         </p>
+=======
+        <h2>Issuer Dashboard</h2>
+        <div style={{ 
+          background: '#f8d7da', 
+          color: '#721c24', 
+          padding: '20px', 
+          borderRadius: '8px', 
+          margin: '20px 0' 
+        }}>
+          <p><strong>Error loading credentials:</strong></p>
+          <p>{error}</p>
+          <button 
+            onClick={fetchCredentials}
+            style={{
+              background: '#721c24',
+              color: 'white',
+              padding: '8px 16px',
+              border: 'none',
+              borderRadius: '4px',
+              cursor: 'pointer',
+              marginTop: '10px'
+            }}
+          >
+            Retry
+          </button>
+        </div>
+>>>>>>> Stashed changes
       </div>
     );
   }
@@ -240,6 +296,7 @@ export default function IssuerDashboard() {
           </p>
         </div>
       ) : (
+<<<<<<< Updated upstream
         <div className="table-container">
           <table className="template-table">
             <thead>
@@ -252,6 +309,72 @@ export default function IssuerDashboard() {
                 <th>Issued Date</th>
                 <th>Expiry Date</th>
                 <th>Actions</th>
+=======
+        <table className="template-table">
+          <thead>
+            <tr>
+              <th>Credential ID</th>
+              <th>Holder ID</th>
+              <th>Credential Type</th>
+              <th>Metadata</th>
+              <th>Status</th>
+              <th>Issued Date</th>
+              <th>Expiry Date</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            {credentials.map((credential) => (
+              <tr key={credential.id}>
+                <td><strong>{credential.id}</strong></td>
+                <td>{credential.holderID || 'N/A'}</td>
+                <td>{credential.credentialType || 'N/A'}</td>
+                <td>{credential.metadata || 'N/A'}</td>
+                <td>
+                  <span 
+                    style={{
+                      padding: '4px 8px',
+                      borderRadius: '4px',
+                      fontSize: '12px',
+                      fontWeight: 'bold',
+                      textTransform: 'uppercase',
+                      background: credential.status === 'active' ? '#d4edda' : '#f8d7da',
+                      color: credential.status === 'active' ? '#155724' : '#721c24'
+                    }}
+                  >
+                    {credential.status}
+                  </span>
+                </td>
+                <td>{credential.issuedDate ? new Date(credential.issuedDate).toLocaleDateString() : 'N/A'}</td>
+                <td>{credential.expiryDate ? new Date(credential.expiryDate).toLocaleDateString() : 'N/A'}</td>
+                <td>
+                  {credential.status === 'active' && (
+                    <button
+                      onClick={() => {
+                        if (window.confirm(`Revoke credential ${credential.id}?`)) {
+                          apiService.revokeCredential(credential.id)
+                            .then(() => {
+                              alert('Credential revoked successfully!');
+                              fetchCredentials();
+                            })
+                            .catch(err => alert('Failed to revoke: ' + err.message));
+                        }
+                      }}
+                      style={{
+                        background: '#dc3545',
+                        color: 'white',
+                        padding: '6px 12px',
+                        border: 'none',
+                        borderRadius: '4px',
+                        cursor: 'pointer',
+                        fontSize: '12px'
+                      }}
+                    >
+                      Revoke
+                    </button>
+                  )}
+                </td>
+>>>>>>> Stashed changes
               </tr>
             </thead>
             <tbody>

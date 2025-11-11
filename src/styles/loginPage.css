@@ -163,3 +163,61 @@
 .extra-links a:hover {
   text-decoration: underline;
 }
+
+/* Error banner styling */
+.error-banner {
+    background: linear-gradient(135deg, #ff6b6b, #ee5a6f);
+    color: white;
+    padding: 12px 16px;
+    border-radius: 8px;
+    margin-bottom: 20px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 14px;
+    animation: shake 0.3s ease;
+}
+
+.error-banner span {
+    font-size: 18px;
+}
+
+@keyframes shake {
+    0%, 100% { transform: translateX(0); }
+    25% { transform: translateX(-10px); }
+    75% { transform: translateX(10px); }
+}
+
+/* Loading state for button */
+.login-btn:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+/* Input disabled state */
+.input-group input:disabled {
+    background-color: #f5f5f5;
+    cursor: not-allowed;
+}
+
+/* Demo credentials section */
+.demo-credentials {
+    margin-top: 20px;
+    padding: 15px;
+    background: #f8f9fa;
+    border-radius: 8px;
+    text-align: center;
+}
+
+.demo-credentials p {
+    margin: 0 0 8px 0;
+    color: #333;
+    font-size: 14px;
+}
+
+.demo-credentials small {
+    color: #666;
+    font-size: 12px;
+    display: block;
+    margin: 4px 0;
+}

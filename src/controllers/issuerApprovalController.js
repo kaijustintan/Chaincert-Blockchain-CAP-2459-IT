@@ -36,7 +36,7 @@ const approveIssuer = async (req, res) => {
         await couchdb.initializeDatabases();
 
         // Update status to 'approved'
-        const db = couchdb.couch.use('issuer_registrations');
+        const db = couchdb.couch.use('issuers');
         const updatedIssuer = await db.get(issuer._id);
         updatedIssuer.status = 'approved';
         updatedIssuer.deploymentInfo = deployment;
@@ -56,7 +56,7 @@ const approveIssuer = async (req, res) => {
         // Initialize databases first
         await couchdb.initializeDatabases();
 
-        const db = couchdb.couch.use('issuer_registrations');
+        const db = couchdb.couch.use('issuers');
         const failedIssuer = await db.get(issuer._id);
         failedIssuer.status = 'failed';
         failedIssuer.deploymentError = error.message;

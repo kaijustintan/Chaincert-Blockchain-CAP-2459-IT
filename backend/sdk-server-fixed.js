@@ -204,12 +204,25 @@ app.post('/api/login', async (req, res) => {
   }
 });
 
-// ========== NEW: Issuer Registration Endpoint
+// ========== NEW: Issuer Registration Endpoint (WITH DEBUG LOGS)
 app.post('/api/register-issuer', upload.single('supportingDocuments'), async (req, res) => {
   try {
     const { orgName, contactName, email, password, confirmPassword } = req.body;
 
+    // ✅ DEBUG LOGS START
+    console.log('\n=== ISSUER REGISTRATION DEBUG START (SDK-SERVER) ===');
+    console.log('[SDK] [1] Organization Name from request:', orgName);
+    console.log('[SDK] [2] Contact Name:', contactName);
+    console.log('[SDK] [3] Email:', email);
+    console.log('[SDK] [4] Password received:', password ? '✅ YES' : '❌ NO');
+    console.log('[SDK] [5] Confirm Password:', confirmPassword ? '✅ YES' : '❌ NO');
+    console.log('[SDK] [6] File uploaded:', req.file ? '✅ YES' : '❌ NO');
+    console.log('[SDK] [7] All request body keys:', Object.keys(req.body));
+    console.log('=== DEBUG END ===\n');
+    // ✅ DEBUG LOGS END
+
     if (!orgName || !contactName || !email || !password) {
+      console.log('[SDK] ❌ VALIDATION FAILED - Missing required fields');
       return res.status(400).json({ 
         success: false, 
         message: 'All fields are required' 
@@ -217,13 +230,16 @@ app.post('/api/register-issuer', upload.single('supportingDocuments'), async (re
     }
 
     if (password !== confirmPassword) {
+      console.log('[SDK] ❌ VALIDATION FAILED - Passwords do not match');
       return res.status(400).json({ 
         success: false, 
         message: 'Passwords do not match' 
       });
     }
 
+    console.log('[SDK] [8] ✅ Validation passed! Hashing password...');
     const hashedPassword = await bcryptjs.hash(password, 10);
+    console.log('[SDK] [9] ✅ Password hashed successfully!');
 
     const issuerData = {
       orgName,
@@ -233,8 +249,11 @@ app.post('/api/register-issuer', upload.single('supportingDocuments'), async (re
       documents: req.file ? [req.file] : []
     };
 
+    console.log('[SDK] [10] Saving to CouchDB...');
     const result = await couchdb.createIssuerRegistration(issuerData);
+    console.log('[SDK] [11] ✅ Saved to CouchDB! ID:', result.id);
     
+    console.log('[SDK] [12] Creating notification...');
     await couchdb.createNotification({
       title: `New Issuer Registration: ${orgName}`,
       message: `${contactName} from ${orgName} is requesting to register.`,
@@ -243,6 +262,9 @@ app.post('/api/register-issuer', upload.single('supportingDocuments'), async (re
       category: 'issuers',
       targetRole: 'admin'
     });
+    console.log('[SDK] [13] ✅ Notification created!');
+
+    console.log('[SDK] ✅✅✅ ISSUER REGISTRATION SUCCESSFUL! ✅✅✅\n');
 
     res.status(201).json({
       success: true,
@@ -250,7 +272,8 @@ app.post('/api/register-issuer', upload.single('supportingDocuments'), async (re
       issuerId: result.id
     });
   } catch (error) {
-    console.error('Issuer registration error:', error);
+    console.error('[SDK] ❌❌❌ ISSUER REGISTRATION ERROR:', error);
+    console.error('[SDK] Error stack:', error.stack);
     res.status(500).json({ 
       success: false, 
       message: error.message 

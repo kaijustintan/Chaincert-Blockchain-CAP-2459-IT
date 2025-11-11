@@ -1,24 +1,22 @@
-// backend/couchDB_service.js
 const nano = require('nano');
 const bcryptjs = require('bcryptjs');
 
 const COUCHDB_URL = 'http://admin:adminpw@localhost:5985';
 const couch = nano(COUCHDB_URL);
 
-let organizationsDb = null;
 let usersDb = null;
 let issuersDB = null;
 let notificationsDb = null;
 let deploymentsDb = null;
-
+let accreditedOrgsDb = null; // List of fully accredited orgs
 
 async function initializeDatabases() {
   try {
-    organizationsDb = couch.use('organizations');
     usersDb = couch.use('users');
     issuersDB = couch.use('issuers');
     notificationsDb = couch.use('notifications');
     deploymentsDb = couch.use('deployments');
+    accreditedOrgsDb = couch.use('accredited_organizations');
     console.log('✅ CouchDB databases selected');
   } catch (error) {
     console.error('⚠️  Error initializing databases:', error.message);
@@ -26,24 +24,13 @@ async function initializeDatabases() {
   }
 }
 
+// User functions
 async function saveUser(user) {
   if (!usersDb) await initializeDatabases();
-  
   if (user.password && !user.password.startsWith('$2b$')) {
     user.password = await bcryptjs.hash(user.password, 10);
   }
-  
   return await usersDb.insert(user);
-}
-
-async function saveOrganization(org) {
-  if (!organizationsDb) await initializeDatabases();
-  return await organizationsDb.insert(org);
-}
-
-async function getOrganization(id) {
-  if (!organizationsDb) await initializeDatabases();
-  return await organizationsDb.get(id);
 }
 
 async function getUser(userId) {
@@ -54,12 +41,6 @@ async function getUser(userId) {
     console.error('Error getting user:', error);
     throw error;
   }
-}
-
-async function getAllOrganizations() {
-  if (!organizationsDb) await initializeDatabases();
-  const result = await organizationsDb.list({ include_docs: true });
-  return result.rows.map(row => row.doc);
 }
 
 async function getAllUsers() {
@@ -113,23 +94,75 @@ async function updateProfile(userId, profileData) {
   }
 }
 
-async function updateOrganization(id, updates) {
-  if (!organizationsDb) await initializeDatabases();
-  const doc = await organizationsDb.get(id);
-  const updated = { ...doc, ...updates };
-  return await organizationsDb.insert(updated);
+// Accredited Organizations
+async function saveAccreditedOrganization(org) {
+  if (!accreditedOrgsDb) await initializeDatabases();
+  return await accreditedOrgsDb.insert(org);
 }
 
-async function deleteOrganization(id) {
-  if (!organizationsDb) await initializeDatabases();
-  const doc = await organizationsDb.get(id);
-  return await organizationsDb.destroy(id, doc._rev);
+async function getAllAccreditedOrganizations() {
+  if (!accreditedOrgsDb) await initializeDatabases();
+  const result = await accreditedOrgsDb.list({ include_docs: true });
+  return result.rows
+    .filter(row => row.doc && !row.id.startsWith('_design/'))
+    .map(row => row.doc);
+}
+
+// ✅ NEW: Check if organization is accredited
+async function checkIfOrgAccredited(orgName) {
+  try {
+    if (!accreditedOrgsDb) await initializeDatabases();
+    
+    console.log(`[COUCHDB] Checking if "${orgName}" is accredited...`);
+
+    // Search for the organization by name (try multiple possible field names)
+    const result = await accreditedOrgsDb.find({
+      selector: {
+        $or: [
+          { organizationName: orgName },
+          { name: orgName },
+          { orgName: orgName }
+        ]
+      },
+      limit: 1
+    });
+
+    if (result.docs && result.docs.length > 0) {
+      console.log(`[COUCHDB] ✅ "${orgName}" is ACCREDITED!`);
+      const accreditedOrg = result.docs[0];
+      return {
+        isAccredited: true,
+        accreditedType: accreditedOrg.type || accreditedOrg.accreditationType || 'Accredited'
+      };
+    } else {
+      console.log(`[COUCHDB] ❌ "${orgName}" is NOT accredited`);
+      return {
+        isAccredited: false,
+        accreditedType: null
+      };
+    }
+  } catch (error) {
+    console.error(`[COUCHDB] Error checking accreditation:`, error.message);
+    return {
+      isAccredited: false,
+      accreditedType: null
+    };
+  }
 }
 
 // ===== ISSUER FUNCTIONS =====
 async function createIssuerRegistration(issuerData) {
   if (!issuersDB) await initializeDatabases();
-  
+
+  console.log('[COUCHDB] Creating issuer registration with data:', {
+    orgName: issuerData.orgName,
+    accredited: issuerData.accredited,
+    accreditedType: typeof issuerData.accredited
+  });
+
+  // ✅ CHECK IF ORG IS ACCREDITED
+  const accreditationCheck = await checkIfOrgAccredited(issuerData.orgName);
+
   const issuerDoc = {
     _id: `issuer_${issuerData.email.replace(/@/g, '_').replace(/\./g, '_')}_${Date.now()}`,
     type: 'issuer_registration',
@@ -139,13 +172,21 @@ async function createIssuerRegistration(issuerData) {
     email: issuerData.email,
     password: issuerData.password,
     documents: issuerData.documents || [],
+    accredited: accreditationCheck.isAccredited,  // ✅ SET FROM CHECK
+    accreditedType: accreditationCheck.accreditedType,  // ✅ SET FROM CHECK
     status: 'pending',
     createdAt: new Date().toISOString(),
     approvedAt: null,
     approvedBy: null,
     rejectionReason: null
   };
-  
+
+  console.log('[COUCHDB] Final issuer doc before insert:', {
+    _id: issuerDoc._id,
+    accredited: issuerDoc.accredited,
+    accreditedType: issuerDoc.accreditedType
+  });
+
   return await issuersDB.insert(issuerDoc);
 }
 
@@ -168,27 +209,27 @@ async function getIssuerById(issuerId) {
 
 async function approveIssuer(issuerId, adminId) {
   if (!issuersDB) await initializeDatabases();
-  
+
   console.log(`[COUCHDB] Approving issuer: ${issuerId}`);
-  
+
   const issuerDoc = await issuersDB.get(issuerId);
-  
+
   console.log(`[COUCHDB] Retrieved issuer:`, {
     _id: issuerDoc._id,
     contactName: issuerDoc.contactName,
     email: issuerDoc.email,
     orgName: issuerDoc.orgName
   });
-  
+
   issuerDoc.status = 'deploying';
   issuerDoc.approvedBy = adminId;
   issuerDoc.approvedAt = new Date().toISOString();
   issuerDoc.deployStartTime = new Date().toISOString();
-  
+
   await issuersDB.insert(issuerDoc);
-  
+
   console.log(`[COUCHDB] Issuer status updated to 'deploying'`);
-  
+
   return {
     _id: issuerDoc._id,
     contactName: issuerDoc.contactName,
@@ -220,9 +261,10 @@ async function getApprovedIssuer(email) {
   return result.docs.length > 0 ? result.docs[0] : null;
 }
 
+// ===== NOTIFICATION FUNCTIONS =====
 async function createNotification(notificationData) {
   if (!notificationsDb) await initializeDatabases();
-  
+
   const notification = {
     _id: `notif_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
     type: 'notification',
@@ -235,7 +277,7 @@ async function createNotification(notificationData) {
     read: false,
     targetRole: notificationData.targetRole || 'admin'
   };
-  
+
   return await notificationsDb.insert(notification);
 }
 
@@ -264,9 +306,10 @@ async function markNotificationAsRead(notificationId) {
   return await notificationsDb.insert(notif);
 }
 
+// ===== DEPLOYMENT FUNCTIONS =====
 async function saveDeploymentInfo(data) {
   if (!deploymentsDb) await initializeDatabases();
-  
+
   const deploymentDoc = {
     _id: `deploy_${data.issuerEmail.replace(/@/g, '_').replace(/\./g, '_')}_${Date.now()}`,
     type: 'deployment',
@@ -278,7 +321,7 @@ async function saveDeploymentInfo(data) {
     status: data.status || 'deployed',
     deployedAt: data.deployedAt || new Date().toISOString()
   };
-  
+
   return await deploymentsDb.insert(deploymentDoc);
 }
 
@@ -296,18 +339,15 @@ async function getDeploymentByEmail(issuerEmail) {
 module.exports = {
   nano,
   couch,
-  issuersDB: issuersDB,  // ✅ Exported for external access
+  issuersDB: issuersDB,
   initializeDatabases,
-  saveOrganization,
   saveUser,
-  getOrganization,
   getUser,
   updateUser, // ← NEWLY ADDED - OLOPS
   updateProfile,  // ← NEWLY ADDED - OLOPS
   getAllOrganizations,
   getAllUsers,
-  updateOrganization,
-  deleteOrganization,
+  checkIfOrgAccredited,  // ✅ EXPORT NEW FUNCTION
   createIssuerRegistration,
   getPendingIssuers,
   getIssuerById,
@@ -319,7 +359,9 @@ module.exports = {
   getUnreadNotifications,
   markNotificationAsRead,
   saveDeploymentInfo,
-  getDeploymentByEmail
+  getDeploymentByEmail,
+  saveAccreditedOrganization,
+  getAllAccreditedOrganizations
 };
 
 

@@ -7,15 +7,16 @@ const couch = nano(COUCHDB_URL);
 
 let organizationsDb = null;
 let usersDb = null;
-let issuerRegistrationsDb = null;
+let issuersDB = null;
 let notificationsDb = null;
 let deploymentsDb = null;
+
 
 async function initializeDatabases() {
   try {
     organizationsDb = couch.use('organizations');
     usersDb = couch.use('users');
-    issuerRegistrationsDb = couch.use('issuer_registrations');
+    issuersDB = couch.use('issuers');
     notificationsDb = couch.use('notifications');
     deploymentsDb = couch.use('deployments');
     console.log('✅ CouchDB databases selected');
@@ -127,7 +128,7 @@ async function deleteOrganization(id) {
 
 // ===== ISSUER FUNCTIONS =====
 async function createIssuerRegistration(issuerData) {
-  if (!issuerRegistrationsDb) await initializeDatabases();
+  if (!issuersDB) await initializeDatabases();
   
   const issuerDoc = {
     _id: `issuer_${issuerData.email.replace(/@/g, '_').replace(/\./g, '_')}_${Date.now()}`,
@@ -145,12 +146,12 @@ async function createIssuerRegistration(issuerData) {
     rejectionReason: null
   };
   
-  return await issuerRegistrationsDb.insert(issuerDoc);
+  return await issuersDB.insert(issuerDoc);
 }
 
 async function getPendingIssuers() {
-  if (!issuerRegistrationsDb) await initializeDatabases();
-  const result = await issuerRegistrationsDb.find({
+  if (!issuersDB) await initializeDatabases();
+  const result = await issuersDB.find({
     selector: {
       type: 'issuer_registration',
       status: 'pending'
@@ -161,16 +162,16 @@ async function getPendingIssuers() {
 }
 
 async function getIssuerById(issuerId) {
-  if (!issuerRegistrationsDb) await initializeDatabases();
-  return await issuerRegistrationsDb.get(issuerId);
+  if (!issuersDB) await initializeDatabases();
+  return await issuersDB.get(issuerId);
 }
 
 async function approveIssuer(issuerId, adminId) {
-  if (!issuerRegistrationsDb) await initializeDatabases();
+  if (!issuersDB) await initializeDatabases();
   
   console.log(`[COUCHDB] Approving issuer: ${issuerId}`);
   
-  const issuerDoc = await issuerRegistrationsDb.get(issuerId);
+  const issuerDoc = await issuersDB.get(issuerId);
   
   console.log(`[COUCHDB] Retrieved issuer:`, {
     _id: issuerDoc._id,
@@ -184,7 +185,7 @@ async function approveIssuer(issuerId, adminId) {
   issuerDoc.approvedAt = new Date().toISOString();
   issuerDoc.deployStartTime = new Date().toISOString();
   
-  await issuerRegistrationsDb.insert(issuerDoc);
+  await issuersDB.insert(issuerDoc);
   
   console.log(`[COUCHDB] Issuer status updated to 'deploying'`);
   
@@ -199,17 +200,17 @@ async function approveIssuer(issuerId, adminId) {
 }
 
 async function rejectIssuer(issuerId, rejectionReason) {
-  if (!issuerRegistrationsDb) await initializeDatabases();
-  const issuerDoc = await issuerRegistrationsDb.get(issuerId);
+  if (!issuersDB) await initializeDatabases();
+  const issuerDoc = await issuersDB.get(issuerId);
   issuerDoc.status = 'rejected';
   issuerDoc.rejectionReason = rejectionReason;
   issuerDoc.rejectedAt = new Date().toISOString();
-  return await issuerRegistrationsDb.insert(issuerDoc);
+  return await issuersDB.insert(issuerDoc);
 }
 
 async function getApprovedIssuer(email) {
-  if (!issuerRegistrationsDb) await initializeDatabases();
-  const result = await issuerRegistrationsDb.find({
+  if (!issuersDB) await initializeDatabases();
+  const result = await issuersDB.find({
     selector: {
       type: 'issuer_registration',
       email: email,
@@ -295,7 +296,7 @@ async function getDeploymentByEmail(issuerEmail) {
 module.exports = {
   nano,
   couch,
-  issuerRegistrationsDb: issuerRegistrationsDb,  // ✅ Exported for external access
+  issuersDB: issuersDB,  // ✅ Exported for external access
   initializeDatabases,
   saveOrganization,
   saveUser,

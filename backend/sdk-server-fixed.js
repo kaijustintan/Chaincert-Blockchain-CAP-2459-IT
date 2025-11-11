@@ -36,7 +36,7 @@ const setupDatabaseIndexes = async () => {
   try {
     await new Promise(resolve => setTimeout(resolve, 1500));
     
-    const db = couchdb.couch.use('issuer_registrations');
+    const db = couchdb.couch.use('issuers');
     
     // ✅ FIX: Added 'createdAt' to index fields for sorting
     await db.createIndex({
@@ -240,7 +240,7 @@ app.post('/api/register-issuer', upload.single('supportingDocuments'), async (re
       message: `${contactName} from ${orgName} is requesting to register.`,
       issuerId: result.id,
       issuerEmail: email,
-      category: 'issuer_registration',
+      category: 'issuers',
       targetRole: 'admin'
     });
 

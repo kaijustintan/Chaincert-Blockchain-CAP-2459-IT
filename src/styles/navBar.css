@@ -15,6 +15,14 @@
   background-clip: text;
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
+  transition: none;
+}
+
+.navbar .logo:hover {
+  background: linear-gradient(90deg, #ff00cc, #3333ff);
+  background-clip: text;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
 }
 
 
@@ -124,8 +132,22 @@
   margin-left: 20px;
   padding: 0;
   display: flex;
+  border-radius: 0;
+  outline: none;
+  box-shadow: none;
 }
 
+.profile-btn:hover {
+  background: none;
+  background-color: transparent;
+  outline: none;
+  box-shadow: none;
+}
+
+.profile-btn:focus {
+  outline: none;
+  box-shadow: none;
+}
 
 .profile-icon {
   width: 32px;
@@ -139,7 +161,6 @@
   border: 2px solid #fff;
   transition: transform 0.2s;
 }
-
 
 .profile-btn:hover .profile-icon {
   transform: scale(1.1);
@@ -183,7 +204,7 @@
 
 
 .profile-dropdown li:hover {
-  background-color: #222;
+  background-color: transparent;
 }
 
 
@@ -267,9 +288,14 @@
 .logo-link {
   text-decoration: none;
   color: inherit;
+  cursor: pointer;
+  transition: none;
 }
 
-
 .logo-link:hover {
-  opacity: 0.99;
+  color: inherit;
+  background: inherit;
+  background-clip: inherit;
+  -webkit-background-clip: inherit;
+  -webkit-text-fill-color: inherit;
 }

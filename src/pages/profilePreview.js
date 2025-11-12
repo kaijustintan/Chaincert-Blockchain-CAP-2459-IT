@@ -11,6 +11,7 @@ export default function ProfilePreview() {
   const userId = user._id || user.id || '';
 
   const [summary, setSummary] = useState("");
+  const [profilePicture, setProfilePicture] = useState(""); // Added Nov 12 - olops
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -22,6 +23,7 @@ export default function ProfilePreview() {
       const response = await apiService.getUserInfo(userId);
       if (response.success && response.user) {
         setSummary(response.user.summary || '');
+        setProfilePicture(response.user.profilePicture || ''); // Added Nov 12 - olops
       }
     } catch (error) {
       console.error('Error loading profile:', error);
@@ -72,7 +74,17 @@ export default function ProfilePreview() {
     <div className="profile-preview">
       {/* Header */}
       <div className="preview-header">
-        <div className="avatar">👤</div>
+        <div className="avatar">
+          {profilePicture ? (
+            <img 
+              src={`http://localhost:4000${profilePicture}`} 
+              alt="Profile" 
+              className="avatar-img" 
+            />
+          ) : (
+            '👤'
+          )}
+        </div>
         <h2>{userName}</h2>
         <p className="user-role">{userRole}</p>
         {summary && (

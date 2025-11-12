@@ -336,6 +336,19 @@ async function getDeploymentByEmail(issuerEmail) {
   return result.docs.length > 0 ? result.docs[0] : null;
 }
 
+async function updateProfilePicture(userId, imageUrl) {
+  try {
+    const user = await usersDb.get(userId);
+    user.profilePicture = imageUrl;
+    const result = await usersDb.insert(user);
+    console.log('Profile picture updated:', result);
+    return result;
+  } catch (error) {
+    console.error('Error updating profile picture:', error);
+    throw error;
+  }
+}
+
 module.exports = {
   nano,
   couch,
@@ -345,6 +358,7 @@ module.exports = {
   getUser,
   updateUser, // ← NEWLY ADDED - OLOPS
   updateProfile,  // ← NEWLY ADDED - OLOPS
+  updateProfilePicture, // ← NEWLY ADDED - For profile pic
   getAllUsers,
   checkIfOrgAccredited,  // ✅ EXPORT NEW FUNCTION
   createIssuerRegistration,

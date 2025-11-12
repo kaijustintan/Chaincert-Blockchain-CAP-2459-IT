@@ -235,7 +235,42 @@ const apiService = {
       console.error(`Error fetching history for ${credentialId}:`, error);
       throw error;
     }
+  },
+
+  // NEWLY ADDED - Nov 12 - OLOP
+  uploadProfilePicture: async (file, userId) => {
+    try {
+      const formData = new FormData();
+      formData.append('profilePicture', file);
+      formData.append('userId', userId);
+
+      const response = await axios.post('/upload/profile-picture', formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data'
+        }
+      });
+      return response.data;
+    } catch (error) {
+      console.error('Error uploading profile picture:', error);
+      throw error;
+    }
+  },
+
+  // NEWLY ADDED - Nov 12 - OLOP
+  updateProfilePicture: async (userId, imageUrl) => {
+    try {
+      const response = await axios.post('/auth/update-profile-picture', {
+        userId,
+        imageUrl
+      });
+      return response.data;
+    } catch (error) {
+      console.error('Error updating profile picture:', error);
+      throw error;
+    }
   }
 };
+
+
 
 export default apiService;

@@ -8,6 +8,7 @@ const jwt = require('jsonwebtoken');
 const bcryptjs = require('bcryptjs');
 const multer = require('multer');
 const Docker = require('dockerode');
+const uploadRoutes = require('./routes/uploadRoutes'); // NEWLY ADDED - OLOPS
 
 const JWT_SECRET = process.env.JWT_SECRET || 'dev_secret_key';
 
@@ -20,6 +21,9 @@ const couchdb = require('./couchDB_service');
 const app = express();
 app.use(cors());
 app.use(express.json());
+// To serve upload files - NEWLY ADDED - OLOPS
+app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+app.use('/api/upload', uploadRoutes);
 
 // ✅ Initialize Docker client
 const docker = new Docker({ socketPath: '/var/run/docker.sock' });

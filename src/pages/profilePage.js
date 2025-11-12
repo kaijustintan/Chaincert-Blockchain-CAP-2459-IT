@@ -16,6 +16,9 @@ export default function ProfilePage() {
   const [loading, setLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [saveMessage, setSaveMessage] = useState('');
+  const [profilePicture, setProfilePicture] = useState(null);
+  const [profilePicturePreview, setProfilePicturePreview] = useState(null);
+  const [uploadingImage, setUploadingImage] = useState(false);
 
   // Generate profile URL based on username
   const profileUrl = `https://www.chaincert.com/users/${userName.toLowerCase().replace(/\s+/g, '-')}`;
@@ -36,6 +39,72 @@ export default function ProfilePage() {
       console.error('Error loading profile:', error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleProfilePictureChange = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      // Validate file size (max 5MB)
+      if (file.size > 5 * 1024 * 1024) {
+        setSaveMessage('❌ Image must be less than 5MB');
+        setTimeout(() => setSaveMessage(''), 3000);
+        return;
+      }
+
+      // Validate file type
+      if (!file.type.startsWith('image/')) {
+        setSaveMessage('❌ Please upload an image file');
+        setTimeout(() => setSaveMessage(''), 3000);
+        return;
+      }
+
+      setProfilePicture(file);
+      
+      // Create preview
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setProfilePicturePreview(reader.result);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const handleUploadProfilePicture = async () => {
+    if (!profilePicture) {
+      setSaveMessage('❌ Please select an image first');
+      setTimeout(() => setSaveMessage(''), 3000);
+      return;
+    }
+
+    try {
+      setUploadingImage(true);
+      setSaveMessage('');
+
+      // Upload image
+      const uploadResponse = await apiService.uploadProfilePicture(profilePicture, userId);
+      
+      if (uploadResponse.success) {
+        // Update user profile with image URL
+        await apiService.updateProfilePicture(userId, uploadResponse.imageUrl);
+        
+        // Update local state
+        const updatedUser = JSON.parse(localStorage.getItem('user') || '{}');
+        updatedUser.profilePicture = uploadResponse.imageUrl;
+        localStorage.setItem('user', JSON.stringify(updatedUser));
+
+        setSaveMessage('✅ Profile picture updated successfully!');
+        setTimeout(() => {
+          setSaveMessage('');
+          window.location.reload(); // Reload to show new picture
+        }, 1500);
+      }
+    } catch (error) {
+      console.error('Error uploading profile picture:', error);
+      setSaveMessage('❌ Failed to upload profile picture');
+      setTimeout(() => setSaveMessage(''), 3000);
+    } finally {
+      setUploadingImage(false);
     }
   };
 
@@ -116,7 +185,41 @@ export default function ProfilePage() {
     <div className="profile-page">
       {/* Profile Header */}
       <div className="profile-header">
-        <div className="avatar">👤</div>
+        {/* ========== UPDATED AVATAR SECTION ========== */}
+        <div className="avatar-section">
+          <div className="avatar">
+            {profilePicturePreview ? (
+              <img src={profilePicturePreview} alt="Profile Preview" className="avatar-img" />
+            ) : user.profilePicture ? (
+              <img src={`http://localhost:4000${user.profilePicture}`} alt="Profile" className="avatar-img" />
+            ) : (
+              '👤'
+            )}
+          </div>
+          <div className="avatar-upload">
+            <input
+              type="file"
+              id="profile-picture-input"
+              accept="image/*"
+              onChange={handleProfilePictureChange}
+              style={{ display: 'none' }}
+            />
+            <label htmlFor="profile-picture-input" className="upload-btn">
+              📷 Change Photo
+            </label>
+            {profilePicture && (
+              <button 
+                className="upload-confirm-btn" 
+                onClick={handleUploadProfilePicture}
+                disabled={uploadingImage}
+              >
+                {uploadingImage ? 'Uploading...' : '✓ Upload'}
+              </button>
+            )}
+          </div>
+        </div>
+        {/* ========== END AVATAR SECTION ========== */}
+        
         <div className="profile-info">
           <h2>{userName}</h2>
           <p className="profile-link">{profileUrl}</p>
@@ -132,7 +235,7 @@ export default function ProfilePage() {
               Preview Public Profile
             </button>
           </div>
-                {summary && (
+          {summary && (
             <div className="profile-summary-display">
               <p>{summary}</p>
             </div>
@@ -210,11 +313,11 @@ export default function ProfilePage() {
           <button className="secondary-btn">+ Upload Badge</button>
         </div>
         
-        <div className="badges-grid">
+        <div className="badges">
           {badges.map((badge) => (
             <div
               key={badge.id}
-              className="badge-card-enhanced"
+              className="badge-card"
               onClick={() => setSelectedBadge(badge)}
             >
               <div className="badge-image">{badge.image}</div>
@@ -223,15 +326,6 @@ export default function ProfilePage() {
               <p className="badge-issuer">Issued by {badge.issuer}</p>
             </div>
           ))}
-          
-          {/* Add New Badge Card */}
-          <div className="badge-card-enhanced add-new">
-            <div className="add-new-content">
-              <span className="add-icon">➕</span>
-              <h3>Add New Badge</h3>
-              <p>Upload external credentials</p>
-            </div>
-          </div>
         </div>
       </section>
 
@@ -242,7 +336,7 @@ export default function ProfilePage() {
           <button className="secondary-btn">+ Add Skill</button>
         </div>
         
-        <div className="skills-grid">
+        <div className="skills">
           {skills.map((skill) => (
             <div key={skill.id} className="skill-card">
               <div className="skill-info">

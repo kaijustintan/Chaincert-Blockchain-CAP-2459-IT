@@ -27,7 +27,7 @@ app.use('/api/upload', uploadRoutes);
 
 // ✅ Initialize Docker client
 const docker = new Docker({ socketPath: '/var/run/docker.sock' });
-const FABRIC_SAMPLES_PATH = '/home/kaitanz_/fabric-samples';
+const FABRIC_SAMPLES_PATH = path.resolve(__dirname, '..', 'fabric-samples', 'fabric-samples');
 const CORE_YAML_PATH = `${FABRIC_SAMPLES_PATH}/config/core.yaml`;
 
 // ✅ Initialize CouchDB on server startup
@@ -53,7 +53,7 @@ const setupDatabaseIndexes = async () => {
 
     console.log('✅ Database indexes created successfully');
   } catch (error) {
-    if (error.statusCode === 409 || error.message.includes('already')) {
+    if (error.statusCode === 409 || (error.message || '').includes('already')) {
       console.log('✅ Indexes already exist');
     } else {
       console.error('⚠️  Index creation error:', error.message);
@@ -68,11 +68,22 @@ const authRoutes = require('./routes/authRoutes');
 app.use('/api/auth', authRoutes);
 
 // SUBJECTIVE - KAI PATH TO CONNECTION PROFILE (Ubuntu/Linux)
-const ccpPath = '/home/kaitanz_/fabric-samples/test-network/organizations/peerOrganizations/org1.example.com/connection-org1.json';
+const ccpPath = path.resolve(
+  __dirname,
+  '..',
+  'fabric-samples',
+  'fabric-samples',
+  'test-network',
+  'organizations',
+  'peerOrganizations',
+  'org1.example.com',
+  'connection-org1.json'
+);
 // const ccpPath = '/home/kaitanz_/fabric-samples/test-network/organizations/peerOrganizations/org1.example.com/connection-org1.json';
-
 // const ccpPath = '/home/polo/fabric-samples-full/test-network/organizations/peerOrganizations/org1.example.com/connection-org1.json';
-// const walletPath = path.join(__dirname, 'wallet');
+
+// ✅ RESTORED: walletPath (was commented out but used below)
+const walletPath = path.join(__dirname, 'wallet');
 
 let cachedGateway = null;
 let lastConnectionTime = 0;
@@ -211,83 +222,6 @@ app.post('/api/login', async (req, res) => {
   }
 });
 
-// ========== NEW: Issuer Registration Endpoint (WITH DEBUG LOGS)
-app.post('/api/register-issuer', upload.single('supportingDocuments'), async (req, res) => {
-  try {
-    const { orgName, contactName, email, password, confirmPassword } = req.body;
-
-    // ✅ DEBUG LOGS START
-    console.log('\n=== ISSUER REGISTRATION DEBUG START (SDK-SERVER) ===');
-    console.log('[SDK] [1] Organization Name from request:', orgName);
-    console.log('[SDK] [2] Contact Name:', contactName);
-    console.log('[SDK] [3] Email:', email);
-    console.log('[SDK] [4] Password received:', password ? '✅ YES' : '❌ NO');
-    console.log('[SDK] [5] Confirm Password:', confirmPassword ? '✅ YES' : '❌ NO');
-    console.log('[SDK] [6] File uploaded:', req.file ? '✅ YES' : '❌ NO');
-    console.log('[SDK] [7] All request body keys:', Object.keys(req.body));
-    console.log('=== DEBUG END ===\n');
-    // ✅ DEBUG LOGS END
-
-    if (!orgName || !contactName || !email || !password) {
-      console.log('[SDK] ❌ VALIDATION FAILED - Missing required fields');
-      return res.status(400).json({ 
-        success: false, 
-        message: 'All fields are required' 
-      });
-    }
-
-    if (password !== confirmPassword) {
-      console.log('[SDK] ❌ VALIDATION FAILED - Passwords do not match');
-      return res.status(400).json({ 
-        success: false, 
-        message: 'Passwords do not match' 
-      });
-    }
-
-    console.log('[SDK] [8] ✅ Validation passed! Hashing password...');
-    const hashedPassword = await bcryptjs.hash(password, 10);
-    console.log('[SDK] [9] ✅ Password hashed successfully!');
-
-    const issuerData = {
-      orgName,
-      contactName,
-      email,
-      password: hashedPassword,
-      documents: req.file ? [req.file] : []
-    };
-
-    console.log('[SDK] [10] Saving to CouchDB...');
-    const result = await couchdb.createIssuerRegistration(issuerData);
-    console.log('[SDK] [11] ✅ Saved to CouchDB! ID:', result.id);
-    
-    console.log('[SDK] [12] Creating notification...');
-    await couchdb.createNotification({
-      title: `New Issuer Registration: ${orgName}`,
-      message: `${contactName} from ${orgName} is requesting to register.`,
-      issuerId: result.id,
-      issuerEmail: email,
-      category: 'issuers',
-      targetRole: 'admin'
-    });
-    console.log('[SDK] [13] ✅ Notification created!');
-
-    console.log('[SDK] ✅✅✅ ISSUER REGISTRATION SUCCESSFUL! ✅✅✅\n');
-
-    res.status(201).json({
-      success: true,
-      message: 'Issuer registration submitted successfully. Awaiting admin approval.',
-      issuerId: result.id
-    });
-  } catch (error) {
-    console.error('[SDK] ❌❌❌ ISSUER REGISTRATION ERROR:', error);
-    console.error('[SDK] Error stack:', error.stack);
-    res.status(500).json({ 
-      success: false, 
-      message: error.message 
-    });
-  }
-});
-
 // ========== OPTIMIZED: Issuer Login Endpoint (No brute force, password hashed)
 app.post('/api/login-issuer', async (req, res) => {
   try {
@@ -369,131 +303,6 @@ app.get('/api/pending-issuers', async (req, res) => {
   }
 });
 
-// ========== NEW: Deploy Issuer Peer Dynamically (With CouchDB + core.yaml)
-app.post('/api/deploy-issuer-peer', async (req, res) => {
-  try {
-    const { issuerEmail } = req.body;
-
-    if (!issuerEmail) {
-      return res.status(400).json({ 
-        success: false, 
-        message: 'Issuer email is required' 
-      });
-    }
-
-    // ✅ Convert email to container name (e.g., dlsu@example.com → dlsu_example-com)
-    const sanitizedEmail = issuerEmail.replace(/[@.]/g, (match) => {
-      return match === '@' ? '_' : '-';
-    }).toLowerCase();
-
-    // ✅ Step 1: Start CouchDB first
-    const couchDBName = `couchdb-${sanitizedEmail}`;
-    const couchDBPort = 5984 + Math.floor(Math.random() * 1000);
-
-    console.log(`🔧 [DEPLOY] Starting CouchDB: ${couchDBName} on port ${couchDBPort}`);
-
-    const couchDBContainer = await docker.createContainer({
-      Image: 'couchdb:3.3.2',
-      name: couchDBName,
-      Env: [
-        'COUCHDB_USER=admin',
-        'COUCHDB_PASSWORD=adminpw'
-      ],
-      HostConfig: {
-        PortBindings: {
-          '5984/tcp': [{ HostPort: String(couchDBPort) }]
-        },
-        NetworkMode: 'fabric_test'
-      }
-    });
-
-    await couchDBContainer.start();
-    console.log(`✅ CouchDB started: ${couchDBName}:${couchDBPort}`);
-
-    // ✅ Wait for CouchDB to be ready
-    await new Promise(resolve => setTimeout(resolve, 3000));
-
-    // ✅ Step 2: Start Peer with CouchDB + core.yaml mount
-    const peerName = `peer0.${sanitizedEmail}.example.com`;
-    const peerPort = 7051 + Math.floor(Math.random() * 100);
-
-    const orgPath = `${FABRIC_SAMPLES_PATH}/test-network/organizations/peerOrganizations/${sanitizedEmail}.example.com`;
-    const peerPath = `${orgPath}/peers/${peerName}`;
-
-    console.log(`🔧 [DEPLOY] Starting Peer: ${peerName} on port ${peerPort}`);
-
-    const peerContainer = await docker.createContainer({
-      Image: 'hyperledger/fabric-peer:latest',
-      name: peerName,
-      Hostname: peerName,
-      Env: [
-        `FABRIC_CFG_PATH=/etc/hyperledger/fabric`,
-        `CORE_PEER_ID=${peerName}`,
-        `CORE_PEER_ADDRESS=${peerName}:${peerPort}`,
-        `CORE_PEER_LISTENADDRESS=0.0.0.0:${peerPort}`,
-        `CORE_PEER_CHAINCODEADDRESS=${peerName}:${peerPort + 1}`,
-        `CORE_PEER_CHAINCODELISTENADDRESS=0.0.0.0:${peerPort + 1}`,
-        `CORE_PEER_GOSSIP_BOOTSTRAP=${peerName}:${peerPort}`,
-        `CORE_PEER_GOSSIP_EXTERNALENDPOINT=${peerName}:${peerPort}`,
-        `CORE_PEER_LOCALMSPID=${sanitizedEmail.toUpperCase()}MSP`,
-        `CORE_PEER_MSPCONFIGPATH=/etc/hyperledger/fabric/msp`,
-        `CORE_VM_ENDPOINT=unix:///host/var/run/docker.sock`,
-        `CORE_VM_DOCKER_HOSTCONFIG_NETWORKMODE=fabric_test`,
-        `CORE_LEDGER_STATE_STATEDATABASE=CouchDB`,
-        `CORE_LEDGER_STATE_COUCHDBCONFIG_COUCHDBADDRESS=${couchDBName}:5984`,
-        `CORE_LEDGER_STATE_COUCHDBCONFIG_USERNAME=admin`,
-        `CORE_LEDGER_STATE_COUCHDBCONFIG_PASSWORD=adminpw`,
-        `CORE_PEER_TLS_ENABLED=true`,
-        `CORE_PEER_TLS_CERT_FILE=/etc/hyperledger/fabric/tls/server.crt`,
-        `CORE_PEER_TLS_KEY_FILE=/etc/hyperledger/fabric/tls/server.key`,
-        `CORE_PEER_TLS_ROOTCERT_FILE=/etc/hyperledger/fabric/tls/ca.crt`
-      ],
-      HostConfig: {
-        Binds: [
-          '/var/run/docker.sock:/host/var/run/docker.sock',
-          `${peerPath}/msp:/etc/hyperledger/fabric/msp`,
-          `${peerPath}/tls:/etc/hyperledger/fabric/tls`,
-          `${CORE_YAML_PATH}:/etc/hyperledger/fabric/core.yaml`  // ✅ KEY FIX
-        ],
-        PortBindings: {
-          [`${peerPort}/tcp`]: [{ HostPort: String(peerPort) }],
-          [`${peerPort + 1}/tcp`]: [{ HostPort: String(peerPort + 1) }]
-        },
-        NetworkMode: 'fabric_test'
-      }
-    });
-
-    await peerContainer.start();
-    console.log(`✅ Peer started: ${peerName}:${peerPort}`);
-
-    // ✅ Save deployment info to CouchDB
-    const deploymentInfo = {
-      issuerEmail,
-      peerName,
-      peerPort,
-      couchDBName,
-      couchDBPort,
-      deployedAt: new Date().toISOString(),
-      status: 'deployed'
-    };
-
-    await couchdb.saveDeploymentInfo(deploymentInfo);
-
-    res.status(201).json({
-      success: true,
-      message: `Issuer peer deployed successfully`,
-      deployment: deploymentInfo
-    });
-
-  } catch (error) {
-    console.error('❌ Deployment error:', error.message);
-    res.status(500).json({ 
-      success: false, 
-      message: error.message 
-    });
-  }
-});
-
 // ========== EXISTING: Credential Endpoints
 
 app.get('/api/credentials', async (req, res) => {
@@ -527,7 +336,7 @@ app.post('/api/credentials', async (req, res) => {
         return res.status(201).json({ success: true, credential: JSON.parse(result.toString()) });
       } catch (error) {
         lastError = error;
-        const errorMsg = error.message.toLowerCase();
+        const errorMsg = (error.message || '').toLowerCase();
         console.error(`❌ Attempt ${attempt} failed: ${error.message}`);
         if ((errorMsg.includes('peer endorsement') ||
              errorMsg.includes('do not match') ||
@@ -585,7 +394,7 @@ app.put('/api/credentials/:id/revoke', async (req, res) => {
         return res.json({ success: true, credential: JSON.parse(result.toString()) });
       } catch (error) {
         lastError = error;
-        const errorMsg = error.message.toLowerCase();
+        const errorMsg = (error.message || '').toLowerCase();
         console.error(`❌ Attempt ${attempt} failed: ${error.message}`);
         if ((errorMsg.includes('peer endorsement') ||
              errorMsg.includes('do not match') ||

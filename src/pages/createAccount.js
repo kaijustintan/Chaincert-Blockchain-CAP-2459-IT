@@ -107,55 +107,76 @@ export default function CreateAccount() {
     }
   };
 
-  const submitIssuer = async (e) => {
-    e.preventDefault();
-    setIssuerError("");
-    setIssuerLoading(true);
-    
-    if (issuer.password !== issuer.confirmPassword) {
-      setIssuerError("Issuer passwords do not match.");
+ const submitIssuer = async (e) => {
+  e.preventDefault();
+  setIssuerError("");
+  setIssuerLoading(true);
+  setIssuerSubmitted(false); // ensure success state is reset
+
+  if (issuer.password !== issuer.confirmPassword) {
+    setIssuerError("Issuer passwords do not match.");
+    setIssuerLoading(false);
+    return;
+  }
+
+  if (!issuer.orgName || !issuer.contactName || !issuer.email) {
+    setIssuerError("All fields are required.");
+    setIssuerLoading(false);
+    return;
+  }
+
+  try {
+    console.log("CALLING ISSUER REGISTRATION API");
+
+    // Prepare FormData for file upload
+    const formData = new FormData();
+    formData.append('orgName', issuer.orgName);
+    formData.append('contactName', issuer.contactName);
+    formData.append('email', issuer.email);
+    formData.append('password', issuer.password);
+    formData.append('confirmPassword', issuer.confirmPassword);
+
+    if (issuer.documents && issuer.documents.length > 0) {
+      for (let i = 0; i < issuer.documents.length; i++) {
+        formData.append('documents', issuer.documents[i]);
+      }
+    }
+
+    // This should be your axios wrapper; it must send multipart
+    const response = await apiService.registerIssuer(formData);
+
+    // Backend returns success:true ONLY if accredited (after our controller fix)
+    if (response?.success && response?.accredited === true) {
+      setIssuerSubmitted(true);     // show the “waitlisted” card ONLY for accredited orgs
       setIssuerLoading(false);
       return;
     }
 
-    if (!issuer.orgName || !issuer.contactName || !issuer.email) {
-      setIssuerError("All fields are required.");
+    // Any other shape is a failure
+    setIssuerError(response?.message || response?.error || 'Registration failed.');
+    setIssuerLoading(false);
+  } catch (err) {
+    console.error('ISSUER REGISTRATION ERROR', err);
+
+    // 👇 Explicit handling for non-accredited orgs (403 from backend)
+    if (err?.response?.status === 403) {
+      setIssuerError('Your organization is not accredited. Registration denied.');
+      setIssuerSubmitted(false);
       setIssuerLoading(false);
       return;
     }
 
-    try {
-      console.log("CALLING ISSUER REGISTRATION API");
-      
-      // Prepare FormData for file upload
-      const formData = new FormData();
-      formData.append('orgName', issuer.orgName);
-      formData.append('contactName', issuer.contactName);
-      formData.append('email', issuer.email);
-      formData.append('password', issuer.password);
-      formData.append('confirmPassword', issuer.confirmPassword);
-      
-      if (issuer.documents && issuer.documents.length > 0) {
-        for (let i = 0; i < issuer.documents.length; i++) {
-          formData.append('documents', issuer.documents[i]);
-        }
-      }
-
-      const response = await apiService.registerIssuer(formData);
-      
-      if (response.success) {
-        setIssuerSubmitted(true);
-        setIssuerLoading(false);
-      } else {
-        setIssuerError(response.message || response.error || 'Registration failed');
-        setIssuerLoading(false);
-      }
-    } catch (err) {
-      console.error('ISSUER REGISTRATION ERROR', err);
-      setIssuerError(err.response?.data?.message || err.message || 'Registration failed.');
-      setIssuerLoading(false);
+    if (err?.response?.status === 400) {
+      setIssuerError(err.response.data?.message || 'Invalid input.');
+    } else {
+      setIssuerError(err.response?.data?.message || err.message || 'Server error. Please try again later.');
     }
-  };
+
+    setIssuerSubmitted(false);
+    setIssuerLoading(false);
+  }
+};
+
 
   // ========== ROLE SELECTION SCREEN ==========
   if (step === 'roleSelection') {

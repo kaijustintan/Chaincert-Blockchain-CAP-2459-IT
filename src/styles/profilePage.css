@@ -23,7 +23,6 @@
 .avatar {
   width: 100px;
   height: 100px;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
   border-radius: 50%;
   display: flex;
   align-items: center;
@@ -416,7 +415,7 @@
 .avatar-wrapper {
   position: relative;
 }
-
+/*
 .avatar {
   width: 140px;
   height: 140px;
@@ -428,7 +427,7 @@
   padding-bottom: 16px;
   border-bottom: 1px solid rgba(139, 92, 246, 0.2);
 }
-
+*/
 .modal-header h3 {
   margin: 0;
   font-size: 24px;
@@ -563,104 +562,68 @@
   }
 }
 
-/* Avatar Section */
-.avatar-section {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 12px;
+/* ADD THESE STYLES TO THE END OF profilePage.css */
+
+.avatar-wrapper {
+  position: relative; /* This is key for positioning the button */
+  flex-shrink: 0; /* Prevents the wrapper from shrinking */
 }
 
-.avatar {
-  width: 120px;
-  height: 120px;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+.avatar-wrapper .avatar {
+  /* Make sure the avatar itself is the same size as before */
+  width: 100px;
+  height: 100px;
+  /* Add a transition to make the hover effect smooth */
+  transition: filter 0.3s ease;
+}
+
+.avatar-wrapper:hover .avatar {
+  filter: brightness(0.7); /* Darken the avatar on hover */
+  cursor: pointer;
+}
+
+.avatar-edit-btn {
+  position: absolute;
+  bottom: 5px; /* Position at the bottom-right of the avatar */
+  right: 5px;
+  
+  background: #ffffff;
+  color: #333333;
+  border: none;
   border-radius: 50%;
+  width: 32px;
+  height: 32px;
+  
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 48px;
-  flex-shrink: 0;
-  box-shadow: 0 4px 16px rgba(102, 126, 234, 0.4);
-  overflow: hidden;
-  position: relative;
+  
+  font-size: 16px;
+  cursor: pointer;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+  transition: all 0.3s ease;
+  
+  /* Hide it by default */
+  opacity: 0;
+  transform: scale(0.8);
 }
 
-.avatar-img {
+.avatar-wrapper:hover .avatar-edit-btn {
+  /* Show on hover */
+  opacity: 1;
+  transform: scale(1);
+}
+
+.avatar-edit-btn:hover {
+  background: #f0f0f0;
+  transform: scale(1.1);
+}
+
+/* ADD THIS TO THE END OF profilePage.css */
+
+.avatar img {
   width: 100%;
   height: 100%;
-  object-fit: cover;
-  border-radius: 50%;
-  position: absolute;
-  top: 0;
-  left: 0;
-}
-
-.avatar-upload {
-  display: flex;
-  gap: 8px;
-  flex-wrap: wrap;
-  justify-content: center;
-  align-items: center;
-}
-
-.upload-btn {
-  padding: 8px 16px;
-  background: rgba(139, 92, 246, 0.2);
-  border: 2px solid #8b5cf6;
-  border-radius: 8px;
-  color: #a78bfa;
-  cursor: pointer;
-  font-size: 13px;
-  font-weight: 600;
-  transition: all 0.3s;
-  display: inline-block;
-  text-align: center;
-}
-
-.upload-btn:hover {
-  background: #8b5cf6;
-  color: #fff;
-  transform: translateY(-2px);
-}
-
-.upload-confirm-btn {
-  padding: 8px 16px;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  border: none;
-  border-radius: 8px;
-  color: #fff;
-  cursor: pointer;
-  font-size: 13px;
-  font-weight: 600;
-  transition: all 0.3s;
-}
-
-.upload-confirm-btn:hover:not(:disabled) {
-  transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
-}
-
-.upload-confirm-btn:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
-}
-
-/* Profile Header Layout */
-.profile-header {
-  display: flex;
-  align-items: center;
-  background: rgba(139, 92, 246, 0.1);
-  backdrop-filter: blur(10px);
-  border: 1px solid rgba(139, 92, 246, 0.3);
-  padding: 30px;
-  border-radius: 16px;
-  margin-bottom: 30px;
-  gap: 25px;
-  box-shadow: 0 8px 32px rgba(139, 92, 246, 0.2);
-}
-
-.profile-info {
-  flex: 1;
-  min-width: 0; 
+  object-fit: cover; /* This scales the image nicely */
+  border-radius: 50%; /* This makes it round */
 }

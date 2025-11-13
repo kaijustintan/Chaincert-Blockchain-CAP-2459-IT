@@ -1,6 +1,5 @@
 import axios from './axiosInstance';
 
-const API_BASE_URL = 'http://localhost:4000/api'; // ADDED THIS FOR THE CHANGE PASSWORD
 
 const apiService = {
   // Health check
@@ -43,7 +42,8 @@ const apiService = {
     try {
       // formData is already built by the component
       // Just send it directly - axios will handle FormData automatically
-      const response = await axios.post('/register-issuer', formData);
+    // CORRECT
+    const response = await axios.post('/auth/register-issuer', formData);
       return response.data;
     } catch (error) {
       console.error('Issuer registration failed:', error);
@@ -62,10 +62,11 @@ const apiService = {
     }
   },
 
-  // NEWLY ADDED - OLOPS
+  //
   changePassword: async (passwordData) => {
     try {
-      const response = await axios.post(`${API_BASE_URL}/auth/change-password`, {
+      // REMOVED ${API_BASE_URL} and fixed the URL
+      const response = await axios.post('/auth/change-password', { 
         email: passwordData.email,
         currentPassword: passwordData.currentPassword,
         newPassword: passwordData.newPassword
@@ -91,6 +92,23 @@ const apiService = {
       throw error;
     }
   },
+
+  // ========== ADD THIS NEW FUNCTION ==========
+  uploadProfilePicture: async (formData) => {
+    try {
+      // This will send the file to our new backend route
+      const response = await axios.post('/auth/upload-pfp', formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+      });
+      return response.data;
+    } catch (error) {
+      console.error('Error uploading profile picture:', error);
+      throw error;
+    }
+  },
+  // ==========================================
 
   // Edited this for Profile Summary Display
   getUserInfo: async (userId) => {

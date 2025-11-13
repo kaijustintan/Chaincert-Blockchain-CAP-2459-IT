@@ -11,6 +11,7 @@ export default function ProfilePreview() {
   const userId = user._id || user.id || '';
 
   const [summary, setSummary] = useState("");
+  const [profilePicture, setProfilePicture] = useState(""); // Added Nov 12 - olops
   const [loading, setLoading] = useState(true);
   const [avatar, setAvatar] = useState("👤"); // ✅ avatar state
 

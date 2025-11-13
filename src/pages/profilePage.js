@@ -49,6 +49,72 @@ export default function ProfilePage() {
     }
   };
 
+  const handleProfilePictureChange = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      // Validate file size (max 5MB)
+      if (file.size > 5 * 1024 * 1024) {
+        setSaveMessage('❌ Image must be less than 5MB');
+        setTimeout(() => setSaveMessage(''), 3000);
+        return;
+      }
+
+      // Validate file type
+      if (!file.type.startsWith('image/')) {
+        setSaveMessage('❌ Please upload an image file');
+        setTimeout(() => setSaveMessage(''), 3000);
+        return;
+      }
+
+      setProfilePicture(file);
+      
+      // Create preview
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setProfilePicturePreview(reader.result);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const handleUploadProfilePicture = async () => {
+    if (!profilePicture) {
+      setSaveMessage('❌ Please select an image first');
+      setTimeout(() => setSaveMessage(''), 3000);
+      return;
+    }
+
+    try {
+      setUploadingImage(true);
+      setSaveMessage('');
+
+      // Upload image
+      const uploadResponse = await apiService.uploadProfilePicture(profilePicture, userId);
+      
+      if (uploadResponse.success) {
+        // Update user profile with image URL
+        await apiService.updateProfilePicture(userId, uploadResponse.imageUrl);
+        
+        // Update local state
+        const updatedUser = JSON.parse(localStorage.getItem('user') || '{}');
+        updatedUser.profilePicture = uploadResponse.imageUrl;
+        localStorage.setItem('user', JSON.stringify(updatedUser));
+
+        setSaveMessage('✅ Profile picture updated successfully!');
+        setTimeout(() => {
+          setSaveMessage('');
+          window.location.reload(); // Reload to show new picture
+        }, 1500);
+      }
+    } catch (error) {
+      console.error('Error uploading profile picture:', error);
+      setSaveMessage('❌ Failed to upload profile picture');
+      setTimeout(() => setSaveMessage(''), 3000);
+    } finally {
+      setUploadingImage(false);
+    }
+  };
+
   const handleSaveProfile = async () => {
     setIsSaving(true);
     setSaveMessage("");
@@ -331,7 +397,7 @@ export default function ProfilePage() {
           {badges.map((badge) => (
             <div
               key={badge.id}
-              className="badge-card-enhanced"
+              className="badge-card"
               onClick={() => setSelectedBadge(badge)}
             >
               <div className="badge-image">{badge.image}</div>

@@ -34,7 +34,6 @@
   width: 100px;
   height: 100px;
   margin: 0 auto 20px;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
   border: 5px solid rgba(139, 92, 246, 0.3);
   border-radius: 50%;
   display: flex;
@@ -42,6 +41,15 @@
   justify-content: center;
   font-size: 48px;
   box-shadow: 0 8px 24px rgba(102, 126, 234, 0.4);
+  overflow: hidden; /* ✅ <-- ADD THIS LINE */
+}
+
+/* ✅ <-- ADD THIS ENTIRE NEW RULE --> */
+.avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 50%;
 }
 
 .preview-header h2 {

@@ -151,17 +151,16 @@ async function checkIfOrgAccredited(orgName) {
 }
 
 // ===== ISSUER FUNCTIONS =====
-async function createIssuerRegistration(issuerData) {
+async function createIssuerRegistration(issuerData, accreditationCheck) { // <-- MODIFIED
   if (!issuersDB) await initializeDatabases();
 
   console.log('[COUCHDB] Creating issuer registration with data:', {
     orgName: issuerData.orgName,
-    accredited: issuerData.accredited,
-    accreditedType: typeof issuerData.accredited
+    accredited: accreditationCheck.isAccredited, // <-- MODIFIED
+    accreditedType: accreditationCheck.accreditedType // <-- MODIFIED
   });
 
-  // ✅ CHECK IF ORG IS ACCREDITED
-  const accreditationCheck = await checkIfOrgAccredited(issuerData.orgName);
+  // ❌ We removed the accreditation check from this file.
 
   const issuerDoc = {
     _id: `issuer_${issuerData.email.replace(/@/g, '_').replace(/\./g, '_')}_${Date.now()}`,
@@ -172,8 +171,8 @@ async function createIssuerRegistration(issuerData) {
     email: issuerData.email,
     password: issuerData.password,
     documents: issuerData.documents || [],
-    accredited: accreditationCheck.isAccredited,  // ✅ SET FROM CHECK
-    accreditedType: accreditationCheck.accreditedType,  // ✅ SET FROM CHECK
+    accredited: accreditationCheck.isAccredited,  // ✅ SET FROM PARAMETER
+    accreditedType: accreditationCheck.accreditedType,  // ✅ SET FROM PARAMETER
     status: 'pending',
     createdAt: new Date().toISOString(),
     approvedAt: null,
@@ -206,6 +205,7 @@ async function getIssuerById(issuerId) {
   if (!issuersDB) await initializeDatabases();
   return await issuersDB.get(issuerId);
 }
+// backend/couchDB_service.js
 
 async function approveIssuer(issuerId, adminId) {
   if (!issuersDB) await initializeDatabases();
@@ -221,21 +221,21 @@ async function approveIssuer(issuerId, adminId) {
     orgName: issuerDoc.orgName
   });
 
-  issuerDoc.status = 'deploying';
+  issuerDoc.status = 'approved'; // ✅ THIS IS THE FIX
   issuerDoc.approvedBy = adminId;
   issuerDoc.approvedAt = new Date().toISOString();
-  issuerDoc.deployStartTime = new Date().toISOString();
+  // issuerDoc.deployStartTime = new Date().toISOString(); // ✅ REMOVED
 
   await issuersDB.insert(issuerDoc);
 
-  console.log(`[COUCHDB] Issuer status updated to 'deploying'`);
+  console.log(`[COUCHDB] Issuer status updated to 'approved'`); // ✅
 
   return {
     _id: issuerDoc._id,
     contactName: issuerDoc.contactName,
     email: issuerDoc.email,
     orgName: issuerDoc.orgName,
-    status: issuerDoc.status,
+    status: issuerDoc.status, // ✅
     _rev: issuerDoc._rev
   };
 }
@@ -362,5 +362,3 @@ module.exports = {
   saveAccreditedOrganization,
   getAllAccreditedOrganizations
 };
-
-

@@ -12,23 +12,29 @@ export default function ProfilePreview() {
 
   const [summary, setSummary] = useState("");
   const [loading, setLoading] = useState(true);
+  const [avatar, setAvatar] = useState("👤"); // ✅ avatar state
 
-  useEffect(() => {
-    loadUserProfile();
-  }, []);
+    useEffect(() => {
+    const loadUserProfile = async () => {
+      try {
+        const response = await apiService.getUserInfo(userId);
+        if (response.success && response.user) {
+          setSummary(response.user.summary || '');
 
-  const loadUserProfile = async () => {
-    try {
-      const response = await apiService.getUserInfo(userId);
-      if (response.success && response.user) {
-        setSummary(response.user.summary || '');
+          // ✅ load avatar if profilePicture exists
+          if (response.user.profilePicture) {
+            setAvatar(response.user.profilePicture);
+          }
+        }
+      } catch (error) {
+        console.error('Error loading profile:', error);
+      } finally {
+        setLoading(false);
       }
-    } catch (error) {
-      console.error('Error loading profile:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
+    };
+
+    loadUserProfile();
+  }, [userId]);
 
   const badges = [
     {
@@ -72,7 +78,15 @@ export default function ProfilePreview() {
     <div className="profile-preview">
       {/* Header */}
       <div className="preview-header">
-        <div className="avatar">👤</div>
+        {/* ✅ avatar now supports data URL image or emoji */}
+        <div className="avatar">
+          {avatar && avatar.startsWith('data:') ? (
+            <img src={avatar} alt="Profile" />
+          ) : (
+            avatar
+          )}
+        </div>
+
         <h2>{userName}</h2>
         <p className="user-role">{userRole}</p>
         {summary && (

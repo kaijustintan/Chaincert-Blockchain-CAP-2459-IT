@@ -35,7 +35,9 @@ async function saveUser(user) {
 
 async function getUser(userId) {
   try {
-    const user = await usersDb.get(userId);
+    // ✅ Smart DB logic: Check the ID prefix
+    const db = userId.startsWith('issuer_') ? issuersDB : usersDb;
+    const user = await db.get(userId); // Use the correct DB
     return user;
   } catch (error) {
     console.error('Error getting user:', error);
@@ -52,7 +54,10 @@ async function getAllUsers() {
 // NEWLY ADDED FUNCTION (For Change Password sa settings)
 async function updateUser(userId, userData) {
   try {
-    const currentDoc = await usersDb.get(userId);
+    // ✅ Smart DB logic: Check the ID prefix
+    const db = userId.startsWith('issuer_') ? issuersDB : usersDb;
+    
+    const currentDoc = await db.get(userId); // Get from correct DB
     
     const updatedDoc = {
       ...currentDoc,
@@ -61,8 +66,8 @@ async function updateUser(userId, userData) {
       _rev: currentDoc._rev
     };
     
-    const response = await usersDb.insert(updatedDoc);
-    console.log('User updated successfully:', response);
+    const response = await db.insert(updatedDoc); // Insert into correct DB
+    console.log('User/Issuer updated successfully:', response);
     return response;
   } catch (error) {
     console.error('Error updating user:', error);
@@ -73,7 +78,10 @@ async function updateUser(userId, userData) {
 //  NEWLY ADDED - For Profile Summary
 async function updateProfile(userId, profileData) {
   try {
-    const currentDoc = await usersDb.get(userId);
+    // ✅ Smart DB logic: Check the ID prefix
+    const db = userId.startsWith('issuer_') ? issuersDB : usersDb;
+
+    const currentDoc = await db.get(userId); // Get from correct DB
     
     // Update profile fields
     const updatedDoc = {
@@ -85,7 +93,7 @@ async function updateProfile(userId, profileData) {
       _rev: currentDoc._rev
     };
     
-    const response = await usersDb.insert(updatedDoc);
+    const response = await db.insert(updatedDoc); // Insert into correct DB
     console.log('Profile updated successfully:', response);
     return response;
   } catch (error) {

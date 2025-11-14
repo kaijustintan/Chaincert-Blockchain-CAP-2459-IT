@@ -156,16 +156,29 @@ const authController = {
     }
   },
 
-  // ========== AND ADD THIS FUNCTION ==========
+ // ========== AND ADD THIS FUNCTION ==========
   changePassword: async (req, res) => {
     try {
       const { email, currentPassword, newPassword } = req.body;
-      const users = await couchDB.getAllUsers();
-      const user = users.find(u => u.email === email);
 
+      // --- START OF FIX ---
+      // We need to find the user in BOTH databases.
+      
+      // 1. Check the 'users' database first
+      const allUsers = await couchDB.getAllUsers();
+      let user = allUsers.find(u => u.email === email);
+
+      // 2. If not found, check the 'issuers' database
+      if (!user) {
+        // This function searches the 'issuers' db by email
+        user = await couchDB.getApprovedIssuer(email);
+      }
+
+      // 3. If still not found, NOW we can say they don't exist.
       if (!user) {
         return res.status(404).json({ success: false, message: 'User not found' });
       }
+      // --- END OF FIX ---
 
       const passwordMatch = await bcrypt.compare(currentPassword, user.password);
       if (!passwordMatch) {
@@ -173,6 +186,9 @@ const authController = {
       }
 
       const hashedNewPassword = await bcrypt.hash(newPassword, 10);
+      
+      // This function IS smart (we fixed it before), so it will
+      // correctly update either a user or an issuer.
       await couchDB.updateUser(user._id, { password: hashedNewPassword });
 
       return res.status(200).json({ success: true, message: 'Password updated successfully' });

@@ -36,14 +36,14 @@ async function main() {
       type: 'X.509',
     };
 
-    await wallet.put('dlsu-admin', identity);
-    console.log('✅ Successfully imported dlsu-admin identity into wallet!');
+    await wallet.put('delasalleuniversity-admin', identity);
+    console.log('✅ Successfully imported delasalleuniversity-admin identity into wallet!');
     console.log('📂 Wallet location:', walletPath);
 
     // Check
-    const checkIdentity = await wallet.get('dlsu-admin');
+    const checkIdentity = await wallet.get('delasalleuniversity-admin');
     if (checkIdentity) {
-      console.log('✅ Verified: dlsu-admin identity exists in wallet');
+      console.log('✅ Verified: delasalleuniversity-admin identity exists in wallet');
       console.log('   MSP ID:', checkIdentity.mspId);
     }
 

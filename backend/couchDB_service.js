@@ -229,24 +229,32 @@ async function approveIssuer(issuerId, adminId) {
     orgName: issuerDoc.orgName
   });
 
-  issuerDoc.status = 'approved'; // ✅ THIS IS THE FIX
+  // DYNAMIC identity assignment (no spaces, all lowercase)
+if (issuerDoc.orgName) {
+  // Remove leading/trailing spaces, convert to lowercase, remove all internal whitespace
+  const fabricId = issuerDoc.orgName.trim().toLowerCase().replace(/\s+/g, '') + '-admin';
+  issuerDoc.fabricIdentity = fabricId;
+} else {
+  issuerDoc.fabricIdentity = undefined; // fallback, ideally never reached
+}
+  issuerDoc.status = 'approved';
   issuerDoc.approvedBy = adminId;
   issuerDoc.approvedAt = new Date().toISOString();
-  // issuerDoc.deployStartTime = new Date().toISOString(); // ✅ REMOVED
 
   await issuersDB.insert(issuerDoc);
-
-  console.log(`[COUCHDB] Issuer status updated to 'approved'`); // ✅
+  console.log(`[COUCHDB] Issuer status updated to 'approved' and fabricIdentity set to ${issuerDoc.fabricIdentity}`);
 
   return {
     _id: issuerDoc._id,
     contactName: issuerDoc.contactName,
     email: issuerDoc.email,
     orgName: issuerDoc.orgName,
-    status: issuerDoc.status, // ✅
+    status: issuerDoc.status,
+    fabricIdentity: issuerDoc.fabricIdentity,
     _rev: issuerDoc._rev
   };
 }
+
 
 async function rejectIssuer(issuerId, rejectionReason) {
   if (!issuersDB) await initializeDatabases();

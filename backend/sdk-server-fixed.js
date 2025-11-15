@@ -8,7 +8,7 @@ const jwt = require('jsonwebtoken');
 const bcryptjs = require('bcryptjs');
 const multer = require('multer');
 const Docker = require('dockerode');
-const uploadRoutes = require('./routes/uploadRoutes'); // NEWLY ADDED - OLOPS
+// const uploadRoutes = require('./routes/uploadRoutes'); // NEWLY ADDED - OLOPS PENDING
 
 const JWT_SECRET = process.env.JWT_SECRET || 'dev_secret_key';
 
@@ -19,15 +19,31 @@ const upload = multer({ storage: multer.memoryStorage() });
 const couchdb = require('./couchDB_service');
 
 const app = express();
+
+app.use((req, res, next) => {
+  const authHeader = req.headers['authorization'];
+  if (authHeader) {
+    const token = authHeader.split(' ')[1]; // Bearer <token>
+    try {
+      req.user = jwt.verify(token, JWT_SECRET);
+    } catch (e) {
+      req.user = null;
+    }
+  } else {
+    req.user = null;
+  }
+  next();
+});
+
 app.use(cors());
 app.use(express.json());
-// To serve upload files - NEWLY ADDED - OLOPS
-app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
-app.use('/api/upload', uploadRoutes);
+
 
 // ✅ Initialize Docker client
 const docker = new Docker({ socketPath: '/var/run/docker.sock' });
-const FABRIC_SAMPLES_PATH = path.resolve(__dirname, '..', 'fabric-samples', 'fabric-samples');
+// SUBJECTIVE
+const FABRIC_SAMPLES_PATH = '/home/kaitanz_/fabric-samples/fabric-samples'; // KAI
+// const FABRIC_SAMPLES_PATH = path.resolve(__dirname, '..', 'fabric-samples', 'fabric-samples'); // SAKANILA
 const CORE_YAML_PATH = `${FABRIC_SAMPLES_PATH}/config/core.yaml`;
 
 // ✅ Initialize CouchDB on server startup
@@ -68,6 +84,7 @@ const authRoutes = require('./routes/authRoutes');
 app.use('/api/auth', authRoutes);
 
 // SUBJECTIVE - KAI PATH TO CONNECTION PROFILE (Ubuntu/Linux)
+/*
 const ccpPath = path.resolve(
   __dirname,
   '..',
@@ -79,6 +96,7 @@ const ccpPath = path.resolve(
   'org1.example.com',
   'connection-org1.json'
 );
+*/
 // const ccpPath = '/home/kaitanz_/fabric-samples/test-network/organizations/peerOrganizations/org1.example.com/connection-org1.json';
 // const ccpPath = '/home/polo/fabric-samples-full/test-network/organizations/peerOrganizations/org1.example.com/connection-org1.json';
 
@@ -89,44 +107,46 @@ let cachedGateway = null;
 let lastConnectionTime = 0;
 const CONNECTION_CACHE_TTL = 5 * 60 * 1000;
 
-async function getContractAndGateway() {
-  try {
-    const now = Date.now();
-    if (cachedGateway && cachedGateway.isConnected && (now - lastConnectionTime) < CONNECTION_CACHE_TTL) {
-      console.log('♻️  Reusing cached gateway connection');
-      const network = await cachedGateway.getNetwork('chaincert-channel');
-      const contract = network.getContract('chaincert');
-      return { gateway: cachedGateway, contract };
-    }
-    console.log('🔄 Creating new gateway connection...');
-    const ccpJSON = fs.readFileSync(ccpPath, 'utf8');
-    const ccp = JSON.parse(ccpJSON);
-    const wallet = await Wallets.newFileSystemWallet(walletPath);
-    const identity = await wallet.get('admin');
-    if (!identity) throw new Error('Admin identity not found');
-    const gateway = new Gateway();
-    await gateway.connect(ccp, {
-      wallet,
-      identity: 'admin',
-      discovery: {
-        enabled: true,
-        asLocalhost: true,
-        maxAge: 300,
-        clearInterval: 60000
-      }
-    });
-    const network = await gateway.getNetwork('chaincert-channel');
-    const contract = network.getContract('chaincert');
-    cachedGateway = gateway;
-    lastConnectionTime = now;
-    console.log('✅ Successfully connected to Hyperledger Fabric');
-    return { gateway, contract };
-  } catch (error) {
-    console.error('❌ Gateway Error:', error.message);
-    cachedGateway = null;
-    throw error;
+// KAI MODIFIED AS OF NOV 15 10:47PM 
+// identityName = fabricIdentity (ex: delasalleuniversity-admin) || orgName (ex: De La Salle University )
+async function getContractAndGateway(identityName, orgName) {
+  if (!identityName || !orgName) {
+    throw new Error('identityName and orgName are required');
   }
+
+  let ccpPath;
+  if (
+    orgName.toLowerCase().includes('delasalleuniversity') ||
+    identityName.trim().toLowerCase().replace(/\s+/g, '').includes('delasalleuniversity') 
+  ) {
+    ccpPath = path.resolve(
+      __dirname,'..','fabric-samples','fabric-samples','test-network','organizations','peerOrganizations','dlsu.example.com','connection-delasalleuniversity.json'
+    );
+  } else {
+    // Default to Org1
+    ccpPath = path.resolve(
+      __dirname,'..','fabric-samples','fabric-samples','test-network','organizations','peerOrganizations','org1.example.com','connection-org1.json'
+    );
+  }
+
+  const ccpJSON = fs.readFileSync(ccpPath, 'utf8');
+  const ccp = JSON.parse(ccpJSON);
+  const wallet = await Wallets.newFileSystemWallet(walletPath);
+  const identity = await wallet.get(identityName);
+  if (!identity) throw new Error(`Identity ${identityName} not found`);
+  const gateway = new Gateway();
+  await gateway.connect(ccp, {
+    wallet,
+    identity: identityName,
+    discovery: { enabled: true, asLocalhost: true }
+  });
+  const network = await gateway.getNetwork('chaincert-channel');
+  const contract = network.getContract('chaincert');
+  cachedGateway = gateway;
+  lastConnectionTime = Date.now();
+  return { gateway, contract };
 }
+
 
 async function sleep(ms) {
   return new Promise(resolve => setTimeout(resolve, ms));
@@ -305,10 +325,40 @@ app.get('/api/pending-issuers', async (req, res) => {
 
 // ========== EXISTING: Credential Endpoints
 
+// KAI  - NOV 16 - 12:16AM
 app.get('/api/credentials', async (req, res) => {
   try {
-    const { gateway, contract } = await getContractAndGateway();
-    const result = await contract.evaluateTransaction('GetCredentialsByIssuer', 'ISSUER');
+    // (A) Check user role from session/JWT (assume Auth middleware sets req.user)
+    const user = req.user;
+    if (!user) {
+      return res.status(401).json({ success: false, error: 'Unauthorized' });
+    }
+
+    let identityName, orgName;
+
+    if (user.role === 'issuer') {
+      // (B) Find issuer doc from CouchDB
+      // user.email or user.id should be set
+      const issuerDoc = await couchdb.getApprovedIssuer(user.email);
+      if (!issuerDoc || !issuerDoc.fabricIdentity || !issuerDoc.orgName) {
+        return res.status(403).json({ success: false, error: 'Issuer not approved or info missing.' });
+      }
+      identityName = issuerDoc.fabricIdentity;  // E.g. 'delasalleuniversity-admin'
+      orgName = issuerDoc.orgName;             // E.g. 'De La Salle University'
+    } else if (user.role === 'admin') {
+      // (C) Org1 admin
+      identityName = 'admin';
+      orgName = 'Org1';
+    } else {
+      // Optional: handle regular users or others here
+      return res.status(403).json({ success: false, error: 'Not authorized to view credentials.' });
+    }
+
+    // (D) Call gateway with right identity/org
+    const { gateway, contract } = await getContractAndGateway(identityName, orgName);
+    // Pattern: issuer account queries their own credentials
+    const issuerIdToQuery = user.role === 'issuer' ? user._id || user.email : 'ISSUER'; // adjust as needed
+    const result = await contract.evaluateTransaction('GetCredentialsByIssuer', issuerIdToQuery);
     res.json({ success: true, credentials: JSON.parse(result.toString()) });
   } catch (error) {
     console.error(`❌ Error: ${error.message}`);
@@ -316,34 +366,62 @@ app.get('/api/credentials', async (req, res) => {
   }
 });
 
+
 app.post('/api/credentials', async (req, res) => {
   try {
     const { id, holderID, issuerID, credentialType, expiryDate, metadata, documentHash } = req.body;
     if (!id || !holderID || !issuerID) {
       return res.status(400).json({ error: 'Missing required fields' });
     }
+
+    const user = req.user; // Assumed set by JWT middleware
+    if (!user) {
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
+
+    let identityName, orgName;
+
+    if (user.role === 'issuer') {
+      // Look up issuer info in CouchDB by email or ID
+      const issuerDoc = await couchdb.getApprovedIssuer(user.email);
+      if (!issuerDoc || !issuerDoc.fabricIdentity || !issuerDoc.orgName) {
+        return res.status(403).json({ error: 'Issuer not approved or Fabric identity missing.' });
+      }
+      identityName = issuerDoc.fabricIdentity;
+      orgName = issuerDoc.orgName;
+    } else if (user.role === 'admin') {
+      // Org1 admin
+      identityName = 'admin';
+      orgName = 'Org1';
+    } else {
+      return res.status(403).json({ error: 'Forbidden: not allowed to issue credentials.' });
+    }
+
+    // Retry logic remains unchanged, just uses the correct gateway/contract each time
     const MAX_RETRIES = 3;
     let lastError;
     for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
       try {
-        console.log(`📤 Attempt ${attempt}/${MAX_RETRIES}: Issuing credential ${id}...`);
-        const { gateway, contract } = await getContractAndGateway();
+        console.log(`\uD83D\uDCE4 Attempt ${attempt}/${MAX_RETRIES}: Issuing credential ${id}...`);
+        const { gateway, contract } = await getContractAndGateway(identityName, orgName);
         const result = await contract.submitTransaction(
           'IssueCredential',
           id, holderID, issuerID, credentialType, expiryDate, metadata || '', documentHash || ''
         );
-        console.log(`✅ SUCCESS on attempt ${attempt}`);
+        console.log(`\u2705 SUCCESS on attempt ${attempt}`);
         return res.status(201).json({ success: true, credential: JSON.parse(result.toString()) });
       } catch (error) {
         lastError = error;
         const errorMsg = (error.message || '').toLowerCase();
-        console.error(`❌ Attempt ${attempt} failed: ${error.message}`);
-        if ((errorMsg.includes('peer endorsement') ||
-             errorMsg.includes('do not match') ||
-             errorMsg.includes('no valid responses') ||
-             errorMsg.includes('endorsement')) && attempt < MAX_RETRIES) {
+        console.error(`\u274C Attempt ${attempt} failed: ${error.message}`);
+        if (
+          (errorMsg.includes('peer endorsement') ||
+            errorMsg.includes('do not match') ||
+            errorMsg.includes('no valid responses') ||
+            errorMsg.includes('endorsement')) && attempt < MAX_RETRIES
+        ) {
           const backoffMs = Math.pow(2, attempt - 1) * 1000;
-          console.log(`⏳ Waiting ${backoffMs}ms before retry...`);
+          console.log(`\u23F3 Waiting ${backoffMs}ms before retry...`);
           await sleep(backoffMs);
           continue;
         }
@@ -354,14 +432,33 @@ app.post('/api/credentials', async (req, res) => {
     }
     throw new Error(`Failed after ${MAX_RETRIES} attempts: ${lastError.message}`);
   } catch (error) {
-    console.error(`❌ Error: ${error.message}`);
+    console.error(`\u274C Error: ${error.message}`);
     res.status(500).json({ success: false, error: error.message });
   }
 });
 
+
 app.get('/api/credentials/:id', async (req, res) => {
   try {
-    const { gateway, contract } = await getContractAndGateway();
+    const user = req.user;
+    if (!user) {
+      return res.status(401).json({ success: false, error: 'Unauthorized' });
+    }
+    let identityName, orgName;
+    if (user.role === 'issuer') {
+      const issuer = await couchdb.getApprovedIssuer(user.email);
+      if (!issuer || !issuer.fabricIdentity || !issuer.orgName) {
+        return res.status(403).json({ success: false, error: 'Issuer not approved or Fabric identity missing.' });
+      }
+      identityName = issuer.fabricIdentity;
+      orgName = issuer.orgName;
+    } else if (user.role === 'admin') {
+      identityName = 'admin';
+      orgName = 'Org1';
+    } else {
+      return res.status(403).json({ success: false, error: 'Forbidden: Not allowed.' });
+    }
+    const { gateway, contract } = await getContractAndGateway(identityName, orgName);
     const result = await contract.evaluateTransaction('GetCredential', req.params.id);
     res.json({ success: true, credential: JSON.parse(result.toString()) });
   } catch (error) {
@@ -370,9 +467,28 @@ app.get('/api/credentials/:id', async (req, res) => {
   }
 });
 
+
 app.post('/api/credentials/:id/verify', async (req, res) => {
   try {
-    const { gateway, contract } = await getContractAndGateway();
+    const user = req.user;
+    if (!user) {
+      return res.status(401).json({ success: false, error: 'Unauthorized' });
+    }
+    let identityName, orgName;
+    if (user.role === 'issuer') {
+      const issuer = await couchdb.getApprovedIssuer(user.email);
+      if (!issuer || !issuer.fabricIdentity || !issuer.orgName) {
+        return res.status(403).json({ success: false, error: 'Issuer not approved or Fabric identity missing.' });
+      }
+      identityName = issuer.fabricIdentity;
+      orgName = issuer.orgName;
+    } else if (user.role === 'admin') {
+      identityName = 'admin';
+      orgName = 'Org1';
+    } else {
+      return res.status(403).json({ success: false, error: 'Forbidden: Not allowed.' });
+    }
+    const { gateway, contract } = await getContractAndGateway(identityName, orgName);
     const result = await contract.evaluateTransaction('VerifyCredential', req.params.id);
     res.json({ success: true, verification: JSON.parse(result.toString()) });
   } catch (error) {
@@ -383,12 +499,30 @@ app.post('/api/credentials/:id/verify', async (req, res) => {
 
 app.put('/api/credentials/:id/revoke', async (req, res) => {
   try {
+    const user = req.user;
+    if (!user) {
+      return res.status(401).json({ success: false, error: 'Unauthorized' });
+    }
+    let identityName, orgName;
+    if (user.role === 'issuer') {
+      const issuer = await couchdb.getApprovedIssuer(user.email);
+      if (!issuer || !issuer.fabricIdentity || !issuer.orgName) {
+        return res.status(403).json({ success: false, error: 'Issuer not approved or Fabric identity missing.' });
+      }
+      identityName = issuer.fabricIdentity;
+      orgName = issuer.orgName;
+    } else if (user.role === 'admin') {
+      identityName = 'admin';
+      orgName = 'Org1';
+    } else {
+      return res.status(403).json({ success: false, error: 'Forbidden: Not allowed.' });
+    }
     const MAX_RETRIES = 3;
     let lastError;
     for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
       try {
         console.log(`📤 Attempt ${attempt}/${MAX_RETRIES}: Revoking credential ${req.params.id}...`);
-        const { gateway, contract } = await getContractAndGateway();
+        const { gateway, contract } = await getContractAndGateway(identityName, orgName);
         const result = await contract.submitTransaction('RevokeCredential', req.params.id);
         console.log(`✅ SUCCESS on attempt ${attempt}`);
         return res.json({ success: true, credential: JSON.parse(result.toString()) });
@@ -419,7 +553,26 @@ app.put('/api/credentials/:id/revoke', async (req, res) => {
 
 app.get('/api/credentials/holder/:holderID', async (req, res) => {
   try {
-    const { gateway, contract } = await getContractAndGateway();
+    // You can decide: allow only Org1 admin, or tailor logic for holder view
+    const user = req.user;
+    if (!user) {
+      return res.status(401).json({ success: false, error: 'Unauthorized' });
+    }
+    let identityName, orgName;
+    if (user.role === 'admin') {
+      identityName = 'admin';
+      orgName = 'Org1';
+    } else if (user.role === 'issuer') {
+      const issuer = await couchdb.getApprovedIssuer(user.email);
+      if (!issuer || !issuer.fabricIdentity || !issuer.orgName) {
+        return res.status(403).json({ success: false, error: 'Issuer not approved or Fabric identity missing.' });
+      }
+      identityName = issuer.fabricIdentity;
+      orgName = issuer.orgName;
+    } else {
+      return res.status(403).json({ success: false, error: 'Forbidden: Not allowed.' });
+    }
+    const { gateway, contract } = await getContractAndGateway(identityName, orgName);
     const result = await contract.evaluateTransaction('GetCredentialsByHolder', req.params.holderID);
     res.json({ success: true, credentials: JSON.parse(result.toString()) });
   } catch (error) {
@@ -430,7 +583,25 @@ app.get('/api/credentials/holder/:holderID', async (req, res) => {
 
 app.get('/api/credentials/issuer/:issuerID', async (req, res) => {
   try {
-    const { gateway, contract } = await getContractAndGateway();
+    const user = req.user;
+    if (!user) {
+      return res.status(401).json({ success: false, error: 'Unauthorized' });
+    }
+    let identityName, orgName;
+    if (user.role === 'issuer') {
+      const issuer = await couchdb.getApprovedIssuer(user.email);
+      if (!issuer || !issuer.fabricIdentity || !issuer.orgName) {
+        return res.status(403).json({ success: false, error: 'Issuer not approved or Fabric identity missing.' });
+      }
+      identityName = issuer.fabricIdentity;
+      orgName = issuer.orgName;
+    } else if (user.role === 'admin') {
+      identityName = 'admin';
+      orgName = 'Org1';
+    } else {
+      return res.status(403).json({ success: false, error: 'Forbidden: Not allowed.' });
+    }
+    const { gateway, contract } = await getContractAndGateway(identityName, orgName);
     const result = await contract.evaluateTransaction('GetCredentialsByIssuer', req.params.issuerID);
     res.json({ success: true, credentials: JSON.parse(result.toString()) });
   } catch (error) {
@@ -441,7 +612,25 @@ app.get('/api/credentials/issuer/:issuerID', async (req, res) => {
 
 app.get('/api/credentials/:id/history', async (req, res) => {
   try {
-    const { gateway, contract } = await getContractAndGateway();
+    const user = req.user;
+    if (!user) {
+      return res.status(401).json({ success: false, error: 'Unauthorized' });
+    }
+    let identityName, orgName;
+    if (user.role === 'issuer') {
+      const issuer = await couchdb.getApprovedIssuer(user.email);
+      if (!issuer || !issuer.fabricIdentity || !issuer.orgName) {
+        return res.status(403).json({ success: false, error: 'Issuer not approved or Fabric identity missing.' });
+      }
+      identityName = issuer.fabricIdentity;
+      orgName = issuer.orgName;
+    } else if (user.role === 'admin') {
+      identityName = 'admin';
+      orgName = 'Org1';
+    } else {
+      return res.status(403).json({ success: false, error: 'Forbidden: Not allowed.' });
+    }
+    const { gateway, contract } = await getContractAndGateway(identityName, orgName);
     const result = await contract.evaluateTransaction('GetCredentialHistory', req.params.id);
     res.json({ success: true, history: JSON.parse(result.toString()) });
   } catch (error) {
@@ -449,6 +638,7 @@ app.get('/api/credentials/:id/history', async (req, res) => {
     res.status(500).json({ success: false, error: error.message });
   }
 });
+
 
 const PORT = 4000;
 app.listen(PORT, () => {

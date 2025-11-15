@@ -1,3 +1,5 @@
+// OUTDATED
+
 // enrollAdmin.js - DIRECT VERSION (no config needed)
 const FabricCAServices = require('fabric-ca-client');
 const { Wallets } = require('fabric-network');

@@ -1,0 +1,56 @@
+const { Wallets } = require('fabric-network');
+const fs = require('fs');
+const path = require('path');
+
+async function main() {
+  try {
+    console.log('🔧 Setting up DLSU wallet identity...');
+
+    // Path to DLSU crypto materials
+    const credPath = path.join(
+      process.env.HOME,
+      'fabric-samples/fabric-samples/test-network/organizations/peerOrganizations/dlsu.example.com/users/Admin@dlsu.example.com/msp'
+    );
+
+    const certificate = fs.readFileSync(
+      path.join(credPath, 'signcerts', 'cert.pem')
+    ).toString();
+
+    const keystorePath = path.join(credPath, 'keystore');
+    const keyFiles = fs.readdirSync(keystorePath);
+    const privateKey = fs.readFileSync(
+      path.join(keystorePath, keyFiles[0])
+    ).toString();
+
+    // Create wallet at ./wallet
+    const walletPath = path.join(process.cwd(), 'wallet');
+    const wallet = await Wallets.newFileSystemWallet(walletPath);
+
+    // Create DLSU identity
+    const identity = {
+      credentials: {
+        certificate: certificate,
+        privateKey: privateKey
+      },
+      mspId: 'DLSUMSP',
+      type: 'X.509',
+    };
+
+    await wallet.put('dlsu-admin', identity);
+    console.log('✅ Successfully imported dlsu-admin identity into wallet!');
+    console.log('📂 Wallet location:', walletPath);
+
+    // Check
+    const checkIdentity = await wallet.get('dlsu-admin');
+    if (checkIdentity) {
+      console.log('✅ Verified: dlsu-admin identity exists in wallet');
+      console.log('   MSP ID:', checkIdentity.mspId);
+    }
+
+  } catch (error) {
+    console.error(`❌ Failed to import DLSU identity: ${error}`);
+    process.exit(1);
+  }
+}
+
+main();

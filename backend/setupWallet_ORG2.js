@@ -1,3 +1,5 @@
+// OUTDATED
+
 'use strict';
 
 const FabricCAServices = require('fabric-ca-client');

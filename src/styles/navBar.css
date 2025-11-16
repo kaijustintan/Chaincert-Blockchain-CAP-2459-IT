@@ -92,11 +92,23 @@
   padding: 8px 16px;
   border-radius: 4px;
   transition: background 0.3s;
+  text-decoration: none !important;
 }
-
 
 .nav-links .login-link:hover {
   background: #764ba2;
+  text-decoration: none !important;
+}
+
+.nav-links .login-link:active,
+.nav-links .login-link:focus,
+.nav-links .login-link:visited {
+  text-decoration: none !important;
+}
+
+/* Prevent underline on active login button */
+.nav-links li.active:has(.login-link)::after {
+  display: none;
 }
 
 
@@ -107,12 +119,24 @@
   padding: 8px 16px;
   border-radius: 4px;
   transition: background 0.3s;
+  text-decoration: none !important;
 }
-
 
 .nav-links .create-account-link:hover {
   background: linear-gradient(135deg, #cc00cc, #6600cc);
   box-shadow: 0 0 10px rgba(255, 0, 255, 0.5);
+  text-decoration: none !important;
+}
+
+.nav-links .create-account-link:active,
+.nav-links .create-account-link:focus,
+.nav-links .create-account-link:visited {
+  text-decoration: none !important;
+}
+
+/* Prevent underline on active create account button */
+.nav-links li.active:has(.create-account-link)::after {
+  display: none;
 }
 
 

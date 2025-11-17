@@ -1,27 +1,23 @@
 import React from "react";
+import { useParams } from "react-router-dom";
 import '../styles/badgeDetailsPage.css';
+import { getBadgeById } from '../data/badgeData'; // ✅ Import shared badge data
 
 export default function BadgeDetails_ProfilePreviewPage() {
-  // Later you can fetch this from props, params, or API
-  const badge = {
-    title: "CCNA: Switching, Routing, and Wireless Essentials",
-    issuer: "Cisco",
-    issuedTo: "Kyle Justin Tan",
-    issuedDate: "April 16, 2024",
-    description:
-      "Cisco verifies the earner of this badge successfully completed the Switching, Routing, and Wireless Essentials course and achieved this student-level credential. The earner has a foundation in switching operations, wired and wireless LAN configuration using security best practices, redundancy protocols, and developed problem-solving skills. Earners participated in up to 45 practice activities and accumulated up to 21 hours of hands-on labs using Cisco hardware and/or the Cisco Packet Tracer tool.",
-    image: "/images/badge2.png", // replace with actual path
-    skills: [
-      "Access Connectivity",
-      "Access Security",
-      "First-hop Redundancy",
-      "High Availability",
-      "IP Services",
-      "Routing",
-      "Switching Protocols",
-      "Wireless LAN Controllers",
-    ],
-  };
+  const { id } = useParams();
+  
+  // Get badge from shared data (matches all other pages)
+  const badge = getBadgeById(id);
+  
+  // If badge not found, show error
+  if (!badge) {
+    return (
+      <div className="badge-details-page" style={{ padding: "50px", textAlign: "center" }}>
+        <h2>Badge not found</h2>
+        <p>The badge you're looking for doesn't exist or has been removed.</p>
+      </div>
+    );
+  }
 
   return (
     <div className="badge-details-page">

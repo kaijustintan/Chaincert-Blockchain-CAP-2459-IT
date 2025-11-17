@@ -1,53 +1,17 @@
 import React from "react";
 import { useNavigate, useParams } from "react-router-dom";  // ✅ import hooks
 import '../styles/badgeDetailsPage.css';
+import { getBadgeById } from '../data/badgeData'; // ✅ Import shared badge data
 
 export default function BadgeDetailsPage() {
   const { id } = useParams();         // ✅ get badge id from URL
   const navigate = useNavigate();     // ✅ for navigation
+  
+  // Check if user is logged in (for conditional rendering)
+  const isLoggedIn = !!localStorage.getItem('token');
 
-  // Example badges (later fetch from API or shared data)
-  const allBadges = {
-    1: {
-      title: "CCNA: Enterprise Networking, Security, and Automation",
-      issuer: "Cisco",
-      issuedTo: "Kyle Justin Tan",
-      issuedDate: "August 1, 2024",
-      description: "Cisco verifies the earner of this badge successfully.",
-      image: "/images/badge1.png",
-      skills: ["Networking Basics", "Security", "Automation"],
-    },
-    2: {
-      title: "CCNA: Switching, Routing, and Wireless Essentials",
-      issuer: "Cisco",
-      issuedTo: "Kyle Justin Tan",
-      issuedDate: "April 16, 2024",
-      description:
-        "Cisco verifies the earner of this badge successfully completed the Switching, Routing, and Wireless Essentials course and achieved this student-level credential. The earner has a foundation in switching operations, wired and wireless LAN configuration using security best practices, redundancy protocols, and developed problem-solving skills.",
-      image: "/images/badge2.png",
-      skills: [
-        "Access Connectivity",
-        "Access Security",
-        "First-hop Redundancy",
-        "High Availability",
-        "IP Services",
-        "Routing",
-        "Switching Protocols",
-        "Wireless LAN Controllers",
-      ],
-    },
-    3: {
-      title: "Network Defense",
-      issuer: "Cisco",
-      issuedTo: "Kyle Justin Tan",
-      issuedDate: "November 26, 2024",
-      description: "Cisco certifies knowledge in Network Defense strategies.",
-      image: "/images/badge3.png",
-      skills: ["Firewall", "IDS/IPS", "Cyber Defense"],
-    },
-  };
-
-  const badge = allBadges[id];
+  // Get badge from shared data
+  const badge = getBadgeById(id);
 
   if (!badge) {
     return <h2 style={{ padding: "20px" }}>Badge not found</h2>;
@@ -57,19 +21,27 @@ export default function BadgeDetailsPage() {
     <div className="badge-details-page">
       {/* Header */}
       <div className="details-header">
-        <p>
-          This badge was issued to <strong>{badge.issuedTo}</strong> |{" "}
-          <span>Date issued: {badge.issuedDate}</span>
-        </p>
+        <div className="header-info">
+          <p>
+            This badge was issued to <strong>{badge.issuedTo}</strong>
+          </p>
+          <span className="header-date">Date issued: {badge.issuedDate}</span>
+        </div>
         <div className="actions">
-          {/* ✅ Share button redirects to shareCredentialPage */}
-          <button
-            className="share-btn"
-            onClick={() => navigate(`/share-credential/${id}`)}
-          >
-            Share
-          </button>
-          <button className="more-btn">⋮</button>
+          {/* Show Share button only if user is logged in */}
+          {isLoggedIn ? (
+            <>
+              <button
+                className="share-btn"
+                onClick={() => navigate(`/share-credential/${id}`)}
+              >
+                📤 Share
+              </button>
+              <button className="more-btn" title="More options">⋮</button>
+            </>
+          ) : (
+            <span className="public-view-badge">Public View</span>
+          )}
         </div>
       </div>
 

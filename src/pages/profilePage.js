@@ -335,15 +335,6 @@ export default function ProfilePage() {
               <p className="badge-issuer">Issued by {badge.issuer}</p>
             </div>
           ))}
-
-          {/* Add New Badge Card */}
-          <div className="badge-card-enhanced add-new">
-            <div className="add-new-content">
-              <span className="add-icon">➕</span>
-              <h3>Add New Badge</h3>
-              <p>Upload external credentials</p>
-            </div>
-          </div>
         </div>
       </section>
 

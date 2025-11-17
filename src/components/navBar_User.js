@@ -36,8 +36,12 @@ function NavBar() {
 
       <ul className="nav-links">
         {/* PUBLIC LINKS - Always Visible */}
-        <li className={location.pathname === '/' ? 'active' : ''}>
-          <Link to="/">Home</Link>
+        <li className={location.pathname === '/' || location.pathname === '/home' ? 'active' : ''}>
+          {isLoggedIn ? (
+            <Link to="/home">Home</Link>
+          ) : (
+            <Link to="/">Home</Link>
+          )}
         </li>
         <li className={location.pathname === '/about' ? 'active' : ''}>
           <Link to="/about">About</Link>

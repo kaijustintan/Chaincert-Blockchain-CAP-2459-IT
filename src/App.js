@@ -4,7 +4,7 @@ import ProtectedRoutes from './components/protectedRoutes';
 import AdminProtectedRoute from './components/adminProtectedRoutes';
 
 // Import pages/components
-import LandingHomePage from './pages/landingHomePage';
+import LandingHomePage from './pages/landingHomePage';  // ✅ Role-based landing (after login)
 import LoginPage from './pages/loginPage';
 import StudentDashboard from './pages/studentDashboard';
 import AdminDashboard from './pages/adminDashboard';
@@ -35,7 +35,7 @@ function App() {
         <Navbar />
         <Routes>
           {/* Public routes */}
-          <Route path="/" element={<LandingHomePage />} />
+          <Route path="/" element={<LandingHomePage />} />  {/* ✅ CHANGED: Public landing */}
           <Route path="/login" element={<LoginPage />} />
           <Route path="/register" element={<CreateAccount />} />
           <Route path="/about" element={<AboutPage />} />
@@ -44,6 +44,9 @@ function App() {
 
           {/* Protected routes: nested under ProtectedRoutes */}
           <Route element={<ProtectedRoutes />}>
+            {/* ✅ NEW: Role-based landing page (Credly-style) */}
+            <Route path="/home" element={<LandingHomePage />} />
+            
             <Route path="/student/dashboard" element={<StudentDashboard />} />
             <Route path="/verifier/dashboard" element={<VerifierDashboard />} />
             <Route path="/issuer/dashboard" element={<IssuerDashboard />} />
@@ -68,7 +71,7 @@ function App() {
             }
           />
 
-          {/* Unauthorized page (optional, create this component) */}
+          {/* Unauthorized page */}
           <Route path="/unauthorized" element={<UnauthorizedPage />} />
 
           {/* Catch-all for undefined routes */}

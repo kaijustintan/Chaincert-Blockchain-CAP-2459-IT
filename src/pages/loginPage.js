@@ -1,17 +1,15 @@
-// frontend/src/pages/loginPage.js
+// frontend/src/pages/loginPage.js - FIXED VERSION
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import apiService from '../services/apiService';
 import "../styles/loginPage.css";
 
-
 function LoginPage() {  
-  const [email, setEmail] = useState('');  // ✅ CHANGED FROM 'username' TO 'email'
+  const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
-
 
   const handleLogin = async (e) => {
     e.preventDefault();
@@ -19,7 +17,7 @@ function LoginPage() {
     setLoading(true);
     
     try {
-      // ✅ STEP 1: Try ISSUER login first (optimal - single request on success)
+      // ✅ STEP 1: Try ISSUER login first
       console.log('🔍 Attempting issuer login...');
       const issuerResponse = await apiService.loginIssuer({ email, password });
       
@@ -29,16 +27,16 @@ function LoginPage() {
         localStorage.setItem('user', JSON.stringify(issuerResponse.user));
         localStorage.setItem('role', 'issuer');
         setLoading(false);
-        navigate('/issuer/dashboard');
-        return; // ✅ Exit - no need for fallback
+        
+        // ✅ FIXED: Navigate to landing home page instead of dashboard
+        navigate('/home');
+        return;
       }
     } catch (issuerError) {
-      // Issuer endpoint might throw 404/401 - that's expected
       console.log('📌 Not an issuer account, checking regular user...');
     }
 
-
-    // ✅ STEP 2: Try REGULAR USER login (fallback only if issuer fails)
+    // ✅ STEP 2: Try REGULAR USER login
     try {
       console.log('🔍 Attempting user login...');
       const userResponse = await apiService.login({ email, password });
@@ -50,12 +48,10 @@ function LoginPage() {
         const userRole = userResponse.user.role || 'student';
         localStorage.setItem('role', userRole);
         
-        // Route based on role
-        if (userRole === 'admin') {
-          navigate('/admin/dashboard');
-        } else {
-          navigate('/student/dashboard');
-        }
+        // ✅ FIXED: ALL roles go to landing home page
+        // The landing page will show different content based on role
+        navigate('/home');
+        
         setLoading(false);
         return;
       }
@@ -68,7 +64,6 @@ function LoginPage() {
     
     setLoading(false);
   };
-
 
   return (
     <div className="login-wrapper">
@@ -84,13 +79,11 @@ function LoginPage() {
         </ul>
       </div>
 
-
       {/* Right Side - Login Form */}
       <div className="login-right">
         <div className="login-box">
           <h2 className="brand-name">ChainCert</h2>
           <p className="tagline">Secure • Verifiable • Blockchain Credentials</p>
-
 
           <form className="login-form" onSubmit={handleLogin}>
             {error && (
@@ -98,7 +91,6 @@ function LoginPage() {
                 <span>⚠️</span> {error}
               </div>
             )}
-
 
             <div className="input-group">
               <label htmlFor="email">Email</label>
@@ -136,12 +128,10 @@ function LoginPage() {
             </button>
           </form>
 
-
           <div className="extra-links">
             <a href="/forgot-password">Forgot Password?</a>
             <a href="/register">Create Account</a>
           </div>
-
 
           <div className="demo-credentials">
             <p><strong>Demo Accounts:</strong></p>
@@ -153,6 +143,5 @@ function LoginPage() {
     </div>
   );
 }
-
 
 export default LoginPage;

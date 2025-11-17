@@ -41,6 +41,10 @@ function App() {
           <Route path="/about" element={<AboutPage />} />
           <Route path="/help" element={<HelpPage />} />
           <Route path="/forgot-password" element={<ForgotPassword />} />
+          {/* Public badge viewing (no authentication required) - using badge-details */}
+          <Route path="/badge-details/:id" element={<BadgeDetails />} />
+          {/* Keep public/badge route for backward compatibility */}
+          <Route path="/public/badge/:id" element={<PublicBadgeViewPage />} />
 
           {/* Protected routes: nested under ProtectedRoutes */}
           <Route element={<ProtectedRoutes />}>
@@ -55,7 +59,7 @@ function App() {
             <Route path="/profile" element={<ProfilePage />} />
             <Route path="/transcript" element={<Transcript />} />
             <Route path="/profile-preview" element={<ProfilePreview />} />
-            <Route path="/badge-details/:id" element={<BadgeDetails />} />
+            {/* badge-details is now public, but keep it here for logged-in users with Share button */}
             <Route path="/profile-preview/badge-details/:id" element={<BadgeDetailsProfilePreviewPage />} />
             <Route path="/share-credential/:id" element={<ShareCredentialPage />} />
             <Route path="/credential/details" element={<CredentialDetails />} />

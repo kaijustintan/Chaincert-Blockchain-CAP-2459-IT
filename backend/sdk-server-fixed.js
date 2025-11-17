@@ -44,7 +44,7 @@ app.use(express.json());
 // ✅ Initialize Docker client
 const docker = new Docker({ socketPath: '/var/run/docker.sock' });
 // SUBJECTIVE
-const FABRIC_SAMPLES_PATH = '/home/kaitanz_/fabric-samples/fabric-samples'; // KAI
+const FABRIC_SAMPLES_PATH = '/home/kaitanz_/fabric-samples/fabric-samples'; // KAI # SUBJECTIVE
 // const FABRIC_SAMPLES_PATH = path.resolve(__dirname, '..', 'fabric-samples', 'fabric-samples'); // SAKANILA
 const CORE_YAML_PATH = `${FABRIC_SAMPLES_PATH}/config/core.yaml`;
 
@@ -99,7 +99,7 @@ const ccpPath = path.resolve(
   'connection-org1.json'
 );
 */
-// const ccpPath = '/home/kaitanz_/fabric-samples/test-network/organizations/peerOrganizations/org1.example.com/connection-org1.json';
+// const ccpPath = '/home/kaitanz_/fabric-samples/test-network/organizations/peerOrganizations/org1.example.com/connection-org1.json'; // SUBJECTIVE
 // const ccpPath = '/home/polo/fabric-samples-full/test-network/organizations/peerOrganizations/org1.example.com/connection-org1.json';
 
 // ✅ RESTORED: walletPath (was commented out but used below)

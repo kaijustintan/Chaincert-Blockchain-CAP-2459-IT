@@ -15,7 +15,8 @@
     "peer0.dlsu.example.com": {
       "url": "grpcs://localhost:12051",
       "tlsCACerts": {
-        "path": "/home/kaitanz_/fabric-samples/fabric-samples/test-network/organizations/peerOrganizations/dlsu.example.com/peers/peer0.dlsu.example.com/tls/ca.crt"
+        "path": "/home/kaitanz_/fabric-samples/fabric-samples/test-network/organizations/peerOrganizations/dlsu.example.com/peers/peer0.dlsu.example.com/tls/ca.crt",
+        "_comment": "SUBJECTIVE"
       },
       "grpcOptions": {
         "ssl-target-name-override": "peer0.dlsu.example.com"
@@ -27,7 +28,8 @@
       "url": "https://localhost:12054",
       "caName": "ca-dlsu",
       "tlsCACerts": {
-        "path": "/home/kaitanz_/fabric-samples/fabric-samples/test-network/organizations/peerOrganizations/dlsu.example.com/ca/ca.dlsu.example.com-cert.pem"
+        "path": "/home/kaitanz_/fabric-samples/fabric-samples/test-network/organizations/peerOrganizations/dlsu.example.com/ca/ca.dlsu.example.com-cert.pem",
+        "_comment": "SUBJECTIVE"
       },
       "httpOptions": {
         "verify": false
@@ -41,7 +43,8 @@
         "ssl-target-name-override": "orderer.example.com"
       },
       "tlsCACerts": {
-        "path": "/home/kaitanz_/fabric-samples/fabric-samples/test-network/organizations/ordererOrganizations/example.com/orderers/orderer.example.com/tls/ca.crt"
+        "path": "/home/kaitanz_/fabric-samples/fabric-samples/test-network/organizations/ordererOrganizations/example.com/orderers/orderer.example.com/tls/ca.crt",
+        "_comment": "SUBJECTIVE"
       }
     }
   },

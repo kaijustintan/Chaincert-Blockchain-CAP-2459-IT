@@ -2,7 +2,7 @@
 
 function createDLSU {
     # Relative: ../../organizations/peerOrganizations/dlsu.example.com/
-    # Absolute: /home/kaitanz_/fabric-samples/fabric-samples/test-network/organizations/peerOrganizations/dlsu.example.com/
+    # Absolute: /home/kaitanz_/fabric-samples/fabric-samples/test-network/organizations/peerOrganizations/dlsu.example.com/ # SUBJECTIVE
     mkdir -p ../../organizations/peerOrganizations/dlsu.example.com/
 
     # Set Fabric CA Client home to org's directory

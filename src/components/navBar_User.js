@@ -14,7 +14,7 @@ function NavBar() {
   const user = JSON.parse(localStorage.getItem('user') || '{}');
   const isLoggedIn = !!token;
   const userRole = user.role || '';
-  const userName = user.username || user.name || user.fullName || 'User';
+  const userName = user.username || user.name || user.fullName || user.orgName || 'User';
   // ✅ IMPROVED LOGOUT HANDLER - Now calls the centralized logout function
   const handleLogout = () => {
     console.log('🔄 Starting logout process...');

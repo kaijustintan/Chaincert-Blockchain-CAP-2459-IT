@@ -6,7 +6,7 @@ export default function ProfilePage() {
   // Get user data from localStorage (set during login)
   const user = JSON.parse(localStorage.getItem("user") || "{}");
   const userEmail = user.email || localStorage.getItem("email") || "";
-  const userName = user.username || user.name || user.fullName || "User";
+  const userName = user.username || user.name || user.fullName || user.orgName || "User";
   const userRole = user.role || localStorage.getItem("role") || "student";
   const userId = user._id || user.id || "";
 
@@ -22,9 +22,9 @@ export default function ProfilePage() {
   const fileInputRef = useRef(null);
 
   // Generate profile URL based on username
-  const profileUrl = `https://www.chaincert.com/users/${userName
-    .toLowerCase()
-    .replace(/\s+/g, "-")}`;
+  const basePath = user.role === "issuer" ? "issuers" : "users";
+  const profileUrl = `https://www.chaincert.com/${basePath}/${userName.toLowerCase().replace(/\s+/g, "-")}`;
+
 
   // Load user profile data on component mount
   useEffect(() => {
@@ -88,11 +88,6 @@ export default function ProfilePage() {
     const file = event.target.files?.[0];
     if (!file) return;
 
-    console.log("File selected:", file.name);
-    alert(
-      `File selected: ${file.name}\n\nIn the next step, we'll hook this up to the backend.`
-    );
-// This is the new logic
     try {
       const formData = new FormData();
       formData.append('profilePicture', file); // 'profilePicture' must match the backend

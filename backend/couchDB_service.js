@@ -1,17 +1,15 @@
+// backend/couchDB_service.js
 const nano = require('nano');
 const bcryptjs = require('bcryptjs');
 
-
 const COUCHDB_URL = 'http://admin:adminpw@localhost:5985';
 const couch = nano(COUCHDB_URL);
-
 
 let usersDb = null;
 let issuersDB = null;
 let notificationsDb = null;
 let deploymentsDb = null;
 let accreditedOrgsDb = null; // List of fully accredited orgs
-
 
 async function initializeDatabases() {
   try {
@@ -27,7 +25,6 @@ async function initializeDatabases() {
   }
 }
 
-
 // ===== USER FUNCTIONS =====
 async function saveUser(user) {
   if (!usersDb) await initializeDatabases();
@@ -36,7 +33,6 @@ async function saveUser(user) {
   }
   return await usersDb.insert(user);
 }
-
 
 async function getUser(userId) {
   try {
@@ -50,6 +46,31 @@ async function getUser(userId) {
   }
 }
 
+// ✅ ADDED BACK: checkIfUserExists (duplicate email checker)
+async function checkIfUserExists(email) {
+  if (!usersDb) await initializeDatabases();
+
+  // 1. Normalize the input email (lowercase & trim spaces)
+  const searchEmail = email.toLowerCase().trim();
+
+  // 2. Fetch ALL documents (fail-safe method)
+  const result = await usersDb.list({ include_docs: true });
+
+  // 3. Manually check the array. This cannot fail due to missing indexes.
+  const exists = result.rows.some(row => {
+    return (
+      row.doc &&
+      row.doc.email &&
+      row.doc.email.toLowerCase().trim() === searchEmail
+    );
+  });
+
+  if (exists) {
+    console.log(`[DUPLICATE CHECK] Found existing user with email: ${email}`);
+  }
+
+  return exists;
+}
 
 async function getAllUsers() {
   if (!usersDb) await initializeDatabases();
@@ -57,22 +78,21 @@ async function getAllUsers() {
   return result.rows.map(row => row.doc);
 }
 
-
 // ✅ NEWLY ADDED FUNCTION (For Change Password in settings)
 async function updateUser(userId, userData) {
   try {
     // ✅ Smart DB logic: Check the ID prefix
     const db = userId.startsWith('issuer_') ? issuersDB : usersDb;
-    
+
     const currentDoc = await db.get(userId); // Get from correct DB
-    
+
     const updatedDoc = {
       ...currentDoc,
       ...userData,
       _id: currentDoc._id,
       _rev: currentDoc._rev
     };
-    
+
     const response = await db.insert(updatedDoc); // Insert into correct DB
     console.log('User/Issuer updated successfully:', response);
     return response;
@@ -82,26 +102,27 @@ async function updateUser(userId, userData) {
   }
 }
 
-
 // ✅ NEWLY ADDED - For Profile Summary
 async function updateProfile(userId, profileData) {
   try {
     // ✅ Smart DB logic: Check the ID prefix
     const db = userId.startsWith('issuer_') ? issuersDB : usersDb;
 
-
     const currentDoc = await db.get(userId); // Get from correct DB
-    
+
     // Update profile fields
     const updatedDoc = {
       ...currentDoc,
       summary: profileData.summary || currentDoc.summary || '',
-      isPublic: profileData.isPublic !== undefined ? profileData.isPublic : currentDoc.isPublic,
+      isPublic:
+        profileData.isPublic !== undefined
+          ? profileData.isPublic
+          : currentDoc.isPublic,
       profileUpdatedAt: new Date(),
       _id: currentDoc._id,
       _rev: currentDoc._rev
     };
-    
+
     const response = await db.insert(updatedDoc); // Insert into correct DB
     console.log('Profile updated successfully:', response);
     return response;
@@ -111,9 +132,9 @@ async function updateProfile(userId, profileData) {
   }
 }
 
-
 async function updateProfilePicture(userId, imageUrl) {
   try {
+    if (!usersDb) await initializeDatabases();   // ✅ SAFETY: ensure DB initialized
     const user = await usersDb.get(userId);
     user.profilePicture = imageUrl;
     const result = await usersDb.insert(user);
@@ -125,13 +146,11 @@ async function updateProfilePicture(userId, imageUrl) {
   }
 }
 
-
 // ===== ACCREDITED ORGANIZATIONS FUNCTIONS =====
 async function saveAccreditedOrganization(org) {
   if (!accreditedOrgsDb) await initializeDatabases();
   return await accreditedOrgsDb.insert(org);
 }
-
 
 async function getAllAccreditedOrganizations() {
   if (!accreditedOrgsDb) await initializeDatabases();
@@ -141,14 +160,12 @@ async function getAllAccreditedOrganizations() {
     .map(row => row.doc);
 }
 
-
-// ✅ NEW: Check if organization is accredited
+// ✅ Check if organization is accredited
 async function checkIfOrgAccredited(orgName) {
   try {
     if (!accreditedOrgsDb) await initializeDatabases();
-    
-    console.log(`[COUCHDB] Checking if "${orgName}" is accredited...`);
 
+    console.log(`[COUCHDB] Checking if "${orgName}" is accredited...`);
 
     // Search for the organization by name (try multiple possible field names)
     const result = await accreditedOrgsDb.find({
@@ -162,13 +179,15 @@ async function checkIfOrgAccredited(orgName) {
       limit: 1
     });
 
-
     if (result.docs && result.docs.length > 0) {
       console.log(`[COUCHDB] ✅ "${orgName}" is ACCREDITED!`);
       const accreditedOrg = result.docs[0];
       return {
         isAccredited: true,
-        accreditedType: accreditedOrg.type || accreditedOrg.accreditationType || 'Accredited'
+        accreditedType:
+          accreditedOrg.type ||
+          accreditedOrg.accreditationType ||
+          'Accredited'
       };
     } else {
       console.log(`[COUCHDB] ❌ "${orgName}" is NOT accredited`);
@@ -186,11 +205,9 @@ async function checkIfOrgAccredited(orgName) {
   }
 }
 
-
 // ===== ISSUER FUNCTIONS =====
 async function createIssuerRegistration(issuerData, accreditationCheck) {
   if (!issuersDB) await initializeDatabases();
-
 
   console.log('[COUCHDB] Creating issuer registration with data:', {
     orgName: issuerData.orgName,
@@ -198,9 +215,10 @@ async function createIssuerRegistration(issuerData, accreditationCheck) {
     accreditedType: accreditationCheck.accreditedType
   });
 
-
   const issuerDoc = {
-    _id: `issuer_${issuerData.email.replace(/@/g, '_').replace(/\./g, '_')}_${Date.now()}`,
+    _id: `issuer_${issuerData.email
+      .replace(/@/g, '_')
+      .replace(/\./g, '_')}_${Date.now()}`,
     type: 'issuer_registration',
     role: 'issuer',
     orgName: issuerData.orgName,
@@ -217,17 +235,14 @@ async function createIssuerRegistration(issuerData, accreditationCheck) {
     rejectionReason: null
   };
 
-
   console.log('[COUCHDB] Final issuer doc before insert:', {
     _id: issuerDoc._id,
     accredited: issuerDoc.accredited,
     accreditedType: issuerDoc.accreditedType
   });
 
-
   return await issuersDB.insert(issuerDoc);
 }
-
 
 async function getPendingIssuers() {
   if (!issuersDB) await initializeDatabases();
@@ -241,12 +256,10 @@ async function getPendingIssuers() {
   return result.docs;
 }
 
-
 async function getIssuerById(issuerId) {
   if (!issuersDB) await initializeDatabases();
   return await issuersDB.get(issuerId);
 }
-
 
 async function getIssuerByEmail(email) {
   if (!issuersDB) await initializeDatabases();
@@ -258,17 +271,13 @@ async function getIssuerByEmail(email) {
   return result.docs.length > 0 ? result.docs[0] : null;
 }
 
-
 // ✅ APPROVE ISSUER with wallet and couchDB setup
 async function approveIssuer(issuerId, adminId) {
   if (!issuersDB) await initializeDatabases();
 
-
   console.log(`[COUCHDB] Approving issuer: ${issuerId}`);
 
-
   const issuerDoc = await issuersDB.get(issuerId);
-
 
   console.log(`[COUCHDB] Retrieved issuer:`, {
     _id: issuerDoc._id,
@@ -277,43 +286,50 @@ async function approveIssuer(issuerId, adminId) {
     orgName: issuerDoc.orgName
   });
 
-
   // DYNAMIC identity assignment (no spaces, all lowercase)
   if (issuerDoc.orgName) {
-    const fabricId = issuerDoc.orgName.trim().toLowerCase().replace(/\s+/g, '') + '-admin';
+    const fabricId =
+      issuerDoc.orgName.trim().toLowerCase().replace(/\s+/g, '') + '-admin';
     issuerDoc.fabricIdentity = fabricId;
   } else {
     issuerDoc.fabricIdentity = undefined;
   }
 
-
-  // ===== NEW: Attach CouchDB connection info via normalized orgName =====
-  const normalizedOrgName = issuerDoc.orgName.toLowerCase().replace(/\s+/g, "");
-  const nanoAdmin = require('nano')('http://admin:adminpw@localhost:5985');
+  // ===== CouchDB connection per org (new feature)
+  const normalizedOrgName = issuerDoc.orgName
+    .toLowerCase()
+    .replace(/\s+/g, '');
+  const nanoAdmin = require('nano')(
+    'http://admin:adminpw@localhost:5985'
+  );
   const connDb = nanoAdmin.use('couchdb_connections');
-  const result = await connDb.find({ selector: { orgName: normalizedOrgName } });
+  const result = await connDb.find({
+    selector: { orgName: normalizedOrgName }
+  });
   if (result.docs.length > 0) {
     issuerDoc.couchDBUrl = result.docs[0].couchDBUrl;
-    console.log(`[COUCHDB] Assigned couchDBUrl for issuer:`, issuerDoc.couchDBUrl);
+    console.log(
+      `[COUCHDB] Assigned couchDBUrl for issuer:`,
+      issuerDoc.couchDBUrl
+    );
   } else {
-    throw new Error('No CouchDB connection found for org: ' + normalizedOrgName);
+    throw new Error(
+      'No CouchDB connection found for org: ' + normalizedOrgName
+    );
   }
-  // ===== END NEW BLOCK =====
-
 
   // WALLET ID GENERATION
   const walletId = `wallet_${Date.now()}`;
   issuerDoc.walletId = walletId;
 
-
   issuerDoc.status = 'approved';
   issuerDoc.approvedBy = adminId;
   issuerDoc.approvedAt = new Date().toISOString();
 
-
   await issuersDB.insert(issuerDoc);
-  console.log(`[COUCHDB] Issuer status updated to 'approved'`);
-
+  console.log(
+    `[COUCHDB] Issuer status updated to 'approved'`
+  );
 
   return {
     _id: issuerDoc._id,
@@ -328,7 +344,6 @@ async function approveIssuer(issuerId, adminId) {
   };
 }
 
-
 async function rejectIssuer(issuerId, rejectionReason) {
   if (!issuersDB) await initializeDatabases();
   const issuerDoc = await issuersDB.get(issuerId);
@@ -337,7 +352,6 @@ async function rejectIssuer(issuerId, rejectionReason) {
   issuerDoc.rejectedAt = new Date().toISOString();
   return await issuersDB.insert(issuerDoc);
 }
-
 
 async function getApprovedIssuer(email) {
   if (!issuersDB) await initializeDatabases();
@@ -351,14 +365,29 @@ async function getApprovedIssuer(email) {
   return result.docs.length > 0 ? result.docs[0] : null;
 }
 
+// ✅ ADDED BACK: Check if issuer name already exists
+async function checkIfIssuerExists(orgName) {
+  if (!issuersDB) await initializeDatabases();
+
+  const result = await issuersDB.find({
+    selector: {
+      type: 'issuer_registration',
+      orgName: orgName
+    },
+    limit: 1
+  });
+
+  return result.docs.length > 0;
+}
 
 // ===== NOTIFICATION FUNCTIONS =====
 async function createNotification(notificationData) {
   if (!notificationsDb) await initializeDatabases();
 
-
   const notification = {
-    _id: `notif_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+    _id: `notif_${Date.now()}_${Math.random()
+      .toString(36)
+      .substr(2, 9)}`,
     type: 'notification',
     category: notificationData.category || 'issuer_registration',
     title: notificationData.title,
@@ -370,17 +399,14 @@ async function createNotification(notificationData) {
     targetRole: notificationData.targetRole || 'admin'
   };
 
-
   return await notificationsDb.insert(notification);
 }
-
 
 async function getAllNotifications() {
   if (!notificationsDb) await initializeDatabases();
   const result = await notificationsDb.list({ include_docs: true });
   return result.rows.map(row => row.doc);
 }
-
 
 async function getUnreadNotifications() {
   if (!notificationsDb) await initializeDatabases();
@@ -393,7 +419,6 @@ async function getUnreadNotifications() {
   return result.docs;
 }
 
-
 async function markNotificationAsRead(notificationId) {
   if (!notificationsDb) await initializeDatabases();
   const notif = await notificationsDb.get(notificationId);
@@ -402,14 +427,14 @@ async function markNotificationAsRead(notificationId) {
   return await notificationsDb.insert(notif);
 }
 
-
 // ===== DEPLOYMENT FUNCTIONS =====
 async function saveDeploymentInfo(data) {
   if (!deploymentsDb) await initializeDatabases();
 
-
   const deploymentDoc = {
-    _id: `deploy_${data.issuerEmail.replace(/@/g, '_').replace(/\./g, '_')}_${Date.now()}`,
+    _id: `deploy_${data.issuerEmail
+      .replace(/@/g, '_')
+      .replace(/\./g, '_')}_${Date.now()}`,
     type: 'deployment',
     issuerEmail: data.issuerEmail,
     peerName: data.peerName,
@@ -420,10 +445,8 @@ async function saveDeploymentInfo(data) {
     deployedAt: data.deployedAt || new Date().toISOString()
   };
 
-
   return await deploymentsDb.insert(deploymentDoc);
 }
-
 
 async function getDeploymentByEmail(issuerEmail) {
   if (!deploymentsDb) await initializeDatabases();
@@ -435,7 +458,6 @@ async function getDeploymentByEmail(issuerEmail) {
   });
   return result.docs.length > 0 ? result.docs[0] : null;
 }
-
 
 // ===== CREDENTIAL CATALOG FUNCTIONS =====
 async function saveCredentialCatalog(credentialCatalog, issuerDoc) {
@@ -453,20 +475,18 @@ async function saveCredentialCatalog(credentialCatalog, issuerDoc) {
   return await orgDb.insert(doc);
 }
 
-
 // ===== CREDENTIAL INSTANCE FUNCTIONS (For the 2-step process) =====
-
 
 // Save credential metadata to CouchDB FIRST (Step 1)
 async function saveCredentialToCouchDB(credentialData, issuerDoc) {
   if (!issuerDoc || !issuerDoc.couchDBUrl) {
     throw new Error('issuerDoc with couchDBUrl is required');
   }
-  
+
   // Use the issuer's own CouchDB
   const nanoOrg = require('nano')(issuerDoc.couchDBUrl);
   const orgDb = nanoOrg.use('wallet_issuers');
-  
+
   const doc = {
     _id: `credential_${credentialData.id}_${Date.now()}`,
     type: 'credential_instance',
@@ -484,21 +504,22 @@ async function saveCredentialToCouchDB(credentialData, issuerDoc) {
     createdAt: new Date().toISOString(),
     lastUpdated: new Date().toISOString()
   };
-  
-  console.log(`[COUCHDB] Saving credential to ${issuerDoc.couchDBUrl}/wallet_issuers`);
+
+  console.log(
+    `[COUCHDB] Saving credential to ${issuerDoc.couchDBUrl}/wallet_issuers`
+  );
   return await orgDb.insert(doc);
 }
-
 
 // Update credential status after blockchain write (Step 2)
 async function updateCredentialStatus(credentialId, status, issuerDoc) {
   if (!issuerDoc || !issuerDoc.couchDBUrl) {
     throw new Error('issuerDoc with couchDBUrl is required');
   }
-  
+
   const nanoOrg = require('nano')(issuerDoc.couchDBUrl);
   const orgDb = nanoOrg.use('wallet_issuers');
-  
+
   // Find the credential doc
   const result = await orgDb.find({
     selector: {
@@ -507,147 +528,163 @@ async function updateCredentialStatus(credentialId, status, issuerDoc) {
     },
     limit: 1
   });
-  
+
   if (result.docs.length === 0) {
     throw new Error(`Credential ${credentialId} not found in CouchDB`);
   }
-  
+
   const doc = result.docs[0];
   doc.status = status;
-  doc.blockchainSynced = (status === 'synced');
+  doc.blockchainSynced = status === 'synced';
   doc.lastUpdated = new Date().toISOString();
-  
-  console.log(`[COUCHDB] Updating credential ${credentialId} status to: ${status}`);
+
+  console.log(
+    `[COUCHDB] Updating credential ${credentialId} status to: ${status}`
+  );
   return await orgDb.insert(doc);
 }
-
 
 // ✅ CORRECT: Fetch issuer and use their couchDBUrl
 async function saveCredentialToIssuerWallet(issuerEmail, credentialData) {
   try {
     const issuer = await getIssuerByEmail(issuerEmail);
-    
-    if (!issuer || !issuer.couchDBUrl) {
-      throw new Error(`❌ Issuer ${issuerEmail} has no CouchDB URL configured`);
-    }
 
+    if (!issuer || !issuer.couchDBUrl) {
+      throw new Error(
+        `❌ Issuer ${issuerEmail} has no CouchDB URL configured`
+      );
+    }
 
     // ✅ Use the issuer's couchDBUrl directly
     const issuerCouch = require('nano')(issuer.couchDBUrl);
     const walletDb = issuerCouch.use('wallet_issuer_credentials');
-    
+
     // ✅ Ensure credential has all required fields
     const credentialWithMeta = {
       ...credentialData,
-      _id: `cred_${credentialData.id || Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+      _id: `cred_${credentialData.id || Date.now()}_${Math.random()
+        .toString(36)
+        .substr(2, 9)}`,
       type: 'credential_instance',
       issuerEmail: issuerEmail,
       createdAt: new Date().toISOString(),
       status: credentialData.status || 'pending'
     };
-    
+
     return await walletDb.insert(credentialWithMeta);
-    
   } catch (error) {
-    console.error(`❌ Error saving credential to issuer wallet:`, error.message);
+    console.error(
+      `❌ Error saving credential to issuer wallet:`,
+      error.message
+    );
     throw error;
   }
 }
-
 
 async function getCredentialsByIssuerEmail(issuerEmail) {
   try {
     if (!issuersDB) await initializeDatabases();
     const issuer = await getIssuerByEmail(issuerEmail);
-    
-    if (!issuer || !issuer.couchDBUrl) {
-      throw new Error(`❌ Issuer ${issuerEmail} has no CouchDB URL configured`);
-    }
 
+    if (!issuer || !issuer.couchDBUrl) {
+      throw new Error(
+        `❌ Issuer ${issuerEmail} has no CouchDB URL configured`
+      );
+    }
 
     const issuerCouch = require('nano')(issuer.couchDBUrl);
     const walletDb = issuerCouch.use('wallet_issuer_credentials');
-    
+
     const result = await walletDb.find({
       selector: {
         type: 'credential_instance',
         issuerEmail: issuerEmail
       }
     });
-    
-    console.log(`[COUCHDB] Found ${result.docs.length} credentials for ${issuerEmail}`);
+
+    console.log(
+      `[COUCHDB] Found ${result.docs.length} credentials for ${issuerEmail}`
+    );
     return result.docs;
-    
   } catch (error) {
-    console.error(`❌ Error fetching credentials:`, error.message);
+    console.error(
+      `❌ Error fetching credentials:`,
+      error.message
+    );
     return [];
   }
 }
 
-
-// ✅ NEW: Get credentials by issuer ID (using the issuer doc directly)
+// ✅ Get credentials by issuer ID (using the issuer doc directly)
 async function getCredentialsByIssuerId(issuerId) {
   try {
     if (!issuersDB) await initializeDatabases();
     const issuer = await getIssuerById(issuerId);
-    
-    if (!issuer || !issuer.couchDBUrl) {
-      throw new Error(`❌ Issuer ${issuerId} has no CouchDB URL configured`);
-    }
 
+    if (!issuer || !issuer.couchDBUrl) {
+      throw new Error(
+        `❌ Issuer ${issuerId} has no CouchDB URL configured`
+      );
+    }
 
     const issuerCouch = require('nano')(issuer.couchDBUrl);
     const walletDb = issuerCouch.use('wallet_issuer_credentials');
-    
+
     const result = await walletDb.find({
       selector: {
         type: 'credential_instance'
       }
     });
-    
-    console.log(`[COUCHDB] Found ${result.docs.length} credentials for issuer ${issuerId}`);
+
+    console.log(
+      `[COUCHDB] Found ${result.docs.length} credentials for issuer ${issuerId}`
+    );
     return result.docs;
-    
   } catch (error) {
-    console.error(`❌ Error fetching credentials:`, error.message);
+    console.error(
+      `❌ Error fetching credentials:`,
+      error.message
+    );
     return [];
   }
 }
 
-
-// ✅ NEW FUNCTION: Get issuer credentials (for the GET route)
+// ✅ Get issuer credentials (for the GET route)
 async function getIssuerCredentials(issuerId) {
   try {
-    console.log(`[COUCHDB] Fetching credentials for issuer: ${issuerId}`);
-    
+    console.log(
+      `[COUCHDB] Fetching credentials for issuer: ${issuerId}`
+    );
+
     if (!issuersDB) await initializeDatabases();
-    
+
     // Get the issuer document to access their CouchDB URL
     const issuer = await getIssuerById(issuerId);
-    
+
     if (!issuer) {
       throw new Error(`Issuer ${issuerId} not found`);
     }
-    
+
     if (!issuer.couchDBUrl) {
-      console.log(`[COUCHDB] ⚠️ Issuer has no CouchDB URL configured`);
+      console.log(
+        `[COUCHDB] ⚠️ Issuer has no CouchDB URL configured`
+      );
       return [];
     }
-    
-    // Connect to the issuer's CouchDB and fetch credentials
+
     const issuerCouch = require('nano')(issuer.couchDBUrl);
     const walletDb = issuerCouch.use('wallet_issuer_credentials');
-    
-    // Fetch all credential_instance documents
+
     const result = await walletDb.find({
       selector: {
         type: 'credential_instance'
       }
     });
-    
-    console.log(`[COUCHDB] ✅ Found ${result.docs.length} credentials for issuer ${issuerId}`);
-    
-    // Return with issuer metadata
+
+    console.log(
+      `[COUCHDB] ✅ Found ${result.docs.length} credentials for issuer ${issuerId}`
+    );
+
     return {
       issuerId: issuerId,
       issuerName: issuer.orgName || issuer.contactName,
@@ -655,26 +692,26 @@ async function getIssuerCredentials(issuerId) {
       credentialCount: result.docs.length,
       credentials: result.docs
     };
-    
   } catch (error) {
-    console.error(`[COUCHDB] ❌ Error fetching issuer credentials:`, error.message);
+    console.error(
+      `[COUCHDB] ❌ Error fetching issuer credentials:`,
+      error.message
+    );
     throw error;
   }
 }
 
-
 async function deleteCredentialByIssuer(credentialId, issuerEmail) {
   try {
     const issuer = await getIssuerByEmail(issuerEmail);
-    
+
     if (!issuer || !issuer.couchDBUrl) {
       throw new Error(`Issuer ${issuerEmail} not found`);
     }
 
-
     const issuerCouch = require('nano')(issuer.couchDBUrl);
     const walletDb = issuerCouch.use('wallet_issuer_credentials');
-    
+
     const result = await walletDb.find({
       selector: {
         type: 'credential_instance',
@@ -682,61 +719,60 @@ async function deleteCredentialByIssuer(credentialId, issuerEmail) {
       },
       limit: 1
     });
-    
+
     if (result.docs.length === 0) {
       throw new Error(`Credential ${credentialId} not found`);
     }
-    
+
     const doc = result.docs[0];
     await walletDb.destroy(doc._id, doc._rev);
-    
-    console.log(`[COUCHDB] Credential ${credentialId} deleted`);
+
+    console.log(
+      `[COUCHDB] Credential ${credentialId} deleted`
+    );
     return { success: true };
-    
   } catch (error) {
     console.error(`Error deleting credential:`, error.message);
     throw error;
   }
 }
 
-
 async function revokeCredential(credentialId, issuerEmail) {
   try {
     const issuer = await getIssuerByEmail(issuerEmail);
-    
+
     if (!issuer || !issuer.couchDBUrl) {
       throw new Error(`Issuer ${issuerEmail} not found`);
     }
 
-
     const issuerCouch = require('nano')(issuer.couchDBUrl);
     const walletDb = issuerCouch.use('wallet_issuer_credentials');
-    
+
     const result = await walletDb.find({
       selector: {
         _id: credentialId
       },
       limit: 1
     });
-    
+
     if (result.docs.length === 0) {
       throw new Error(`Credential ${credentialId} not found`);
     }
-    
+
     const doc = result.docs[0];
     doc.status = 'revoked';
     doc.revokedAt = new Date().toISOString();
     await walletDb.insert(doc);
-    
-    console.log(`[COUCHDB] Credential ${credentialId} revoked`);
+
+    console.log(
+      `[COUCHDB] Credential ${credentialId} revoked`
+    );
     return { success: true, message: 'Credential revoked successfully' };
-    
   } catch (error) {
     console.error(`Error revoking credential:`, error.message);
     throw error;
   }
 }
-
 
 module.exports = {
   // Core initialization
@@ -745,21 +781,19 @@ module.exports = {
   issuersDB,
   initializeDatabases,
 
-
   // User functions
   saveUser,
   getUser,
+  checkIfUserExists,        // ✅ export
   updateUser,
   updateProfile,
   updateProfilePicture,
   getAllUsers,
 
-
   // Accreditation
   checkIfOrgAccredited,
   saveAccreditedOrganization,
   getAllAccreditedOrganizations,
-
 
   // Issuer lifecycle
   createIssuerRegistration,
@@ -769,7 +803,7 @@ module.exports = {
   approveIssuer,
   rejectIssuer,
   getApprovedIssuer,
-
+  checkIfIssuerExists,      // ✅ export
 
   // Notifications
   createNotification,
@@ -777,11 +811,9 @@ module.exports = {
   getUnreadNotifications,
   markNotificationAsRead,
 
-
   // Deployments
   saveDeploymentInfo,
   getDeploymentByEmail,
-
 
   // Credentials (Star Feature!)
   saveCredentialCatalog,
@@ -790,7 +822,7 @@ module.exports = {
   saveCredentialToIssuerWallet,
   getCredentialsByIssuerEmail,
   getCredentialsByIssuerId,
-  getIssuerCredentials,  // ✅ NEW EXPORT
+  getIssuerCredentials,
   deleteCredentialByIssuer,
   revokeCredential
 };

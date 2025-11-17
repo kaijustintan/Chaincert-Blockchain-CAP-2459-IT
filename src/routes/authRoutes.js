@@ -4,7 +4,6 @@ const router = express.Router();
 const authController = require('../controllers/authController');
 const multer = require('multer');
 const upload = multer({ storage: multer.memoryStorage() });
-const issuerCredentialController = require('../controllers/issuerCredentialController');
 
 
 
@@ -65,10 +64,6 @@ router.post('/approve-issuer/:issuerId', authController.approveIssuer);
 // POST /api/auth/reject-issuer/:issuerId - Reject issuer (Admin)
 router.post('/reject-issuer/:issuerId', authController.rejectIssuer);
 
-
-
-// ✅ NEW - Credential creation (NO middleware needed for now)
-router.post('/issuer/credentials/create', issuerCredentialController.createCredential);
 
 
 

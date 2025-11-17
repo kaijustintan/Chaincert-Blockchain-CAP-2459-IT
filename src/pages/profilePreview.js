@@ -5,7 +5,7 @@ import '../styles/profilePreview.css';
 export default function ProfilePreview() {
   // Get user data from localStorage
   const user = JSON.parse(localStorage.getItem('user') || '{}');
-  const userName = user.username || user.name || user.fullName || 'User';
+  const userName = user.username || user.name || user.fullName || user.orgName || "User";
   const userEmail = user.email || localStorage.getItem('email') || '';
   const userRole = user.role || localStorage.getItem('role') || 'student';
   const userId = user._id || user.id || '';

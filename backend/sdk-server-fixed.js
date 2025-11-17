@@ -1,4 +1,5 @@
 // backend/sdk-server-fixed.js
+
 const express = require('express');
 const cors = require('cors');
 const { Gateway, Wallets } = require('fabric-network');
@@ -8,6 +9,8 @@ const jwt = require('jsonwebtoken');
 const bcryptjs = require('bcryptjs');
 const multer = require('multer');
 const Docker = require('dockerode');
+const nano = require('nano');  // ✅ FIXED: Added at top level
+
 // const uploadRoutes = require('./routes/uploadRoutes'); // NEWLY ADDED - OLOPS PENDING
 
 const JWT_SECRET = process.env.JWT_SECRET || 'dev_secret_key';
@@ -37,7 +40,6 @@ app.use((req, res, next) => {
 
 app.use(cors());
 app.use(express.json());
-
 
 // ✅ Initialize Docker client
 const docker = new Docker({ socketPath: '/var/run/docker.sock' });
@@ -129,6 +131,11 @@ async function getContractAndGateway(identityName, orgName) {
     );
   }
 
+   // ✅ ADD THIS HERE - Check if CCP file exists
+  if (!fs.existsSync(ccpPath)) {
+    throw new Error(`Connection profile not found at: ${ccpPath}`);
+  }
+
   const ccpJSON = fs.readFileSync(ccpPath, 'utf8');
   const ccp = JSON.parse(ccpJSON);
   const wallet = await Wallets.newFileSystemWallet(walletPath);
@@ -146,7 +153,6 @@ async function getContractAndGateway(identityName, orgName) {
   lastConnectionTime = Date.now();
   return { gateway, contract };
 }
-
 
 async function sleep(ms) {
   return new Promise(resolve => setTimeout(resolve, ms));
@@ -170,14 +176,28 @@ app.get('/api/health', (req, res) => {
 });
 
 // ========== EXISTING: User Registration Endpoint
+// KAI - CHANGES
 app.post('/api/register', async (req, res) => {
   try {
     const { email, password, role, fullName } = req.body;
     if (!email || !password || !role) {
       return res.status(400).json({ success: false, error: 'Missing required fields.' });
     }
-    const result = await couchdb.saveUser({ email, password, role, fullName });
-    res.json({ success: true, userId: result.id });
+    
+    // ✅ FIXED ISSUE #3: Check if user already exists
+    const existingUsers = await couchdb.getAllUsers();
+    const userExists = existingUsers.find(u => u.email === email);
+    if (userExists) {
+      return res.status(409).json({ success: false, error: 'User already exists with this email.' });
+    }
+    
+    // 1. Generate a unique walletId (you can customize this)
+    const walletId = `wallet_${Date.now()}`;
+
+    // 2. Save user with walletId included
+    const result = await couchdb.saveUser({ email, password, role, fullName, walletId });
+    
+    res.json({ success: true, userId: result.id, walletId });
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });
   }
@@ -359,194 +379,115 @@ app.get('/api/credentials', async (req, res) => {
     // Pattern: issuer account queries their own credentials
     const issuerIdToQuery = user.role === 'issuer' ? user._id || user.email : 'ISSUER'; // adjust as needed
     const result = await contract.evaluateTransaction('GetCredentialsByIssuer', issuerIdToQuery);
-    res.json({ success: true, credentials: JSON.parse(result.toString()) });
+    
+    // ✅ FIXED ISSUE #2: Standardized response format
+    res.json({ 
+      success: true, 
+      credentials: JSON.parse(result.toString()),
+      count: JSON.parse(result.toString()).length || 0,
+      timestamp: new Date().toISOString()
+    });
   } catch (error) {
     console.error(`❌ Error: ${error.message}`);
     res.status(500).json({ success: false, error: error.message });
   }
 });
 
-
+// KAI - CHANGES 
+// KAI - CHANGES - 2-STEP CREDENTIAL ISSUANCE (CouchDB FIRST, then Blockchain)
+// In sdk-server-fixed.js - POST /api/credentials endpoint
+// KAI - FIXED: Credential Creation with Proper Identity Resolution
 app.post('/api/credentials', async (req, res) => {
   try {
-    const { id, holderID, issuerID, credentialType, expiryDate, metadata, documentHash } = req.body;
-    if (!id || !holderID || !issuerID) {
-      return res.status(400).json({ error: 'Missing required fields' });
+    const { id, issuerID, credentialType, credentialName, description, metadata } = req.body;
+    
+    // ✅ FIXED ISSUE #4: Enhanced validation for all required fields
+    if (!id || !issuerID || !credentialType || !credentialName) {
+      return res.status(400).json({ 
+        error: 'Missing required fields: id, issuerID, credentialType, credentialName' 
+      });
     }
 
-    const user = req.user; // Assumed set by JWT middleware
+    // ✅ FIX #1: Get user and resolve identityName, orgName
+    const user = req.user;
     if (!user) {
-      return res.status(401).json({ error: 'Unauthorized' });
+      return res.status(401).json({ success: false, error: 'Unauthorized' });
     }
 
     let identityName, orgName;
 
     if (user.role === 'issuer') {
-      // Look up issuer info in CouchDB by email or ID
+      // Issuer creating credential
       const issuerDoc = await couchdb.getApprovedIssuer(user.email);
       if (!issuerDoc || !issuerDoc.fabricIdentity || !issuerDoc.orgName) {
-        return res.status(403).json({ error: 'Issuer not approved or Fabric identity missing.' });
+        return res.status(403).json({ 
+          success: false, 
+          error: 'Issuer not approved or Fabric identity missing.' 
+        });
       }
       identityName = issuerDoc.fabricIdentity;
       orgName = issuerDoc.orgName;
     } else if (user.role === 'admin') {
-      // Org1 admin
+      // Admin creating credential
       identityName = 'admin';
       orgName = 'Org1';
     } else {
-      return res.status(403).json({ error: 'Forbidden: not allowed to issue credentials.' });
+      return res.status(403).json({ 
+        success: false, 
+        error: 'Not authorized to create credentials.' 
+      });
     }
 
-    // Retry logic remains unchanged, just uses the correct gateway/contract each time
-    const MAX_RETRIES = 3;
+    // ✅ NOW identityName and orgName are DEFINED!
+    const MAXRETRIES = 3;
     let lastError;
-    for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+
+    for (let attempt = 1; attempt <= MAXRETRIES; attempt++) {
       try {
-        console.log(`\uD83D\uDCE4 Attempt ${attempt}/${MAX_RETRIES}: Issuing credential ${id}...`);
+        console.log(`Attempting credential creation (${attempt}/${MAXRETRIES})...`);
+        
         const { gateway, contract } = await getContractAndGateway(identityName, orgName);
+        
+        // ✅ FIX #2: Use correct chaincode function name
         const result = await contract.submitTransaction(
-          'IssueCredential',
-          id, holderID, issuerID, credentialType, expiryDate, metadata || '', documentHash || ''
+          'CreateCredentialTemplate',  // ← Changed from 'IssueCredential' 
+          id,
+          issuerID,
+          credentialType,
+          credentialName,
+          description,
+          metadata || ''
         );
-        console.log(`\u2705 SUCCESS on attempt ${attempt}`);
-        return res.status(201).json({ success: true, credential: JSON.parse(result.toString()) });
-      } catch (error) {
-        lastError = error;
-        const errorMsg = (error.message || '').toLowerCase();
-        console.error(`\u274C Attempt ${attempt} failed: ${error.message}`);
-        if (
-          (errorMsg.includes('peer endorsement') ||
-            errorMsg.includes('do not match') ||
-            errorMsg.includes('no valid responses') ||
-            errorMsg.includes('endorsement')) && attempt < MAX_RETRIES
-        ) {
-          const backoffMs = Math.pow(2, attempt - 1) * 1000;
-          console.log(`\u23F3 Waiting ${backoffMs}ms before retry...`);
-          await sleep(backoffMs);
-          continue;
-        }
-        if (attempt === MAX_RETRIES) {
-          throw error;
-        }
-      }
-    }
-    throw new Error(`Failed after ${MAX_RETRIES} attempts: ${lastError.message}`);
-  } catch (error) {
-    console.error(`\u274C Error: ${error.message}`);
-    res.status(500).json({ success: false, error: error.message });
-  }
-});
 
-
-app.get('/api/credentials/:id', async (req, res) => {
-  try {
-    const user = req.user;
-    if (!user) {
-      return res.status(401).json({ success: false, error: 'Unauthorized' });
-    }
-    let identityName, orgName;
-    if (user.role === 'issuer') {
-      const issuer = await couchdb.getApprovedIssuer(user.email);
-      if (!issuer || !issuer.fabricIdentity || !issuer.orgName) {
-        return res.status(403).json({ success: false, error: 'Issuer not approved or Fabric identity missing.' });
-      }
-      identityName = issuer.fabricIdentity;
-      orgName = issuer.orgName;
-    } else if (user.role === 'admin') {
-      identityName = 'admin';
-      orgName = 'Org1';
-    } else {
-      return res.status(403).json({ success: false, error: 'Forbidden: Not allowed.' });
-    }
-    const { gateway, contract } = await getContractAndGateway(identityName, orgName);
-    const result = await contract.evaluateTransaction('GetCredential', req.params.id);
-    res.json({ success: true, credential: JSON.parse(result.toString()) });
-  } catch (error) {
-    console.error(`❌ Error: ${error.message}`);
-    res.status(500).json({ success: false, error: error.message });
-  }
-});
-
-
-app.post('/api/credentials/:id/verify', async (req, res) => {
-  try {
-    const user = req.user;
-    if (!user) {
-      return res.status(401).json({ success: false, error: 'Unauthorized' });
-    }
-    let identityName, orgName;
-    if (user.role === 'issuer') {
-      const issuer = await couchdb.getApprovedIssuer(user.email);
-      if (!issuer || !issuer.fabricIdentity || !issuer.orgName) {
-        return res.status(403).json({ success: false, error: 'Issuer not approved or Fabric identity missing.' });
-      }
-      identityName = issuer.fabricIdentity;
-      orgName = issuer.orgName;
-    } else if (user.role === 'admin') {
-      identityName = 'admin';
-      orgName = 'Org1';
-    } else {
-      return res.status(403).json({ success: false, error: 'Forbidden: Not allowed.' });
-    }
-    const { gateway, contract } = await getContractAndGateway(identityName, orgName);
-    const result = await contract.evaluateTransaction('VerifyCredential', req.params.id);
-    res.json({ success: true, verification: JSON.parse(result.toString()) });
-  } catch (error) {
-    console.error(`❌ Error: ${error.message}`);
-    res.status(500).json({ success: false, error: error.message });
-  }
-});
-
-app.put('/api/credentials/:id/revoke', async (req, res) => {
-  try {
-    const user = req.user;
-    if (!user) {
-      return res.status(401).json({ success: false, error: 'Unauthorized' });
-    }
-    let identityName, orgName;
-    if (user.role === 'issuer') {
-      const issuer = await couchdb.getApprovedIssuer(user.email);
-      if (!issuer || !issuer.fabricIdentity || !issuer.orgName) {
-        return res.status(403).json({ success: false, error: 'Issuer not approved or Fabric identity missing.' });
-      }
-      identityName = issuer.fabricIdentity;
-      orgName = issuer.orgName;
-    } else if (user.role === 'admin') {
-      identityName = 'admin';
-      orgName = 'Org1';
-    } else {
-      return res.status(403).json({ success: false, error: 'Forbidden: Not allowed.' });
-    }
-    const MAX_RETRIES = 3;
-    let lastError;
-    for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
-      try {
-        console.log(`📤 Attempt ${attempt}/${MAX_RETRIES}: Revoking credential ${req.params.id}...`);
-        const { gateway, contract } = await getContractAndGateway(identityName, orgName);
-        const result = await contract.submitTransaction('RevokeCredential', req.params.id);
         console.log(`✅ SUCCESS on attempt ${attempt}`);
-        return res.json({ success: true, credential: JSON.parse(result.toString()) });
+        return res.status(201).json({ 
+          success: true, 
+          credential: JSON.parse(result.toString()),
+          timestamp: new Date().toISOString()
+        });
       } catch (error) {
         lastError = error;
-        const errorMsg = (error.message || '').toLowerCase();
-        console.error(`❌ Attempt ${attempt} failed: ${error.message}`);
-        if ((errorMsg.includes('peer endorsement') ||
-             errorMsg.includes('do not match') ||
-             errorMsg.includes('no valid responses') ||
-             errorMsg.includes('endorsement')) && attempt < MAX_RETRIES) {
-          const backoffMs = Math.pow(2, attempt - 1) * 1000;
-          console.log(`⏳ Waiting ${backoffMs}ms before retry...`);
-          await sleep(backoffMs);
-          continue;
+        const errorMsg = error.message.toLowerCase();
+        
+        // ✅ FIX #3: Better error detection
+        if (errorMsg.includes('peer endorsement') || 
+            errorMsg.includes('do not match') || 
+            errorMsg.includes('no valid responses')) {
+          if (attempt < MAXRETRIES) {
+            const backoffMs = Math.pow(2, attempt - 1) * 1000;
+            console.log(`Retrying in ${backoffMs}ms...`);
+            await sleep(backoffMs);
+            continue;
+          }
         }
-        if (attempt === MAX_RETRIES) {
-          throw error;
-        }
+        
+        if (attempt === MAXRETRIES) throw error;
       }
     }
-    throw new Error(`Failed after ${MAX_RETRIES} attempts: ${lastError.message}`);
+    
+    throw new Error(`Failed after ${MAXRETRIES} attempts: ${lastError.message}`);
   } catch (error) {
-    console.error(`❌ Error: ${error.message}`);
+    console.error('❌ Error creating credential:', error.message);
     res.status(500).json({ success: false, error: error.message });
   }
 });
@@ -574,39 +515,88 @@ app.get('/api/credentials/holder/:holderID', async (req, res) => {
     }
     const { gateway, contract } = await getContractAndGateway(identityName, orgName);
     const result = await contract.evaluateTransaction('GetCredentialsByHolder', req.params.holderID);
-    res.json({ success: true, credentials: JSON.parse(result.toString()) });
+    
+    // ✅ FIXED ISSUE #2: Standardized response format
+    res.json({ 
+      success: true, 
+      credentials: JSON.parse(result.toString()),
+      count: JSON.parse(result.toString()).length || 0,
+      timestamp: new Date().toISOString()
+    });
   } catch (error) {
     console.error(`❌ Error: ${error.message}`);
     res.status(500).json({ success: false, error: error.message });
   }
 });
 
+// ✅ FIX FOR CREDENTIALS DASHBOARD - COMPLETE FIX
 app.get('/api/credentials/issuer/:issuerID', async (req, res) => {
   try {
+    const { issuerID } = req.params;
+    
+    // ✅ Validate issuer ID - THIS IS THE KEY FIX!
+    if (!issuerID || issuerID === 'ISSUER') {
+      return res.status(400).json({ 
+        success: false, 
+        error: 'Valid issuer ID is required',
+        message: 'Issuer ID cannot be empty or "ISSUER"'
+      });
+    }
+
     const user = req.user;
     if (!user) {
       return res.status(401).json({ success: false, error: 'Unauthorized' });
     }
-    let identityName, orgName;
-    if (user.role === 'issuer') {
-      const issuer = await couchdb.getApprovedIssuer(user.email);
-      if (!issuer || !issuer.fabricIdentity || !issuer.orgName) {
-        return res.status(403).json({ success: false, error: 'Issuer not approved or Fabric identity missing.' });
+
+    // ✅ FIXED ISSUE #1: nano is now defined at top level, no need to require again
+    const adminNano = nano('http://admin:adminpw@localhost:5985');
+    const issuersDB = adminNano.use('issuers');
+    
+    let issuer;
+    try {
+      issuer = await issuersDB.get(issuerID);
+    } catch (err) {
+      if (err.statusCode === 404) {
+        return res.status(404).json({ 
+          success: false, 
+          error: 'Issuer not found'
+        });
       }
-      identityName = issuer.fabricIdentity;
-      orgName = issuer.orgName;
-    } else if (user.role === 'admin') {
-      identityName = 'admin';
-      orgName = 'Org1';
-    } else {
-      return res.status(403).json({ success: false, error: 'Forbidden: Not allowed.' });
+      throw err;
     }
-    const { gateway, contract } = await getContractAndGateway(identityName, orgName);
-    const result = await contract.evaluateTransaction('GetCredentialsByIssuer', req.params.issuerID);
-    res.json({ success: true, credentials: JSON.parse(result.toString()) });
+
+    if (!issuer || !issuer.couchDBUrl) {
+      return res.status(403).json({ 
+        success: false, 
+        error: 'Issuer not found or CouchDB URL missing' 
+      });
+    }
+
+    // ✅ Connect to issuer's OWN CouchDB (not admin's)
+    const issuerNano = nano(issuer.couchDBUrl);
+    const walletDb = issuerNano.use('wallet_issuer_credentials');
+
+    // ✅ Use .find() instead of .view() - no design docs needed!
+    const result = await walletDb.find({
+      selector: {
+        issuerId: issuerID
+      }
+    });
+
+    // ✅ FIXED ISSUE #2: Standardized response format
+    res.json({ 
+      success: true, 
+      credentials: result.docs || [],
+      count: (result.docs || []).length,
+      timestamp: new Date().toISOString()
+    });
+
   } catch (error) {
-    console.error(`❌ Error: ${error.message}`);
-    res.status(500).json({ success: false, error: error.message });
+    console.error(`❌ Error fetching issuer credentials: ${error.message}`);
+    res.status(500).json({ 
+      success: false, 
+      error: error.message 
+    });
   }
 });
 
@@ -632,13 +622,34 @@ app.get('/api/credentials/:id/history', async (req, res) => {
     }
     const { gateway, contract } = await getContractAndGateway(identityName, orgName);
     const result = await contract.evaluateTransaction('GetCredentialHistory', req.params.id);
-    res.json({ success: true, history: JSON.parse(result.toString()) });
+    
+    // ✅ FIXED ISSUE #2: Standardized response format
+    res.json({ 
+      success: true, 
+      history: JSON.parse(result.toString()),
+      timestamp: new Date().toISOString()
+    });
   } catch (error) {
     console.error(`❌ Error: ${error.message}`);
     res.status(500).json({ success: false, error: error.message });
   }
 });
 
+// Add this after all your other endpoints but before app.listen
+app.get('/api/users', async (req, res) => {
+  try {
+    const users = await couchdb.getAllUsers();
+    // Only include if user.role !== 'admin' (or set your real user roles)
+    const filtered = users.filter(u => !u.role || u.role === 'user');
+    res.json({
+      success: true,
+      users: filtered.map(u => ({ id: u._id, email: u.email })),
+      timestamp: new Date().toISOString()
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
 
 const PORT = 4000;
 app.listen(PORT, () => {

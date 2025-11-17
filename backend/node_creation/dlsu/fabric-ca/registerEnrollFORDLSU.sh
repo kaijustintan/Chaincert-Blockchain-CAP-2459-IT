@@ -99,4 +99,8 @@ function createDLSU {
     fabric-ca-client enroll -u https://dlsuadmin:dlsuadminpw@localhost:12054 --caname ca-dlsu -M "${PWD}/../../organizations/peerOrganizations/dlsu.example.com/users/Admin@dlsu.example.com/msp" --tls.certfiles "${PWD}/../../organizations/fabric-ca/dlsu/tls-cert.pem"
     { set +x; } 2>/dev/null
     cp "${PWD}/../../organizations/peerOrganizations/dlsu.example.com/msp/config.yaml" "${PWD}/../../organizations/peerOrganizations/dlsu.example.com/users/Admin@dlsu.example.com/msp/config.yaml"
+    
 }
+
+    createDLSU
+

@@ -1,5 +1,3 @@
-// backend/sdk-server-fixed.js
-
 const express = require('express');
 const cors = require('cors');
 const { Gateway, Wallets } = require('fabric-network');
@@ -11,17 +9,23 @@ const multer = require('multer');
 const Docker = require('dockerode');
 const nano = require('nano');  // ✅ FIXED: Added at top level
 
+
 // const uploadRoutes = require('./routes/uploadRoutes'); // NEWLY ADDED - OLOPS PENDING
 
+
 const JWT_SECRET = process.env.JWT_SECRET || 'dev_secret_key';
+
 
 // ✅ Multer configuration
 const upload = multer({ storage: multer.memoryStorage() });
 
+
 // ✅ Import CouchDB service
 const couchdb = require('./couchDB_service');
 
+
 const app = express();
+
 
 app.use((req, res, next) => {
   const authHeader = req.headers['authorization'];
@@ -38,8 +42,10 @@ app.use((req, res, next) => {
   next();
 });
 
+
 app.use(cors());
 app.use(express.json());
+
 
 // ✅ Initialize Docker client
 const docker = new Docker({ socketPath: '/var/run/docker.sock' });
@@ -48,10 +54,12 @@ const FABRIC_SAMPLES_PATH = '/home/kaitanz_/fabric-samples/fabric-samples'; // K
 // const FABRIC_SAMPLES_PATH = path.resolve(__dirname, '..', 'fabric-samples', 'fabric-samples'); // SAKANILA
 const CORE_YAML_PATH = `${FABRIC_SAMPLES_PATH}/config/core.yaml`;
 
+
 // ✅ Initialize CouchDB on server startup
 couchdb.initializeDatabases().catch(err => {
   console.error('⚠️  CouchDB init error:', err.message);
 });
+
 
 // ✅ FIXED: Create database indexes on startup (FIXED SORT BUG)
 const setupDatabaseIndexes = async () => {
@@ -69,6 +77,7 @@ const setupDatabaseIndexes = async () => {
       ddoc: 'indexes'
     });
 
+
     console.log('✅ Database indexes created successfully');
   } catch (error) {
     if (error.statusCode === 409 || (error.message || '').includes('already')) {
@@ -79,11 +88,14 @@ const setupDatabaseIndexes = async () => {
   }
 };
 
+
 setTimeout(setupDatabaseIndexes, 2000);
+
 
 // ✅ Import and use auth routes
 const authRoutes = require('./routes/authRoutes');
 app.use('/api/auth', authRoutes);
+
 
 // SUBJECTIVE - KAI PATH TO CONNECTION PROFILE (Ubuntu/Linux)
 /*
@@ -102,12 +114,15 @@ const ccpPath = path.resolve(
 // const ccpPath = '/home/kaitanz_/fabric-samples/test-network/organizations/peerOrganizations/org1.example.com/connection-org1.json';
 // const ccpPath = '/home/polo/fabric-samples-full/test-network/organizations/peerOrganizations/org1.example.com/connection-org1.json';
 
+
 // ✅ RESTORED: walletPath (was commented out but used below)
 const walletPath = path.join(__dirname, 'wallet');
+
 
 let cachedGateway = null;
 let lastConnectionTime = 0;
 const CONNECTION_CACHE_TTL = 5 * 60 * 1000;
+
 
 // KAI MODIFIED AS OF NOV 15 10:47PM 
 // identityName = fabricIdentity (ex: delasalleuniversity-admin) || orgName (ex: De La Salle University )
@@ -115,6 +130,7 @@ async function getContractAndGateway(identityName, orgName) {
   if (!identityName || !orgName) {
     throw new Error('identityName and orgName are required');
   }
+
 
   let ccpPath;
   if (
@@ -131,10 +147,12 @@ async function getContractAndGateway(identityName, orgName) {
     );
   }
 
-   // ✅ ADD THIS HERE - Check if CCP file exists
+
+  // ✅ ADD THIS HERE - Check if CCP file exists
   if (!fs.existsSync(ccpPath)) {
     throw new Error(`Connection profile not found at: ${ccpPath}`);
   }
+
 
   const ccpJSON = fs.readFileSync(ccpPath, 'utf8');
   const ccp = JSON.parse(ccpJSON);
@@ -154,9 +172,11 @@ async function getContractAndGateway(identityName, orgName) {
   return { gateway, contract };
 }
 
+
 async function sleep(ms) {
   return new Promise(resolve => setTimeout(resolve, ms));
 }
+
 
 process.on('SIGINT', async () => {
   console.log('\n🛑 Shutting down...');
@@ -171,9 +191,11 @@ process.on('SIGINT', async () => {
   process.exit(0);
 });
 
+
 app.get('/api/health', (req, res) => {
   res.json({ status: 'OK' });
 });
+
 
 // ========== EXISTING: User Registration Endpoint
 // KAI - CHANGES
@@ -194,6 +216,7 @@ app.post('/api/register', async (req, res) => {
     // 1. Generate a unique walletId (you can customize this)
     const walletId = `wallet_${Date.now()}`;
 
+
     // 2. Save user with walletId included
     const result = await couchdb.saveUser({ email, password, role, fullName, walletId });
     
@@ -202,6 +225,7 @@ app.post('/api/register', async (req, res) => {
     res.status(500).json({ success: false, error: err.message });
   }
 });
+
 
 // ========== OPTIMIZED: Regular User Login (Updated with bcryptjs)
 app.post('/api/login', async (req, res) => {
@@ -215,9 +239,11 @@ app.post('/api/login', async (req, res) => {
       });
     }
 
+
     // Get user from database
     const users = await couchdb.getAllUsers();
     const user = users.find(u => u.email === email);
+
 
     if (!user) {
       return res.status(401).json({ 
@@ -225,6 +251,7 @@ app.post('/api/login', async (req, res) => {
         error: 'Invalid credentials.' 
       });
     }
+
 
     // ✅ NEW: Verify password with bcryptjs (not plain text)
     const passwordMatch = await bcryptjs.compare(password, user.password);
@@ -234,6 +261,7 @@ app.post('/api/login', async (req, res) => {
         error: 'Invalid credentials.' 
       });
     }
+
 
     // Create JWT token
     const token = jwt.sign(
@@ -245,6 +273,7 @@ app.post('/api/login', async (req, res) => {
       JWT_SECRET,
       { expiresIn: '24h' }
     );
+
 
     const { password: pw, ...userData } = user;
     
@@ -262,10 +291,12 @@ app.post('/api/login', async (req, res) => {
   }
 });
 
+
 // ========== OPTIMIZED: Issuer Login Endpoint (No brute force, password hashed)
 app.post('/api/login-issuer', async (req, res) => {
   try {
     const { email, password } = req.body;
+
 
     if (!email || !password) {
       return res.status(400).json({ 
@@ -274,8 +305,10 @@ app.post('/api/login-issuer', async (req, res) => {
       });
     }
 
+
     // ✅ Get APPROVED issuer only
     const issuer = await couchdb.getApprovedIssuer(email);
+
 
     if (!issuer) {
       return res.status(401).json({ 
@@ -283,6 +316,7 @@ app.post('/api/login-issuer', async (req, res) => {
         message: 'Issuer not found or not approved yet' 
       });
     }
+
 
     // ✅ Verify password with bcryptjs
     const passwordMatch = await bcryptjs.compare(password, issuer.password);
@@ -292,6 +326,7 @@ app.post('/api/login-issuer', async (req, res) => {
         message: 'Invalid password' 
       });
     }
+
 
     // ✅ Generate token with issuer role
     const token = jwt.sign(
@@ -304,6 +339,7 @@ app.post('/api/login-issuer', async (req, res) => {
       JWT_SECRET,
       { expiresIn: '24h' }
     );
+
 
     res.status(200).json({
       success: true,
@@ -325,6 +361,7 @@ app.post('/api/login-issuer', async (req, res) => {
   }
 });
 
+
 // ✅ FIXED: Get Pending Issuer Registrations (Admin) - NO MORE SORTING ERROR
 app.get('/api/pending-issuers', async (req, res) => {
   try {
@@ -343,7 +380,9 @@ app.get('/api/pending-issuers', async (req, res) => {
   }
 });
 
+
 // ========== EXISTING: Credential Endpoints
+
 
 // KAI  - NOV 16 - 12:16AM
 app.get('/api/credentials', async (req, res) => {
@@ -354,7 +393,9 @@ app.get('/api/credentials', async (req, res) => {
       return res.status(401).json({ success: false, error: 'Unauthorized' });
     }
 
+
     let identityName, orgName;
+
 
     if (user.role === 'issuer') {
       // (B) Find issuer doc from CouchDB
@@ -373,6 +414,7 @@ app.get('/api/credentials', async (req, res) => {
       // Optional: handle regular users or others here
       return res.status(403).json({ success: false, error: 'Not authorized to view credentials.' });
     }
+
 
     // (D) Call gateway with right identity/org
     const { gateway, contract } = await getContractAndGateway(identityName, orgName);
@@ -393,6 +435,7 @@ app.get('/api/credentials', async (req, res) => {
   }
 });
 
+
 // KAI - CHANGES 
 // KAI - CHANGES - 2-STEP CREDENTIAL ISSUANCE (CouchDB FIRST, then Blockchain)
 // In sdk-server-fixed.js - POST /api/credentials endpoint
@@ -409,13 +452,16 @@ app.post('/api/credentials', async (req, res) => {
       });
     }
 
+
     // ✅ FIX #1: Get user and resolve identityName, orgName
     const user = req.user;
     if (!user) {
       return res.status(401).json({ success: false, error: 'Unauthorized' });
     }
 
+
     let identityName, orgName;
+
 
     if (user.role === 'issuer') {
       // Issuer creating credential
@@ -439,9 +485,11 @@ app.post('/api/credentials', async (req, res) => {
       });
     }
 
+
     // ✅ NOW identityName and orgName are DEFINED!
     const MAXRETRIES = 3;
     let lastError;
+
 
     for (let attempt = 1; attempt <= MAXRETRIES; attempt++) {
       try {
@@ -462,6 +510,7 @@ app.post('/api/credentials', async (req, res) => {
         );
         // ← ADD THIS 3-SECOND WAIT HERE
         await new Promise(resolve => setTimeout(resolve, 3000));
+
 
         console.log(`✅ SUCCESS on attempt ${attempt}`);
         
@@ -515,11 +564,13 @@ app.post('/api/credentials', async (req, res) => {
   }
 });
 
-// ✅✅✅ NEW: ISSUE CREDENTIAL ENDPOINT (STEP 2 - Add holderID to template) ✅✅✅
+
+// ✅✅✅ CRITICAL FIX: ISSUE CREDENTIAL ENDPOINT - BLOCKCHAIN FIRST, COUCHDB SECOND ✅✅✅
+// ✅✅✅ FIXED: ISSUE CREDENTIAL - SAVES TO BOTH DATABASES AFTER BLOCKCHAIN ✅✅✅
 app.post('/api/credentials/:credentialId/issue', async (req, res) => {
   try {
     const { credentialId } = req.params;
-    const { holderID } = req.body;
+    const { holderID, expiryDate } = req.body;
     
     if (!holderID) {
       return res.status(400).json({ 
@@ -528,15 +579,18 @@ app.post('/api/credentials/:credentialId/issue', async (req, res) => {
       });
     }
 
+
     const user = req.user;
     if (!user) {
       return res.status(401).json({ success: false, error: 'Unauthorized' });
     }
 
-    let identityName, orgName;
+
+    let identityName, orgName, issuerDoc;
+
 
     if (user.role === 'issuer') {
-      const issuerDoc = await couchdb.getApprovedIssuer(user.email);
+      issuerDoc = await couchdb.getApprovedIssuer(user.email);
       if (!issuerDoc || !issuerDoc.fabricIdentity || !issuerDoc.orgName) {
         return res.status(403).json({ 
           success: false, 
@@ -555,49 +609,59 @@ app.post('/api/credentials/:credentialId/issue', async (req, res) => {
       });
     }
 
+
+    // ✅ STEP 1: BLOCKCHAIN TRANSACTION FIRST (Deterministic)
+    console.log(`[SDK] Issuing credential to blockchain...`);
     const { gateway, contract } = await getContractAndGateway(identityName, orgName);
     
-    // Call chaincode function to issue credential
     const result = await contract.submitTransaction(
       'IssueCredential',
       credentialId,
-      holderID
+      holderID,
+      expiryDate || ''
     );
 
+
     const credentialData = JSON.parse(result.toString());
+    console.log(`✅ Blockchain success. Credential ID: ${credentialData.id}`);
 
-    // ✅ OPTIONAL: Save to issuer's CouchDB wallet for quick queries
-    try {
-      const adminNano = nano('http://admin:adminpw@localhost:5985');
-      const issuersDB = adminNano.use('issuers');
-      const issuerDoc = await issuersDB.get(user.id || user.email);
-
-      if (issuerDoc && issuerDoc.couchDBUrl) {
-        const issuerNano = nano(issuerDoc.couchDBUrl);
-        const issuedCredsDB = issuerNano.use('wallet_issued_credentials');
-        
-        await issuedCredsDB.insert({
-          _id: `${credentialId}_${holderID}_${Date.now()}`,
-          credentialId: credentialId,
-          holderID: holderID,
-          issuerId: user.id || user.email,
-          issuedAt: new Date().toISOString(),
-          status: 'active',
-          credentialData: credentialData
-        });
-      }
-    } catch (couchErr) {
-      console.warn('⚠️ CouchDB save failed (non-fatal):', couchErr.message);
-    }
 
     await gateway.disconnect();
 
-    res.status(200).json({ 
-      success: true, 
-      message: 'Credential issued successfully',
-      credential: credentialData,
-      timestamp: new Date().toISOString()
-    });
+
+    // ✅ STEP 2: SAVE TO **BOTH** COUCHDB DATABASES (Non-fatal)
+    try {
+      console.log(`[SDK] Saving to BOTH CouchDB databases...`);
+      
+      const couchResult = await couchdb.saveIssuedCredentialToBothDBs(user.email, {
+        ...credentialData,
+        holderID: holderID,
+        expiryDate: expiryDate || null
+      });
+      
+      console.log(`[SDK] ✅ CouchDB save successful:`, couchResult.message);
+      
+      return res.status(200).json({ 
+        success: true, 
+        message: 'Credential issued successfully',
+        credential: credentialData,
+        couchDB: couchResult,
+        timestamp: new Date().toISOString()
+      });
+      
+    } catch (couchErr) {
+      console.error(`⚠️ CouchDB save failed (non-fatal):`, couchErr.message);
+      
+      // ✅ Still return success since blockchain worked
+      return res.status(200).json({ 
+        success: true, 
+        message: 'Credential issued to blockchain (CouchDB sync pending)',
+        credential: credentialData,
+        warning: couchErr.message,
+        timestamp: new Date().toISOString()
+      });
+    }
+
 
   } catch (error) {
     console.error('❌ Error issuing credential:', error.message);
@@ -608,42 +672,6 @@ app.post('/api/credentials/:credentialId/issue', async (req, res) => {
   }
 });
 
-app.get('/api/credentials/holder/:holderID', async (req, res) => {
-  try {
-    // You can decide: allow only Org1 admin, or tailor logic for holder view
-    const user = req.user;
-    if (!user) {
-      return res.status(401).json({ success: false, error: 'Unauthorized' });
-    }
-    let identityName, orgName;
-    if (user.role === 'admin') {
-      identityName = 'admin';
-      orgName = 'Org1';
-    } else if (user.role === 'issuer') {
-      const issuer = await couchdb.getApprovedIssuer(user.email);
-      if (!issuer || !issuer.fabricIdentity || !issuer.orgName) {
-        return res.status(403).json({ success: false, error: 'Issuer not approved or Fabric identity missing.' });
-      }
-      identityName = issuer.fabricIdentity;
-      orgName = issuer.orgName;
-    } else {
-      return res.status(403).json({ success: false, error: 'Forbidden: Not allowed.' });
-    }
-    const { gateway, contract } = await getContractAndGateway(identityName, orgName);
-    const result = await contract.evaluateTransaction('GetCredentialsByHolder', req.params.holderID);
-    
-    // ✅ FIXED ISSUE #2: Standardized response format
-    res.json({ 
-      success: true, 
-      credentials: JSON.parse(result.toString()),
-      count: JSON.parse(result.toString()).length || 0,
-      timestamp: new Date().toISOString()
-    });
-  } catch (error) {
-    console.error(`❌ Error: ${error.message}`);
-    res.status(500).json({ success: false, error: error.message });
-  }
-});
 
 // ✅ FIX FOR CREDENTIALS DASHBOARD - COMPLETE FIX
 app.get('/api/credentials/issuer/:issuerID', async (req, res) => {
@@ -659,10 +687,12 @@ app.get('/api/credentials/issuer/:issuerID', async (req, res) => {
       });
     }
 
+
     const user = req.user;
     if (!user) {
       return res.status(401).json({ success: false, error: 'Unauthorized' });
     }
+
 
     // ✅ FIXED ISSUE #1: nano is now defined at top level, no need to require again
     const adminNano = nano('http://admin:adminpw@localhost:5985');
@@ -681,6 +711,7 @@ app.get('/api/credentials/issuer/:issuerID', async (req, res) => {
       throw err;
     }
 
+
     if (!issuer || !issuer.couchDBUrl) {
       return res.status(403).json({ 
         success: false, 
@@ -688,9 +719,11 @@ app.get('/api/credentials/issuer/:issuerID', async (req, res) => {
       });
     }
 
+
     // ✅ Connect to issuer's OWN CouchDB (not admin's)
     const issuerNano = nano(issuer.couchDBUrl);
     const walletDb = issuerNano.use('wallet_issuer_credentials');
+
 
     // ✅ Use .find() instead of .view() - no design docs needed!
     const result = await walletDb.find({
@@ -698,6 +731,7 @@ app.get('/api/credentials/issuer/:issuerID', async (req, res) => {
         issuerId: issuerID
       }
     });
+
 
     // ✅ FIXED ISSUE #2: Standardized response format
     res.json({ 
@@ -707,6 +741,7 @@ app.get('/api/credentials/issuer/:issuerID', async (req, res) => {
       timestamp: new Date().toISOString()
     });
 
+
   } catch (error) {
     console.error(`❌ Error fetching issuer credentials: ${error.message}`);
     res.status(500).json({ 
@@ -715,6 +750,7 @@ app.get('/api/credentials/issuer/:issuerID', async (req, res) => {
     });
   }
 });
+
 
 app.get('/api/credentials/:id/history', async (req, res) => {
   try {
@@ -751,6 +787,7 @@ app.get('/api/credentials/:id/history', async (req, res) => {
   }
 });
 
+
 // Add this after all your other endpoints but before app.listen
 app.get('/api/users', async (req, res) => {
   try {
@@ -767,13 +804,132 @@ app.get('/api/users', async (req, res) => {
   }
 });
 
+
+// ✅ ===== VERIFY CREDENTIAL ENDPOINT (QUERY COUCHDB WORLD STATE) =====
+// ✅ NEW FIX: Support both direct verification and user wallet lookup
+app.get('/api/credentials/:credentialId/verify', async (req, res) => {
+  try {
+    const { credentialId } = req.params;
+
+    if (!credentialId) {
+      return res.status(400).json({
+        success: false,
+        error: 'Credential ID is required'
+      });
+    }
+
+    console.log(`[VERIFY] Verifying credential: ${credentialId}`);
+
+    // ✅ STEP 1: Try CouchDB service first (handles ID cleaning)
+    const couchResult = await couchdb.verifyCredentialFromCouchDB(credentialId);
+    
+    if (couchResult.verified === false && !couchResult.error) {
+      // Not found in CouchDB, try blockchain
+      console.log(`[VERIFY] Credential not in wallet_user_credentials, querying blockchain...`);
+      
+      try {
+        const adminNano = nano('http://admin:adminpw@localhost:5985');
+        const blockchainDb = adminNano.use('wallet_user_credentials');
+        
+        const cleanId = credentialId.replace(/^user_cred_/, '');
+        const searchId = `user_cred_${cleanId}`;
+        
+        const result = await blockchainDb.find({
+          selector: {
+            _id: searchId
+          },
+          limit: 1
+        });
+        
+        if (result.docs.length === 0) {
+          return res.status(404).json({
+            success: false,
+            valid: false,
+            reason: 'Credential not found in database',
+            credentialId: credentialId,
+            timestamp: new Date().toISOString()
+          });
+        }
+        
+        const credential = result.docs[0];
+        const status = credential.status || 'unknown';
+        const isRevoked = status === 'revoked' || credential.revoked === true;
+        
+        return res.status(200).json({
+          success: true,
+          verified: true,
+          valid: !isRevoked && status === 'issued',
+          credential: {
+            id: credential._id,
+            credentialType: credential.credentialType,
+            credentialName: credential.credentialName,
+            issuer: {
+              id: credential.issuerID,
+              name: credential.issuerName || 'Unknown'
+            },
+            holder: {
+              id: credential.holderID
+            },
+            status: status,
+            issuedDate: credential.savedToUserWalletAt || credential.createdAt,
+            expiryDate: credential.expiryDate,
+            isExpired: credential.expiryDate ? new Date(credential.expiryDate) < new Date() : false
+          },
+          timestamp: new Date().toISOString()
+        });
+        
+      } catch (blockchainErr) {
+        console.error(`[VERIFY] Blockchain lookup failed:`, blockchainErr.message);
+        return couchResult;
+      }
+    }
+    
+    if (couchResult.error) {
+      return res.status(500).json({
+        success: false,
+        error: couchResult.error,
+        timestamp: new Date().toISOString()
+      });
+    }
+    
+    // ✅ STEP 2: Return CouchDB result
+    return res.status(200).json({
+      success: true,
+      verified: couchResult.verified,
+      valid: couchResult.verified,
+      credentialId: couchResult.credentialId,
+      holderID: couchResult.holderID,
+      issuerName: couchResult.issuerName,
+      credentialType: couchResult.credentialType,
+      credentialName: couchResult.credentialName,
+      status: couchResult.status,
+      issuedAt: couchResult.issuedAt,
+      expiryDate: couchResult.expiryDate,
+      message: couchResult.message,
+      timestamp: couchResult.timestamp
+    });
+
+  } catch (error) {
+    console.error(`❌ Verification error: ${error.message}`);
+    res.status(500).json({
+      success: false,
+      error: error.message,
+      timestamp: new Date().toISOString()
+    });
+  }
+});
+
+
 // ✅ ADD THIS HERE - Right before app.listen()
 
+
 const issuerCredentialController = require('./controllers/issuerCredentialController');
+
 
 app.post('/api/issuer/credentials/create', (req, res) => {
   issuerCredentialController.createCredential(req, res, getContractAndGateway);
 });
+
 
 const PORT = 4000;
 app.listen(PORT, () => {
@@ -781,5 +937,6 @@ app.listen(PORT, () => {
   console.log('✅ CouchDB databases selected');
   console.log('✅ Docker deployment endpoints ready');
 });
+
 
 setInterval(() => {}, 1000);

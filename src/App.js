@@ -14,7 +14,7 @@ import CredentialDetails from './pages/credentialDetails';
 import AboutPage from './pages/aboutUsPage';
 import HelpPage from './pages/helpPage';
 import ForgotPassword from './pages/forgotPassword';
-import CreateAccount from './pages/createAccount'
+import CreateAccount from './pages/createAccount';
 import Navbar from './components/navBar_User';
 import Footer from './components/footer';
 import SettingsPage from './pages/settingsPage';
@@ -28,24 +28,33 @@ import Transcript from './pages/transcript';
 
 import './styles/App.css';
 
+// ✅ Define component BEFORE App function
+const UnauthorizedPage = () => (
+  <div style={{ textAlign: 'center', padding: '50px' }}>
+    <h1>❌ Access Denied</h1>
+    <p>You don't have permission to access this page.</p>
+    <a href="/">Go back to Home</a>
+  </div>
+);
+
 function App() {
   return (
     <Router>
       <div className="App">
         <Navbar />
         <Routes>
-          {/* Public routes */}
+          {/* ========== PUBLIC ROUTES ========== */}
           <Route path="/" element={<LandingHomePage />} />
           <Route path="/login" element={<LoginPage />} />
           <Route path="/register" element={<CreateAccount />} />
           <Route path="/about" element={<AboutPage />} />
           <Route path="/help" element={<HelpPage />} />
           <Route path="/forgot-password" element={<ForgotPassword />} />
+          <Route path="/verifier/dashboard" element={<VerifierDashboard />} />
 
-          {/* Protected routes: nested under ProtectedRoutes */}
+          {/* ========== PROTECTED ROUTES (User/Issuer/Student) ========== */}
           <Route element={<ProtectedRoutes />}>
             <Route path="/student/dashboard" element={<StudentDashboard />} />
-            <Route path="/verifier/dashboard" element={<VerifierDashboard />} />
             <Route path="/issuer/dashboard" element={<IssuerDashboard />} />
             <Route path="/issuer/history" element={<CredentialHistoryPage />} />
             <Route path="/settings" element={<SettingsPage />} />
@@ -58,7 +67,7 @@ function App() {
             <Route path="/credential/details" element={<CredentialDetails />} />
           </Route>
 
-          {/* Admin-only routes */}
+          {/* ========== ADMIN-ONLY ROUTES ========== */}
           <Route
             path="/admin/dashboard"
             element={
@@ -68,10 +77,10 @@ function App() {
             }
           />
 
-          {/* Unauthorized page (optional, create this component) */}
+          {/* ========== ERROR ROUTES ========== */}
           <Route path="/unauthorized" element={<UnauthorizedPage />} />
 
-          {/* Catch-all for undefined routes */}
+          {/* ========== CATCH-ALL (undefined routes) ========== */}
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
         <Footer />
@@ -79,14 +88,5 @@ function App() {
     </Router>
   );
 }
-
-// Simple Unauthorized page component
-const UnauthorizedPage = () => (
-  <div style={{ textAlign: 'center', padding: '50px' }}>
-    <h1>❌ Access Denied</h1>
-    <p>You don't have permission to access this page.</p>
-    <a href="/">Go back to Home</a>
-  </div>
-);
 
 export default App;

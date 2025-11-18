@@ -1,7 +1,9 @@
+// authController.js
 const couchDB = require('../couchDB_service');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 // removed wallet 
+
 const authController = {
   // POST /api/auth/register - User registration
   // KAI -CHANGES 
@@ -29,7 +31,6 @@ register: async (req, res) => {
     const result = await couchDB.saveUser(userData);
 
 
-
     return res.status(201).json({
       success: true,
       message: 'User registered successfully',
@@ -43,12 +44,6 @@ register: async (req, res) => {
     });
   }
 },
-
-
-
-
- 
-
 
 
   // POST /api/auth/login - User login
@@ -107,7 +102,6 @@ register: async (req, res) => {
   },
 
 
-
   // GET /api/auth/user/:id - Get user info
   getUserInfo: async (req, res) => {
     try {
@@ -140,7 +134,6 @@ register: async (req, res) => {
   },
 
 
-
   // GET /api/auth/users - Get all users (Admin only)
   getAllUsers: async (req, res) => {
     try {
@@ -161,7 +154,6 @@ register: async (req, res) => {
   },
 
 
-
   // ========== ADD THIS FUNCTION ==========
   updateProfile: async (req, res) => {
     try {
@@ -175,12 +167,10 @@ register: async (req, res) => {
   },
 
 
-
- // ========== AND ADD THIS FUNCTION ==========
+  // ========== AND ADD THIS FUNCTION ==========
   changePassword: async (req, res) => {
     try {
       const { email, currentPassword, newPassword } = req.body;
-
 
 
       // --- START OF FIX ---
@@ -191,13 +181,11 @@ register: async (req, res) => {
       let user = allUsers.find(u => u.email === email);
 
 
-
       // 2. If not found, check the 'issuers' database
       if (!user) {
         // This function searches the 'issuers' db by email
         user = await couchDB.getApprovedIssuer(email);
       }
-
 
 
       // 3. If still not found, NOW we can say they don't exist.
@@ -207,12 +195,10 @@ register: async (req, res) => {
       // --- END OF FIX ---
 
 
-
       const passwordMatch = await bcrypt.compare(currentPassword, user.password);
       if (!passwordMatch) {
         return res.status(401).json({ success: false, message: 'Invalid current password' });
       }
-
 
 
       const hashedNewPassword = await bcrypt.hash(newPassword, 10);
@@ -220,7 +206,6 @@ register: async (req, res) => {
       // This function IS smart (we fixed it before), so it will
       // correctly update either a user or an issuer.
       await couchDB.updateUser(user._id, { password: hashedNewPassword });
-
 
 
       return res.status(200).json({ success: true, message: 'Password updated successfully' });
@@ -231,7 +216,6 @@ register: async (req, res) => {
   },
 
 
-
   // ========== ADD THIS NEW FUNCTION ==========
   uploadProfilePicture: async (req, res) => {
     try {
@@ -239,17 +223,14 @@ register: async (req, res) => {
       const file = req.file;
 
 
-
       if (!file) {
         return res.status(400).json({ success: false, message: 'No file uploaded.' });
       }
 
 
-
       if (!userId) {
         return res.status(400).json({ success: false, message: 'User ID is missing.' });
       }
-
 
 
       // We will just save the image buffer directly to the database for simplicity.
@@ -262,12 +243,10 @@ register: async (req, res) => {
       const base64Image = `data:${fileType};base64,${fileBuffer.toString('base64')}`;
 
 
-
       // Call couchDB to update the user
       await couchDB.updateUser(userId, {
         profilePicture: base64Image
       });
-
 
 
       return res.status(200).json({
@@ -277,7 +256,6 @@ register: async (req, res) => {
       });
 
 
-
     } catch (error) {
       console.error('Error uploading profile picture:', error);
       return res.status(500).json({ success: false, message: error.message });
@@ -285,23 +263,18 @@ register: async (req, res) => {
   },
 
 
-
   // ========== ISSUER REGISTRATION ENDPOINTS ==========
 
 
-
-  // POST /api/auth/register-issuer
   // POST /api/auth/register-issuer
 registerIssuer: async (req, res) => {
   try {
     const { orgName, contactName, email, password, confirmPassword } = req.body;
 
 
-
     console.log('=== ISSUER REGISTRATION DEBUG START (authController) ===');
     console.log('[1] Organization Name from request:', orgName);
     console.log('[1b] Contact Name from request:', contactName);
-
 
 
     if (!orgName || !contactName || !email || !password) {
@@ -312,7 +285,6 @@ registerIssuer: async (req, res) => {
     }
 
 
-
     // ---- ACCREDITATION CHECK FIRST ----
     console.log(`[2] Checking accreditation for "${orgName}"...`);
     
@@ -321,9 +293,7 @@ registerIssuer: async (req, res) => {
     const accreditationCheck = await couchDB.checkIfOrgAccredited(orgName);
 
 
-
     console.log('[3] Accreditation check result:', accreditationCheck);
-
 
 
     if (!accreditationCheck.isAccredited) {
@@ -338,10 +308,8 @@ registerIssuer: async (req, res) => {
     // ------------------------------------
 
 
-
     console.log('[5] ✅ PASSED ACCREDITATION. Proceeding with registration...');
     const hashedPassword = await bcrypt.hash(password, 10);
-
 
 
     const issuerData = {
@@ -355,17 +323,14 @@ registerIssuer: async (req, res) => {
     };
 
 
-
     console.log('[6] Saving to CouchDB...');
     
     // ✅ FIXED: Pass the 'accreditationCheck' object to the database function
     const result = await couchDB.createIssuerRegistration(issuerData, accreditationCheck);
 
 
-
     console.log('[7] Registration result:', result);
     console.log('=== ISSUER REGISTRATION DEBUG END ===\n');
-
 
 
     return res.status(201).json({
@@ -379,8 +344,6 @@ registerIssuer: async (req, res) => {
     return res.status(500).json({ success: false, message: error.message });
   }
 },
-
-
 
 
   // GET /api/auth/pending-issuers
@@ -399,7 +362,6 @@ registerIssuer: async (req, res) => {
       });
     }
   },
-
 
 
   // POST /api/auth/approve-issuer/:issuerId
@@ -422,7 +384,6 @@ registerIssuer: async (req, res) => {
   },
 
 
-
   // POST /api/auth/reject-issuer/:issuerId
   rejectIssuer: async (req, res) => {
     try {
@@ -442,7 +403,6 @@ registerIssuer: async (req, res) => {
       });
     }
   },
-
 
 
   // POST /api/auth/login-issuer
@@ -474,7 +434,8 @@ registerIssuer: async (req, res) => {
           _id: issuer._id,
           email: issuer.email,
           role: 'issuer',
-          orgName: issuer.orgName
+          orgName: issuer.orgName,
+          fabricIdentity: issuer.fabricIdentity  // ← ADD THIS LINE!
         },
         process.env.JWT_SECRET || 'your_jwt_secret',
         { expiresIn: '7d' }
@@ -499,14 +460,15 @@ registerIssuer: async (req, res) => {
   },
 
 
-
   // ========== NEW FUNCTION: GET ISSUER CREDENTIALS ==========
   // GET /api/auth/issuer/:issuerId/credentials
   getIssuerCredentials: async (req, res) => {
     try {
       const { issuerId } = req.params;
 
+
       console.log(`[AUTHCONTROLLER] Fetching credentials for issuer: ${issuerId}`);
+
 
       if (!issuerId) {
         return res.status(400).json({
@@ -515,10 +477,13 @@ registerIssuer: async (req, res) => {
         });
       }
 
+
       // Get credentials from couchDB for this issuer
       const credentialsData = await couchDB.getIssuerCredentials(issuerId);
 
+
       console.log(`[AUTHCONTROLLER] Credentials data received:`, credentialsData);
+
 
       if (!credentialsData || !credentialsData.credentials || credentialsData.credentials.length === 0) {
         return res.status(200).json({
@@ -533,6 +498,7 @@ registerIssuer: async (req, res) => {
           }
         });
       }
+
 
       return res.status(200).json({
         success: true,
@@ -553,10 +519,7 @@ registerIssuer: async (req, res) => {
       });
     }
   }
-
-
 };
-
 
 
 module.exports = authController;

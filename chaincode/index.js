@@ -1,4 +1,3 @@
-// chaincode/index.js
 'use strict';
 
 const { Contract } = require('fabric-contract-api');
@@ -42,8 +41,10 @@ class ChainCertContract extends Contract {
     return JSON.stringify(credential);
   }
 
-  // ✅ NEW: PHASE 2 - Issue Credential (Assign Template to Holder)
-  async IssueCredential(ctx, templateId, holderID) {
+  // ✅ FIXED: PHASE 2 - Issue Credential (Assign Template to Holder)
+  // ✅ FIX: Use timestamp for DETERMINISTIC instance ID (same on all peers)
+  // ✅ NO client-generated IDs for issued instances - blockchain generates it
+  async IssueCredential(ctx, templateId, holderID, expiryDate) {
     const templateJSON = await ctx.stub.getState(templateId);
     if (!templateJSON || templateJSON.length === 0) {
       throw new Error(`Credential template ${templateId} does not exist`);
@@ -51,17 +52,25 @@ class ChainCertContract extends Contract {
 
     const template = JSON.parse(templateJSON.toString());
     
-    // ✅ Create unique instance with holder
+    // ✅ FIXED: Use blockchain timestamp for deterministic ID
+    // All peers will use the SAME timestamp from the transaction
+    const txTimestamp = ctx.stub.getTxTimestamp();
+    const txId = ctx.stub.getTxID();
+    
+    // Create instance ID using blockchain-provided data (deterministic on all peers)
     const credentialInstance = {
       ...template,
-      id: `${templateId}_${holderID}_${Date.now()}`,  // Unique ID for this issuance
+      id: `${templateId}_${holderID}_${txTimestamp.seconds}${txTimestamp.nanos}`,
+      txId: txId,  // Add transaction ID for additional uniqueness
       holderID: holderID,  // ✅ NOW we assign the holder
+      expiryDate: expiryDate || '',
       isTemplate: false,   // This is an actual instance
-      assignedDate: new Date().toISOString(),
+      assignedDate: new Date(txTimestamp.seconds * 1000 + Math.floor(txTimestamp.nanos / 1000000)).toISOString(),
       status: 'issued'
     };
 
     console.log('🚀 Issuing credential instance to holder:', holderID);
+    console.log('📝 Instance ID:', credentialInstance.id);
     await ctx.stub.putState(credentialInstance.id, Buffer.from(JSON.stringify(credentialInstance)));
     console.log('✅ Credential instance issued to ledger:', credentialInstance.id);
     return JSON.stringify(credentialInstance);
@@ -78,14 +87,15 @@ class ChainCertContract extends Contract {
 
     const template = JSON.parse(templateJSON.toString());
     
+    const txTimestamp = ctx.stub.getTxTimestamp();
     const credentialInstance = {
       ...template,
-      id: `${templateId}_${holderID}_${Date.now()}`,
+      id: `${templateId}_${holderID}_${txTimestamp.seconds}${txTimestamp.nanos}`,
       holderID: holderID,
       expiryDate: expiryDate,
       documentHash: documentHash,
       isTemplate: false,
-      assignedDate: new Date().toISOString(),
+      assignedDate: new Date(txTimestamp.seconds * 1000 + Math.floor(txTimestamp.nanos / 1000000)).toISOString(),
       status: 'issued'
     };
 

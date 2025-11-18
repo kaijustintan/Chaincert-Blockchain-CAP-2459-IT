@@ -1,9 +1,5 @@
 // landingHomePage.js
-import React from "react";
 import "../styles/landingHomePage.css";
-// import NavBar from "../components/navBar"; // Use correct casing
-
-import { Link } from 'react-router-dom';
 
 
 function LandingHomePage() {

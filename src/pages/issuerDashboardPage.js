@@ -3,12 +3,16 @@ import { useNavigate } from "react-router-dom";
 import apiService from "../services/apiService";
 import "../styles/issuerDashboardPage.css";
 
+
+
 export default function IssuerDashboard() {
   const navigate = useNavigate();
   const [credentials, setCredentials] = useState([]);
   const [filteredCredentials, setFilteredCredentials] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+
+
 
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [createForm, setCreateForm] = useState({
@@ -19,6 +23,8 @@ export default function IssuerDashboard() {
   });
   const [createError, setCreateError] = useState("");
   const [createLoading, setCreateLoading] = useState(false);
+
+
 
   // Issue Credential Modal State
   const [showIssueModal, setShowIssueModal] = useState(false);
@@ -31,16 +37,22 @@ export default function IssuerDashboard() {
   const [issueLoading, setIssueLoading] = useState(false);
   const [availableUsers, setAvailableUsers] = useState([]);
 
+
+
   // Filter state
   const [sortBy, setSortBy] = useState("issuedDate-desc");
   const [filterType, setFilterType] = useState("all");
   const [filterStatus, setFilterStatus] = useState("all");
+
+
 
   // Fetch credentials on page load
   useEffect(() => {
     fetchCredentials();
     fetchAvailableUsers();
   }, []);
+
+
 
   // Filtering logic
   const applyFilters = useCallback(() => {
@@ -55,9 +67,13 @@ export default function IssuerDashboard() {
     setFilteredCredentials(result);
   }, [credentials, sortBy, filterType, filterStatus]);
 
+
+
   useEffect(() => {
     applyFilters();
   }, [applyFilters]);
+
+
 
   const fetchCredentials = async () => {
     try {
@@ -88,6 +104,8 @@ export default function IssuerDashboard() {
     }
   };
 
+
+
   const fetchAvailableUsers = async () => {
     try {
       const users = await apiService.getAllUsers();
@@ -96,6 +114,8 @@ export default function IssuerDashboard() {
       console.error("Error fetching users:", err);
     }
   };
+
+
 
   // Sorting logic
   const applySorting = (array, sortOption) => {
@@ -132,6 +152,8 @@ export default function IssuerDashboard() {
     return sorted;
   };
 
+
+
   const getUniqueCredentialTypes = () => {
     const types = new Set(
       credentials.map((cred) => cred.credentialType).filter(Boolean)
@@ -139,9 +161,13 @@ export default function IssuerDashboard() {
     return Array.from(types).sort();
   };
 
+
+
   const handleViewHistory = () => {
     navigate("/issuer/history");
   };
+
+
 
   const handleRevoke = async (credentialId) => {
     if (window.confirm("Are you sure you want to revoke this credential?")) {
@@ -155,6 +181,8 @@ export default function IssuerDashboard() {
     }
   };
 
+
+
   // Create Modal handlers
   const openCreateModal = () => {
     setShowCreateModal(true);
@@ -167,46 +195,62 @@ export default function IssuerDashboard() {
     });
   };
 
+
+
   const closeCreateModal = () => {
     setShowCreateModal(false);
     setCreateError("");
     setCreateLoading(false);
   };
 
+
+
   const handleCreateFormChange = (e) => {
     const { name, value } = e.target;
     setCreateForm((prev) => ({ ...prev, [name]: value }));
   };
 
+
+
   const handleCreateCredential = async (e) => {
-    e.preventDefault();
-    setCreateLoading(true);
-    setCreateError("");
+  e.preventDefault();
+  setCreateLoading(true);
+  setCreateError("");
 
-    try {
-      if (!createForm.credentialType || !createForm.credentialName) {
-        setCreateError("Please fill in Credential Type and Name");
-        setCreateLoading(false);
-        return;
-      }
-
-      // ✅ FIXED: Call the correct method name
-      await apiService.createCredential({
-        credentialType: createForm.credentialType,
-        credentialName: createForm.credentialName,
-        description: createForm.description,
-        metadata: createForm.metadata,
-      });
-
-      alert("Credential created successfully!");
-      closeCreateModal();
-      fetchCredentials();
-    } catch (err) {
-      setCreateError(err?.message || "Failed to create credential");
-    } finally {
+  try {
+    if (!createForm.credentialType || !createForm.credentialName) {
+      setCreateError("Please fill in Credential Type and Name");
       setCreateLoading(false);
+      return;
     }
-  };
+
+    // ✅ Generate credential ID on CLIENT SIDE
+    const credentialId = `cred_${Date.now()}_${Math.random().toString(36).substring(2, 17)}`;
+
+    console.log(`[CLIENT] Generated credential ID: ${credentialId}`);
+
+    // ✅ Send ALL fields to backend
+    await apiService.createCredential({
+      id: credentialId,  // ✅ ADD THIS
+      credentialType: createForm.credentialType,
+      credentialName: createForm.credentialName,
+      description: createForm.description,
+      metadata: createForm.metadata,
+      // expiryDate: (add this if you want to set expiry during creation)
+    });
+
+    alert("Credential created successfully!");
+    closeCreateModal();
+    fetchCredentials();
+  } catch (err) {
+    setCreateError(err?.message || "Failed to create credential");
+  } finally {
+    setCreateLoading(false);
+  }
+};
+
+
+
 
   // Issue Modal handlers
   const openIssueModal = () => {
@@ -219,21 +263,29 @@ export default function IssuerDashboard() {
     });
   };
 
+
+
   const closeIssueModal = () => {
     setShowIssueModal(false);
     setIssueError("");
     setIssueLoading(false);
   };
 
+
+
   const handleIssueFormChange = (e) => {
     const { name, value } = e.target;
     setIssueForm((prev) => ({ ...prev, [name]: value }));
   };
 
+
+
   const handleIssueCredential = async (e) => {
     e.preventDefault();
     setIssueLoading(true);
     setIssueError("");
+
+
 
     try {
       if (!issueForm.credentialId || !issueForm.recipientId) {
@@ -242,12 +294,17 @@ export default function IssuerDashboard() {
         return;
       }
 
-      // ✅ FIXED: Call the correct method name
-      await apiService.issueCredential({
-        credentialId: issueForm.credentialId,
-        recipientId: issueForm.recipientId,
-        expiryDate: issueForm.expiryDate || null,
-      });
+
+
+      // ✅ FIXED: Pass TWO SEPARATE PARAMETERS instead of an object
+      // The function signature is: issueCredential(credentialId, holderID)
+      await apiService.issueCredential(
+        issueForm.credentialId,
+        issueForm.recipientId,
+        issueForm.expiryDate  // ← ADD THIS LINE
+      );
+
+
 
       alert("Credential issued successfully!");
       closeIssueModal();
@@ -259,6 +316,8 @@ export default function IssuerDashboard() {
     }
   };
 
+
+
   // Loading state
   if (loading) {
     return (
@@ -267,6 +326,8 @@ export default function IssuerDashboard() {
       </div>
     );
   }
+
+
 
   // Error state
   if (error) {
@@ -282,6 +343,8 @@ export default function IssuerDashboard() {
     );
   }
 
+
+
   return (
     <div className="issuer-dashboard">
       <h2>Issuer Dashboard</h2>
@@ -292,12 +355,16 @@ export default function IssuerDashboard() {
         </button>
       </div>
 
+
+
       {/* Issue Credential Button */}
       <div style={{ margin: "20px 0" }}>
         <button onClick={openIssueModal} className="action-btn issue-btn">
           + Issue Credential
         </button>
       </div>
+
+
 
       {/* Create Credential Modal */}
       {showCreateModal && (
@@ -317,6 +384,8 @@ export default function IssuerDashboard() {
                 />
               </div>
 
+
+
               <div className="form-group">
                 <label>Credential Name:</label>
                 <input
@@ -329,6 +398,8 @@ export default function IssuerDashboard() {
                 />
               </div>
 
+
+
               <div className="form-group">
                 <label>Description:</label>
                 <textarea
@@ -339,6 +410,8 @@ export default function IssuerDashboard() {
                   placeholder="Describe the credential's purpose..."
                 />
               </div>
+
+
 
               <div className="form-group">
                 <label>Metadata (optional):</label>
@@ -351,11 +424,15 @@ export default function IssuerDashboard() {
                 />
               </div>
 
+
+
               {createError && (
                 <div className="form-error" style={{ color: "red" }}>
                   {createError}
                 </div>
               )}
+
+
 
               <div style={{ marginTop: "1em" }}>
                 <button
@@ -380,6 +457,8 @@ export default function IssuerDashboard() {
         </div>
       )}
 
+
+
       {/* Issue Credential Modal */}
       {showIssueModal && (
         <div className="modal-overlay">
@@ -403,6 +482,8 @@ export default function IssuerDashboard() {
                 </select>
               </div>
 
+
+
               <div className="form-group">
                 <label>Select Recipient:</label>
                 <select
@@ -420,6 +501,8 @@ export default function IssuerDashboard() {
                 </select>
               </div>
 
+
+
               <div className="form-group">
                 <label>Expiry Date (optional):</label>
                 <input
@@ -431,11 +514,15 @@ export default function IssuerDashboard() {
                 />
               </div>
 
+
+
               {issueError && (
                 <div className="form-error" style={{ color: "red" }}>
                   {issueError}
                 </div>
               )}
+
+
 
               <div style={{ marginTop: "1em" }}>
                 <button
@@ -460,6 +547,8 @@ export default function IssuerDashboard() {
         </div>
       )}
 
+
+
       {/* View History Button */}
       <div className="dashboard-header">
         <div className="tabs">
@@ -468,6 +557,8 @@ export default function IssuerDashboard() {
           </button>
         </div>
       </div>
+
+
 
       {/* FILTER SECTION */}
       <div className="filter-section">
@@ -491,6 +582,8 @@ export default function IssuerDashboard() {
             </select>
           </div>
 
+
+
           <div className="filter-group">
             <label htmlFor="filterType">Credential Type:</label>
             <select
@@ -508,6 +601,8 @@ export default function IssuerDashboard() {
             </select>
           </div>
 
+
+
           <div className="filter-group">
             <label htmlFor="filterStatus">Status:</label>
             <select
@@ -524,11 +619,15 @@ export default function IssuerDashboard() {
           </div>
         </div>
 
+
+
         <div className="results-info">
           Showing <strong>{filteredCredentials.length}</strong> of{" "}
           <strong>{credentials.length}</strong> credentials
         </div>
       </div>
+
+
 
       {/* CREDENTIALS TABLE */}
       {filteredCredentials.length === 0 ? (

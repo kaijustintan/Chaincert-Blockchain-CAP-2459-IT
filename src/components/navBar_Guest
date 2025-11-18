@@ -13,7 +13,7 @@ function NavBar() {
           <Link to="/">DASHBOARD NOT LOGIN</Link>
         </li>
         <li className={location.pathname === '/login' ? 'active' : ''}>
-          <Link to="/login">Login</Link>
+          <Link to="/login">asdasdsa</Link>
         </li>
         <li className={location.pathname === '/student/dashboard' ? 'active' : ''}>
           <Link to="/student/dashboard">Dashboard UPON LOGIN</Link>

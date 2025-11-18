@@ -1,14 +1,12 @@
 // controllers/issuerCredentialController.js
-// ✅ OPTION B: MERGED ENDPOINT - Creates credential in BOTH Blockchain AND CouchDB
-// 🎯 Atomic operation: If blockchain fails, CouchDB is NOT saved
-// If CouchDB fails after blockchain, blockchain stays but user is notified
 
 const nano = require('nano');
 
 /**
- * ✅ UNIFIED ENDPOINT: Creates credential in BOTH Blockchain AND CouchDB
- * This is the main endpoint called from issuerDashboardPage.js
- */
+* ✅ UNIFIED ENDPOINT: Creates credential in BOTH Blockchain AND CouchDB
+* This is the main endpoint called from issuerDashboardPage.js
+*/
+
 exports.createCredential = async (req, res, getContractAndGateway) => {
   try {
     // ✅ Check authentication
@@ -33,14 +31,13 @@ exports.createCredential = async (req, res, getContractAndGateway) => {
     // ✅ Generate unique credential ID
     const credentialId = `cred_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
     const issuerId = req.user.id;
-
     console.log(`\n📝 [CREDENTIAL] Starting creation for ID: ${credentialId}`);
 
     // =====================================================
     // STEP 1: RESOLVE ISSUER IDENTITY (for blockchain)
     // =====================================================
-    let identityName, orgName, issuerDoc;
 
+    let identityName, orgName, issuerDoc;
     const adminNano = nano('http://admin:adminpw@localhost:5985');
     const issuersDB = adminNano.use('issuers');
 
@@ -64,15 +61,17 @@ exports.createCredential = async (req, res, getContractAndGateway) => {
     }
 
     identityName = issuerDoc.fabricIdentity;
-    orgName = issuerDoc.orgName;
-
-    console.log(`   Identity: ${identityName}, Org: ${orgName}`);
+    
+    // 🔥 CRITICAL FIX: Normalize orgName to lowercase with no spaces!
+    orgName = issuerDoc.orgName.toLowerCase().replace(/\s+/g, '');
+    
+    console.log(` Identity: ${identityName}, Org: ${orgName} (normalized from: ${issuerDoc.orgName})`);
 
     // =====================================================
     // STEP 2: SAVE TO BLOCKCHAIN (First!)
     // =====================================================
-    let blockchainCredential;
 
+    let blockchainCredential;
     try {
       console.log(`📡 [BLOCKCHAIN] Saving credential...`);
 
@@ -81,6 +80,7 @@ exports.createCredential = async (req, res, getContractAndGateway) => {
         throw new Error('getContractAndGateway function not provided');
       }
 
+      // ✅ PASS NORMALIZED ORGNAME to getContractAndGateway
       const { gateway, contract } = await getContractAndGateway(identityName, orgName);
 
       // Call blockchain chaincode - CreateCredentialTemplate
@@ -96,23 +96,24 @@ exports.createCredential = async (req, res, getContractAndGateway) => {
 
       blockchainCredential = JSON.parse(result.toString());
       console.log(`✅ [BLOCKCHAIN] Credential saved successfully`);
-
       await gateway.disconnect();
 
     } catch (blockchainError) {
       console.error(`❌ [BLOCKCHAIN] Error:`, blockchainError.message);
+      console.error(`Stack:`, blockchainError.stack);
       return res.status(500).json({
         success: false,
         stage: 'blockchain',
-        error: `Blockchain save failed: ${blockchainError.message}`
+        error: `Blockchain save failed: ${blockchainError.message}`,
+        hint: 'Check if orgName matches your configured organization'
       });
     }
 
     // =====================================================
     // STEP 3: SAVE TO COUCHDB (Second!)
     // =====================================================
-    let couchdbResult;
 
+    let couchdbResult;
     try {
       console.log(`💾 [COUCHDB] Saving credential...`);
 
@@ -126,7 +127,7 @@ exports.createCredential = async (req, res, getContractAndGateway) => {
 
       // Create credential document
       const credentialDoc = {
-        _id: credentialId,  // ✅ CRITICAL: Match blockchain ID
+        _id: credentialId, // ✅ CRITICAL: Match blockchain ID
         id: credentialId,
         issuerId: issuerId,
         credentialType: credentialType,
@@ -134,7 +135,7 @@ exports.createCredential = async (req, res, getContractAndGateway) => {
         description: description || '',
         metadata: metadata || {},
         status: 'active',
-        isTemplate: true,  // ← This is a template, not yet issued
+        isTemplate: true, // ← This is a template, not yet issued
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
         blockchain: {
@@ -149,7 +150,6 @@ exports.createCredential = async (req, res, getContractAndGateway) => {
 
     } catch (couchdbError) {
       console.error(`❌ [COUCHDB] Error:`, couchdbError.message);
-
       // ⚠️ BLOCKCHAIN succeeded but COUCHDB failed
       // This is a partial success - user needs to know
       return res.status(201).json({
@@ -172,6 +172,7 @@ exports.createCredential = async (req, res, getContractAndGateway) => {
     // =====================================================
     // ✅ SUCCESS: Both blockchain AND CouchDB saved!
     // =====================================================
+
     console.log(`\n✅ [COMPLETE] Credential created successfully in both systems\n`);
 
     return res.status(201).json({
@@ -201,7 +202,7 @@ exports.createCredential = async (req, res, getContractAndGateway) => {
 
   } catch (error) {
     console.error('\n❌ [ERROR] Credential creation failed:', error.message);
-
+    console.error('Stack:', error.stack);
     return res.status(500).json({
       success: false,
       error: error.message,
@@ -211,8 +212,9 @@ exports.createCredential = async (req, res, getContractAndGateway) => {
 };
 
 /**
- * ✅ Get all credentials for an issuer from CouchDB
- */
+* ✅ Get all credentials for an issuer from CouchDB
+*/
+
 exports.getCredentials = async (req, res) => {
   try {
     if (!req.user || !req.user.id) {

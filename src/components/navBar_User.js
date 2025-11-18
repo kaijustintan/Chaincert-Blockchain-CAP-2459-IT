@@ -45,6 +45,11 @@ function NavBar() {
         <li className={location.pathname === '/help' ? 'active' : ''}>
           <Link to="/help">Help</Link>
         </li>
+        <li className={location.pathname === '/verifier/dashboard' ? 'active' : ''}>
+          <Link to="/verifier/dashboard">Verifier Dashboard</Link>
+        </li>
+
+
 
         {/* LOGIN & CREATE ACCOUNT - Only if NOT logged in */}
         {!isLoggedIn && (
@@ -76,7 +81,7 @@ function NavBar() {
             <Link to="/issuer/dashboard">Issuer Dashboard</Link>
           </li>
         )}
-
+        
         {/* PROFILE DROPDOWN - Only if logged in */}
         {isLoggedIn && (
           <div className="profile-dropdown-container">

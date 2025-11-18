@@ -205,23 +205,13 @@ const apiService = {
     }
   },
 
-  // Verify Credential
-  verifyCredential: async (credentialId) => {
-    try {
-      const response = await axios.post(`/credentials/${credentialId}/verify`);
-      return response.data?.verification;
-    } catch (error) {
-      console.error(`Error verifying credential ${credentialId}:`, error.response?.data?.message || error.message);
-      throw error;
-    }
-  },
-
   // ========== CREDENTIAL CREATION & ISSUANCE ==========
   
-  // Create Credential (Fixed method name)
+  // ✅ FIXED: Create Credential - Now passes the ID from frontend
   createCredential: async (credentialData) => {
     try {
       const response = await axios.post('/issuer/credentials/create', {
+        id: credentialData.id,  // ← ✅ Pass ID from frontend
         credentialType: credentialData.credentialType,
         credentialName: credentialData.credentialName,
         description: credentialData.description || '',
@@ -234,13 +224,12 @@ const apiService = {
     }
   },
 
-  // Issue Credential to Holder
-  issueCredential: async (issueData) => {
+  // ✅ FIXED: Issue Credential - Correct endpoint and parameter mapping
+  issueCredential: async (credentialId, holderID, expiryDate) => {
     try {
-      const response = await axios.post('/credentials/issue', {
-        credentialId: issueData.credentialId,
-        recipientId: issueData.recipientId,
-        expiryDate: issueData.expiryDate || null
+      const response = await axios.post(`/credentials/${credentialId}/issue`, {
+        holderID: holderID,
+        expiryDate: expiryDate || ''  // ✅ expiryDate is now properly defined
       });
       return response.data;
     } catch (error) {
@@ -282,10 +271,34 @@ const apiService = {
     }
   },
 
+  // ✅ FIXED: Verify Credential - Only ONE method (using GET request)
+  // In the apiService.js, update the verifyCredential method:
+
+verifyCredential: async (credentialId) => {
+  try {
+    console.log(`[API] Verifying credential: ${credentialId}`);
+    
+    if (!credentialId) {
+      throw new Error('Credential ID is required');
+    }
+
+    // ✅ SINGLE METHOD: GET request to verification endpoint
+    const response = await axios.get(`/verify/${credentialId}`);
+    console.log('[API] Verification response:', response.data);
+    
+    return response.data;
+  } catch (error) {
+    console.error(`[API ERROR] Verification failed for ${credentialId}:`, error.response?.data || error.message);
+    throw error;
+  }
+},
+
+
   // Get API Base URL (for debugging)
   getApiBaseUrl: () => {
     return axios.defaults.baseURL || 'http://localhost:4000';
   }
 };
 
+// ✅ ONLY ONE DEFAULT EXPORT - Delete all others!
 export default apiService;

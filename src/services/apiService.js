@@ -1,6 +1,5 @@
 import axios from './axiosInstance';
 
-
 const apiService = {
   // Health check
   healthCheck: async () => {
@@ -13,7 +12,6 @@ const apiService = {
     }
   },
 
-
   // User Registration
   registerUser: async (userData) => {
     try {
@@ -24,7 +22,6 @@ const apiService = {
       throw error;
     }
   },
-
 
   // User Login
   login: async (credentials) => {
@@ -37,8 +34,7 @@ const apiService = {
     }
   },
 
-
-  // ========== NEW ISSUER METHODS ==========
+  // ========== ISSUER METHODS ==========
   
   // Issuer Registration
   registerIssuer: async (formData) => {
@@ -51,7 +47,6 @@ const apiService = {
     }
   },
 
-
   // Issuer Login
   loginIssuer: async (credentials) => {
     try {
@@ -62,7 +57,6 @@ const apiService = {
       throw error;
     }
   },
-
 
   // Change Password
   changePassword: async (passwordData) => {
@@ -79,7 +73,6 @@ const apiService = {
     }
   },
 
-
   // Update Profile Summary
   updateProfile: async (profileData) => {
     try {
@@ -94,7 +87,6 @@ const apiService = {
       throw error;
     }
   },
-
 
   // Upload Profile Picture
   uploadProfilePicture: async (formData) => {
@@ -111,7 +103,6 @@ const apiService = {
     }
   },
 
-
   // Get User Info
   getUserInfo: async (userId) => {
     try {
@@ -122,7 +113,6 @@ const apiService = {
       throw error;
     }
   },
-
 
   // Get Pending Issuers (Admin)
   getPendingIssuers: async () => {
@@ -135,7 +125,6 @@ const apiService = {
     }
   },
 
-
   // Approve Issuer (Admin)
   approveIssuer: async (issuerId) => {
     try {
@@ -146,7 +135,6 @@ const apiService = {
       throw error;
     }
   },
-
 
   // Reject Issuer (Admin)
   rejectIssuer: async (issuerId, rejectionReason) => {
@@ -161,7 +149,6 @@ const apiService = {
     }
   },
 
-
   // ========== CREDENTIAL METHODS ==========
   
   // Get ALL Credentials
@@ -175,23 +162,17 @@ const apiService = {
     }
   },
 
-
-  // ✅ UPDATED: Get Credentials by Issuer from CouchDB
+  // Get Credentials by Issuer
   getCredentialsByIssuer: async (issuerID) => {
     try {
-      // ✅ Validate issuer ID before making request
       if (!issuerID || issuerID === 'ISSUER' || issuerID === 'undefined') {
         console.warn('⚠️  Invalid issuer ID:', issuerID);
         return [];
       }
 
-      // ✅ Call the new CouchDB endpoint (via backend)
       const response = await axios.get(`/credentials/issuer/${issuerID}`);
-      
-      // ✅ Safely extract credentials with fallback
       return response.data?.credentials || response.data?.data || [];
     } catch (error) {
-      // ✅ Better error handling - don't throw on 400 errors, just return empty
       if (error.response?.status === 400 || error.response?.status === 404) {
         console.warn('⚠️  Issuer not found or invalid:', issuerID);
         return [];
@@ -201,7 +182,6 @@ const apiService = {
       throw error;
     }
   },
-
 
   // Get Credentials by Holder
   getCredentialsByHolder: async (holderID) => {
@@ -214,7 +194,6 @@ const apiService = {
     }
   },
 
-
   // Get Credential by ID
   getCredentialById: async (credentialId) => {
     try {
@@ -225,7 +204,6 @@ const apiService = {
       throw error;
     }
   },
-
 
   // Verify Credential
   verifyCredential: async (credentialId) => {
@@ -238,45 +216,38 @@ const apiService = {
     }
   },
 
-
-  // Issue New Credential
-  issueCredential: async (credentialData) => {
-    try {
-      const response = await axios.post('/credentials', {
-        id: credentialData.id,
-        holderID: credentialData.holderID,
-        issuerID: credentialData.issuerID,
-        credentialType: credentialData.credentialType,
-        expiryDate: credentialData.expiryDate,
-        metadata: credentialData.metadata || '',
-        documentHash: credentialData.documentHash || ''
-      });
-      return response.data?.credential;
-    } catch (error) {
-      console.error('Error issuing credential:', error.response?.data?.message || error.message);
-      throw error;
-    }
-  },
-
-
-  // Create Credential
+  // ========== CREDENTIAL CREATION & ISSUANCE ==========
+  
+  // Create Credential (Fixed method name)
   createCredential: async (credentialData) => {
     try {
-      const response = await axios.post('/credentials', {
-        id: credentialData.id,
+      const response = await axios.post('/issuer/credentials/create', {
         credentialType: credentialData.credentialType,
         credentialName: credentialData.credentialName,
-        description: credentialData.description,
-        issuerID: credentialData.issuerID,
+        description: credentialData.description || '',
         metadata: credentialData.metadata || ''
       });
-      return response.data?.credential;
+      return response.data;
     } catch (error) {
       console.error('Error creating credential:', error.response?.data?.message || error.message);
       throw error;
     }
   },
 
+  // Issue Credential to Holder
+  issueCredential: async (issueData) => {
+    try {
+      const response = await axios.post('/credentials/issue', {
+        credentialId: issueData.credentialId,
+        recipientId: issueData.recipientId,
+        expiryDate: issueData.expiryDate || null
+      });
+      return response.data;
+    } catch (error) {
+      console.error('Error issuing credential:', error.response?.data?.message || error.message);
+      throw error;
+    }
+  },
 
   // Revoke Credential
   revokeCredential: async (credentialId) => {
@@ -289,7 +260,6 @@ const apiService = {
     }
   },
 
-
   // Get Credential History
   getCredentialHistory: async (credentialId) => {
     try {
@@ -301,8 +271,7 @@ const apiService = {
     }
   },
 
-
-  // Get All Users
+  // Get All Users (for issuer to select when issuing)
   getAllUsers: async () => {
     try {
       const response = await axios.get('/users');
@@ -313,41 +282,10 @@ const apiService = {
     }
   },
 
-
-  // Issue Credential to Holder
-  issueCredentialToHolder: async (data) => {
-    try {
-      const response = await axios.post('/api/issue-to-holder', data);
-      return response.data;
-    } catch (error) {
-      console.error('Error issuing credential to holder:', error.response?.data?.message || error.message);
-      throw error;
-    }
-  },
-
-
-  // ========== CREDENTIAL CREATION BY ISSUER ==========
-
-
-  // Create Credential (Issuer version)
-  createCredentialAsIssuer: async (credentialData) => {
-    try {
-      const response = await axios.post('/auth/issuer/credentials/create', {
-        credential: credentialData
-      });
-      return response.data;
-    } catch (error) {
-      console.error('Error creating credential:', error.response?.data?.message || error.message);
-      throw error;
-    }
-  },
-
-
   // Get API Base URL (for debugging)
   getApiBaseUrl: () => {
-    return axios.defaults.baseURL || 'http://localhost:8080';
+    return axios.defaults.baseURL || 'http://localhost:4000';
   }
 };
-
 
 export default apiService;

@@ -1,3 +1,4 @@
+// chaincode/index.js
 'use strict';
 
 const { Contract } = require('fabric-contract-api');
@@ -35,12 +36,14 @@ class ChainCertContract extends Contract {
       isTemplate: true     // ✅ Flag to indicate this is a template
     };
 
+    console.log('🚀 Writing new credential template to ledger:', id);
     await ctx.stub.putState(id, Buffer.from(JSON.stringify(credential)));
+    console.log('✅ Credential template written to ledger:', id);
     return JSON.stringify(credential);
   }
 
-  // PHASE 2: Assign Template to Holder (add holderID)
-  async IssueCredentialToHolder(ctx, templateId, holderID, expiryDate, documentHash) {
+  // ✅ NEW: PHASE 2 - Issue Credential (Assign Template to Holder)
+  async IssueCredential(ctx, templateId, holderID) {
     const templateJSON = await ctx.stub.getState(templateId);
     if (!templateJSON || templateJSON.length === 0) {
       throw new Error(`Credential template ${templateId} does not exist`);
@@ -48,15 +51,42 @@ class ChainCertContract extends Contract {
 
     const template = JSON.parse(templateJSON.toString());
     
-    // Create instance with holder
+    // ✅ Create unique instance with holder
     const credentialInstance = {
       ...template,
       id: `${templateId}_${holderID}_${Date.now()}`,  // Unique ID for this issuance
       holderID: holderID,  // ✅ NOW we assign the holder
-      expiryDate: expiryDate,        // ✅ Added here at issue time
-      documentHash: documentHash,    // ✅ Added here at issue time
       isTemplate: false,   // This is an actual instance
-      assignedDate: new Date().toISOString()
+      assignedDate: new Date().toISOString(),
+      status: 'issued'
+    };
+
+    console.log('🚀 Issuing credential instance to holder:', holderID);
+    await ctx.stub.putState(credentialInstance.id, Buffer.from(JSON.stringify(credentialInstance)));
+    console.log('✅ Credential instance issued to ledger:', credentialInstance.id);
+    return JSON.stringify(credentialInstance);
+  }
+
+  // DEPRECATED: Use IssueCredential instead (kept for backward compatibility)
+  async IssueCredentialToHolder(ctx, templateId, holderID, expiryDate, documentHash) {
+    console.warn('⚠️  IssueCredentialToHolder is deprecated. Use IssueCredential instead.');
+    
+    const templateJSON = await ctx.stub.getState(templateId);
+    if (!templateJSON || templateJSON.length === 0) {
+      throw new Error(`Credential template ${templateId} does not exist`);
+    }
+
+    const template = JSON.parse(templateJSON.toString());
+    
+    const credentialInstance = {
+      ...template,
+      id: `${templateId}_${holderID}_${Date.now()}`,
+      holderID: holderID,
+      expiryDate: expiryDate,
+      documentHash: documentHash,
+      isTemplate: false,
+      assignedDate: new Date().toISOString(),
+      status: 'issued'
     };
 
     await ctx.stub.putState(credentialInstance.id, Buffer.from(JSON.stringify(credentialInstance)));
@@ -79,11 +109,11 @@ class ChainCertContract extends Contract {
 
     const credential = JSON.parse(credentialJSON.toString());
 
-    if (credential.status !== 'active') {
+    if (credential.status !== 'active' && credential.status !== 'issued') {
       return JSON.stringify({ valid: false, reason: 'Credential is not active' });
     }
 
-    // Only check expiry if expiryDate exists (for issued credentials)
+    // Only check expiry if expiryDate exists
     if (credential.expiryDate) {
       const now = new Date();
       const expiry = new Date(credential.expiryDate);
@@ -103,8 +133,10 @@ class ChainCertContract extends Contract {
 
     const credential = JSON.parse(credentialJSON.toString());
     credential.status = 'revoked';
+    credential.revokedAt = new Date().toISOString();
 
     await ctx.stub.putState(id, Buffer.from(JSON.stringify(credential)));
+    console.log('✅ Credential revoked:', id);
     return JSON.stringify(credential);
   }
 
@@ -129,6 +161,7 @@ class ChainCertContract extends Contract {
     }
 
     await iterator.close();
+    console.log(`Found ${results.length} credentials for holder ${holderID}`);
     return JSON.stringify(results);
   }
 
@@ -148,6 +181,7 @@ class ChainCertContract extends Contract {
     }
 
     await iterator.close();
+    console.log(`Found ${results.length} credentials for issuer ${issuerID}`);
     return JSON.stringify(results);
   }
 
@@ -180,7 +214,52 @@ class ChainCertContract extends Contract {
     }
 
     await historyIterator.close();
+    console.log(`Found ${allResults.length} history records for credential ${credentialId}`);
     return JSON.stringify(allResults);
+  }
+
+  // ✅ NEW: Get all templates (credentials with isTemplate: true)
+  async GetCredentialTemplates(ctx, issuerID) {
+    const iterator = await ctx.stub.getStateByRange('', '');
+    const results = [];
+
+    let result = await iterator.next();
+    while (!result.done) {
+      if (result.value) {
+        const credential = JSON.parse(result.value.value.toString('utf8'));
+        // Only return templates without holderID assigned
+        if (credential.issuerID === issuerID && credential.isTemplate === true && credential.holderID === '') {
+          results.push(credential);
+        }
+      }
+      result = await iterator.next();
+    }
+
+    await iterator.close();
+    console.log(`Found ${results.length} templates for issuer ${issuerID}`);
+    return JSON.stringify(results);
+  }
+
+  // ✅ NEW: Get all issued instances (credentials with holderID assigned)
+  async GetIssuedCredentials(ctx, issuerID) {
+    const iterator = await ctx.stub.getStateByRange('', '');
+    const results = [];
+
+    let result = await iterator.next();
+    while (!result.done) {
+      if (result.value) {
+        const credential = JSON.parse(result.value.value.toString('utf8'));
+        // Only return issued instances (with holderID)
+        if (credential.issuerID === issuerID && credential.isTemplate === false && credential.holderID !== '') {
+          results.push(credential);
+        }
+      }
+      result = await iterator.next();
+    }
+
+    await iterator.close();
+    console.log(`Found ${results.length} issued credentials for issuer ${issuerID}`);
+    return JSON.stringify(results);
   }
 }
 

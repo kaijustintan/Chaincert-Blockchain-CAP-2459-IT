@@ -397,11 +397,12 @@ app.get('/api/credentials', async (req, res) => {
 // KAI - CHANGES - 2-STEP CREDENTIAL ISSUANCE (CouchDB FIRST, then Blockchain)
 // In sdk-server-fixed.js - POST /api/credentials endpoint
 // KAI - FIXED: Credential Creation with Proper Identity Resolution
+// ===== CREATE CREDENTIAL WITH RETRY LOGIC & ENHANCED VALIDATION =====
 app.post('/api/credentials', async (req, res) => {
   try {
     const { id, issuerID, credentialType, credentialName, description, metadata } = req.body;
     
-    // ✅ FIXED ISSUE #4: Enhanced validation for all required fields
+    // ✅ FIX #4: Enhanced validation for all required fields
     if (!id || !issuerID || !credentialType || !credentialName) {
       return res.status(400).json({ 
         error: 'Missing required fields: id, issuerID, credentialType, credentialName' 
@@ -444,51 +445,166 @@ app.post('/api/credentials', async (req, res) => {
 
     for (let attempt = 1; attempt <= MAXRETRIES; attempt++) {
       try {
-        console.log(`Attempting credential creation (${attempt}/${MAXRETRIES})...`);
+        console.log(`\n📝 Attempting credential creation (${attempt}/${MAXRETRIES})...`);
+        console.log(`   Identity: ${identityName}, Org: ${orgName}`);
         
         const { gateway, contract } = await getContractAndGateway(identityName, orgName);
         
         // ✅ FIX #2: Use correct chaincode function name
         const result = await contract.submitTransaction(
-          'CreateCredentialTemplate',  // ← Changed from 'IssueCredential' 
+          'CreateCredentialTemplate',  // ← Correct function name
           id,
           issuerID,
           credentialType,
           credentialName,
-          description,
+          description || '',
           metadata || ''
         );
+        // ← ADD THIS 3-SECOND WAIT HERE
+        await new Promise(resolve => setTimeout(resolve, 3000));
 
         console.log(`✅ SUCCESS on attempt ${attempt}`);
+        
+        await gateway.disconnect();
+        
         return res.status(201).json({ 
           success: true, 
           credential: JSON.parse(result.toString()),
-          timestamp: new Date().toISOString()
+          timestamp: new Date().toISOString(),
+          attempt: attempt
         });
+        
       } catch (error) {
         lastError = error;
         const errorMsg = error.message.toLowerCase();
         
-        // ✅ FIX #3: Better error detection
+        console.log(`❌ Attempt ${attempt} failed:`, error.message);
+        
+        // ✅ FIX #3: Better error detection for retry-able errors
         if (errorMsg.includes('peer endorsement') || 
             errorMsg.includes('do not match') || 
-            errorMsg.includes('no valid responses')) {
+            errorMsg.includes('no valid responses') ||
+            errorMsg.includes('deadline exceeded')) {
+          
           if (attempt < MAXRETRIES) {
             const backoffMs = Math.pow(2, attempt - 1) * 1000;
-            console.log(`Retrying in ${backoffMs}ms...`);
+            console.log(`⏳ Retrying in ${backoffMs}ms...`);
             await sleep(backoffMs);
             continue;
           }
         }
         
-        if (attempt === MAXRETRIES) throw error;
+        // If this is the last attempt, throw the error
+        if (attempt === MAXRETRIES) {
+          throw error;
+        }
       }
     }
     
     throw new Error(`Failed after ${MAXRETRIES} attempts: ${lastError.message}`);
+    
   } catch (error) {
     console.error('❌ Error creating credential:', error.message);
-    res.status(500).json({ success: false, error: error.message });
+    console.error('   Stack:', error.stack);
+    
+    res.status(500).json({ 
+      success: false, 
+      error: error.message,
+      details: process.env.NODE_ENV === 'development' ? error.stack : undefined
+    });
+  }
+});
+
+// ✅✅✅ NEW: ISSUE CREDENTIAL ENDPOINT (STEP 2 - Add holderID to template) ✅✅✅
+app.post('/api/credentials/:credentialId/issue', async (req, res) => {
+  try {
+    const { credentialId } = req.params;
+    const { holderID } = req.body;
+    
+    if (!holderID) {
+      return res.status(400).json({ 
+        success: false, 
+        error: 'holderID is required' 
+      });
+    }
+
+    const user = req.user;
+    if (!user) {
+      return res.status(401).json({ success: false, error: 'Unauthorized' });
+    }
+
+    let identityName, orgName;
+
+    if (user.role === 'issuer') {
+      const issuerDoc = await couchdb.getApprovedIssuer(user.email);
+      if (!issuerDoc || !issuerDoc.fabricIdentity || !issuerDoc.orgName) {
+        return res.status(403).json({ 
+          success: false, 
+          error: 'Issuer not approved or Fabric identity missing.' 
+        });
+      }
+      identityName = issuerDoc.fabricIdentity;
+      orgName = issuerDoc.orgName;
+    } else if (user.role === 'admin') {
+      identityName = 'admin';
+      orgName = 'Org1';
+    } else {
+      return res.status(403).json({ 
+        success: false, 
+        error: 'Not authorized to issue credentials.' 
+      });
+    }
+
+    const { gateway, contract } = await getContractAndGateway(identityName, orgName);
+    
+    // Call chaincode function to issue credential
+    const result = await contract.submitTransaction(
+      'IssueCredential',
+      credentialId,
+      holderID
+    );
+
+    const credentialData = JSON.parse(result.toString());
+
+    // ✅ OPTIONAL: Save to issuer's CouchDB wallet for quick queries
+    try {
+      const adminNano = nano('http://admin:adminpw@localhost:5985');
+      const issuersDB = adminNano.use('issuers');
+      const issuerDoc = await issuersDB.get(user.id || user.email);
+
+      if (issuerDoc && issuerDoc.couchDBUrl) {
+        const issuerNano = nano(issuerDoc.couchDBUrl);
+        const issuedCredsDB = issuerNano.use('wallet_issued_credentials');
+        
+        await issuedCredsDB.insert({
+          _id: `${credentialId}_${holderID}_${Date.now()}`,
+          credentialId: credentialId,
+          holderID: holderID,
+          issuerId: user.id || user.email,
+          issuedAt: new Date().toISOString(),
+          status: 'active',
+          credentialData: credentialData
+        });
+      }
+    } catch (couchErr) {
+      console.warn('⚠️ CouchDB save failed (non-fatal):', couchErr.message);
+    }
+
+    await gateway.disconnect();
+
+    res.status(200).json({ 
+      success: true, 
+      message: 'Credential issued successfully',
+      credential: credentialData,
+      timestamp: new Date().toISOString()
+    });
+
+  } catch (error) {
+    console.error('❌ Error issuing credential:', error.message);
+    res.status(500).json({ 
+      success: false, 
+      error: error.message 
+    });
   }
 });
 
@@ -649,6 +765,14 @@ app.get('/api/users', async (req, res) => {
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });
   }
+});
+
+// ✅ ADD THIS HERE - Right before app.listen()
+
+const issuerCredentialController = require('./controllers/issuerCredentialController');
+
+app.post('/api/issuer/credentials/create', (req, res) => {
+  issuerCredentialController.createCredential(req, res, getContractAndGateway);
 });
 
 const PORT = 4000;

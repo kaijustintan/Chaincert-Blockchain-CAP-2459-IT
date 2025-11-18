@@ -3,14 +3,12 @@ import { useNavigate } from "react-router-dom";
 import apiService from "../services/apiService";
 import "../styles/issuerDashboardPage.css";
 
-
 export default function IssuerDashboard() {
   const navigate = useNavigate();
   const [credentials, setCredentials] = useState([]);
   const [filteredCredentials, setFilteredCredentials] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-
 
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [createForm, setCreateForm] = useState({
@@ -22,18 +20,27 @@ export default function IssuerDashboard() {
   const [createError, setCreateError] = useState("");
   const [createLoading, setCreateLoading] = useState(false);
 
+  // Issue Credential Modal State
+  const [showIssueModal, setShowIssueModal] = useState(false);
+  const [issueForm, setIssueForm] = useState({
+    credentialId: "",
+    recipientId: "",
+    expiryDate: "",
+  });
+  const [issueError, setIssueError] = useState("");
+  const [issueLoading, setIssueLoading] = useState(false);
+  const [availableUsers, setAvailableUsers] = useState([]);
 
   // Filter state
   const [sortBy, setSortBy] = useState("issuedDate-desc");
   const [filterType, setFilterType] = useState("all");
   const [filterStatus, setFilterStatus] = useState("all");
 
-
   // Fetch credentials on page load
   useEffect(() => {
     fetchCredentials();
+    fetchAvailableUsers();
   }, []);
-
 
   // Filtering logic
   const applyFilters = useCallback(() => {
@@ -48,45 +55,47 @@ export default function IssuerDashboard() {
     setFilteredCredentials(result);
   }, [credentials, sortBy, filterType, filterStatus]);
 
-
   useEffect(() => {
     applyFilters();
   }, [applyFilters]);
 
-
   const fetchCredentials = async () => {
-  try {
-    setLoading(true);
-    const user = JSON.parse(localStorage.getItem("user"));
-    const issuerID = user.id;
-    console.log(issuerID);
-    
-    // ✅ CHANGE ONLY THIS - Remove the nested checks, keep it simple:
-    const data = await apiService.getCredentialsByIssuer(issuerID);
-    setCredentials(Array.isArray(data) ? data : []);  // ONE LINE CHANGE
-     console.log("Raw API response:", data);
-    console.log("First credential:", data && data[0]);
-    
-  } catch (err) {
-    if (err.response) {
-      setError(
-        `Server error: ${err.response.status} - ${
-          err.response.data?.message || err.message
-        }`
-      );
-    } else if (err.request) {
-      setError(
-        "No response from server. Make sure backend is running at http://localhost:4000"
-      );
-    } else {
-      setError(err.message);
+    try {
+      setLoading(true);
+      const user = JSON.parse(localStorage.getItem("user"));
+      const issuerID = user.id;
+      console.log("Fetching credentials for issuer:", issuerID);
+      
+      const data = await apiService.getCredentialsByIssuer(issuerID);
+      setCredentials(Array.isArray(data) ? data : []);
+      console.log("Fetched credentials:", data);
+    } catch (err) {
+      if (err.response) {
+        setError(
+          `Server error: ${err.response.status} - ${
+            err.response.data?.message || err.message
+          }`
+        );
+      } else if (err.request) {
+        setError(
+          "No response from server. Make sure backend is running at http://localhost:4000"
+        );
+      } else {
+        setError(err.message);
+      }
+    } finally {
+      setLoading(false);
     }
-  } finally {
-    setLoading(false);
-  }
-};
+  };
 
-
+  const fetchAvailableUsers = async () => {
+    try {
+      const users = await apiService.getAllUsers();
+      setAvailableUsers(Array.isArray(users) ? users : []);
+    } catch (err) {
+      console.error("Error fetching users:", err);
+    }
+  };
 
   // Sorting logic
   const applySorting = (array, sortOption) => {
@@ -123,7 +132,6 @@ export default function IssuerDashboard() {
     return sorted;
   };
 
-
   const getUniqueCredentialTypes = () => {
     const types = new Set(
       credentials.map((cred) => cred.credentialType).filter(Boolean)
@@ -131,16 +139,12 @@ export default function IssuerDashboard() {
     return Array.from(types).sort();
   };
 
-
   const handleViewHistory = () => {
     navigate("/issuer/history");
   };
 
-
   const handleRevoke = async (credentialId) => {
-    if (
-      window.confirm("Are you sure you want to revoke this credential?")
-    ) {
+    if (window.confirm("Are you sure you want to revoke this credential?")) {
       try {
         await apiService.revokeCredential(credentialId);
         alert("Credential revoked successfully!");
@@ -151,8 +155,7 @@ export default function IssuerDashboard() {
     }
   };
 
-
-  // Modal handlers
+  // Create Modal handlers
   const openCreateModal = () => {
     setShowCreateModal(true);
     setCreateError("");
@@ -164,48 +167,38 @@ export default function IssuerDashboard() {
     });
   };
 
-
   const closeCreateModal = () => {
     setShowCreateModal(false);
     setCreateError("");
     setCreateLoading(false);
   };
 
-
   const handleCreateFormChange = (e) => {
     const { name, value } = e.target;
     setCreateForm((prev) => ({ ...prev, [name]: value }));
   };
-
 
   const handleCreateCredential = async (e) => {
     e.preventDefault();
     setCreateLoading(true);
     setCreateError("");
 
-
     try {
-      const issuerID = localStorage.getItem("issuerID") || "ISSUER";
-
-
       if (!createForm.credentialType || !createForm.credentialName) {
         setCreateError("Please fill in Credential Type and Name");
         setCreateLoading(false);
         return;
       }
 
-
-      // Generate unique ID for credential
-      const id = `cred_${issuerID}_${Date.now()}`;
-
-
-      await apiService.createCredentialAsIssuer({
-        ...createForm,
-        issuerID,
-        id,
+      // ✅ FIXED: Call the correct method name
+      await apiService.createCredential({
+        credentialType: createForm.credentialType,
+        credentialName: createForm.credentialName,
+        description: createForm.description,
+        metadata: createForm.metadata,
       });
 
-
+      alert("Credential created successfully!");
       closeCreateModal();
       fetchCredentials();
     } catch (err) {
@@ -215,6 +208,56 @@ export default function IssuerDashboard() {
     }
   };
 
+  // Issue Modal handlers
+  const openIssueModal = () => {
+    setShowIssueModal(true);
+    setIssueError("");
+    setIssueForm({
+      credentialId: "",
+      recipientId: "",
+      expiryDate: "",
+    });
+  };
+
+  const closeIssueModal = () => {
+    setShowIssueModal(false);
+    setIssueError("");
+    setIssueLoading(false);
+  };
+
+  const handleIssueFormChange = (e) => {
+    const { name, value } = e.target;
+    setIssueForm((prev) => ({ ...prev, [name]: value }));
+  };
+
+  const handleIssueCredential = async (e) => {
+    e.preventDefault();
+    setIssueLoading(true);
+    setIssueError("");
+
+    try {
+      if (!issueForm.credentialId || !issueForm.recipientId) {
+        setIssueError("Please select both a credential and a recipient");
+        setIssueLoading(false);
+        return;
+      }
+
+      // ✅ FIXED: Call the correct method name
+      await apiService.issueCredential({
+        credentialId: issueForm.credentialId,
+        recipientId: issueForm.recipientId,
+        expiryDate: issueForm.expiryDate || null,
+      });
+
+      alert("Credential issued successfully!");
+      closeIssueModal();
+      fetchCredentials();
+    } catch (err) {
+      setIssueError(err?.message || "Failed to issue credential");
+    } finally {
+      setIssueLoading(false);
+    }
+  };
 
   // Loading state
   if (loading) {
@@ -224,7 +267,6 @@ export default function IssuerDashboard() {
       </div>
     );
   }
-
 
   // Error state
   if (error) {
@@ -240,7 +282,6 @@ export default function IssuerDashboard() {
     );
   }
 
-
   return (
     <div className="issuer-dashboard">
       <h2>Issuer Dashboard</h2>
@@ -251,6 +292,12 @@ export default function IssuerDashboard() {
         </button>
       </div>
 
+      {/* Issue Credential Button */}
+      <div style={{ margin: "20px 0" }}>
+        <button onClick={openIssueModal} className="action-btn issue-btn">
+          + Issue Credential
+        </button>
+      </div>
 
       {/* Create Credential Modal */}
       {showCreateModal && (
@@ -270,7 +317,6 @@ export default function IssuerDashboard() {
                 />
               </div>
 
-
               <div className="form-group">
                 <label>Credential Name:</label>
                 <input
@@ -283,7 +329,6 @@ export default function IssuerDashboard() {
                 />
               </div>
 
-
               <div className="form-group">
                 <label>Description:</label>
                 <textarea
@@ -294,7 +339,6 @@ export default function IssuerDashboard() {
                   placeholder="Describe the credential's purpose..."
                 />
               </div>
-
 
               <div className="form-group">
                 <label>Metadata (optional):</label>
@@ -307,13 +351,11 @@ export default function IssuerDashboard() {
                 />
               </div>
 
-
               {createError && (
                 <div className="form-error" style={{ color: "red" }}>
                   {createError}
                 </div>
               )}
-
 
               <div style={{ marginTop: "1em" }}>
                 <button
@@ -334,13 +376,89 @@ export default function IssuerDashboard() {
               </div>
             </form>
           </div>
-          <div
-            className="modal-backdrop"
-            onClick={closeCreateModal}
-          ></div>
+          <div className="modal-backdrop" onClick={closeCreateModal}></div>
         </div>
       )}
 
+      {/* Issue Credential Modal */}
+      {showIssueModal && (
+        <div className="modal-overlay">
+          <div className="modal">
+            <h3>Issue Credential</h3>
+            <form onSubmit={handleIssueCredential}>
+              <div className="form-group">
+                <label>Select Credential:</label>
+                <select
+                  name="credentialId"
+                  value={issueForm.credentialId}
+                  onChange={handleIssueFormChange}
+                  required
+                >
+                  <option value="">-- Select a credential --</option>
+                  {credentials.map((cred) => (
+                    <option key={cred._id} value={cred._id}>
+                      {cred.credentialName} ({cred.credentialType})
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="form-group">
+                <label>Select Recipient:</label>
+                <select
+                  name="recipientId"
+                  value={issueForm.recipientId}
+                  onChange={handleIssueFormChange}
+                  required
+                >
+                  <option value="">-- Select a recipient --</option>
+                  {availableUsers.map((user) => (
+                    <option key={user._id || user.id} value={user._id || user.id}>
+                      {user.name || user.username || user.email} {user.email && `(${user.email})`}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="form-group">
+                <label>Expiry Date (optional):</label>
+                <input
+                  type="date"
+                  name="expiryDate"
+                  value={issueForm.expiryDate}
+                  onChange={handleIssueFormChange}
+                  min={new Date().toISOString().split('T')[0]}
+                />
+              </div>
+
+              {issueError && (
+                <div className="form-error" style={{ color: "red" }}>
+                  {issueError}
+                </div>
+              )}
+
+              <div style={{ marginTop: "1em" }}>
+                <button
+                  type="submit"
+                  className="action-btn"
+                  disabled={issueLoading}
+                >
+                  {issueLoading ? "Issuing..." : "Issue"}
+                </button>
+                <button
+                  type="button"
+                  onClick={closeIssueModal}
+                  className="action-btn"
+                  style={{ marginLeft: 8 }}
+                >
+                  Cancel
+                </button>
+              </div>
+            </form>
+          </div>
+          <div className="modal-backdrop" onClick={closeIssueModal}></div>
+        </div>
+      )}
 
       {/* View History Button */}
       <div className="dashboard-header">
@@ -350,7 +468,6 @@ export default function IssuerDashboard() {
           </button>
         </div>
       </div>
-
 
       {/* FILTER SECTION */}
       <div className="filter-section">
@@ -374,7 +491,6 @@ export default function IssuerDashboard() {
             </select>
           </div>
 
-
           <div className="filter-group">
             <label htmlFor="filterType">Credential Type:</label>
             <select
@@ -392,7 +508,6 @@ export default function IssuerDashboard() {
             </select>
           </div>
 
-
           <div className="filter-group">
             <label htmlFor="filterStatus">Status:</label>
             <select
@@ -409,13 +524,11 @@ export default function IssuerDashboard() {
           </div>
         </div>
 
-
         <div className="results-info">
           Showing <strong>{filteredCredentials.length}</strong> of{" "}
           <strong>{credentials.length}</strong> credentials
         </div>
       </div>
-
 
       {/* CREDENTIALS TABLE */}
       {filteredCredentials.length === 0 ? (
@@ -434,29 +547,29 @@ export default function IssuerDashboard() {
                 <th>Credential ID</th>
                 <th>Type</th>
                 <th>Name</th>
-                <th>Metadata</th>
-                <th>Status</th>
+                <th>Description</th>
                 <th>Created Date</th>
+                <th>Status</th>
                 <th>Expiry Date</th>
                 <th>Actions</th>
               </tr>
             </thead>
             <tbody>
               {filteredCredentials.map((credential) => (
-                <tr key={credential.id}>
-                  <td>{credential.id}</td>
+                <tr key={credential._id}>
+                  <td>{credential._id || "N/A"}</td>
                   <td>{credential.credentialType || "N/A"}</td>
                   <td>{credential.credentialName || "N/A"}</td>
-                  <td>{credential.metadata || "N/A"}</td>
-                  <td>
-                    <span className={`status-badge status-${credential.status || 'active'}`}>
-                      {credential.status || "active"}
-                    </span>
-                  </td>
+                  <td>{credential.description || "N/A"}</td>
                   <td>
                     {credential.createdAt
                       ? new Date(credential.createdAt).toLocaleDateString()
                       : "N/A"}
+                  </td>
+                  <td>
+                    <span className={`status-badge status-${credential.status || 'active'}`}>
+                      {credential.status || "active"}
+                    </span>
                   </td>
                   <td>
                     {credential.expiryDate
@@ -466,7 +579,7 @@ export default function IssuerDashboard() {
                   <td>
                     {(credential.status === "active" || !credential.status) && (
                       <button
-                        onClick={() => handleRevoke(credential.id)}
+                        onClick={() => handleRevoke(credential._id)}
                         className="action-btn revoke-btn"
                       >
                         Revoke
@@ -474,9 +587,7 @@ export default function IssuerDashboard() {
                     )}
                     {credential.status && credential.status !== "active" && (
                       <span className="action-text">
-                        {credential.status === "revoked"
-                          ? "Revoked"
-                          : "Expired"}
+                        {credential.status === "revoked" ? "Revoked" : "Expired"}
                       </span>
                     )}
                   </td>

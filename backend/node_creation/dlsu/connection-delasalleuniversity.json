@@ -1,0 +1,125 @@
+{
+  "name": "DLSU-MultiOrg",
+  "version": "1.0.0",
+  "client": {
+    "organization": "DLSUMSP"
+  },
+  "organizations": {
+    "DLSUMSP": {
+      "mspid": "DLSUMSP",
+      "peers": ["peer0.dlsu.example.com"],
+      "certificateAuthorities": ["ca.dlsu.example.com"]
+    },
+    "Org1MSP": {
+      "mspid": "Org1MSP",
+      "peers": ["peer0.org1.example.com"],
+      "certificateAuthorities": ["ca.org1.example.com"]
+    },
+    "Org2MSP": {
+      "mspid": "Org2MSP",
+      "peers": ["peer0.org2.example.com"],
+      "certificateAuthorities": ["ca.org2.example.com"]
+    }
+  },
+  "peers": {
+    "peer0.dlsu.example.com": {
+      "url": "grpcs://localhost:12051",
+      "tlsCACerts": {
+        "path": "/home/kaitanz_/fabric-samples/fabric-samples/test-network/organizations/peerOrganizations/dlsu.example.com/peers/peer0.dlsu.example.com/tls/ca.crt"
+      },
+      "grpcOptions": {
+        "ssl-target-name-override": "peer0.dlsu.example.com",
+        "grpc.keepalive_time_ms": 120000  
+
+      }
+    },
+    "peer0.org1.example.com": {
+      "url": "grpcs://localhost:7051",
+      "tlsCACerts": {
+        "path": "/home/kaitanz_/fabric-samples/fabric-samples/test-network/organizations/peerOrganizations/org1.example.com/peers/peer0.org1.example.com/tls/ca.crt"
+      },
+      "grpcOptions": {
+        "ssl-target-name-override": "peer0.org1.example.com",
+        "grpc.keepalive_time_ms": 120000
+      }
+    },
+    "peer0.org2.example.com": {
+      "url": "grpcs://localhost:9051",
+      "tlsCACerts": {
+        "path": "/home/kaitanz_/fabric-samples/fabric-samples/test-network/organizations/peerOrganizations/org2.example.com/peers/peer0.org2.example.com/tls/ca.crt"
+      },
+      "grpcOptions": {
+        "ssl-target-name-override": "peer0.org2.example.com",
+        "grpc.keepalive_time_ms": 120000
+      }
+    }
+  },
+  "certificateAuthorities": {
+    "ca.dlsu.example.com": {
+      "url": "https://localhost:12054",
+      "caName": "ca-dlsu",
+      "tlsCACerts": {
+        "path": "/home/kaitanz_/fabric-samples/fabric-samples/test-network/organizations/peerOrganizations/dlsu.example.com/ca/ca.dlsu.example.com-cert.pem"
+      },
+      "httpOptions": {
+        "verify": false
+      }
+    },
+    "ca.org1.example.com": {
+      "url": "https://localhost:7054",
+      "caName": "ca-org1",
+      "tlsCACerts": {
+        "path": "/home/kaitanz_/fabric-samples/fabric-samples/test-network/organizations/peerOrganizations/org1.example.com/ca/ca.org1.example.com-cert.pem"
+      },
+      "httpOptions": {
+        "verify": false
+      }
+    },
+    "ca.org2.example.com": {
+      "url": "https://localhost:8054",
+      "caName": "ca-org2",
+      "tlsCACerts": {
+        "path": "/home/kaitanz_/fabric-samples/fabric-samples/test-network/organizations/peerOrganizations/org2.example.com/ca/ca.org2.example.com-cert.pem"
+      },
+      "httpOptions": {
+        "verify": false
+      }
+    }
+  },
+  "orderers": {
+    "orderer.example.com": {
+      "url": "grpcs://localhost:7050",
+      "grpcOptions": {
+        "ssl-target-name-override": "orderer.example.com"
+      },
+      "tlsCACerts": {
+        "path": "/home/kaitanz_/fabric-samples/fabric-samples/test-network/organizations/ordererOrganizations/example.com/orderers/orderer.example.com/tls/ca.crt"
+      }
+    }
+  },
+  "channels": {
+    "chaincert-channel": {
+      "orderers": ["orderer.example.com"],
+      "peers": {
+        "peer0.dlsu.example.com": {
+          "endorsingPeer": true,
+          "chaincodeQuery": true,
+          "ledgerQuery": true,
+          "eventSource": true
+        },
+        "peer0.org1.example.com": {
+          "endorsingPeer": true,
+          "chaincodeQuery": true,
+          "ledgerQuery": true,
+          "eventSource": true
+        },
+        "peer0.org2.example.com": {
+          "endorsingPeer": true,
+          "chaincodeQuery": true,
+          "ledgerQuery": true,
+          "eventSource": true
+        }
+      }
+    }
+  }
+}

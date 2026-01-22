@@ -129,8 +129,11 @@ let lastConnectionTime = 0;
 const CONNECTION_CACHE_TTL = 5 * 60 * 1000;
 
 
-// KAI MODIFIED AS OF NOV 15 10:47PM 
-// identityName = fabricIdentity (ex: delasalleuniversity-admin) || orgName (ex: De La Salle University )
+/* 
+  Function Name: getContractAndGateway
+  Technical: Prepare and returns a live connection to the blockchain using the correct organization’s identity.
+  Tropang Ex: basically cumoconnect sa blockchain using a right identity / if wala to, no acc will be able to commit any transaction to BC 
+*/
 async function getContractAndGateway(identityName, orgName) {
 
 

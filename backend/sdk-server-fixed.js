@@ -257,12 +257,30 @@ async function getContractAndGateway(identityName, orgName) {
   return { gateway, contract };
 }
 
+// ==========================================================================================================================================================================
 
+/*
+  Function Name: sleep
+  Technical: Temporarily pauses execution for a specified amount of time (in milliseconds).
+  Tropang Ex: Parang pinapatulog mo muna yung code bago siya mag-continue.
+  Useful kapag kailangan mo maghintay sandali (ex: retry logic, delay between blockchain calls).
+
+  NOTE! - PENDING, not sure when used
+*/
 async function sleep(ms) {
   return new Promise(resolve => setTimeout(resolve, ms));
 }
 
+// ==========================================================================================================================================================================
 
+/*
+  Function Name: process.on('SIGINT', async () => {
+  Technical: Handles server shutdown by safely disconnecting from the Hyperledger Fabric network.
+  Tropang Ex: Kapag pinindot mo Ctrl + C habang tumatakbo yung backend:
+              * hindi basta-basta namamatay yung app
+              * sinasarado muna yung connection sa blockchain
+              * saka lang tuluyang nag-e-exit
+*/
 process.on('SIGINT', async () => {
   console.log('\n🛑 Shutting down...');
   if (cachedGateway) {
@@ -276,45 +294,99 @@ process.on('SIGINT', async () => {
   process.exit(0);
 });
 
+// ==========================================================================================================================================================================
 
+// ==========================================================================================================================================================================
+//                                                                       GET Endpoints
+// ==========================================================================================================================================================================
+
+/*
+  Endpoint: GET /api/health
+  Technical: Returns a simple health status response to confirm that the backend server is running.
+  Tropang Ex: Parang tinatanong mo yung server ng “Uy, buhay ka pa ba?”
+*/
 app.get('/api/health', (req, res) => {
   res.json({ status: 'OK' });
 });
 
+// ==========================================================================================================================================================================
 
-// ========== EXISTING: User Registration Endpoint
-// KAI - CHANGES
+// ==========================================================================================================================================================================
+//                                                                       POST Endpoints
+// ==========================================================================================================================================================================
+
+/*
+  Endpoint: POST /api/register
+  Technical: Registers a new user by storing their credentials and metadata in CouchDB.
+  Tropang Ex: validation shi associated with registration \ Dito nagsasign up yung user para magkaroon ng account sa system. 
+              Hindi pa ito blockchain-related — pang system access pa lang.
+*/
 app.post('/api/register', async (req, res) => {
   try {
+
+     /* Step 1: Extract and validate required fields
+
+      Technical: Validates required registration fields from request body.
+      Tropang Ex: Chine-check kung kumpleto yung pinasa ng user. Kung may kulang, hindi na siya papayagang mag-register.
+      Example: email, password, role dapat meron.
+    */
     const { email, password, role, fullName } = req.body;
     if (!email || !password || !role) {
       return res.status(400).json({ success: false, error: 'Missing required fields.' });
     }
     
-    // ✅ FIXED ISSUE #3: Check if user already exists
+    /* Step 2: Check if user already exists
+
+      Technical: Prevents duplicate user accounts by checking existing records.
+      Tropang Ex: Tinitingnan kung may account na yung ginamit na email.
+      Example: Register twice with same email → error.
+    */
     const existingUsers = await couchdb.getAllUsers();
     const userExists = existingUsers.find(u => u.email === email);
     if (userExists) {
       return res.status(409).json({ success: false, error: 'User already exists with this email.' });
     }
     
-    // 1. Generate a unique walletId (you can customize this)
+     /* Step 3: Generate walletId for the user
+
+      Technical: Generates a unique wallet identifier for the user.
+      Tropang Ex: Gumagawa ng unique ID na pwedeng i-associate sa future wallet or credentials.
+      Example: wallet_1699999999999
+    */
     const walletId = `wallet_${Date.now()}`;
 
-
-    // 2. Save user with walletId included
+    // Step 4: Save user to CouchDB with walletId included
     const result = await couchdb.saveUser({ email, password, role, fullName, walletId });
     
+    /* Step 5: Return success response
+
+      Technical: Sends success response with userId and walletId.
+      Tropang Ex: Sinasabi sa frontend na successful yung registration.
+    */
     res.json({ success: true, userId: result.id, walletId });
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });
   }
+
 });
 
+// ==========================================================================================================================================================================
 
-// ========== OPTIMIZED: Regular User Login (Updated with bcryptjs)
+/*
+  Endpoint: POST /api/login
+
+  Technical: Authenticates a user and returns a JWT token for session-based access.
+  Tropang Ex: handles shi associated with login / dito naglo-login yung user para makapasok sa system at makagamit ng features.
+*/
 app.post('/api/login', async (req, res) => {
   try {
+
+     /* Step 1: Validate login input
+
+      Technical: Ensures email and password are provided.
+      Tropang Ex: Basic check lang kung may email at password bago mag-login.
+      Example: Missing password → error agad.
+    */
     const { email, password } = req.body;
     
     if (!email || !password) {
@@ -325,11 +397,13 @@ app.post('/api/login', async (req, res) => {
     }
 
 
-    // Get user from database
-    const users = await couchdb.getAllUsers();
+ /*   Step 2: Retrieve user from database
+
+      Technical: Fetches user record from CouchDB via email.
+      Tropang Ex: Hinahanap kung may account ba talaga na naka-register gamit yung email.
+      Example: Email not found → invalid credentials.
+    */    const users = await couchdb.getAllUsers();
     const user = users.find(u => u.email === email);
-
-
     if (!user) {
       return res.status(401).json({ 
         success: false, 
@@ -338,7 +412,12 @@ app.post('/api/login', async (req, res) => {
     }
 
 
-    // ✅ NEW: Verify password with bcryptjs (not plain text)
+ /*   Step 3: Verify password using bcrypt (not plain text)
+
+      Technical: Compares plaintext password with hashed password.
+      Tropang Ex: Chine-check kung tama yung password using secure hashing / Hindi plain text comparison para mas secure.
+      Example: Wrong password → login denied.
+    */  
     const passwordMatch = await bcryptjs.compare(password, user.password);
     if (!passwordMatch) {
       return res.status(401).json({ 
@@ -348,7 +427,12 @@ app.post('/api/login', async (req, res) => {
     }
 
 
-    // Create JWT token
+    /* Step 4: Generate JWT token
+
+      Technical: Creates a signed JWT token containing user identity and role.
+      Tropang Ex: Gumagawa ng access pass (token) na gagamitin sa mga next API calls.
+      Example: Token is sent in Authorization header later.
+    */    
     const token = jwt.sign(
       { 
         id: user._id, 
@@ -359,9 +443,18 @@ app.post('/api/login', async (req, res) => {
       { expiresIn: '24h' }
     );
 
+     /* Step 5: Remove password from response
 
+      Technical: Excludes sensitive data from API response.
+      Tropang Ex: Para hindi accidentally maibalik yung password sa frontend.
+    */
     const { password: pw, ...userData } = user;
-    
+
+    /* Step 6: Send login success response
+
+      Technical: Returns token and user metadata to frontend.
+      Tropang Ex: Successful login — may token na, pwede nang gumamit ng system.
+    */
     res.json({ 
       success: true, 
       token, 
@@ -374,9 +467,12 @@ app.post('/api/login', async (req, res) => {
     console.error('❌ User login error:', err.message);
     res.status(500).json({ success: false, error: err.message });
   }
+  
 });
 
+// ==========================================================================================================================================================================
 
+// STOPPED HERE
 // ========== OPTIMIZED: Issuer Login Endpoint (No brute force, password hashed)
 app.post('/api/login-issuer', async (req, res) => {
   try {

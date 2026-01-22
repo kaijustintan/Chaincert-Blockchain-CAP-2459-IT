@@ -1,3 +1,8 @@
+/* sdk-server-fixed.js
+    - The “middleman” of your whole system
+    - Nothing talks directly to the blockchain except this file.
+*/
+
 const express = require('express');
 const cors = require('cors');
 const { Gateway, Wallets } = require('fabric-network');
@@ -127,11 +132,31 @@ const CONNECTION_CACHE_TTL = 5 * 60 * 1000;
 // KAI MODIFIED AS OF NOV 15 10:47PM 
 // identityName = fabricIdentity (ex: delasalleuniversity-admin) || orgName (ex: De La Salle University )
 async function getContractAndGateway(identityName, orgName) {
+
+
+  /* Step 1: Input validation
+
+  Technical: Validates that the required parameters are provided.
+  Tropang Ex: Dito chine-check kung may laman talaga yung identityName at orgName. Kung wala kahit isa, tigil agad kasi hindi pwedeng makipag-usap sa blockchain 
+  kung hindi mo alam:
+    * sino ang gagamit ng identity
+    * anong organization ang nirerepresent
+  */
   if (!identityName || !orgName) {
     throw new Error('identityName and orgName are required');
   }
 
 
+  /* Step 2: Choose the correct connection profile (DLSU OR Org1)
+
+    Technical: Selects which Fabric connection profile (CCP) JSON file to use based on orgName/identityName.
+    Tropang Ex: Parang pumipili ka kung anong WiFi network yung kokonektan mo.
+      - Kung DLSU ka → DLSU connection profile
+      - Kung hindi → default Org1
+    Example: getContractAndGateway("delasalleuniversity-admin", "De La Salle University") = use "connection-delasalleuniversity.json"
+    
+    NOTE! - as u can see hardcoded yung paths to get said files, so in the event a new org gets to be approved as an issuer, we MANUALLY create another ccppath for that said org 
+  */
   let ccpPath;
   if (
     orgName.toLowerCase().includes('delasalleuniversity') ||
@@ -147,26 +172,83 @@ async function getContractAndGateway(identityName, orgName) {
     );
   }
 
+  /* Step 3: Check if the connection profile file exists
 
-  // ✅ ADD THIS HERE - Check if CCP file exists
+    Technical: Ensures the chosen CCP file actually exists before attempting to read/connect.
+    Tropang Ex: Parang chine-check mo muna kung nandiyan yung “mapa” bago bumiyahe. Kapag wala yung CCP file, hindi alam ng system kung saan hahanapin peers/orderer, 
+    so error agad.
+    Example: If connection-org1.json was moved/deleted → throws “Connection profile not found...”
+  */
   if (!fs.existsSync(ccpPath)) {
     throw new Error(`Connection profile not found at: ${ccpPath}`);
   }
 
 
+   /* Step 4: Read and parse the connection profile (CCP)
+    
+    Technical: Loads the CCP JSON content and parses it into an object used by Fabric Gateway.
+    Tropang Ex: Binabasa dito yung JSON file na nagsasabi kung paano kumausap sa blockchain:
+      * saan yung peers
+      * saan yung orderer
+      * anong TLS/certs ang gagamitin
+    Example: ccp becomes a JS object that gateway.connect() will use.
+  */
   const ccpJSON = fs.readFileSync(ccpPath, 'utf8');
   const ccp = JSON.parse(ccpJSON);
+
+  /* Step 5: Load wallet and fetch the signing identity
+
+    Technical: Opens chaincert-api/wallet directory inside ubuntu/filesystem wallet and retrieves the identity that will sign transactions.
+    Tropang Ex: Hinahanap dito yung “ID card” (cert + private key) ng gagamit.  Kung wala sa wallet, bawal mag-submit ng transaction kasi walang pipirma.
+    Example: identityName = "delasalleuniversity-admin"
+      → wallet.get("delasalleuniversity-admin") must exist or it throws Identity not found.
+  */
   const wallet = await Wallets.newFileSystemWallet(walletPath);
   const identity = await wallet.get(identityName);
   if (!identity) throw new Error(`Identity ${identityName} not found`);
+
+
+   /* Step 6: Create Gateway and connect to Fabric as this identity
+
+    Technical: Establishes an authenticated connection to the Fabric network using the CCP + wallet identity.
+    Tropang Ex: Ito na yung actual “login” sa blockchain as that org/user identity.
+    From here, the backend can now talk to Fabric and submit/query transactions.
+    Example: After gateway.connect(), you can access channels and chaincode through the gateway.
+  */
   const gateway = new Gateway();
   await gateway.connect(ccp, {
     wallet,
     identity: identityName,
     discovery: { enabled: true, asLocalhost: true }
   });
+
+  /* Step 7: Access the target channel (chaincert-channel)
+
+    Technical: Gets a Network object for the specified Fabric channel.
+    Tropang Ex: Pinipili mo kung saang “group chat” (channel) kayo magtatransact. Dito naka-deploy yung ChainCert chaincode kaya dito dapat kumonek.
+    Example: network = gateway.getNetwork("chaincert-channel")
+
+    NOTE! - talagang hardcoded yan to chaincert-channel kasi any org joining as must join the general channel, ang kulang dito org exclusive channel
+          - ex: so dapat if identity n ccp path = dlsu related = join chaincert-channel AND dlsu-channel
+  */
   const network = await gateway.getNetwork('chaincert-channel');
+
+
+  /* Step 8: Get the chaincode/contract handle (chaincert)
+
+    Technical: Retrieves the contract object used to invoke/evaluate chaincode functions.
+    Tropang Ex: Ito na yung “remote control” ng blockchain functions. Dito mo tatawagin yung IssueCredential, CreateCredentialTemplate, etc ng chaincode/index.js 
+    Example: contract.submitTransaction("IssueCredential", ...)
+  */
   const contract = network.getContract('chaincert');
+
+  /* Step 9: Cache gateway + return gateway and contract (PENDING NOTES)
+
+    Technical: Stores the gateway in cache (optional reuse) and returns the gateway/contract to caller.
+    Tropang Ex: Para hindi paulit-ulit connect (depende sa design), tinatandaan yung gateway. Tapos ibinabalik yung gateway at contract para magamit ng ibang API endpoints.
+    Example: const { gateway, contract } = await getContractAndGateway(...)
+      → then use contract.submitTransaction(...) or contract.evaluateTransaction(...)
+  */
   cachedGateway = gateway;
   lastConnectionTime = Date.now();
   return { gateway, contract };

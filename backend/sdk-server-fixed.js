@@ -2,38 +2,37 @@
     - The “middleman” of your whole system
     - Nothing talks directly to the blockchain except this file.
 */
-
-const express = require('express');
-const cors = require('cors');
-const { Gateway, Wallets } = require('fabric-network');
-const path = require('path');
-const fs = require('fs');
-const jwt = require('jsonwebtoken');
-const bcryptjs = require('bcryptjs');
-const multer = require('multer');
-const Docker = require('dockerode');
-const nano = require('nano');  // ✅ FIXED: Added at top level
-
-
-// const uploadRoutes = require('./routes/uploadRoutes'); // NEWLY ADDED - OLOPS PENDING
-
-
-const JWT_SECRET = process.env.JWT_SECRET || 'dev_secret_key';
+const express = require('express');          // Express framework for building REST APIs
+const cors = require('cors');                // Enables Cross-Origin Resource Sharing (CORS)
+const { Gateway, Wallets } = require('fabric-network'); // Hyperledger Fabric SDK (connect to blockchain + manage identities)
+const path = require('path');                // Node utility for handling file and directory paths
+const fs = require('fs');                    // File system access (read CCP files, check existence)
+const jwt = require('jsonwebtoken');         // Handles JWT creation and verification (auth/session)
+const bcryptjs = require('bcryptjs');        // Password hashing and comparison (secure login)
+const multer = require('multer');            // Middleware for handling file uploads (multipart/form-data)
+const Docker = require('dockerode');          // Node.js Docker client (manage containers programmatically)
+const nano = require('nano');                // CouchDB client for database operations
+const JWT_SECRET = process.env.JWT_SECRET || 'dev_secret_key'; // Secret key used to sign and verify JWT tokens (uses env variable, falls back for dev)
+const upload = multer({ storage: multer.memoryStorage() }); // Multer setup: stores uploaded files in memory (RAM) instead of disk
+const couchdb = require('./couchDB_service'); // CouchDB service layer (handles all CouchDB-related operations)
+const app = express(); // Initializes the Express application instance
 
 
-// ✅ Multer configuration
-const upload = multer({ storage: multer.memoryStorage() });
+/* 
+  Function Name: Global Auth Middleware (JWT Parser)
 
+  Technical:
+  Intercepts every incoming request, extracts the JWT token from the Authorization header,
+  verifies it using JWT_SECRET, and attaches the decoded user data to req.user.
 
-// ✅ Import CouchDB service
-const couchdb = require('./couchDB_service');
-
-
-const app = express();
-
-
+  Tropang Ex:
+  Para siyang bouncer sa entrance. Bawat request chine-check kung may “ID” (JWT token).
+  - Kapag valid → papasukin at may req.user
+  - Kapag wala / invalid → req.user = null (guest mode)
+*/
 app.use((req, res, next) => {
   const authHeader = req.headers['authorization'];
+
   if (authHeader) {
     const token = authHeader.split(' ')[1]; // Bearer <token>
     try {
@@ -44,44 +43,112 @@ app.use((req, res, next) => {
   } else {
     req.user = null;
   }
+
   next();
 });
+// ==========================================================================================================================================================================
 
+/* 
+  Function Name: CORS Middleware
 
+  Technical:
+  Enables Cross-Origin Resource Sharing so that frontend applications
+  from different domains/ports can call the backend APIs.
+
+  Tropang Ex:
+  Para payagan yung frontend (ex: localhost:3000) na kumausap sa backend (localhost:4000).
+  Kung wala ito, blocked agad ng browser.
+*/
 app.use(cors());
+// ==========================================================================================================================================================================
+
+/* 
+  Function Name: JSON Body Parser
+
+  Technical:
+  Automatically parses incoming request bodies with JSON payloads
+  and makes them accessible via req.body.
+
+  Tropang Ex:
+  Para mabasa ng backend yung data na sinend ng frontend
+  (ex: email, password, credential details).
+*/
 app.use(express.json());
+// ==========================================================================================================================================================================
 
+/* 
+  Function Name: Docker Client Initialization
 
-// ✅ Initialize Docker client
+  Technical:
+  Creates a Docker client instance connected to the host’s Docker daemon
+  via Unix socket.
+
+  Tropang Ex:
+  Dito nagkakaroon ng kapangyarihan yung backend na kumausap sa Docker
+  (ex: mag-start, mag-stop, o mag-manage ng containers).
+*/
 const docker = new Docker({ socketPath: '/var/run/docker.sock' });
-// SUBJECTIVE
+// ==========================================================================================================================================================================
+
+/* 
+  Technical:
+  Absolute path pointing to the local Hyperledger Fabric samples directory.
+
+  Tropang Ex:
+  Ito yung “base folder” kung saan nakalagay lahat ng Fabric config files
+  (connection profiles, core.yaml, org folders).
+*/
 const FABRIC_SAMPLES_PATH = '/home/kaitanz_/fabric-samples/fabric-samples'; // KAI
-// const FABRIC_SAMPLES_PATH = path.resolve(__dirname, '..', 'fabric-samples', 'fabric-samples'); // SAKANILA
+// ==========================================================================================================================================================================
+
+/* 
+  Variable Name: CORE_YAML_PATH
+
+  Technical:
+  Absolute path to Fabric’s core.yaml configuration file.
+
+  Tropang Ex:
+  Config file ng Fabric peer — dito naka-set yung CouchDB, logging, at iba pang low-level blockchain settings.
+*/
 const CORE_YAML_PATH = `${FABRIC_SAMPLES_PATH}/config/core.yaml`;
+// ==========================================================================================================================================================================
 
+/* 
+  Function Name: initializeDatabases
 
-// ✅ Initialize CouchDB on server startup
+  Technical:
+  Ensures all required CouchDB databases are created and ready when the server starts.
+
+  Tropang Ex:
+  Para siguradong may lalagyan agad yung data (users, issuers, wallets) bago pa tumanggap ng requests.
+*/
 couchdb.initializeDatabases().catch(err => {
   console.error('⚠️  CouchDB init error:', err.message);
 });
+// ==========================================================================================================================================================================
 
+/* 
+  Function Name: setupDatabaseIndexes
 
-// ✅ FIXED: Create database indexes on startup (FIXED SORT BUG)
+  Technical:
+  Creates Mango indexes in CouchDB to improve query performance, especially for filtering and sorting issuer records.
+
+  Tropang Ex:
+  Parang index sa libro — para mas mabilis hanapin yung pending / approved issuers sa admin dashboard.
+*/
 const setupDatabaseIndexes = async () => {
   try {
     await new Promise(resolve => setTimeout(resolve, 1500));
-    
+
     const db = couchdb.couch.use('issuers');
-    
-    // ✅ FIX: Added 'createdAt' to index fields for sorting
+
     await db.createIndex({
       index: {
-        fields: ['type', 'status', 'createdAt']  // ← FIXED! Added createdAt here
+        fields: ['type', 'status', 'createdAt']
       },
       name: 'idx-type-status-created',
       ddoc: 'indexes'
     });
-
 
     console.log('✅ Database indexes created successfully');
   } catch (error) {
@@ -92,42 +159,49 @@ const setupDatabaseIndexes = async () => {
     }
   }
 };
+// ==========================================================================================================================================================================
 
+/* 
+  Function Name: Delayed Index Initialization
 
-setTimeout(setupDatabaseIndexes, 2000);
+  Technical:
+  Delays execution of setupDatabaseIndexes to ensure CouchDB
+  is fully ready before index creation.
 
-
-// ✅ Import and use auth routes
-const authRoutes = require('./routes/authRoutes');
-app.use('/api/auth', authRoutes);
-
-
-// SUBJECTIVE - KAI PATH TO CONNECTION PROFILE (Ubuntu/Linux)
-/*
-const ccpPath = path.resolve(
-  __dirname,
-  '..',
-  'fabric-samples',
-  'fabric-samples',
-  'test-network',
-  'organizations',
-  'peerOrganizations',
-  'org1.example.com',
-  'connection-org1.json'
-);
+  Tropang Ex:
+  Parang pinaghihintay mo muna mag-boot yung database
+  bago ka gumawa ng index para iwas error.
 */
-// const ccpPath = '/home/kaitanz_/fabric-samples/test-network/organizations/peerOrganizations/org1.example.com/connection-org1.json';
-// const ccpPath = '/home/polo/fabric-samples-full/test-network/organizations/peerOrganizations/org1.example.com/connection-org1.json';
+setTimeout(setupDatabaseIndexes, 2000);
+// ==========================================================================================================================================================================
 
+/* 
+  Variable Name: walletPath
 
-// ✅ RESTORED: walletPath (was commented out but used below)
+  Technical:
+  File-system path where Hyperledger Fabric identities (certificates and keys) are stored and loaded from.
+
+  Tropang Ex:
+  Ito yung “ID holder” ng blockchain. Kapag wala yung identity dito, hindi makakapirma ng transaction.
+*/
 const walletPath = path.join(__dirname, 'wallet');
+// ==========================================================================================================================================================================
 
+/* 
+  Variables Name: Gateway Cache Controls
 
+  Technical:
+  Used to optionally cache and reuse an existing Fabric Gateway connection
+  to reduce repeated connection overhead.
+
+  Tropang Ex:
+  Para hindi paulit-ulit connect sa blockchain bawat request
+  (pang-optimization, optional).
+*/
 let cachedGateway = null;
 let lastConnectionTime = 0;
 const CONNECTION_CACHE_TTL = 5 * 60 * 1000;
-
+// ==========================================================================================================================================================================
 
 /* 
   Function Name: getContractAndGateway
@@ -147,7 +221,6 @@ async function getContractAndGateway(identityName, orgName) {
   if (!identityName || !orgName) {
     throw new Error('identityName and orgName are required');
   }
-
 
   /* Step 2: Choose the correct connection profile (DLSU OR Org1)
 
@@ -173,7 +246,6 @@ async function getContractAndGateway(identityName, orgName) {
       __dirname,'..','fabric-samples','fabric-samples','test-network','organizations','peerOrganizations','org1.example.com','connection-org1.json'
     );
   }
-
   /* Step 3: Check if the connection profile file exists
 
     Technical: Ensures the chosen CCP file actually exists before attempting to read/connect.
@@ -184,8 +256,6 @@ async function getContractAndGateway(identityName, orgName) {
   if (!fs.existsSync(ccpPath)) {
     throw new Error(`Connection profile not found at: ${ccpPath}`);
   }
-
-
    /* Step 4: Read and parse the connection profile (CCP)
     
     Technical: Loads the CCP JSON content and parses it into an object used by Fabric Gateway.

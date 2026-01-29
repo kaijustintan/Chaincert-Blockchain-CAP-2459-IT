@@ -1,10 +1,7 @@
-// authController.js
 // ==========================================================================================================================================================================
-//                                                                       FILE OVERVIEW
+//                                                                       authController.js 
 // ==========================================================================================================================================================================
 /*
-  FILE NAME: authController.js
-
   Technical:
   This is the backend "handler layer" for authentication-related endpoints.
   Siya yung tumatanggap ng request galing routes (authRoutes.js), then siya yung gumagawa ng logic:
@@ -15,9 +12,9 @@
 
   Tropang Ex:
   Siya yung "brain" ng auth endpoints.
-  authRoutes = traffic enforcer (URL mapping)
-  authController = actual worker (logic)
-  couchDB_service = database middleman
+      authRoutes = traffic enforcer (URL mapping)
+      authController = actual worker (logic)
+      couchDB_service = database middleman
 
   Used when:
   - may nag-register/login (user or issuer)
@@ -25,7 +22,6 @@
   - admin actions: view pending issuers, approve/reject
   - issuer dashboard wants fast CouchDB fetch of credentials
 */
-// ==========================================================================================================================================================================
 
 const couchDB = require('../couchDB_service');
 const bcrypt = require('bcryptjs');
@@ -52,13 +48,6 @@ const authController = {
     Tropang Ex:
     Signup ng student/admin. Safe kasi hashed yung password.
     Note: WalletId removed na, so user record = basic identity info lang.
-
-    Expected req.body:
-    {
-      username, email, password,
-      role? (default: "student"),
-      org?  (default: "org1")
-    }
   */
   register: async (req, res) => { 
     try {
@@ -123,11 +112,7 @@ const authController = {
     - Returns token + basic user payload
 
     Tropang Ex:
-    Login ng student/admin.
-    If tama password → bibigyan ka ng token, tapos gamitin yun sa protected endpoints.
-
-    Expected req.body:
-    { email, password }
+    Login ng student/admin. If tama password → bibigyan ka ng token, tapos gamitin yun sa protected endpoints.
   */
   login: async (req, res) => {
     try {
@@ -205,14 +190,10 @@ const authController = {
     Function Name: getUserInfo
 
     Technical:
-    Fetches a user (or issuer) document via couchDB.getUser(id).
-    Returns only safe public fields (no password).
+    Fetches a user (or issuer) document via couchDB.getUser(id). Returns only safe public fields (no password).
 
     Tropang Ex:
     Pang refresh ng profile page. Kinukuha details ni user like bio + pfp.
-
-    Expected req.params:
-    { id }
   */
   getUserInfo: async (req, res) => {
     try {

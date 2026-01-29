@@ -1,44 +1,28 @@
-// controllers/issuerCredentialController.js
-
+// ==========================================================================================================================================================================
+//                                                                       issuerCredentialController.js
+// ==========================================================================================================================================================================
 const nano = require('nano');
-
+                                          // PURO CREDENTIAL TEMPLATE LOGIC PA LANG LAMAN NITO, WALA PANG ISSUE CREDENTIAL 
 /*
   FILE NAME: issuerCredentialController.js
 
   Technical:
-  Controller for ISSUER Credential Template actions.
-  Handles the unified flow for:
-    - Creating a credential TEMPLATE on the blockchain (CreateCredentialTemplate)
-    - Then saving a copy of that template into the issuer’s own CouchDB
-      (wallet_issuer_credentials) for fast dashboard reads.
-
-  Tropang Ex:
-  Ito yung “Create Template” engine ni issuer.
-  Kapag nag-create siya ng credential template:
-    1) official save sa blockchain
-    2) then copy save sa CouchDB ni issuer (pang mabilis sa UI)
+  Controller for ISSUER Credential Template actions including:
+      - Creating a credential TEMPLATE on the blockchain (CreateCredentialTemplate)
+      - Then saving a copy of that template into the issuer’s own CouchDB
+        (wallet_issuer_credentials) for fast dashboard reads.
 
   Where used:
   Usually tinatawag ito ng issuer dashboard routes (e.g., /issuer/credentials/create or similar),
   and the request is expected to be authenticated (req.user exists).
-
-  Watch-out / Possible Redundancy:
-  - This controller manually connects to admin CouchDB issuers DB to fetch issuerDoc.
-    Similar logic exists in couchDB_service.js (getIssuerById, getIssuerByEmail, approveIssuer, etc.).
-  - This is not wrong, but it’s “duplicate responsibility” compared to the service layer.
 */
 
 // ==========================================================================================================================================================================
 //                                                             CREDENTIAL TEMPLATE CREATION (BLOCKCHAIN + COUCHDB)
 // ==========================================================================================================================================================================
 
-/**
-* ✅ UNIFIED ENDPOINT: Creates credential in BOTH Blockchain AND CouchDB
-* This is the main endpoint called from issuerDashboardPage.js
-*/
-
 /*
-  Function Name: createCredential
+  Function Name: createCredential | This is the main endpoint called from issuerDashboardPage.js
 
   Technical:
   Creates a credential TEMPLATE using a 2-phase write:
@@ -48,11 +32,6 @@ const nano = require('nano');
   Why this order:
   Blockchain is the “source of truth”, so blockchain write happens first.
   CouchDB is for fast reads/UI caching.
-
-  Tropang Ex:
-  Parang:
-  “Una, official sa ledger (blockchain).”
-  “Pangalawa, lagay ko rin sa personal DB ni issuer para mabilis sa dashboard.”
 
   Inputs / Parameters:
   - req.user.id
@@ -81,7 +60,6 @@ exports.createCredential = async (req, res, getContractAndGateway) => {
     }
 
     /* Step 1: Extract request payload
-
       Tropang Ex: Kukunin natin yung fields na galing sa form/UI.
     */
     // ✅ Extract from request body
@@ -89,8 +67,8 @@ exports.createCredential = async (req, res, getContractAndGateway) => {
 
     /* Step 2: Validate required fields
 
-      Technical: credentialName + credentialType are required.
-      Tropang Ex: Di pwede kulang yung basic details ng template.
+      Technical: credentialName + credentialType are required fields.
+      Tropang Ex: Di pwede kulang yung basic details ng template, otherwise application will fail 
     */
     // ✅ Validate required fields
     if (!credentialName || !credentialType) {
@@ -122,23 +100,19 @@ exports.createCredential = async (req, res, getContractAndGateway) => {
     /*
       Step 4: Resolve issuer identity + org info (needed for blockchain signing)
 
-      Technical:
-      - Connect to ADMIN CouchDB (issuers DB)
-      - Fetch issuerDoc using issuerId (req.user.id)
-      - Validate issuer is approved:
-          must have fabricIdentity + orgName
-      - Normalize orgName for getContractAndGateway (critical fix)
-
       Tropang Ex:
       Kukunin natin yung “issuer profile” para malaman:
         - anong Fabric identity niya (pang sign ng blockchain tx)
         - anong org name niya (pang select ng network config)
         - at later: couchDBUrl niya (pang save sa DB)
     */
+
+    // Connect to ADMIN CouchDB (issuers DB)
     let identityName, orgName, issuerDoc;
-    const adminNano = nano('http://admin:adminpw@localhost:5985');
+    const adminNano = nano('http://admin:adminpw@localhost:5985'); 
     const issuersDB = adminNano.use('issuers');
 
+    // Fetch issuerDoc using issuerId (req.user.id)
     try {
       issuerDoc = await issuersDB.get(issuerId);
     } catch (err) {
@@ -151,6 +125,7 @@ exports.createCredential = async (req, res, getContractAndGateway) => {
       throw err;
     }
 
+    //  Validate issuer is approved: must have fabricIdentity + orgName
     if (!issuerDoc || !issuerDoc.fabricIdentity || !issuerDoc.orgName) {
       return res.status(403).json({
         success: false,
@@ -363,17 +338,13 @@ exports.createCredential = async (req, res, getContractAndGateway) => {
     });
   }
 };
-
-/**
-* ✅ Get all credentials for an issuer from CouchDB
-*/
+// ==========================================================================================================================================================================
 
 /*
   Function Name: getCredentials
 
   Technical:
   Fetches all credential TEMPLATE docs for the logged-in issuer from issuer’s CouchDB.
-  Uses Mango .find() to filter by issuerId.
 
   Tropang Ex:
   Ito yung “list templates” ng issuer dashboard.
@@ -442,8 +413,6 @@ exports.getCredentials = async (req, res) => {
     const credentialsDB = issuerNano.use('wallet_issuer_credentials');
 
     /* Step 5: Mango query docs by issuerId
-
-      Technical: Uses .find() for reliability vs views.
       Tropang Ex: Kunin lahat ng templates na pag-aari ng issuer.
     */
     // ✅ FIXED: Use .find() instead of .view() - more reliable

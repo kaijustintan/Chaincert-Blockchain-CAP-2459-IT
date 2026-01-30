@@ -1,5 +1,5 @@
 // Verifier dashboard for credential verification
-import React, { useState, useEffect } from "react";
+import React, { useState } from 'react';
 import "../styles/verifierDashboard.css";
 import apiService from "../services/apiService";
 
@@ -66,7 +66,7 @@ export default function VerifierDashboard() {
 
   return (
     <div className="verifier-container">
-      <h1>🔍 Verifier Dashboard</h1>
+      <h1>Verifier Dashboard</h1>
       <p>Enter a credential ID or code to verify authenticity.</p>
 
       {/* Search box */}
@@ -123,7 +123,7 @@ export default function VerifierDashboard() {
 
       {/* Logs */}
       <div className="verify-logs">
-        <h2>📋 Verification Logs</h2>
+        <h2>Verification Logs</h2>
         {logs.length === 0 ? (
           <p className="empty">No verification attempts yet.</p>
         ) : (

@@ -60,9 +60,9 @@ class ChainCertContract extends Contract {
     /* Step 1: Check if a credential template with the same ID already exists
 
        Technical:
-       Uses CredentialExists() helper to avoid overwriting an existing template/record with the same id
+       Uses Check_CredentialExists() helper to avoid overwriting an existing template/record with the same id
     */
-    const exists = await this.CredentialExists(ctx, id);
+    const exists = await this.Check_CredentialExists(ctx, id);
     if (exists) {
       throw new Error(`Credential template ${id} already exists`);
     }
@@ -255,17 +255,17 @@ class ChainCertContract extends Contract {
   // =========================================================================================================
 
   /*
-    Function Name: GetCredential
+    Function Name: Get_CredentialTemplateOrIssuedCredential
 
     Technical:
     Retrieves a single credential (template or issued) from the ledger by its ID.
-    Ex: If you call GetCredential(ctx, 'template_ABC') and that key belongs to a template, you get a template.
-        If you call GetCredential(ctx, 'template_ABC_user123_1700000000...'), you get an issued instance.
+    Ex: If you call Get_CredentialTemplateOrIssuedCredential(ctx, 'template_ABC') and that key belongs to a template, you get a template.
+        If you call Get_CredentialTemplateOrIssuedCredential(ctx, 'template_ABC_user123_1700000000...'), you get an issued instance.
 
     Tropang Ex:
     Simple “get by ID” sa blockchain. Kung alam mo yung exact ID, dito mo makukuha yung full JSON ng credential.
   */
-  async GetCredential(ctx, id) {
+  async Get_CredentialTemplateOrIssuedCredential(ctx, id) {
 
     /* Step 1: Read ledger state by key (id)
        Technical: Uses getState(id) to fetch the associated value (if any).
@@ -461,7 +461,7 @@ class ChainCertContract extends Contract {
   // =========================================================================================================
 
   /*
-    Function Name: CredentialExists
+    Function Name: Check_CredentialExists
 
     Technical:
     Returns true if credential exists, false otherwise.
@@ -469,7 +469,7 @@ class ChainCertContract extends Contract {
     Tropang Ex:
     Parang “ping” kung may record sa key na ’to. Convenient check bago gumawa ng bago o mag-update.
   */
-  async CredentialExists(ctx, id) {
+  async Check_CredentialExists(ctx, id) {
     
     /* Step 1: Read state by key
        Tropang Ex:
@@ -490,151 +490,11 @@ class ChainCertContract extends Contract {
 // ==========================================================================================================================================================================
 
   // =========================================================================================================
-  // F. BULK QUERIES (BY HOLDER / ISSUER)
+  // F. CREDENTIAL HISTORY / AUDIT TRAIL
   // =========================================================================================================
 
   /*
-    Function Name: GetCredentialsByHolder
-
-    Technical:
-    Returns all credential records whose holderID matches the provided holderID:
-    - Iterates over all ledger keys using getStateByRange('', '').
-    - Parses each record and filters by credential.holderID === holderID.
-
-    Tropang Ex:
-    Ito yung pangkuha ng “lahat ng credentials ng isang user” sa blockchain side, regardless kung active, revoked, etc. (walang status filter dito).
-  */
-  async GetCredentialsByHolder(ctx, holderID) {
-   
-    /* Step 1: Open an iterator over all keys
-
-       Technical:
-       getStateByRange('', '') walks all key-value pairs in this chaincode namespace.
-
-       Tropang Ex:
-       Parang sinasabi sa ledger: “Ilista mo lahat ng entries na meron ka.”
-    */
-    const iterator = await ctx.stub.getStateByRange('', '');
-    const results = [];
-
-    /* Step 2: Loop through all results and filter by holderID
-
-       Technical:
-       - For each record, parse JSON.
-       - If credential.holderID === holderID, push to results.
-
-       Tropang Ex:
-       gets credentials that are = to holderID
-    */
-    let result = await iterator.next();
-    while (!result.done) {
-      if (result.value) {
-        const credential = JSON.parse(result.value.value.toString('utf8'));
-        if (credential.holderID === holderID) {
-          results.push(credential);
-        }
-      }
-      result = await iterator.next();
-    }
-
-    /* Step 3: Close iterator and log count
-       Tropang Ex:
-       closes iterator n makes a log of how many credentials were found for the holder 
-    */
-    await iterator.close();
-    console.log(`Found ${results.length} credentials for holder ${holderID}`);
-
-    /* Step 4: Return results as JSON string
-
-       Technical:
-       Returns JSON.stringify(arrayOfCredentials).
-
-       Tropang Ex:
-       Ibinabalik lahat ng credentials ni holder bilang array, ready for UI/backend.
-    */
-    return JSON.stringify(results);
-  }
-// ==========================================================================================================================================================================
-
-  // PENDING/TO BE FIXED --> cc function "GetCredentialsByIssuer" returns both issuer templates AND issuer issued credentials, dapat isolated sa isa lang 
-  /*
-    Function Name: GetCredentialsByIssuer
-
-    Technical:
-    Returns all credentials for a given issuerID (mix of templates and issued instances):
-    - Iterates over all states.
-    - Filters by credential.issuerID === issuerID.
-    Note: This mixes templates and issued credentials, which is why
-          more specific GetCredentialTemplates / GetIssuedCredentials exist.
-
-    Tropang Ex:
-    Lahat ng credentials ng issuer (halo ang templates at issued). Ginamit sa early design,
-    pero para mas malinis, ginawan mo na ng hiwalay na functions yung templates vs issued.
-  */
-  async GetCredentialsByIssuer(ctx, issuerID) {
-    /* Step 1: Open iterator over all keys
-
-       Technical:
-       getStateByRange('', '') again enumerates all credentials.
-
-       Tropang Ex:
-       Same style: “Ipakita lahat ng credentials sa ledger.”
-    */
-    const iterator = await ctx.stub.getStateByRange('', '');
-    const results = [];
-
-    /* Step 2: Loop through and filter by issuerID
-
-       Technical:
-       For each record:
-       - parse JSON
-       - if credential.issuerID === issuerID, add to results.
-
-       Tropang Ex:
-       Hinahanap lang dito yung credentials na pagmamay-ari ng particular issuer.
-       Wala pang hiwalay kung template o issued, basta kung sino ang issuerID niya.
-    */
-    let result = await iterator.next();
-    while (!result.done) {
-      if (result.value) {
-        const credential = JSON.parse(result.value.value.toString('utf8'));
-        if (credential.issuerID === issuerID) {
-          results.push(credential);
-        }
-      }
-      result = await iterator.next();
-    }
-
-    /* Step 3: Close iterator and log how many were found
-
-       Technical:
-       Closes iterator and logs count.
-
-       Tropang Ex:
-       Sinasara yung pag-scan at sinasabi kung ilang credentials (templates+issued)
-       ang naka-link sa issuer na ’yon.
-    */
-    await iterator.close();
-    console.log(`Found ${results.length} credentials for issuer ${issuerID}`);
-
-    /* Step 4: Return results as JSON string
-
-       Technical:
-       Returns JSON.stringify(results).
-
-       Tropang Ex:
-       Ibinabalik lahat ng credentials ni issuer para magamit sa dashboard / reporting.
-    */
-    return JSON.stringify(results);
-  }
-// ==========================================================================================================================================================================
-
-  // =========================================================================================================
-  // G. CREDENTIAL HISTORY / AUDIT TRAIL
-  // =========================================================================================================
-
-  /*
-    Function Name: GetCredentialHistory
+    Function Name: Get_CredentialTemplateOrIssuedCredentialHistory
 
     Technical:
     Retrieves the full history (audit trail) of a credential by its key (credentialId):
@@ -652,7 +512,7 @@ class ChainCertContract extends Contract {
     - kung na-revoke o na-delete,
     - at anong laman niya sa bawat transaction.
   */
-  async GetCredentialHistory(ctx, credentialId) {
+  async Get_CredentialTemplateOrIssuedCredentialHistory(ctx, credentialId) {
     /* Step 1: Log which credential ID we are fetching history for
 
        Technical:
@@ -734,13 +594,77 @@ class ChainCertContract extends Contract {
   }
 // ==========================================================================================================================================================================
 
+// =========================================================================================================
+  // G. BULK QUERIES (BY HOLDER / ISSUER) | FILTERED VIEWS: TEMPLATES VS ISSUED CREDENTIALS
   // =========================================================================================================
-  // H. FILTERED VIEWS: TEMPLATES VS ISSUED CREDENTIALS
-  // =========================================================================================================
+
+  /*
+    Function Name: Get_HolderCredentials
+
+    Technical:
+    Returns all credential records whose holderID matches the provided holderID:
+    - Iterates over all ledger keys using getStateByRange('', '').
+    - Parses each record and filters by credential.holderID === holderID.
+
+    Tropang Ex:
+    Ito yung pangkuha ng “lahat ng credentials ng isang user” sa blockchain side, regardless kung active, revoked, etc. (walang status filter dito).
+  */
+  async Get_HolderCredentials(ctx, holderID) {
+   
+    /* Step 1: Open an iterator over all keys
+
+       Technical:
+       getStateByRange('', '') walks all key-value pairs in this chaincode namespace.
+
+       Tropang Ex:
+       Parang sinasabi sa ledger: “Ilista mo lahat ng entries na meron ka.”
+    */
+    const iterator = await ctx.stub.getStateByRange('', '');
+    const results = [];
+
+    /* Step 2: Loop through all results and filter by holderID
+
+       Technical:
+       - For each record, parse JSON.
+       - If credential.holderID === holderID, push to results.
+
+       Tropang Ex:
+       gets credentials that are = to holderID
+    */
+    let result = await iterator.next();
+    while (!result.done) {
+      if (result.value) {
+        const credential = JSON.parse(result.value.value.toString('utf8'));
+        if (credential.holderID === holderID) {
+          results.push(credential);
+        }
+      }
+      result = await iterator.next();
+    }
+
+    /* Step 3: Close iterator and log count
+       Tropang Ex:
+       closes iterator n makes a log of how many credentials were found for the holder 
+    */
+    await iterator.close();
+    console.log(`Found ${results.length} credentials for holder ${holderID}`);
+
+    /* Step 4: Return results as JSON string
+
+       Technical:
+       Returns JSON.stringify(arrayOfCredentials).
+
+       Tropang Ex:
+       Ibinabalik lahat ng credentials ni holder bilang array, ready for UI/backend.
+    */
+    return JSON.stringify(results);
+  }
+// ==========================================================================================================================================================================
+
 
   // ✅ NEW: Get all templates (credentials with isTemplate: true)
   /*
-    Function Name: GetCredentialTemplates
+    Function Name: Get_IssuerCredentialTemplates
 
     Technical:
     Returns all credential templates for a given issuer:
@@ -752,7 +676,7 @@ class ChainCertContract extends Contract {
     Ito yung listahan ng lahat ng template ni issuer (e.g. lahat ng klase ng diploma/badge),
     hindi pa naka-assign sa kahit sinong holder.
   */
-  async GetCredentialTemplates(ctx, issuerID) {
+  async Get_IssuerCredentialTemplates(ctx, issuerID) {
     /* Step 1: Open iterator over all ledger states
 
        Technical:
@@ -815,7 +739,7 @@ class ChainCertContract extends Contract {
 // ==========================================================================================================================================================================
 
   /*
-    Function Name: GetIssuedCredentials
+    Function Name: Get_IssuerIssuedCredentials
 
     Technical:
     Returns all issued (non-template) credentials for a given issuer:
@@ -827,7 +751,7 @@ class ChainCertContract extends Contract {
     Ito naman yung listahan ng lahat ng credentials na na-issue na talaga ni issuer
     sa mga holders (students, etc.).
   */
-  async GetIssuedCredentials(ctx, issuerID) {
+  async Get_IssuerIssuedCredentials(ctx, issuerID) {
     /* Step 1: Open iterator over all ledger states
 
        Technical:
@@ -887,6 +811,5 @@ class ChainCertContract extends Contract {
     return JSON.stringify(results);
   }
 }
-// ==========================================================================================================================================================================
 
 module.exports = ChainCertContract;

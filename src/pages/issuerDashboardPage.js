@@ -76,33 +76,36 @@ export default function IssuerDashboard() {
 
 
   const fetchCredentials = async () => {
-    try {
-      setLoading(true);
-      const user = JSON.parse(localStorage.getItem("user"));
-      const issuerID = user.id;
-      console.log("Fetching credentials for issuer:", issuerID);
-      
-      const data = await apiService.getCredentialsByIssuer(issuerID);
-      setCredentials(Array.isArray(data) ? data : []);
-      console.log("Fetched credentials:", data);
-    } catch (err) {
-      if (err.response) {
-        setError(
-          `Server error: ${err.response.status} - ${
-            err.response.data?.message || err.message
-          }`
-        );
-      } else if (err.request) {
-        setError(
-          "No response from server. Make sure backend is running at http://localhost:4000"
-        );
-      } else {
-        setError(err.message);
-      }
-    } finally {
-      setLoading(false);
+  try {
+    setLoading(true);
+
+    // Optional: still log current user for debugging
+    const user = JSON.parse(localStorage.getItem("user"));
+    console.log("Fetching ISSUED credentials for issuer:", user?.id);
+
+    // NEW: use blockchain issued-credentials endpoint
+    const data = await apiService.getIssuedCredentials();
+
+    setCredentials(Array.isArray(data) ? data : []);
+    console.log("Fetched issued credentials:", data);
+  } catch (err) {
+    if (err.response) {
+      setError(
+        `Server error: ${err.response.status} - ${
+          err.response.data?.message || err.message
+        }`
+      );
+    } else if (err.request) {
+      setError(
+        "No response from server. Make sure backend is running at http://localhost:4000"
+      );
+    } else {
+      setError(err.message);
     }
-  };
+  } finally {
+    setLoading(false);
+  }
+};
 
 
 

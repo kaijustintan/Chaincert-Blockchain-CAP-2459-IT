@@ -71,7 +71,7 @@ export default function CredentialHistoryPage() {
       for (const cred of credentials) {
         try {
           const credId = cred.id || cred.credentialId;
-          const data = await apiService.getCredentialHistory(credId);
+          const data = await apiService.Get_CredentialTemplateOrIssuedCredentialHistory(credId);
           console.log(`Raw history for ${credId}:`, data);
 
           const recordsWithId = data.map(record => {
@@ -128,7 +128,7 @@ export default function CredentialHistoryPage() {
         setLoading(true);
         setError(null);
 
-        const data = await apiService.getCredentialHistory(searchId.trim());
+        const data = await apiService.Get_CredentialTemplateOrIssuedCredentialHistory(searchId.trim());
         console.log('Search result:', data);
 
         const sortedHistory = data.map(record => {

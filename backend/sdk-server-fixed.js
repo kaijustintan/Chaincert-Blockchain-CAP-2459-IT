@@ -421,21 +421,32 @@ app.get('/api/pending-issuers', async (req, res) => {
 });
 // ==========================================================================================================================================================================
 
-/* PENDING/TO BE FIXED --> cc function "GetCredentialsByIssuer" returns both issuer templates AND issuer issued credentials, dapat isolated sa isa lang 
-  Endpoint: GET /api/credentials 
+// =========================================================================================================
+// E. Issuer Issued Credentials (Blockchain → issued instances only)
+// =========================================================================================================
 
-  Technical: Returns credentials from the blockchain based on the requester’s role (issuer/admin).
-  Tropang Ex: Dito kinukuha yung list ng ISSUER credentials/templates niya sa blockchain. Kung issuer ka, sarili mong credentials lang. 
-              Kung admin ka, gagamit siya ng admin identity para makapag-query. EX: GINAGAMIT sa issuerdashboard, etc 
+/*
+  Endpoint: GET /api/credentials/issued
+
+  Technical:
+  Returns all ISSUED (non-template) credentials for the current issuer/admin from the blockchain
+  using the appropriate Fabric identity (issuer or admin).
+
+  Tropang Ex:
+  Dito kinukuha yung list ng credentials na na-issue na talaga ng issuer sa mga holders.
+  - Kung issuer ka: sarili mong issued credentials lang ang lalabas.
+  - Kung admin ka: gagamit siya ng admin identity para mag-query (config pa kung kaninong issuer ang tina-target).
 */
-app.get('/api/credentials', async (req, res) => {
+app.get('/api/credentials/issued', async (req, res) => {
   try {
-
     /* Step 1: Check if user is authenticated (JWT/session)
 
-      Technical: Validates that req.user exists before proceeding.
-      Tropang Ex: Chine-check muna kung naka-login ka. Kung wala kang token / session, bawal ka.
-      Example: No Authorization header → 401 Unauthorized.
+       Technical:
+       Validates that req.user exists before proceeding. If missing, returns 401 Unauthorized.
+
+       Tropang Ex:
+       Chine-check muna kung naka-login ka. Kung wala kang token / session, bawal ka.
+       Example: No Authorization header → 401 Unauthorized.
     */
     const user = req.user;
     if (!user) {
@@ -444,85 +455,237 @@ app.get('/api/credentials', async (req, res) => {
 
     /* Step 2: Determine which Fabric identity to use (issuer vs admin)
 
-      Technical: Selects identityName and orgName based on the user’s role.
-      Tropang Ex: Dito dinidecide kung anong “blockchain account” ang gagamitin pang-query.
-        - Issuer: kukunin sa CouchDB yung linked Fabric identity (approved issuer)
-        - Admin: hardcoded admin identity
-      Example: Issuer (DLSU) → delasalleuniversity-admin / De La Salle University
-               Admin → admin / Org1
+       Technical:
+       - If role === 'issuer': load approved issuer doc from CouchDB and use its fabricIdentity + orgName.
+       - If role === 'admin': use Org1 admin identity (for now).
+       - Else: deny access.
+
+       Tropang Ex:
+       Dito dinidecide kung anong “blockchain account” ang gagamitin.
+       - Issuer: gagamitin yung Fabric identity na naka-link sa school/org.
+       - Admin: gagamit ng admin / Org1 identity.
     */
     let identityName, orgName;
 
     if (user.role === 'issuer') {
-     
-      /* Step 2A: Fetch approved issuer data from CouchDB via email 
+      /* Step 2A: Fetch approved issuer data from CouchDB via email
 
-        Technical: Loads the approved issuer record to retrieve fabricIdentity and orgName.
-        Tropang Ex: Hinahanap dito sa database kung approved issuer ka na, at ano yung Fabric identity mo.
-                    Dito nanggagaling yung values ng parameters na ipapasa kay getContractAndGateway().
-        Example: issuerDoc.fabricIdentity = "delasalleuniversity-admin"
-                 issuerDoc.orgName = "De La Salle University"
+         Technical:
+         Uses couchdb.getApprovedIssuer(user.email) to get fabricIdentity and orgName.
+
+         Tropang Ex:
+         Hinahanap sa DB kung approved issuer ka na at ano yung tamang Fabric identity
+         na gagamitin sa blockchain.
       */
       const issuerDoc = await couchdb.getApprovedIssuer(user.email);
 
-      if (!issuerDoc || !issuerDoc.fabricIdentity || !issuerDoc.orgName) 
-      {
+      if (!issuerDoc || !issuerDoc.fabricIdentity || !issuerDoc.orgName) {
         return res.status(403).json({ success: false, error: 'Issuer not approved or info missing.' });
       }
-      identityName = issuerDoc.fabricIdentity;  // E.g. 'delasalleuniversity-admin'
-      orgName = issuerDoc.orgName;             // E.g. 'De La Salle University'
 
-    } 
-    else if (user.role === 'admin') {
-      
-      /* Step 2B: Use Org1 admin identity PENDING - dapat hindi ata ganito kasi it makes use of a node?? */
+      identityName = issuerDoc.fabricIdentity;  // e.g. 'delasalleuniversity-admin'
+      orgName = issuerDoc.orgName;             // e.g. 'De La Salle University'
+    } else if (user.role === 'admin') {
+      /* Step 2B: Use Org1 admin identity
+
+         Technical:
+         For now, uses 'admin' / 'Org1' as the Fabric identity/org for admin queries.
+
+         Tropang Ex:
+         Kapag admin, generic Org1 admin ang ginagamit para makapag-query sa blockchain.
+         (Puwede pang i-refine later kung may hiwalay na admin org.)
+      */
       identityName = 'admin';
       orgName = 'Org1';
+    } else {
+      /* Step 2C: Block other roles
 
-    } 
-    else {
+         Technical:
+         Prevents non-issuer/non-admin roles (e.g., student/holder) from accessing this endpoint.
 
-       /* Step 2C: Block other roles
-
-        Technical: Restricts access for non-issuer/non-admin roles.
-        Tropang Ex: Kung student/user ka, hindi ka allowed sa endpoint na ito.
+         Tropang Ex:
+         Kung student ka lang, hindi ka puwedeng kumuha ng list ng issued credentials ng issuer dito.
       */
-      return res.status(403).json({ success: false, error: 'Not authorized to view credentials.' });
+      return res.status(403).json({ success: false, error: 'Not authorized to view issued credentials.' });
     }
 
     /* Step 3: Connect to blockchain using chosen identity/org
 
-      Technical: Calls getContractAndGateway() to obtain gateway and contract for Fabric interaction.
-      Tropang Ex: Ito na yung step na “kumokonek sa blockchain” gamit yung identity na pinili sa Step 2.
-      Example: getContractAndGateway("delasalleuniversity-admin", "De La Salle University")
+       Technical:
+       Calls getContractAndGateway(identityName, orgName) to obtain gateway + contract.
+
+       Tropang Ex:
+       Ito na yung actual connection step papunta sa Fabric network gamit yung napiling identity.
+       Example: getContractAndGateway("delasalleuniversity-admin", "De La Salle University").
     */
     const { gateway, contract } = await getContractAndGateway(identityName, orgName);
 
+    /* Step 4: Determine issuer ID to query
 
-     /* Step 4: From Blockchain, get the credentials of issuer via its id or email
+       Technical:
+       Chooses an identifier for the issuer that matches how issuerID is stored on-chain.
+       For now:
+       - issuer: uses user._id or user.email (same behavior as old code).
+       - admin: placeholder 'ISSUER' (to be refined if admin wants to target a specific issuer).
 
-      Technical: assigns to a variable the id or email of issuer to be used as a parameter to query the blockchain for issuer credentials 
-                  via chaincode function "evaluateTransaction" 
-      Tropang Ex: kunin email or id ni issuer para maquery yung records niya sa blockchain
-      Example: contract.evaluateTransaction("GetCredentialsByIssuer", "issuer@email.com")
+       Tropang Ex:
+       Kailangan natin ng “key” para sabihin sa chaincode: “bigay mo lahat ng issued credentials ni issuer X”.
     */
-    const issuerIdToQuery = user.role === 'issuer' ? user._id || user.email : 'ISSUER'; // adjust as needed
-    const result = await contract.evaluateTransaction('GetCredentialsByIssuer', issuerIdToQuery);
-    
+    const issuerIdToQuery = user.role === 'issuer'
+      ? (user._id || user.email)
+      : 'ISSUER'; // TODO: refine if admin needs to target a specific issuer
+
+    /* Step 5: Query chaincode for ISSUED credentials only
+
+       Technical:
+       Calls contract.evaluateTransaction('Get_IssuerIssuedCredentials', issuerIdToQuery)
+       which returns all non-template credentials for that issuer.
+
+       Tropang Ex:
+       Sa step na ’to, sumisigaw tayo sa chaincode ng:
+       “Get_IssuerIssuedCredentials(issuerID)” → ibalik mo lahat ng credentials na na-issue na sa mga holders.
+    */
+    const resultBuffer = await contract.evaluateTransaction('Get_IssuerIssuedCredentials', issuerIdToQuery);
+    const resultArray = JSON.parse(resultBuffer.toString());
+
     /* Step 6: Return standardized response
 
-      Technical: Parses chaincode response and sends credentials list with count and timestamp.
-      Tropang Ex: Ibinabalik sa frontend yung list ng credentials + ilan lahat + anong oras kinuhang data.
+       Technical:
+       Sends back success flag, list of credentials, count, and timestamp.
+
+       Tropang Ex:
+       Ibinabalik sa frontend yung list ng issued credentials + kung ilan sila + anong oras kinuha.
     */
-    res.json({ 
-      success: true, 
-      credentials: JSON.parse(result.toString()),
-      count: JSON.parse(result.toString()).length || 0,
+    return res.json({
+      success: true,
+      credentials: resultArray,
+      count: resultArray.length || 0,
       timestamp: new Date().toISOString()
     });
   } catch (error) {
-    console.error(`❌ Error: ${error.message}`);
-    res.status(500).json({ success: false, error: error.message });
+    /* Step 7: Handle unexpected errors
+
+       Technical:
+       Logs error and returns HTTP 500 with error message.
+
+       Tropang Ex:
+       Pag may sumabog sa blockchain o backend, dito siya papasok. Ibabalik na lang na may error.
+    */
+    console.error(`❌ Error (GET /api/credentials/issued): ${error.message}`);
+    return res.status(500).json({ success: false, error: error.message });
+  }
+});
+// ==========================================================================================================================================================================
+
+// =========================================================================================================
+// Issuer Credential Templates (Blockchain → templates only)
+// =========================================================================================================
+
+/*
+  Endpoint: GET /api/credentials/templates
+
+  Technical:
+  Returns all TEMPLATE credentials (isTemplate: true, no holderID) for the current issuer/admin
+  from the blockchain using the appropriate Fabric identity.
+
+  Tropang Ex:
+  Dito kinukuha yung list ng credential templates ng issuer (lahat ng diploma/certificate designs).
+  - Kung issuer ka: sarili mong templates lang.
+  - Kung admin ka: gumagamit ng admin identity para mag-query (config pa kung kaninong issuer).
+*/
+app.get('/api/credentials/templates', async (req, res) => {
+  try {
+    /* Step 1: Check if user is authenticated (JWT/session)
+
+       Technical:
+       Same auth check as issued endpoint; requires req.user to exist.
+
+       Tropang Ex:
+       Kailangan naka-login ka rin bago ka makakita ng templates.
+    */
+    const user = req.user;
+    if (!user) {
+      return res.status(401).json({ success: false, error: 'Unauthorized' });
+    }
+
+    /* Step 2: Determine which Fabric identity to use (issuer vs admin)
+
+       Technical:
+       - Issuer: uses issuerDoc.fabricIdentity + issuerDoc.orgName (from CouchDB).
+       - Admin: uses 'admin' / 'Org1'.
+       - Others: forbidden.
+
+       Tropang Ex:
+       Pareho ng logic sa issued endpoint:
+       - Issuer → sariling Fabric identity.
+       - Admin → Org1 admin account.
+    */
+    let identityName, orgName;
+
+    if (user.role === 'issuer') {
+      /* Step 2A: Fetch approved issuer data from CouchDB via email */
+      const issuerDoc = await couchdb.getApprovedIssuer(user.email);
+
+      if (!issuerDoc || !issuerDoc.fabricIdentity || !issuerDoc.orgName) {
+        return res.status(403).json({ success: false, error: 'Issuer not approved or info missing.' });
+      }
+
+      identityName = issuerDoc.fabricIdentity;
+      orgName = issuerDoc.orgName;
+    } else if (user.role === 'admin') {
+      identityName = 'admin';
+      orgName = 'Org1';
+    } else {
+      return res.status(403).json({ success: false, error: 'Not authorized to view templates.' });
+    }
+
+    /* Step 3: Connect to blockchain using chosen identity/org */
+    const { gateway, contract } = await getContractAndGateway(identityName, orgName);
+
+    /* Step 4: Determine issuer ID to query
+
+       Technical:
+       Same pattern as issued endpoint: uses user._id or user.email for issuer,
+       and placeholder for admin.
+
+       Tropang Ex:
+       Ito yung “sino ang issuer na gusto nating kunan ng templates?”.
+    */
+    const issuerIdToQuery = user.role === 'issuer'
+      ? (user._id || user.email)
+      : 'ISSUER'; // TODO: refine if admin needs to target specific issuer templates
+
+    /* Step 5: Query chaincode for TEMPLATES only
+
+       Technical:
+       Calls contract.evaluateTransaction('Get_IssuerCredentialTemplates', issuerIdToQuery)
+       which returns only records with isTemplate === true and no holderID.
+
+       Tropang Ex:
+       Sa step na ’to, humihingi tayo sa chaincode ng:
+       “Get_IssuerCredentialTemplates(issuerID)” → ibalik mo lahat ng template niya (walang holder).
+    */
+    const resultBuffer = await contract.evaluateTransaction('Get_IssuerCredentialTemplates', issuerIdToQuery);
+    const resultArray = JSON.parse(resultBuffer.toString());
+
+    /* Step 6: Return standardized response
+
+       Technical:
+       Sends back success flag, template list, count, timestamp.
+
+       Tropang Ex:
+       Ibinabalik sa frontend yung list ng templates + ilan sila + anong oras kinuha.
+    */
+    return res.json({
+      success: true,
+      credentials: resultArray,
+      count: resultArray.length || 0,
+      timestamp: new Date().toISOString()
+    });
+  } catch (error) {
+    /* Step 7: Handle unexpected errors */
+    console.error(`❌ Error (GET /api/credentials/templates): ${error.message}`);
+    return res.status(500).json({ success: false, error: error.message });
   }
 });
 
@@ -687,12 +850,12 @@ app.get('/api/credentials/:id/history', async (req, res) => {
     */
     const { gateway, contract } = await getContractAndGateway(identityName, orgName);
 
-    /* Step 4: Query blockchain for credential history using Calls chaincode function GetCredentialHistory 
+    /* Step 4: Query blockchain for credential history using Calls chaincode function Get_CredentialTemplateOrIssuedCredentialHistory 
 
       Tropang Ex: Kinukuha lahat ng past versions at transactions ng isang credential.
       Example: creation → issue → update → revoke (if supported).
     */
-    const result = await contract.evaluateTransaction('GetCredentialHistory', req.params.id);
+    const result = await contract.evaluateTransaction('Get_CredentialTemplateOrIssuedCredentialHistory', req.params.id);
     
      /* Step 5: Parse and return history
 

@@ -338,6 +338,53 @@ const apiService = {
       throw error;
     }
   },
+  // ==========================================================================================================================================================================
+
+  // ==========================================================================================================================================================================
+  //                                                                       Issuer Credentials (From Blockchain)
+  // ==========================================================================================================================================================================
+
+  /*
+    Function Name: Get_IssuedCredentials
+
+    Technical:
+    Fetches ISSUED credentials for the logged-in issuer from the backend
+    endpoint GET /api/credentials/issued.
+
+    Tropang Ex:
+    Kinukuha lahat ng credentials na na-issue na talaga ng issuer sa mga holders.
+  */
+  Get_IssuedCredentials: async () => {
+    try {
+      const response = await axios.get('/api/credentials/issued');
+      return response.data.credentials;
+    } catch (error) {
+      console.error('Error fetching issued credentials:', error.response?.data?.message || error.message);
+      throw error;
+    }
+  },
+  // ==========================================================================================================================================================================
+
+  /*
+    Function Name: Get_CredentialTemplates
+
+    Technical:
+    Fetches credential TEMPLATES for the logged-in issuer from
+    GET /api/credentials/templates.
+
+    Tropang Ex:
+    Kinukuha lahat ng credential templates (blueprints) ng issuer.
+  */
+  Get_CredentialTemplates: async () => {
+    try {
+      const response = await axios.get('/api/credentials/templates');
+      return response.data.credentials;
+    } catch (error) {
+      console.error('Error fetching credential templates:', error.response?.data?.message || error.message);
+      throw error;
+    }
+  },
+  // ==========================================================================================================================================================================
 
   // ==========================================================================================================================================================================
   //                                                                       DEBUG / UTIL

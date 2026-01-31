@@ -10,7 +10,6 @@ const couch = nano(COUCHDB_URL);
 let usersDb = null;
 let issuersDB = null;
 let notificationsDb = null;
-let deploymentsDb = null; // PENDING - not sure if used pa
 let accreditedOrgsDb = null; // List of fully accredited orgs
 
 /* 
@@ -30,7 +29,6 @@ async function initializeDatabases() {
     usersDb = couch.use('users');
     issuersDB = couch.use('issuers');
     notificationsDb = couch.use('notifications');
-    deploymentsDb = couch.use('deployments'); // PENDING NOT SURE IF USED 
     accreditedOrgsDb = couch.use('accredited_organizations');
     console.log('✅ CouchDB databases selected');
   } catch (error) {
@@ -795,273 +793,93 @@ async function markNotificationAsRead(notificationId) {
 }
 
 // ==========================================================================================================================================================================
-//                                                                       DEPLOYMENT Functions 
+//                                                                       CREDENTIAL TEMPLATE Functions
 // ==========================================================================================================================================================================
-// PENDING, NOT SURE IF NEEDED KASI MANUAL NAMAN TAYO NAGDEDEPLOY/NO BUTTON NGA TAYO ON DEPLOYING 
 /* 
-  Function Name: saveDeploymentInfo | PENDING - not sure if still used, if so saaan kasi wala namang deployments db sa admin couchdb
+  Function Name: save_CredentialTemplateToIssuerDB
 
-  Technical: Saves blockchain + CouchDB deployment details for an issuer into CouchDB.
-  Tropang Ex: After ma-deploy yung peer + CouchDB ni issuer, dito sinisave yung deployment info
-              (ports, DB name, status) para ma-track later.
-*/
-async function saveDeploymentInfo(data) {
-
-  /* Step 1: Ensure deployments DB is initialized */
-  if (!deploymentsDb) await initializeDatabases();
-
-  /* Step 2: Build deployment document
-    Technical: Creates a structured record describing issuer infrastructure deployment.
-    Tropang Ex: Binubuo dito yung record ng deployment (peer, ports, couchDB, status).
-  */
-  const deploymentDoc = {
-    _id: `deploy_${data.issuerEmail.replace(/@/g, '_').replace(/\./g, '_')}_${Date.now()}`,
-    type: 'deployment',
-    issuerEmail: data.issuerEmail,
-    peerName: data.peerName,
-    peerPort: data.peerPort,
-    couchDBName: data.couchDBName,
-    couchDBPort: data.couchDBPort,
-    status: data.status || 'deployed',
-    deployedAt: data.deployedAt || new Date().toISOString()
-  };
-
-  /* Step 3: Save deployment record to CouchDB
-    Technical: Inserts deployment metadata into deployments DB.
-    Tropang Ex: Official record na ito na “successfully deployed” si issuer.
-  */
-  return await deploymentsDb.insert(deploymentDoc);
-}
-// ==========================================================================================================================================================================
-
-/* 
-  Function Name: getDeploymentByEmail
-
-  Technical: Retrieves deployment information for a specific issuer using email.
-  Tropang Ex: Ginagamit para malaman kung may existing deployment na si issuer
-              (ex: para iwas duplicate deployment).
-*/
-async function getDeploymentByEmail(issuerEmail) {
-
-  /* Step 1: Ensure deployments DB is initialized */
-  if (!deploymentsDb) await initializeDatabases();
-
-  /* Step 2: Query deployment record by issuer email
-    Technical: Searches for deployment docs matching issuerEmail.
-    Tropang Ex: Hinahanap kung may naka-record na deployment si issuer.
-  */
-  const result = await deploymentsDb.find({
-    selector: {
-      type: 'deployment',
-      issuerEmail: issuerEmail
-    }
-  });
-
-  /* Step 3: Return first deployment record (if exists)
-    Tropang Ex: Isa lang naman usually yung deployment per issuer.
-  */
-  return result.docs.length > 0 ? result.docs[0] : null;
-}
-// ==========================================================================================================================================================================
-//                                                                       CREDENTIAL CATALOG Functions
-// ==========================================================================================================================================================================
-
-/* 
-  Function Name: saveCredentialCatalog
-
-  Technical: Saves an issuer’s credential catalog (list/collection of credential TEMPLATES) into the issuer’s OWN CouchDB database using its couchDBUrl.
+  Technical:
+  Saves a single credential TEMPLATE document into the issuer’s OWN CouchDB database
+  (DB: wallet_issuer_credentials) using its couchDBUrl.
 
   Tropang Ex:
-  Ito yung function na nagse-save ng “catalog” ng credentials ng issuer
-  (example: listahan ng Diploma, Certificate, Awards templates)
-  diretso sa sariling CouchDB ni issuer — hindi sa admin DB, hindi sa blockchain.
+  Ito yung function na nagse-save ng isang template record
+  (halimbawa: "Diploma Template 2026") sa personal CouchDB ni issuer.
+  Hindi ito blockchain call, pure CouchDB lang para sa dashboard listing.
 */
-async function saveCredentialCatalog(credentialCatalog, issuerDoc) {
+async function save_CredentialTemplateToIssuerDB(issuerDoc, credentialDoc) {
 
   /* Step 1: Validate issuer document and CouchDB URL
+     
+     Technical:
+     Ensures issuerDoc exists and contains a valid couchDBUrl.
+     Without this, we don’t know which CouchDB instance to write to.
 
-    Technical: Ensures issuerDoc exists and has a couchDBUrl.
-    Tropang Ex: Hindi pwedeng mag-save kung hindi natin alam
-                kung saan (which CouchDB) ise-save yung catalog.
-    Example: Walang couchDBUrl → throw error agad.
+     Tropang Ex:
+     Hindi tayo pwedeng mag-save kung hindi alam kung saan DB ilalagay.
+     Walang couchDBUrl = no save, throw error.
   */
   if (!issuerDoc || !issuerDoc.couchDBUrl) {
     throw new Error('issuerDoc with couchDBUrl is required');
   }
 
   /* Step 2: Create Nano client for issuer’s own CouchDB
-    Tropang Ex: Kumokonek tayo sa PERSONAL CouchDB ni issuer
-                (hindi admin CouchDB).
+     
+     Technical:
+     Uses the issuer’s couchDBUrl to create a dedicated Nano client.
+
+     Tropang Ex:
+     Kumokonek tayo sa PERSONAL CouchDB ni issuer,
+     hindi sa admin CouchDB ng system.
   */
   const nanoOrg = require('nano')(issuerDoc.couchDBUrl);
 
-  /* Step 3: Select the "credentials" database of the issuer
+  /* Step 3: Select issuer’s wallet_issuer_credentials database
+     
+     Technical:
+     Targets the wallet_issuer_credentials DB where both templates and
+     (in the future) issued credentials can live.
 
-    Technical: Uses the `credentials` DB inside the issuer’s CouchDB.
-    Tropang Ex: Dito naka-store yung catalog / templates ng credentials ng issuer.
+     Tropang Ex:
+     Dito talaga nakatira yung mga credential records ni issuer,
+     kasama na yung mga templates na pinapakita sa dashboard.
   */
-  const orgDb = nanoOrg.use('credentials'); // PENDING - NOT SURE IF FUNCTION IS USED KASI MALI YUNG DATABASE dapat wallet_issuer_credentials yan?? if templates talaga ha 
+  const orgDb = nanoOrg.use('wallet_issuer_credentials');
 
-  /* Step 4: Build the credential catalog document
-    Tropang Ex: Ginagawa nating formal CouchDB document yung catalog:
-                  - nilalagyan ng type
-                  - nilalagyan ng unique _id
+  /* Step 4: Prepare the credential TEMPLATE document
+     
+     Technical:
+     Assumes credentialDoc already contains the correct structure
+     (e.g., _id/credentialId, issuerId, credentialType, credentialName, etc.).
+     This function does NOT mutate or auto-generate fields beyond what’s given.
+
+     Tropang Ex:
+     Parang “final na” yung credentialDoc na ipapasa dito —
+     kumpleto na details, ang trabaho lang nitong function ay i-save sa DB.
   */
-  const doc = {
-    ...credentialCatalog,
-    type: 'credential_catalog',
-    _id: `catalog_${credentialCatalog.issuerID}_${Date.now()}`
+  const docToSave = {
+    ...credentialDoc
+    // NOTE: caller (controller) is responsible for:
+    // - _id matching blockchain credentialId
+    // - flags like isTemplate: true
+    // - timestamps createdAt / updatedAt
   };
 
-  /* Step 5: Insert catalog document into issuer’s CouchDB
-    Technical: Saves the catalog document into the issuer’s `credentials` DB.
-    Tropang Ex: Successfully na-save na yung listahan ng credential templates
-                ni issuer sa sarili niyang database.
+  /* Step 5: Insert credential template into issuer’s CouchDB
+     
+     Technical:
+     Inserts docToSave into wallet_issuer_credentials and returns CouchDB response.
+
+     Tropang Ex:
+     Ito na yung actual save — pagkatapos nito,
+     lalabas na yung template sa list ng issuer dashboard.
   */
-  return await orgDb.insert(doc);
-}
-// ==========================================================================================================================================================================
-//                                                                       CREDENTIAL INSTANCE Functions
-// ==========================================================================================================================================================================
-
-/* 
-  Function Name: saveCredentialToCouchDB
-
-  Technical:
-  Saves a credential INSTANCE (issued or to-be-issued credential metadata) into the ISSUER’S OWN CouchDB FIRST, before blockchain confirmation.
-
-  Tropang Ex:
-  Ito yung “pre-save” ng credential sa CouchDB ni issuer.
-  Bago pa pumasok sa blockchain, nilalagay muna dito yung credential
-  para:
-    - mabilis lumabas sa dashboard
-    - may temporary record kahit mag-fail blockchain
-*/
-async function saveCredentialToCouchDB(credentialData, issuerDoc) {
-
-  /* Step 1: Validate issuerDoc and CouchDB URL
-
-    Technical: Ensures issuerDoc exists and contains couchDBUrl.
-    Tropang Ex: Hindi tayo pwedeng mag-save kung hindi natin alam
-                kung saan CouchDB ilalagay yung credential.
-  */
-  if (!issuerDoc || !issuerDoc.couchDBUrl) {
-    throw new Error('issuerDoc with couchDBUrl is required');
-  }
-  
-  /* Step 2: Connect to issuer’s OWN CouchDB
-    Tropang Ex: Kumokonek tayo sa personal CouchDB ng issuer,
-                hindi sa admin DB.
-  */
-  const nanoOrg = require('nano')(issuerDoc.couchDBUrl);
-
-  /* Step 3: Select issuer’s "wallet_issuer_credentials" database
-
-    Technical: Uses the DB where issuer keeps issued / issuing credentials.
-    Tropang Ex: Dito napupunta yung mga credentials na ini-issue ng issuer
-                (pending, issued, revoked, etc).
-  */
-  const orgDb = nanoOrg.use('wallet_issuer_credentials'); // PENDING - if cred na iniissue ni issuer, mali to, dapat sa "issued_credentials", kasi templates yan e
-  
-  /* Step 4: Build credential document (metadata only)
-    Tropang Ex: Ginagawa natin yung “record” ng credential:
-      - sino issuer
-      - sino holder
-      - anong credential
-      - pero HINDI pa siya final kasi di pa confirmed sa blockchain
-  */
-  const doc = {
-    _id: `credential_${credentialData.id}_${Date.now()}`,
-    type: 'credential_instance',
-    credentialId: credentialData.id,
-    holderID: credentialData.holderID || '',
-    issuerID: credentialData.issuerID,
-    credentialType: credentialData.credentialType,
-    credentialName: credentialData.credentialName,
-    description: credentialData.description || '',
-    expiryDate: credentialData.expiryDate || null,
-    metadata: credentialData.metadata || '',
-    documentHash: credentialData.documentHash || '',
-    status: 'pending_blockchain',
-    blockchainSynced: false,
-    createdAt: new Date().toISOString(),
-    lastUpdated: new Date().toISOString()
-  };
-  
-  /* Step 5: Log save operation (debug / trace)
-    Tropang Ex: Pang-debug lang para makita kung saan DB siya sinasave.
-  */
-  console.log(`[COUCHDB] Saving credential to ${issuerDoc.couchDBUrl}/wallet_issuer_credentials`);
-
-  /* Step 6: Insert document into issuer’s CouchDB
-    Technical: Saves the credential metadata to CouchDB.
-  */
-  return await orgDb.insert(doc);
+  return await orgDb.insert(docToSave);
 }
 // ==========================================================================================================================================================================
 
-/* 
-  Function Name: updateCredentialStatus
-
-  Technical: Updates an existing credential record in the issuer’s CouchDB after the blockchain write happens.
-            It looks up the credential_instance doc by credentialId, then updates:
-              - status (ex: "pending_blockchain" → "synced" / "failed")
-              - blockchainSynced flag (true only if status === "synced")
-              - lastUpdated timestamp
-  Notes / PENDING:
-  - Currently naka-save/update siya sa DB: "wallet_issuer_credentials".
-    If ang official issued credentials DB ni issuer is "issued_credentials", then mali yung target DB dito.
-    (Depende sa final design kung staging DB ba ito or actual issued creds DB.)
-*/
-async function updateCredentialStatus(credentialId, status, issuerDoc) {
-  try {
-
-    /* Step 1: Validate issuerDoc + couchDBUrl */
-    if (!issuerDoc || !issuerDoc.couchDBUrl) {
-      throw new Error('issuerDoc with couchDBUrl is required');
-    }
-
-    /* Step 2: Connect to issuer’s CouchDB + choose DB
-       Tropang Ex: Kumokonek tayo sa CouchDB ni issuer, tapos pipiliin natin kung anong DB yung i-uupdate.
-    */
-    const nanoOrg = require('nano')(issuerDoc.couchDBUrl);
-    const orgDb = nanoOrg.use('wallet_issuer_credentials');
-
-    /* Step 3: Find the credential doc to update via its credId
-       Tropang Ex: Hahanapin natin yung record na na-save earlier (yung pending_blockchain usually).
-    */
-    const result = await orgDb.find({
-      selector: {
-        type: 'credential_instance',
-        credentialId: credentialId
-      },
-      limit: 1
-    });
-
-    /* Step 4: If not found, throw error */
-    if (result.docs.length === 0) {
-      throw new Error(`Credential ${credentialId} not found in CouchDB`);
-    }
-
-    /* Step 5: Update fields (status + sync flag + timestamp)
-       Tropang Ex: Update natin yung status para makita sa dashboard kung successful na or hindi pa.
-    */
-    const doc = result.docs[0];
-    doc.status = status;
-    doc.blockchainSynced = (status === 'synced');
-    doc.lastUpdated = new Date().toISOString();
-
-    /* Step 6: Save updated doc back to CouchDB
-       Tropang Ex: “Save changes” sa CouchDB para official na updated na yung record.
-    */
-    console.log(`[COUCHDB] Updating credential ${credentialId} status to: ${status}`);
-    return await orgDb.insert(doc);
-
-  } catch (error) {
-    console.error(`[COUCHDB] Error updating credential status:`, error.message);
-    throw error;
-  }
-}
+// ==========================================================================================================================================================================
+//                                                                       CREDENTIAL ISSUANCE Functions
 // ==========================================================================================================================================================================
 
 /* 
@@ -1520,7 +1338,7 @@ module.exports = {
 
   // Credentials (Star Feature!)
   saveCredentialCatalog,
-  saveCredentialToCouchDB,
+  save_IssuedCredentialToCouchDB,
   updateCredentialStatus,
   saveIssuedCredentialToBothDBs,         // ✅ NEW - Use this!
   getIssuerCredentialsByEmail,

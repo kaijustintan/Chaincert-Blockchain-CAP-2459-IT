@@ -84,7 +84,7 @@ export default function IssuerDashboard() {
     console.log("Fetching ISSUED credentials for issuer:", user?.id);
 
     // NEW: use blockchain issued-credentials endpoint
-    const data = await apiService.getIssuedCredentials();
+    const data = await apiService.Get_IssuedCredentials();
 
     setCredentials(Array.isArray(data) ? data : []);
     console.log("Fetched issued credentials:", data);
@@ -233,7 +233,7 @@ export default function IssuerDashboard() {
     console.log(`[CLIENT] Generated credential ID: ${credentialId}`);
 
     // ✅ Send ALL fields to backend
-    await apiService.createCredential({
+    await apiService.Create_CredentialTemplate({
       id: credentialId,  // ✅ ADD THIS
       credentialType: createForm.credentialType,
       credentialName: createForm.credentialName,

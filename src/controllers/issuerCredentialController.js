@@ -2,6 +2,8 @@
 //                                                                       issuerCredentialController.js
 // ==========================================================================================================================================================================
 const nano = require('nano');
+const couchdbService = require('../../backend/couchDB_service');
+
                                           // PURO CREDENTIAL TEMPLATE LOGIC PA LANG LAMAN NITO, WALA PANG ISSUE CREDENTIAL 
 /*
   FILE NAME: issuerCredentialController.js
@@ -22,7 +24,7 @@ const nano = require('nano');
 // ==========================================================================================================================================================================
 
 /*
-  Function Name: createCredential | This is the main endpoint called from issuerDashboardPage.js
+  Function Name: Create_CredentialTemplate | This is the main endpoint called from issuerDashboardPage.js
 
   Technical:
   Creates a credential TEMPLATE using a 2-phase write:
@@ -44,7 +46,7 @@ const nano = require('nano');
   - 201 partial: blockchain saved but couchdb failed (returns warning)
   - 401/403/404/500 for validation/authorization/system errors
 */
-exports.createCredential = async (req, res, getContractAndGateway) => {
+exports.Create_CredentialTemplate = async (req, res, getContractAndGateway) => {
   try {
     /* Step 0: Check authentication
 
@@ -210,10 +212,9 @@ exports.createCredential = async (req, res, getContractAndGateway) => {
 
       Technical:
       - Requires issuerDoc.couchDBUrl
-      - Connect to issuer CouchDB
-      - Use DB: wallet_issuer_credentials
-      - Insert document with _id EXACTLY = credentialId
-        (so blockchain ID == couchDB doc ID)
+      - Uses DB: wallet_issuer_credentials
+      - Inserts document with _id EXACTLY = credentialId
+        (so blockchain ID == CouchDB doc ID)
 
       Tropang Ex:
       Ito yung “pang mabilis na copy” para dashboard.
@@ -227,11 +228,7 @@ exports.createCredential = async (req, res, getContractAndGateway) => {
         throw new Error('Issuer CouchDB URL not configured');
       }
 
-      // Connect to issuer's CouchDB
-      const issuerNano = nano(issuerDoc.couchDBUrl);
-      const credentialsDB = issuerNano.use('wallet_issuer_credentials');
-
-      // Create credential document
+      // CHANGES: Build credentialDoc here, but actual insert delegated to couchDB_service
       const credentialDoc = {
         _id: credentialId, // ✅ CRITICAL: Match blockchain ID
         id: credentialId,
@@ -250,8 +247,12 @@ exports.createCredential = async (req, res, getContractAndGateway) => {
         }
       };
 
-      // Save to CouchDB
-      couchdbResult = await credentialsDB.insert(credentialDoc);
+      // CHANGES: Use centralized CouchDB service instead of manual nano + .use()
+      couchdbResult = await couchdbService.save_CredentialTemplateToIssuerDB(
+        issuerDoc,
+        credentialDoc
+      ); // CHANGES - unified DB access
+
       console.log(`✅ [COUCHDB] Credential saved successfully`);
 
     } catch (couchdbError) {
@@ -341,7 +342,158 @@ exports.createCredential = async (req, res, getContractAndGateway) => {
 // ==========================================================================================================================================================================
 
 /*
-  Function Name: getCredentials
+  Function Name: issue_CredentialToUser
+
+  Technical:
+  Issues a credential INSTANCE based on an existing template by:
+    - Resolving the issuer/admin Fabric identity
+    - Calling chaincode IssueCredential on the blockchain
+    - Then saving the issued credential copy to BOTH CouchDBs via service:
+        * Issuer CouchDB: issued_credentials
+        * Admin CouchDB: wallet_user_credentials
+
+  Tropang Ex:
+  Ito yung “Issue Credential” flow:
+    1) Isusulat muna sa blockchain na na-issue na.
+    2) Pag okay, gagawa ng kopya sa CouchDB ni issuer at sa main DB
+       para mabilis lumabas sa dashboards.
+*/
+exports.issue_CredentialToUser = async (req, res, getContractAndGateway) => {
+  try {
+    /* Step 1: Extract credentialId from req.params and holderID/expiryDate from req.body.
+
+      Tropang Ex:
+      Kinukuha kung anong credential/template ID ang i-iissue at kanino mapupunta.
+    */
+    const { credentialId } = req.params;
+    const { holderID, expiryDate } = req.body;
+
+    /* Step 2: Validate required field: holderID */
+    if (!holderID) {
+      return res.status(400).json({
+        success: false,
+        error: 'holderID is required'
+      });
+    }
+
+    /* Step 3: Check if user is authenticated (JWT/session) */
+    const user = req.user;
+    if (!user) {
+      return res.status(401).json({
+        success: false,
+        error: 'Unauthorized'
+      });
+    }
+
+    /* Step 4: Get Fabric identityName + orgName based on role (issuer/admin)
+
+      Tropang Ex:
+      Dito natin chine-check kung sino ang pipirma sa blockchain transaction.
+    */
+    let identityName;
+    let orgName;
+    let issuerDoc;
+
+    if (user.role === 'issuer') {
+      // 4A: Issuer → fetch approved issuerDoc via CouchDB service (by email)
+      issuerDoc = await couchdbService.getApprovedIssuer(user.email);
+      if (!issuerDoc || !issuerDoc.fabricIdentity || !issuerDoc.orgName) {
+        return res.status(403).json({
+          success: false,
+          error: 'Issuer not approved or Fabric identity missing.'
+        });
+      }
+
+      identityName = issuerDoc.fabricIdentity;
+      orgName = issuerDoc.orgName;
+
+    } else if (user.role === 'admin') {
+      // 4B: Admin → use Org1 admin identity
+      identityName = 'admin';
+      orgName = 'Org1';
+
+    } else {
+      // 4C: Block other roles
+      return res.status(403).json({
+        success: false,
+        error: 'Not authorized to issue credentials.'
+      });
+    }
+
+    /* Step 5: Connect to blockchain as resolved identity/org */
+    console.log(`[ISSUE] Issuing credential on blockchain...`);
+    const { gateway, contract } = await getContractAndGateway(identityName, orgName);
+
+    /* Step 6: Submit IssueCredential transaction to BLOCKCHAIN */
+    const result = await contract.submitTransaction(
+      'IssueCredential',
+      credentialId,
+      holderID,
+      expiryDate || ''
+    );
+
+    /* Step 7: Parse blockchain response into JSON object */
+    const credentialData = JSON.parse(result.toString());
+    console.log(`✅ [ISSUE] Blockchain success. Credential ID: ${credentialData.id}`);
+
+    /* Step 8: Disconnect Fabric gateway after blockchain transaction */
+    await gateway.disconnect();
+
+    /* Step 9: Save a copy of the issued credential to BOTH CouchDBs
+
+      Technical:
+      - Uses couchdbService.saveIssuedCredentialToBothDBs(issuerEmail, credentialDataExtended)
+
+      Tropang Ex:
+      After ma-issue sa blockchain, dito siya officially papasok sa:
+        - issuer DB (issued_credentials)
+        - admin DB (wallet_user_credentials)
+    */
+    try {
+      console.log(`[ISSUE] Saving issued credential to BOTH CouchDB databases...`);
+
+      const couchResult = await couchdbService.saveIssuedCredentialToBothDBs(user.email, {
+        ...credentialData,
+        holderID: holderID,
+        expiryDate: expiryDate || null
+      });
+
+      console.log(`[ISSUE] ✅ CouchDB save successful:`, couchResult.message);
+
+      /* Step 10: Return COMPLETE success response (blockchain + CouchDB ok) */
+      return res.status(200).json({
+        success: true,
+        message: 'Credential issued successfully',
+        credential: credentialData,
+        couchDB: couchResult,
+        timestamp: new Date().toISOString()
+      });
+
+    } catch (couchErr) {
+      console.error(`[ISSUE] ⚠️ CouchDB save failed (non-fatal):`, couchErr.message);
+
+      /* Step 10B: Return PARTIAL success (blockchain only, CouchDB sync failed) */
+      return res.status(200).json({
+        success: true,
+        message: 'Credential issued to blockchain (CouchDB sync pending)',
+        credential: credentialData,
+        warning: couchErr.message,
+        timestamp: new Date().toISOString()
+      });
+    }
+
+  } catch (error) {
+    console.error('❌ [ISSUE] Error issuing credential:', error.message);
+    return res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+};
+// ==========================================================================================================================================================================
+
+/*
+  Function Name: get_CredentialTemplatesByIssuerID
 
   Technical:
   Fetches all credential TEMPLATE docs for the logged-in issuer from issuer’s CouchDB.
@@ -357,7 +509,25 @@ exports.createCredential = async (req, res, getContractAndGateway) => {
   - 401 if not logged in
   - 403 if issuer has no couchDBUrl configured
 */
-exports.getCredentials = async (req, res) => {
+/*
+  Function Name: get_CredentialTemplatesByIssuerID
+
+  Technical:
+  Fetches all credential TEMPLATE / credential_instance docs for the logged-in issuer
+  from the issuer’s CouchDB via couchDB_service helper.
+
+  Tropang Ex:
+  Ito yung “list templates/credentials” ng issuer dashboard.
+  Hindi blockchain query — CouchDB read lang para mabilis.
+
+  Inputs / Parameters:
+  - req.user.id → issuerId
+  Output:
+  - 200 success with data + count
+  - 401 if not logged in
+  - 404/403 if issuer record / CouchDB URL is not properly configured (handled by service)
+*/
+exports.get_CredentialTemplatesByIssuerID = async (req, res) => {
   try {
 
     /* Step 0: Check authentication */
@@ -371,68 +541,55 @@ exports.getCredentials = async (req, res) => {
     /* Step 1: Resolve issuerId from token */
     const issuerId = req.user.id;
 
-    /* Step 2: Get issuerDoc from ADMIN CouchDB (issuers DB)
+    /*
+      Step 2: Delegate CouchDB fetch to couchDB_service
 
       Technical:
-      - Needed to retrieve issuerDoc.couchDBUrl
+      - Uses getIssuerCredentials(issuerId), which:
+        * looks up issuer in ADMIN CouchDB (issuers DB)
+        * checks issuer.couchDBUrl
+        * connects to issuer’s CouchDB
+        * queries wallet_issuer_credentials for type: 'credential_instance'
+        * returns { issuerId, issuerName, email, credentialCount, credentials }
+
       Tropang Ex:
-      Kailangan natin yung couchDBUrl para makakonek sa personal DB ni issuer.
+      Imbes na dito pa tayo mag-nano at mag-query,
+      tatawag na lang tayo sa “service” na marunong na maghanap
+      ng credentials ng issuer.
     */
-    // Get issuer's CouchDB connection
-    const adminNano = nano('http://admin:adminpw@localhost:5985');
-    const issuersDB = adminNano.use('issuers');
+    const result = await couchDB_service.getIssuerCredentials(issuerId);
 
-    let issuerDoc;
-    try {
-      issuerDoc = await issuersDB.get(issuerId);
-    } catch (err) {
-      if (err.statusCode === 404) {
-        return res.status(404).json({
-          success: false,
-          error: 'Issuer not found'
-        });
-      }
-      throw err;
-    }
+    /*
+      Step 3: Normalize empty result from service
 
-    /* Step 3: Validate issuer couchDBUrl exists */
-    if (!issuerDoc || !issuerDoc.couchDBUrl) {
-      return res.status(403).json({
-        success: false,
-        error: 'Issuer CouchDB URL not configured'
+      Note:
+      - getIssuerCredentials() can return [] if no couchDBUrl.
+      - To keep API response shape stable, handle that here.
+    */
+    if (!result || Array.isArray(result)) {
+      // Soft-fallback: no credentials / no CouchDB URL configured
+      return res.status(200).json({
+        success: true,
+        data: [],
+        count: 0,
+        timestamp: new Date().toISOString()
       });
     }
 
-    /* Step 4: Connect to issuer CouchDB + select wallet_issuer_credentials
-
-      Tropang Ex:
-      Dito naka-save yung templates for dashboard reads.
+    /* Step 4: Return results in a simple list + count
+       Tropang Ex:
+       Ibinabalik sa frontend yung list ng credential docs at bilang nila.
     */
-    // Query credentials from CouchDB
-    const issuerNano = nano(issuerDoc.couchDBUrl);
-    const credentialsDB = issuerNano.use('wallet_issuer_credentials');
-
-    /* Step 5: Mango query docs by issuerId
-      Tropang Ex: Kunin lahat ng templates na pag-aari ng issuer.
-    */
-    // ✅ FIXED: Use .find() instead of .view() - more reliable
-    const result = await credentialsDB.find({
-      selector: {
-        issuerId: issuerId
-      }
-    });
-
-    /* Step 6: Return results */
     return res.status(200).json({
       success: true,
-      data: result.docs || [],
-      count: (result.docs || []).length,
+      data: result.credentials || [],
+      count: result.credentialCount || (result.credentials || []).length,
       timestamp: new Date().toISOString()
     });
 
   } catch (error) {
 
-    /* Step 7: Error handling */
+    /* Step 5: Error handling */
     console.error('Error fetching credentials:', error.message);
     return res.status(500).json({
       success: false,
@@ -440,5 +597,6 @@ exports.getCredentials = async (req, res) => {
     });
   }
 };
+
 
 module.exports = exports;

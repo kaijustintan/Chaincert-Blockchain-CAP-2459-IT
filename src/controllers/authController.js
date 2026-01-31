@@ -99,87 +99,90 @@ const authController = {
 
   // ========================================================================================================================================================================
 
-  /*
-    Endpoint: POST /api/auth/login
-    Function Name: login
+  // ========================================================================================================================================================================
+// USER AUTH (REGISTER / LOGIN)
+// ========================================================================================================================================================================
 
-    Technical:
-    Logs in a regular user.
-    - Validates email/password
-    - Loads all users from CouchDB and finds matching email
-    - Compares bcrypt password hash
-    - Generates JWT token (7 days expiry)
-    - Returns token + basic user payload
+/*
+  Endpoint: POST /api/auth/login
+  Function Name: login
 
-    Tropang Ex:
-    Login ng student/admin. If tama password → bibigyan ka ng token, tapos gamitin yun sa protected endpoints.
-  */
-  login: async (req, res) => {
-    try {
-      /* Step 1: Validate request inputs */
-      const { email, password } = req.body;
-      if (!email || !password) {
-        return res.status(400).json({
-          success: false,
-          message: 'Email and password are required'
-        });
-      }
+  Technical:
+  Logs in a regular user.
+  - Validates email/password
+  - Loads all users from CouchDB and finds matching email (type === 'user')
+  - Compares bcrypt password hash
+  - Generates JWT token (24h expiry) with basic identity + role
+  - Returns token + user payload without password
 
-      /* Step 2: Fetch all users and find the matching USER record */
-      const users = await couchDB.getAllUsers();
-      const user = users.find(u => u.email === email && u.type === 'user');
-
-      /* Step 3: If not found, reject */
-      if (!user) {
-        return res.status(401).json({
-          success: false,
-          message: 'User not found'
-        });
-      }
-
-      /* Step 4: Compare password */
-      const passwordMatch = await bcrypt.compare(password, user.password);
-      if (!passwordMatch) {
-        return res.status(401).json({
-          success: false,
-          message: 'Invalid password'
-        });
-      }
-
-      /* Step 5: Create JWT token (contains identity claims) */
-      const token = jwt.sign(
-        {
-          userId: user._id,
-          email: user.email,
-          role: user.role,
-          username: user.username
-        },
-        process.env.JWT_SECRET || 'your_jwt_secret',
-        { expiresIn: '7d' }
-      );
-
-      /* Step 6: Return token + basic user info (frontend-friendly payload) */
-      return res.status(200).json({
-        success: true,
-        message: 'Login successful',
-        token,
-        user: {
-          id: user._id,
-          name: user.username,
-          email: user.email,
-          role: user.role
-        }
-      });
-
-    } catch (error) {
-      /* Step 7: Handle server errors */
-      console.error('Login error:', error);
-      return res.status(500).json({
+  Tropang Ex:
+  Login ng student/admin. Kapag tama credentials → may token ka na + user info na
+  pwede gamitin sa UI.
+*/
+login: async (req, res) => {
+  try {
+    // Step 1: Validate request inputs
+    const { email, password } = req.body;
+    if (!email || !password) {
+      return res.status(400).json({
         success: false,
-        message: `Login error: ${error.message}`
+        message: 'Email and password are required'
       });
     }
-  },
+
+    // Step 2: Fetch all users and find the matching USER record
+    const users = await couchDB.getAllUsers();
+    const user = users.find(u => u.email === email && u.type === 'user');
+
+    // Step 3: If not found, reject
+    if (!user) {
+      return res.status(401).json({
+        success: false,
+        message: 'User not found'
+      });
+    }
+
+    // Step 4: Compare password
+    const passwordMatch = await bcrypt.compare(password, user.password);
+    if (!passwordMatch) {
+      return res.status(401).json({
+        success: false,
+        message: 'Invalid password'
+      });
+    }
+
+    // Step 5: Create JWT token (24h, same feel as sdk-server-fixed)
+    const token = jwt.sign(
+      {
+        id: user._id,
+        email: user.email,
+        role: user.role || 'student'
+      },
+      process.env.JWT_SECRET || 'dev_secret_key',
+      { expiresIn: '24h' }
+    );
+
+    // Step 6: Strip password before sending user back (like sdk-server-fixed)
+    const { password: pw, ...userData } = user;
+
+    // Step 7: Return token + user data
+    return res.status(200).json({
+      success: true,
+      message: 'Login successful',
+      token,
+      user: {
+        ...userData,
+        role: user.role || 'student'
+      }
+    });
+  } catch (error) {
+    console.error('Login error:', error);
+    return res.status(500).json({
+      success: false,
+      message: `Login error: ${error.message}`
+    });
+  }
+},
 
   // ========================================================================================================================================================================
   //                                                               USER INFO / LISTING
@@ -651,88 +654,89 @@ const authController = {
   //                                                               ISSUER LOGIN
   // ========================================================================================================================================================================
 
-  /*
-    Endpoint: POST /api/auth/login-issuer
-    Function Name: loginIssuer
+  // ========================================================================================================================================================================
+// ISSUER LOGIN
+// ========================================================================================================================================================================
 
-    Technical:
-    Logs in APPROVED issuers only.
-    Flow:
-      - validate email/password
-      - fetch issuer record via couchDB.getApprovedIssuer(email)
-      - bcrypt compare password
-      - generate JWT token with issuer identity fields + fabricIdentity
-      - return token + issuer payload
+/*
+  Endpoint: POST /api/auth/login-issuer
+  Function Name: loginIssuer
 
-    Tropang Ex:
-    Issuer login. Kung pending pa application mo → bawal ka pa.
+  Technical:
+  Logs in APPROVED issuers only.
+  - Validates email/password
+  - Fetches issuer via couchDB.getApprovedIssuer(email)
+  - Compares bcrypt password hash
+  - Generates JWT token (24h expiry) with issuer identity + orgName
+  - Returns token + issuer payload (matches sdk-server-fixed response shape)
 
-    Expected req.body:
-    { email, password }
-  */
-  loginIssuer: async (req, res) => {
-    try {
-      /* Step 1: Validate inputs */
-      const { email, password } = req.body;
-      if (!email || !password) {
-        return res.status(400).json({
-          success: false,
-          message: 'Email and password are required'
-        });
-      }
-
-      /* Step 2: Only approved issuers can login */
-      const issuer = await couchDB.getApprovedIssuer(email);
-      if (!issuer) {
-        return res.status(401).json({
-          success: false,
-          message: 'Issuer not found or not approved yet'
-        });
-      }
-
-      /* Step 3: Verify password */
-      const passwordMatch = await bcrypt.compare(password, issuer.password);
-      if (!passwordMatch) {
-        return res.status(401).json({
-          success: false,
-          message: 'Invalid password'
-        });
-      }
-
-      /* Step 4: Generate JWT (includes fabricIdentity for blockchain usage later) */
-      const token = jwt.sign(
-        {
-          _id: issuer._id,
-          email: issuer.email,
-          role: 'issuer',
-          orgName: issuer.orgName,
-          fabricIdentity: issuer.fabricIdentity
-        },
-        process.env.JWT_SECRET || 'your_jwt_secret',
-        { expiresIn: '7d' }
-      );
-
-      /* Step 5: Return token + basic issuer payload */
-      res.status(200).json({
-        success: true,
-        token,
-        user: {
-          id: issuer._id,
-          email: issuer.email,
-          role: 'issuer',
-          name: issuer.orgName
-        }
-      });
-
-    } catch (error) {
-      /* Step 6: Handle errors */
-      console.error('Issuer login error:', error);
-      res.status(500).json({
+  Tropang Ex:
+  Issuer login. Kung pending pa application mo → bawal ka pa.
+*/
+loginIssuer: async (req, res) => {
+  try {
+    // Step 1: Validate inputs
+    const { email, password } = req.body;
+    if (!email || !password) {
+      return res.status(400).json({
         success: false,
-        message: error.message
+        message: 'Email and password are required'
       });
     }
-  },
+
+    // Step 2: Only approved issuers can login
+    const issuer = await couchDB.getApprovedIssuer(email);
+    if (!issuer) {
+      return res.status(401).json({
+        success: false,
+        message: 'Issuer not found or not approved yet'
+      });
+    }
+
+    // Step 3: Verify password
+    const passwordMatch = await bcrypt.compare(password, issuer.password);
+    if (!passwordMatch) {
+      return res.status(401).json({
+        success: false,
+        message: 'Invalid password'
+      });
+    }
+
+    // Step 4: Generate JWT (24h, same as sdk-server-fixed)
+    const token = jwt.sign(
+      {
+        id: issuer._id,
+        email: issuer.email,
+        role: 'issuer',
+        orgName: issuer.orgName
+        // Note: in sdk-server-fixed, walang fabricIdentity sa payload;
+        // kung kailangan mo yun later, pwede mong idagdag dito.
+      },
+      process.env.JWT_SECRET || 'dev_secret_key',
+      { expiresIn: '24h' }
+    );
+
+    // Step 5: Return token + basic issuer payload (matches sdk-server-fixed)
+    return res.status(200).json({
+      success: true,
+      token,
+      user: {
+        id: issuer._id,
+        email: issuer.email,
+        role: 'issuer',
+        orgName: issuer.orgName,
+        contactName: issuer.contactName
+      }
+    });
+  } catch (error) {
+    console.error('Issuer login error:', error);
+    return res.status(500).json({
+      success: false,
+      message: error.message
+    });
+  }
+},
+
 
   // ========================================================================================================================================================================
   //                                                               ISSUER DASHBOARD (FAST COUCHDB FETCH)

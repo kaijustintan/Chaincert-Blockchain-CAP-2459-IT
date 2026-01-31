@@ -56,7 +56,7 @@ const apiService = {
         Technical: Sends userData (email, password, etc.) to backend.
         Tropang Ex: Ipinapasa yung form data ng signup.
       */
-      const response = await axios.post('/register', userData);
+      const response = await axios.post('/auth/register', userData);
 
       /* Step 2: Return backend response
         Tropang Ex: Ibinabalik kung successful ba yung registration.
@@ -88,7 +88,7 @@ const apiService = {
         Technical: Sends email/password to backend for validation.
         Tropang Ex: Login attempt ng user.
       */
-      const response = await axios.post('/login', credentials);
+      const response = await axios.post('/auth/login', credentials);
 
       /* Step 2: Return login result (token/user info)
         Tropang Ex: Kapag tama login, babalik yung session/token info.
@@ -151,7 +151,7 @@ const apiService = {
       /* Step 1: POST issuer credentials
         Tropang Ex: Login attempt ng issuer.
       */
-      const response = await axios.post('/login-issuer', credentials);
+    const response = await axios.post('/auth/login-issuer', credentials);
 
       /* Step 2: Return issuer session data */
       return response.data;
@@ -343,6 +343,60 @@ const apiService = {
   // ==========================================================================================================================================================================
   //                                                                       Issuer Credentials (From Blockchain)
   // ==========================================================================================================================================================================
+  // ==========================================================================================================================================================================
+  //                                ISSUER CREDENTIAL TEMPLATES (CREATE + READ)
+  // ==========================================================================================================================================================================
+
+  /*
+    Function Name: Create_CredentialTemplate
+
+    Technical:
+    Creates a new credential TEMPLATE for the logged-in issuer by calling
+    POST /api/issuer/credentials/create. Expects JWT token to be attached
+    by axiosInstance for authentication.
+
+    Tropang Ex:
+    Ito yung “Create Template” button ng issuer dashboard.
+    Ipapasa niya yung form details (type, name, description, metadata)
+    papunta sa backend, tapos bahala na si backend mag-save sa blockchain
+    at CouchDB.
+  */
+  Create_CredentialTemplate: async (credentialData) => {
+    try {
+
+      /* Step 1: POST template data to issuer credential endpoint
+         Technical:
+         Sends credentialData (credentialType, credentialName, description, metadata)
+         to backend route /api/issuer/credentials/create.
+
+         Tropang Ex:
+         Ipinapasa yung laman ng create-template form kay backend.
+      */
+      const response = await axios.post('/api/issuer/credentials/create', {
+        credentialType: credentialData.credentialType,
+        credentialName: credentialData.credentialName,
+        description: credentialData.description,
+        metadata: credentialData.metadata
+      });
+
+      /* Step 2: Return backend response
+         Tropang Ex:
+         Ibinabalik kung successful ba yung creation sa blockchain + CouchDB,
+         kasama yung credentialId at status.
+      */
+      return response.data;
+
+    } catch (error) {
+
+      /* Step 3: Handle creation errors
+         Tropang Ex:
+         Kapag may mali sa input, auth, o DB/blockchain error, dito lalabas.
+      */
+      console.error('Error creating credential template:', error.response?.data?.message || error.message);
+      throw error;
+    }
+  },
+// ==========================================================================================================================================================================
 
   /*
     Function Name: Get_IssuedCredentials
@@ -385,6 +439,71 @@ const apiService = {
     }
   },
   // ==========================================================================================================================================================================
+
+    // ==========================================================================================================================================================================
+  //                                 ISSUER CREDENTIAL ISSUANCE (INSTANCE)
+  // ==========================================================================================================================================================================
+
+  /*
+    Function Name: Issue_CredentialInstance
+
+    Technical:
+    Issues a credential INSTANCE to a specific holder by calling:
+      POST /api/credentials/:credentialId/issue
+
+    Sends:
+      - credentialId (from param)
+      - holderID (body)
+      - optional expiryDate (body)
+
+    Tropang Ex:
+    Ito yung button na "Issue to student/user".
+    Pipili ka ng template (credentialId), tapos pipili ka ng holderID at expiryDate,
+    then si backend na bahala mag:
+      1) magsulat sa blockchain (IssueCredential)
+      2) mag-save sa CouchDB (issued_credentials + wallet_user_credentials).
+  */
+  Issue_CredentialInstance: async (credentialId, holderID, expiryDate) => {
+    try {
+      /* Step 1: POST issuance request to backend
+         Technical:
+         Calls /api/credentials/:credentialId/issue with holderID + expiryDate in body.
+
+         Tropang Ex:
+         Frontend → "Pa-issue nga nitong template na ’to kay holderID na ’to."
+      */
+      const response = await axios.post(
+        `/api/credentials/${credentialId}/issue`,
+        {
+          holderID: holderID,
+          expiryDate: expiryDate || null
+        }
+      );
+
+      /* Step 2: Return backend result
+         Tropang Ex:
+         Ibinabalik dito yung buong result ng issuance:
+           - success flag
+           - message
+           - credential data galing blockchain
+           - CouchDB save info (kung pumasok sa DBs).
+      */
+      return response.data;
+
+    } catch (error) {
+      /* Step 3: Handle issuance errors
+         Tropang Ex:
+         Kapag pumalya sa blockchain or CouchDB, dito magla-log at ipapasa yung error
+         pabalik sa UI para ma-handle (toast/alert).
+      */
+      console.error(
+        'Error issuing credential:',
+        error.response?.data?.message || error.message
+      );
+      throw error;
+    }
+  },
+// ==========================================================================================================================================================================
 
   // ==========================================================================================================================================================================
   //                                                                       DEBUG / UTIL

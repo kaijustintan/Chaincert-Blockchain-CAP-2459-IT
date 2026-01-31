@@ -1,6 +1,43 @@
 // ==========================================================================================================================================================================
 //                                                              index.js (chaincode)
 // ==========================================================================================================================================================================
+
+/* [ OUTLINE ]
+  =====================================================================
+  FILE: index.js
+  TECHNICAL: Hyperledger Fabric chaincode (smart contract) for ChainCert
+  TROPA: “Utak sa blockchain side” – on-chain credential logic.
+  =====================================================================
+
+  CATEGORY: SYSTEM INITIALIZATION
+  - InitLedger(ctx)
+
+  CATEGORY: CREDENTIAL TEMPLATE LIFECYCLE
+  - CreateCredentialTemplate(ctx, id, issuerID, credentialType, credentialName, description, metadata)
+
+  CATEGORY: ISSUED CREDENTIAL INSTANCES
+  - IssueCredential(ctx, templateId, holderID, expiryDate)
+
+  CATEGORY: VERIFICATION & REVOCATION
+  - VerifyCredentialByID(ctx, credentialId)
+  - RevokeCredential(ctx, id)
+
+  CATEGORY: UTILITY CHECKS
+  - Check_CredentialExists(ctx, id)
+
+  CATEGORY: CREDENTIAL HISTORY / AUDIT
+  - Get_CredentialTemplateOrIssuedCredentialHistory(ctx, credentialId)
+
+  CATEGORY: BULK QUERIES / FILTERED LISTS
+  - Get_HolderCredentials(ctx, holderID)
+  - Get_IssuerCredentialTemplates(ctx, issuerID)
+  - Get_IssuerIssuedCredentials(ctx, issuerID)
+  - Get_AllTemplates(ctx)
+  - Get_AllIssuedCredentials(ctx)
+  - (any additional bulk/list functions in file)
+*/
+
+
 'use strict';
 const { Contract } = require('fabric-contract-api');
 

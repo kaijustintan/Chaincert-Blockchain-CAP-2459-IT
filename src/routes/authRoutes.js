@@ -1,15 +1,43 @@
 // ==========================================================================================================================================================================
 //                                                                       authRoutes.js 
 // ==========================================================================================================================================================================
-/* authRoutes.js - Express routes for authentication endpoints
 
-  Technical:
-  This file defines all authentication-related API routes under the /api/auth prefix.
-  It does NOT contain the business logic itself — it just maps URLs to controller functions.
+/* [ OUTLINE ]
+  =====================================================================
+  FILE: authRoutes.js
+  TECHNICAL: Express router for /api/auth endpoints (auth + verification)
+  TROPA: traffic enforcer” ng auth features. Siya yung nagsasabi: “Pag may tumama na request dito na URL, dito mo ipasa sa controller.”
 
-  Tropang Ex:
-  Para siyang “router / traffic enforcer” ng auth features. Siya yung nagsasabi: “Pag may tumama na request dito na URL, dito mo ipasa sa controller.”
+  =====================================================================
+
+  CATEGORY: USER AUTH & ACCOUNT ROUTES
+  - POST /register               → authController.register
+  - POST /login                  → authController.login
+  - GET  /user/:id               → authController.getUserInfo
+  - GET  /users                  → authController.getAllUsers
+  - POST /update-profile         → authController.updateProfile
+  - POST /change-password        → authController.changePassword
+  - POST /upload-pfp             → authController.uploadProfilePicture
+
+  CATEGORY: ISSUER ROUTES
+  - POST /register-issuer        → authController.registerIssuer
+  - POST /login-issuer           → authController.loginIssuer
+  - GET  /pending-issuers        → authController.getPendingIssuers
+  - POST /approve-issuer/:issuerId → authController.approveIssuer
+  - POST /reject-issuer/:issuerId  → authController.rejectIssuer
+
+  CATEGORY: CREDENTIAL ROUTES (COUCHDB DASHBOARD)
+  - GET  /issuer/:issuerId/credentials → authController.getIssuerCredentials
+
+  CATEGORY: VERIFICATION ROUTES
+  - GET  /verify/:credentialID         → verifierController.verifyCredentialByID
+  - POST /verify                       → verifierController.verifyCredentialByID
+  - GET  /verify-stats                 → verifierController.getVerificationStats
+
+  CATEGORY: LEGACY VERIFICATION ROUTES
+  - GET  /verify-credential/:credentialID → verifierController.verifyCredentialByID
 */
+
 const express = require('express');
 const router = express.Router();
 const authController = require('../controllers/authController');

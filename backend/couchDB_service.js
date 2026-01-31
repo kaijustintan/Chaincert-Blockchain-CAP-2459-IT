@@ -1,6 +1,43 @@
 // ==========================================================================================================================================================================
 //                                                                       couchDB_service.js 
 // ==========================================================================================================================================================================
+
+/* [ OUTLINE ]
+  =====================================================================
+  FILE: couchDB_service.js
+  TECHNICAL: CouchDB data access layer (users, issuers, wallets, credentials)
+  TROPA: “DB middleman” – lahat ng basa/sulat sa CouchDB dito dumadaan.
+  =====================================================================
+
+  CATEGORY: CORE SETUP
+  - initializeDatabases()
+  - ensureDatabaseExists(name)
+
+  CATEGORY: USER DATA (STUDENTS / ADMINS)
+  - saveUser(userData)
+  - getUser(id)
+  - getAllUsers()
+  - updateUser(id, updateFields)
+  - updateProfile(userId, fields)
+
+  CATEGORY: ISSUER REGISTRATION / STATUS
+  - checkIfOrgAccredited(orgName)
+  - createIssuerRegistration(issuerData, accreditationCheck)
+  - getPendingIssuers()
+  - approveIssuer(issuerId, adminId)
+  - rejectIssuer(issuerId, rejectionReason)
+  - getApprovedIssuer(email)
+
+  CATEGORY: ISSUER DASHBOARD / FAST CREDENTIAL VIEWS
+  - getIssuerCredentials(issuerId)
+
+  CATEGORY: ISSUED CREDENTIALS STORAGE (COPIES)
+  - saveIssuedCredentialToBothDBs(issuerEmail, credentialDataExtended)
+
+  CATEGORY: LOW-LEVEL EXPORTS
+  - couch (nano root client)
+*/
+
 const nano = require('nano');
 const bcryptjs = require('bcryptjs');
 const COUCHDB_URL = 'http://admin:adminpw@localhost:5985';

@@ -1,23 +1,23 @@
 // ==========================================================================================================================================================================
 //                                                                       issuerCredentialController.js
 // ==========================================================================================================================================================================
+
+/* [ OUTLINE ]
+  =====================================================================
+  FILE: issuerCredentialController.js
+  TECHNICAL: Express controller for issuer credential templates + issuance
+  TROPA: “Backend worker” ng issuer dashboard.
+  =====================================================================
+
+  CATEGORY: CREDENTIAL TEMPLATE CREATION
+  - Create_CredentialTemplate(req, res, getContractAndGateway)
+
+  CATEGORY: CREDENTIAL ISSUANCE (INSTANCES)
+  - issue_CredentialToUser(req, res, getContractAndGateway)
+*/
+
 const nano = require('nano');
 const couchdbService = require('../../backend/couchDB_service');
-
-                                          // PURO CREDENTIAL TEMPLATE LOGIC PA LANG LAMAN NITO, WALA PANG ISSUE CREDENTIAL 
-/*
-  FILE NAME: issuerCredentialController.js
-
-  Technical:
-  Controller for ISSUER Credential Template actions including:
-      - Creating a credential TEMPLATE on the blockchain (CreateCredentialTemplate)
-      - Then saving a copy of that template into the issuer’s own CouchDB
-        (wallet_issuer_credentials) for fast dashboard reads.
-
-  Where used:
-  Usually tinatawag ito ng issuer dashboard routes (e.g., /issuer/credentials/create or similar),
-  and the request is expected to be authenticated (req.user exists).
-*/
 
 // ==========================================================================================================================================================================
 //                                                             CREDENTIAL TEMPLATE CREATION (BLOCKCHAIN + COUCHDB)

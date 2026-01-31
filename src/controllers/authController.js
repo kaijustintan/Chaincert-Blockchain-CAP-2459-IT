@@ -1,26 +1,43 @@
 // ==========================================================================================================================================================================
 //                                                                       authController.js 
 // ==========================================================================================================================================================================
-/*
-  Technical:
-  This is the backend "handler layer" for authentication-related endpoints.
-  Siya yung tumatanggap ng request galing routes (authRoutes.js), then siya yung gumagawa ng logic:
-    - validate inputs
-    - hash/compare passwords
-    - generate JWT token
-    - call couchDB_service.js to save/fetch/update data
 
-  Tropang Ex:
-  Siya yung "brain" ng auth endpoints.
-      authRoutes = traffic enforcer (URL mapping)
-      authController = actual worker (logic)
-      couchDB_service = database middleman
-
-  Used when:
+/* [ OUTLINE ]
+  =====================================================================
+  FILE: authController.js
+  TECHNICAL: Authentication + account + issuer admin logic
+  TROPA: “Brain” ng auth endpoints.
+   Used when:
   - may nag-register/login (user or issuer)
   - may nag-update ng profile/password/pfp
   - admin actions: view pending issuers, approve/reject
   - issuer dashboard wants fast CouchDB fetch of credentials
+  =====================================================================
+
+  CATEGORY: USER AUTH (REGISTER / LOGIN)
+  - register(req, res)
+  - login(req, res)
+
+  CATEGORY: USER INFO / LISTING
+  - getUserInfo(req, res)
+  - getAllUsers(req, res)
+
+  CATEGORY: USER SETTINGS (PROFILE / PASSWORD / PFP)
+  - updateProfile(req, res)
+  - changePassword(req, res)
+  - uploadProfilePicture(req, res)
+
+  CATEGORY: ISSUER REGISTRATION / ADMIN REVIEW
+  - registerIssuer(req, res)
+  - getPendingIssuers(req, res)
+  - approveIssuer(req, res)
+  - rejectIssuer(req, res)
+
+  CATEGORY: ISSUER LOGIN
+  - loginIssuer(req, res)
+
+  CATEGORY: ISSUER DASHBOARD (FAST COUCHDB FETCH)
+  - getIssuerCredentials(req, res)
 */
 
 const couchDB = require('../couchDB_service');

@@ -1,10 +1,60 @@
 // ==========================================================================================================================================================================
 //                                                                       sdk-server-fixed.js 
 // ==========================================================================================================================================================================
-/* sdk-server-fixed.js
-    - The “middleman” of your whole system
-    - Nothing talks directly to the blockchain except this file.
+
+/* [ OUTLINE ]
+ =====================================================================
+  FILE: sdk-server-fixed.js
+  TECHNICAL: Main Express server + Fabric gateway + CouchDB infra + a few blockchain-facing endpoints
+  TROPA: The “middleman” of your whole system | Nothing talks directly to the blockchain except this file.
+ =====================================================================
+
+  CATEGORY: CORE IMPORTS & APP SETUP
+  - Express app initialization (const app = express())
+  - Core requires: express, cors, fabric-network, path, fs, jwt, bcryptjs, multer, Docker, nano
+  - JWT_SECRET, multer upload, couchdb service import
+
+  CATEGORY: AUTH ROUTER MOUNTING
+  - const authRoutes = require('../src/routes/authRoutes')
+  - app.use('/api/auth', authRoutes)
+
+  CATEGORY: GLOBAL MIDDLEWARE
+  - Global Auth Middleware (JWT Parser) → app.use((req,res,next) => { req.user = jwt.verify(...) })
+  - CORS Middleware → app.use(cors())
+  - JSON Body Parser → app.use(express.json())
+
+  CATEGORY: DOCKER & COUCHDB INITIALIZATION
+  - Docker client initialization (const docker = new Docker(...))
+  - FABRIC_SAMPLES_PATH, CORE_YAML_PATH
+  - couchdb.initializeDatabases()
+  - setupDatabaseIndexes()
+  - setTimeout(setupDatabaseIndexes, 2000)
+
+  CATEGORY: FABRIC / BLOCKCHAIN HELPERS
+  - walletPath (path.join(..., 'wallet'))
+  - Gateway cache variables: cachedGateway, lastConnectionTime, CONNECTION_CACHE_TTL
+  - getContractAndGateway(identityName, orgName)
+  - sleep(ms)
+  - process.on('SIGINT', shutdown handler)
+
+  CATEGORY: HTTP GET ENDPOINTS (GENERAL)
+  - GET /api/health
+  - GET /api/pending-issuers
+
+  CATEGORY: HTTP GET ENDPOINTS (BLOCKCHAIN CREDENTIAL VIEWS)
+  - GET /api/credentials/issued      (issuer/admin issued instances)
+  - GET /api/credentials/templates   (issuer/admin templates)
+
+  CATEGORY: HTTP POST ENDPOINTS (ISSUER CREDENTIAL OPERATIONS)
+  - POST /api/issuer/credentials/create   (delegates to issuerCredentialController.createCredential / Create_CredentialTemplate)
+  - POST /api/credentials/:credentialId/issue  (delegates to issuerCredentialController.issue_CredentialToUser)
+
+  CATEGORY: SERVER STARTUP
+  - const PORT = 4000
+  - app.listen(PORT, ...)
+  - setInterval(() => {}, 1000)
 */
+
 const express = require('express');          // Express framework for building REST APIs
 const cors = require('cors');                // Enables Cross-Origin Resource Sharing (CORS)
 const { Gateway, Wallets } = require('fabric-network'); // Hyperledger Fabric SDK (connect to blockchain + manage identities)

@@ -1,6 +1,46 @@
 // ==========================================================================================================================================================================
 //                                                                       apiService.js 
 // ==========================================================================================================================================================================
+
+/* [ OUTLINE ]
+  =====================================================================
+  FILE: apiService.js
+  TECHNICAL: Frontend Axios service layer for backend APIs
+  TROPA: Centralized HTTP client ng frontend.
+  =====================================================================
+
+  CATEGORY: SYSTEM / HEALTH
+  - healthCheck()
+
+  CATEGORY: USER AUTH / ACCOUNTS
+  - registerUser(userData)
+  - login(credentials)
+  - changePassword(passwordData)
+  - updateProfile(profileData)
+  - uploadProfilePicture(formData)
+  - getUserInfo(userId)
+
+  CATEGORY: ISSUER AUTH / PROFILE
+  - registerIssuer(formData)
+  - loginIssuer(credentials)
+
+  CATEGORY: ADMIN / ISSUER REVIEW
+  - getPendingIssuers()
+  - approveIssuer(issuerId)
+  - rejectIssuer(issuerId, rejectionReason)
+
+  CATEGORY: ISSUER CREDENTIAL TEMPLATES (CREATE + READ)
+  - Create_CredentialTemplate(credentialData)
+  - Get_IssuedCredentials()
+  - Get_CredentialTemplates()
+
+  CATEGORY: ISSUER CREDENTIAL ISSUANCE (INSTANCE)
+  - Issue_CredentialInstance(credentialId, holderID, expiryDate)
+
+  CATEGORY: DEBUG / UTIL
+  - getApiBaseUrl()
+*/
+
 import axios from './axiosInstance';
 
 const apiService = {

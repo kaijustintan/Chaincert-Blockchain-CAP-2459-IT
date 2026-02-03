@@ -27,6 +27,7 @@
 
   CATEGORY: CREDENTIAL HISTORY / AUDIT
   - Get_CredentialTemplateOrIssuedCredentialHistory(ctx, credentialId)
+  - Get_IssuerCredentialsHistory
 
   CATEGORY: BULK QUERIES / FILTERED LISTS
   - Get_HolderCredentials(ctx, holderID)
@@ -629,6 +630,196 @@ class ChainCertContract extends Contract {
     */
     return JSON.stringify(allResults);
   }
+
+  // ==========================================================================================================================================================================
+
+  /*
+    Function Name: Get_IssuerCredentialsHistory
+
+    Technical:
+    Retrieves the complete history (audit trail) of ALL credentials for a specific issuer:
+    - First queries all credentials where issuerID matches.
+    - For each credential found, fetches its full history using getHistoryForKey().
+    - Returns an array of credentials, each containing:
+      - Credential metadata (id, name, type, current status, isTemplate flag)
+      - Full history array with all transactions (txId, timestamp, isDelete, value)
+
+    Tropang Ex:
+    Ito yung "buong audit trail ng lahat ng credentials ng issuer" - whether templates or issued instances.
+    Makikita lahat:
+    - Kailan na-create yung template,
+    - Kailan na-issue sa holder,
+    - Kailan na-revoke (kung meron),
+    - At anong state niya sa bawat transaction.
+    
+    Perfect for:
+    - Compliance/audit dashboards
+    - Full activity timeline ng issuer
+    - Blockchain transparency verification
+  */
+  async Get_IssuerCredentialsHistory(ctx, issuerID) {
+    
+    /* Step 1: Log which issuer we are fetching history for
+
+       Technical:
+       console.log for debugging/tracing during chaincode invocation.
+
+       Tropang Ex:
+       Para alam natin sa logs kung sinong issuer ang kinukuhanan ng buong history.
+    */
+    console.log(`📊 Getting complete credentials history for issuer: ${issuerID}`);
+
+    /* Step 2: Query all credentials belonging to this issuer
+
+       Technical:
+       Uses getStateByRange('', '') to iterate over all keys in the chaincode namespace.
+       Filters records where credential.issuerID matches the provided issuerID.
+       Collects all matching credential IDs for history retrieval.
+
+       Tropang Ex:
+       Hinahanap muna lahat ng credentials (templates + issued) na pag-aari ng issuer,
+       para alam natin kung ano-anong IDs ang kukunan ng history.
+    */
+    const iterator = await ctx.stub.getStateByRange('', '');
+    const credentialIDs = [];
+
+    let result = await iterator.next();
+    while (!result.done) {
+      if (result.value) {
+        try {
+          const credential = JSON.parse(result.value.value.toString('utf8'));
+          // Only collect credentials belonging to this issuer
+          if (credential.issuerID === issuerID) {
+            credentialIDs.push(credential.id);
+          }
+        } catch (err) {
+          console.warn(`⚠️ Failed to parse credential, skipping:`, err);
+        }
+      }
+      result = await iterator.next();
+    }
+
+    await iterator.close();
+    console.log(`✅ Found ${credentialIDs.length} credentials for issuer ${issuerID}`);
+
+    /* Step 3: Build history result array for all credentials
+
+       Technical:
+       For each credentialID found:
+       - Opens a history iterator using getHistoryForKey(credentialID).
+       - For each historical record:
+         - Captures txId, timestamp (converted from protobuf seconds+nanos to ISO string),
+           isDelete flag, and the credential value (if not deleted).
+       - Extracts metadata from the most recent state:
+         - credentialName, credentialType, isTemplate, currentStatus
+       - Stores everything in a structured result object.
+
+       Tropang Ex:
+       Para sa bawat credential ID na nakita:
+       - Kukunin yung buong kasaysayan niya (lahat ng transactions),
+       - Iko-convert yung timestamp sa human-readable format,
+       - Kukunin yung name/type/status para madaling maintindihan sa UI.
+    */
+    const allHistory = [];
+
+    for (const credID of credentialIDs) {
+      const historyIterator = await ctx.stub.getHistoryForKey(credID);
+      const credHistory = [];
+      
+      let credentialName = '';
+      let credentialType = '';
+      let isTemplate = false;
+      let currentStatus = '';
+
+      let histRes = await historyIterator.next();
+      while (!histRes.done) {
+        if (histRes.value) {
+          const record = {};
+          record.txId = histRes.value.txId;
+
+          // Convert protobuf timestamp to JS Date ISO string
+          const seconds = histRes.value.timestamp.seconds;
+          const nanos = histRes.value.timestamp.nanos;
+          const timestamp = (seconds * 1000) + Math.floor(nanos / 1000000);
+          record.timestamp = new Date(timestamp).toISOString();
+
+          record.isDelete = histRes.value.isDelete;
+
+          // Parse credential value if not deleted
+          if (!histRes.value.isDelete && histRes.value.value) {
+            try {
+              const credValue = JSON.parse(histRes.value.value.toString('utf8'));
+              record.value = credValue;
+
+              // Extract metadata from the latest state (most recent record)
+              if (!credentialName && credValue.credentialName) {
+                credentialName = credValue.credentialName;
+              }
+              if (!credentialType && credValue.credentialType) {
+                credentialType = credValue.credentialType;
+              }
+              if (credValue.hasOwnProperty('isTemplate')) {
+                isTemplate = credValue.isTemplate;
+              }
+              if (credValue.status) {
+                currentStatus = credValue.status;
+              }
+            } catch (err) {
+              console.warn(`⚠️ Failed to parse credential value in history for ${credID}:`, err);
+            }
+          }
+
+          credHistory.push(record);
+        }
+        histRes = await historyIterator.next();
+      }
+
+      await historyIterator.close();
+
+      /* Step 4: Package credential with its full history
+
+         Technical:
+         Constructs a result object containing:
+         - credentialId: The unique ID of the credential
+         - credentialName: Human-readable name (e.g., "NARUTO Certificate")
+         - credentialType: Type of credential (e.g., "Certificate", "Badge")
+         - isTemplate: Boolean flag (true = template, false = issued instance)
+         - currentStatus: Latest status (e.g., "active", "issued", "revoked")
+         - history: Array of all historical transactions for this credential
+
+         Tropang Ex:
+         Ginagawa dito yung "summary card" ng bawat credential:
+         - May pangalan, type, status ngayon,
+         - Plus yung buong timeline/history niya.
+      */
+      if (credHistory.length > 0) {
+        allHistory.push({
+          credentialId: credID,
+          credentialName: credentialName,
+          credentialType: credentialType,
+          isTemplate: isTemplate,
+          currentStatus: currentStatus,
+          history: credHistory
+        });
+      }
+    }
+
+    /* Step 5: Log total results and return as JSON string
+
+       Technical:
+       - Logs how many credentials with history were found.
+       - Returns JSON.stringify(allHistory) for the client.
+
+       Tropang Ex:
+       Sinasabi kung ilang credentials ang may nakitang history,
+       tapos ibinabalik lahat ng data as JSON para sa dashboard/UI.
+    */
+    console.log(`✅ Returning history for ${allHistory.length} credentials`);
+    return JSON.stringify(allHistory);
+  }
+
+// ==========================================================================================================================================================================
+
 // ==========================================================================================================================================================================
 
 // =========================================================================================================

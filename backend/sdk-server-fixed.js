@@ -69,6 +69,8 @@ const JWT_SECRET = process.env.JWT_SECRET || 'dev_secret_key'; // Secret key use
 const upload = multer({ storage: multer.memoryStorage() }); // Multer setup: stores uploaded files in memory (RAM) instead of disk
 const couchdb = require('./couchDB_service'); // CouchDB service layer (handles all CouchDB-related operations)
 const app = express(); // Initializes the Express application instance
+const issuerCredentialController = require('./controllers/issuerCredentialController');  // UBUNTU DIRECTORY BASED 
+
 
 // ==========================================================================================================================================================================
 // MIDDLEWARE SECTION - ORDER MATTERS!
@@ -958,6 +960,41 @@ app.get('/api/credentials/:id/history', async (req, res) => {
 // ==========================================================================================================================================================================
 
 /*
+  Endpoint: GET /api/issuer/credentials/history
+
+  Technical:
+  Retrieves the complete audit trail of ALL credentials for the logged-in issuer.
+  Delegates to issuerCredentialController.get_IssuerCredentialsHistory which handles:
+    - Identity resolution (issuer's Fabric identity + org)
+    - Blockchain query (Get_IssuerCredentialsHistory chaincode)
+    - Flattening and sorting history entries
+    - Optional filtering by credentialId
+
+  Tropang Ex:
+  Ito yung endpoint para makita ng issuer yung buong timeline ng lahat ng nangyari
+  sa credentials niya — template creation, issuance, revocation, etc.
+  Perfect for audit dashboard at blockchain transparency.
+
+  Query Params:
+  - credentialId (optional) → filter history to show only entries for that credential
+
+  Response:
+  {
+    "success": true,
+    "data": [ ...flattened history entries sorted by most recent... ],
+    "count": 42,
+    "isFiltered": false,
+    "filter": null,
+    "timestamp": "2026-02-03T17:10:00.000Z"
+  }
+*/
+app.get('/api/issuer/credentials/history', (req, res) => {
+  issuerCredentialController.get_IssuerCredentialsHistory(req, res, getContractAndGateway);
+});
+
+// ==========================================================================================================================================================================
+
+/*
   Endpoint: GET /api/users
 
   Technical: Retrieves a filtered list of non-admin users from CouchDB.
@@ -1173,7 +1210,6 @@ app.get('/api/credentials/:credentialId/verify', async (req, res) => {
 
 // ==========================================================================================================================================================================
 
-const issuerCredentialController = require('./controllers/issuerCredentialController');  // UBUNTU DIRECTORY BASED 
 /*
   Endpoint: POST /api/issuer/credentials/create
 

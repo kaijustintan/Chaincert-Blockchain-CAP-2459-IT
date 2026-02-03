@@ -597,6 +597,258 @@ exports.get_CredentialTemplatesByIssuerID = async (req, res) => {
     });
   }
 };
+// ==========================================================================================================================================================================
+
+// ==========================================================================================================================================================================
+//                                                             GET ISSUER CREDENTIALS HISTORY (BLOCKCHAIN AUDIT TRAIL)
+// ==========================================================================================================================================================================
+
+/*
+  Function Name: get_IssuerCredentialsHistory
+
+  Technical:
+  Retrieves the complete audit trail of ALL credentials for the logged-in issuer:
+    1. Resolves issuer's Fabric identity + org from CouchDB
+    2. Calls blockchain chaincode: Get_IssuerCredentialsHistory
+    3. Flattens all history entries into a single array
+    4. Sorts by timestamp (most recent first)
+    5. Optionally filters by credentialId (if search query provided)
+    6. Returns formatted history for audit dashboard
+
+  Tropang Ex:
+  Ito yung "buong timeline ng lahat ng nangyari sa credentials ng issuer" —
+  whether template creation, credential issuance, revocation, etc.
+  Perfect for compliance audit at blockchain transparency.
+
+  Inputs / Parameters:
+  - req.user.id → issuerId
+  - req.query.credentialId (optional) → filter by specific credential ID
+
+  Output:
+  - 200 success with sorted/filtered history array
+  - 401 if not logged in
+  - 403 if issuer not approved
+  - 404 if issuer profile not found
+  - 500 for blockchain/system errors
+*/
+exports.get_IssuerCredentialsHistory = async (req, res, getContractAndGateway) => {
+  try {
+
+    /* Step 0: Check authentication
+
+       Technical: Requires JWT middleware to populate req.user.
+       Tropang Ex: Bawal kumuha ng history kung di ka logged in as issuer.
+    */
+    if (!req.user || !req.user.id) {
+      return res.status(401).json({
+        success: false,
+        error: 'Unauthorized - No authentication token'
+      });
+    }
+
+    const issuerId = req.user.id;
+    const { credentialId } = req.query; // Optional search filter
+
+    console.log(`\n📊 [HISTORY] Fetching credential history for issuer: ${issuerId}`);
+    if (credentialId) {
+      console.log(`🔍 [HISTORY] Search filter applied: ${credentialId}`);
+    }
+
+    // =====================================================
+    // STEP 1: RESOLVE ISSUER IDENTITY (for blockchain)
+    // =====================================================
+
+    /* Step 1: Resolve issuer identity + org info
+
+       Tropang Ex:
+       Kukunin natin yung issuer profile para malaman:
+         - fabricIdentity (pang sign ng blockchain query)
+         - orgName (pang select ng network config)
+    */
+    let identityName, orgName, issuerDoc;
+    const adminNano = nano('http://admin:adminpw@localhost:5985');
+    const issuersDB = adminNano.use('issuers');
+
+    // Fetch issuerDoc using issuerId
+    try {
+      issuerDoc = await issuersDB.get(issuerId);
+    } catch (err) {
+      if (err.statusCode === 404) {
+        return res.status(404).json({
+          success: false,
+          error: 'Issuer profile not found'
+        });
+      }
+      throw err;
+    }
+
+    // Validate issuer is approved: must have fabricIdentity + orgName
+    if (!issuerDoc || !issuerDoc.fabricIdentity || !issuerDoc.orgName) {
+      return res.status(403).json({
+        success: false,
+        error: 'Issuer not approved or Fabric identity missing'
+      });
+    }
+
+    identityName = issuerDoc.fabricIdentity;
+    
+    // 🔥 CRITICAL: Normalize orgName to lowercase with no spaces
+    orgName = issuerDoc.orgName.toLowerCase().replace(/\s+/g, '');
+    
+    console.log(`✅ [HISTORY] Identity: ${identityName}, Org: ${orgName}`);
+
+    // =====================================================
+    // STEP 2: QUERY BLOCKCHAIN FOR HISTORY
+    // =====================================================
+
+    /* Step 2: Query blockchain for complete history
+
+       Technical:
+       - Calls Get_IssuerCredentialsHistory chaincode function
+       - Returns array of credentials with their full history
+       - Uses evaluateTransaction (read-only, no state change)
+
+       Tropang Ex:
+       Ito yung pag-kuha ng raw data galing sa blockchain.
+    */
+    let rawHistory;
+    try {
+      console.log(`📡 [HISTORY] Querying blockchain...`);
+
+      // Get contract connection
+      if (!getContractAndGateway) {
+        throw new Error('getContractAndGateway function not provided');
+      }
+
+      const { gateway, contract } = await getContractAndGateway(identityName, orgName);
+
+      // Call blockchain chaincode - Get_IssuerCredentialsHistory
+      const result = await contract.evaluateTransaction(
+        'Get_IssuerCredentialsHistory',
+        issuerId
+      );
+
+      rawHistory = JSON.parse(result.toString());
+      console.log(`✅ [HISTORY] Blockchain query successful. Found ${rawHistory.length} credentials.`);
+
+      // Disconnect gateway
+      await gateway.disconnect();
+
+    } catch (blockchainError) {
+      console.error(`❌ [HISTORY] Blockchain error:`, blockchainError.message);
+      return res.status(500).json({
+        success: false,
+        stage: 'blockchain',
+        error: `Failed to fetch history from blockchain: ${blockchainError.message}`
+      });
+    }
+
+    // =====================================================
+    // STEP 3: FLATTEN & SORT HISTORY ENTRIES
+    // =====================================================
+
+    /* Step 3: Flatten all history entries into single array
+
+       Technical:
+       - Each credential has a history array
+       - We want ALL history entries in ONE flat array
+       - Attach credential metadata to each entry
+       - Sort by timestamp (most recent first)
+
+       Tropang Ex:
+       Imbes na grouped by credential, gusto natin isang timeline
+       ng LAHAT ng nangyari sorted by date.
+    */
+    console.log(`🔄 [HISTORY] Flattening and sorting history entries...`);
+
+    const allHistoryEntries = [];
+    
+    rawHistory.forEach(credential => {
+      credential.history.forEach(historyEntry => {
+        allHistoryEntries.push({
+          // Credential metadata
+          credentialId: credential.credentialId,
+          credentialName: credential.credentialName,
+          credentialType: credential.credentialType,
+          isTemplate: credential.isTemplate,
+          currentStatus: credential.currentStatus,
+          
+          // History entry details
+          txId: historyEntry.txId,
+          timestamp: historyEntry.timestamp,
+          isDelete: historyEntry.isDelete,
+          value: historyEntry.value
+        });
+      });
+    });
+
+    // Sort by timestamp (most recent first)
+    allHistoryEntries.sort((a, b) => 
+      new Date(b.timestamp) - new Date(a.timestamp)
+    );
+
+    console.log(`✅ [HISTORY] Flattened ${allHistoryEntries.length} total history entries.`);
+
+    // =====================================================
+    // STEP 4: OPTIONAL FILTER BY CREDENTIAL ID
+    // =====================================================
+
+    /* Step 4: Filter by credentialId if search query provided
+
+       Technical:
+       - If req.query.credentialId exists, filter entries
+       - Uses .includes() to support partial matches
+
+       Tropang Ex:
+       Kung nag-search yung user ng specific credential ID,
+       ipapakita lang yung history ng credential na yun.
+    */
+    let filteredHistory = allHistoryEntries;
+    
+    if (credentialId) {
+      filteredHistory = allHistoryEntries.filter(
+        entry => entry.credentialId.includes(credentialId)
+      );
+      console.log(`🔍 [HISTORY] Filtered to ${filteredHistory.length} entries matching: ${credentialId}`);
+    }
+
+    // =====================================================
+    // ✅ SUCCESS: Return sorted (and optionally filtered) history
+    // =====================================================
+
+    /* Step 5: Return final response
+
+       Tropang Ex:
+       Ibinabalik na yung sorted history, ready for display sa UI.
+    */
+    console.log(`✅ [HISTORY] Returning ${filteredHistory.length} history entries.\n`);
+
+    return res.status(200).json({
+      success: true,
+      data: filteredHistory,
+      count: filteredHistory.length,
+      isFiltered: !!credentialId,
+      filter: credentialId || null,
+      timestamp: new Date().toISOString()
+    });
+
+  } catch (error) {
+
+    /* Step 6: Catch-all error handler
+
+       Tropang Ex: Safety net para sa unexpected errors.
+    */
+    console.error('\n❌ [HISTORY] Error fetching credential history:', error.message);
+    console.error('Stack:', error.stack);
+    return res.status(500).json({
+      success: false,
+      error: error.message,
+      details: process.env.NODE_ENV === 'development' ? error.stack : undefined
+    });
+  }
+};
+
+// ==========================================================================================================================================================================
 
 
 module.exports = exports;

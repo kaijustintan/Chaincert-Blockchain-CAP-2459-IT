@@ -546,6 +546,88 @@ const apiService = {
   },
   // ==========================================================================================================================================================================
 
+    // ==========================================================================================================================================================================
+
+  /*
+    Function Name: Get_IssuerCredentialsHistory
+
+    Technical:
+    Fetches the complete audit trail of ALL credentials for the logged-in issuer
+    from the backend endpoint GET /issuer/credentials/history.
+    
+    Returns a flattened array of all history entries sorted by most recent timestamp.
+    Supports optional filtering by credentialId via query parameter.
+
+    Tropang Ex:
+    Ito yung kinukuha ng "Credential History" page para makita lahat ng nangyari
+    sa credentials ng issuer — template creation, issuance, revocation, etc.
+    Sorted by most recent activity, perfect for audit trail dashboard.
+
+    Parameters:
+    - credentialId (optional) → If provided, filters history to show only entries for that credential
+
+    Returns:
+    {
+      success: true,
+      data: [ ...flattened history entries... ],
+      count: 42,
+      isFiltered: false,
+      filter: null,
+      timestamp: "2026-02-03T17:10:00.000Z"
+    }
+  */
+  Get_IssuerCredentialsHistory: async (credentialId = null) => {
+    try {
+
+      /* Step 1: Build request URL with optional filter
+         Technical:
+         - Base URL: /issuer/credentials/history
+         - If credentialId provided: add ?credentialId=xxx query param
+         
+         Tropang Ex:
+         Kung may search query, isasama sa URL para filtered results ang bumalik.
+      */
+      let url = '/issuer/credentials/history';
+      if (credentialId) {
+        url += `?credentialId=${encodeURIComponent(credentialId)}`;
+      }
+
+      /* Step 2: Send GET request to backend
+         Technical:
+         Axios automatically attaches JWT token from axiosInstance interceptor.
+         
+         Tropang Ex:
+         Hihingi sa backend ng buong history, tapos kung may filter, filtered results
+         ang babalik.
+      */
+      const response = await axios.get(url);
+
+      /* Step 3: Return response data (NOT response.data.credentials, just response.data)
+         Technical:
+         Backend returns:
+         {
+           success: true,
+           data: [...history entries...],
+           count: 42,
+           isFiltered: false,
+           filter: null,
+           timestamp: "..."
+         }
+         
+         So we return the WHOLE response.data object, not just response.data.data
+         
+         Tropang Ex:
+         Ibinabalik buong object para may access sa count, isFiltered, etc.
+      */
+      return response.data;
+
+    } catch (error) {
+      console.error('Error fetching credential history:', error.response?.data?.message || error.message);
+      throw error;
+    }
+  },
+
+  // ==========================================================================================================================================================================
 
   // ==========================================================================================================================================================================
   //                         ISSUER CREDENTIAL ISSUANCE (INSTANCE)

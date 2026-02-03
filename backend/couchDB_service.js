@@ -1367,21 +1367,12 @@ module.exports = {
   getUnreadNotifications,
   markNotificationAsRead,
 
-
-  // Deployments
-  saveDeploymentInfo,
-  getDeploymentByEmail,
-
-
   // Credentials (Star Feature!)
-  saveCredentialCatalog,
-  save_IssuedCredentialToCouchDB,
-  updateCredentialStatus,
   saveIssuedCredentialToBothDBs,         // ✅ NEW - Use this!
-  getIssuerCredentialsByEmail,
   getIssuerCredentialsByIssuerId,
   getUserCredentialsByHolderId,
   getIssuerCredentials,
+  save_CredentialTemplateToIssuerDB,
   deleteIssuerCredentialTemplate,
   revokeCredential,
   verifyCredentialFromCouchDB            // ✅ UPDATED: Now properly cleans credential IDs

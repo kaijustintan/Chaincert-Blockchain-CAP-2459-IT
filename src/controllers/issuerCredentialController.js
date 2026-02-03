@@ -17,7 +17,7 @@
 */
 
 const nano = require('nano');
-const couchdbService = require('../../backend/couchDB_service');
+const couchdbService = require('../couchDB_service');  // UBUNTU DIRECTORY BASED 
 
 // ==========================================================================================================================================================================
 //                                                             CREDENTIAL TEMPLATE CREATION (BLOCKCHAIN + COUCHDB)

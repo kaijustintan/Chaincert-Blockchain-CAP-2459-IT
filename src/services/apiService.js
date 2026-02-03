@@ -1,6 +1,7 @@
 // ==========================================================================================================================================================================
-//                                                                       apiService.js 
+//                                                               apiService.js 
 // ==========================================================================================================================================================================
+
 
 /* [ OUTLINE ]
   =====================================================================
@@ -9,8 +10,10 @@
   TROPA: Centralized HTTP client ng frontend.
   =====================================================================
 
+
   CATEGORY: SYSTEM / HEALTH
   - healthCheck()
+
 
   CATEGORY: USER AUTH / ACCOUNTS
   - registerUser(userData)
@@ -20,37 +23,47 @@
   - uploadProfilePicture(formData)
   - getUserInfo(userId)
 
+
   CATEGORY: ISSUER AUTH / PROFILE
   - registerIssuer(formData)
   - loginIssuer(credentials)
+
 
   CATEGORY: ADMIN / ISSUER REVIEW
   - getPendingIssuers()
   - approveIssuer(issuerId)
   - rejectIssuer(issuerId, rejectionReason)
 
+
   CATEGORY: ISSUER CREDENTIAL TEMPLATES (CREATE + READ)
   - Create_CredentialTemplate(credentialData)
   - Get_IssuedCredentials()
   - Get_CredentialTemplates()
 
+
   CATEGORY: ISSUER CREDENTIAL ISSUANCE (INSTANCE)
   - Issue_CredentialInstance(credentialId, holderID, expiryDate)
+
 
   CATEGORY: DEBUG / UTIL
   - getApiBaseUrl()
 */
 
+
 import axios from './axiosInstance';
+
 
 const apiService = {
 
+
   // ==========================================================================================================================================================================
-  //                                                                       SYSTEM / HEALTH
+  //                                                               SYSTEM / HEALTH
   // ==========================================================================================================================================================================
+
 
   /*
     Function Name: healthCheck
+
 
     Technical: Calls the backend health endpoint to confirm that the server is running and reachable.
     Tropang Ex: Parang tinatanong mo yung backend ng “Uy, buhay ka pa ba?”
@@ -79,12 +92,15 @@ const apiService = {
     }
   },
 
+
   // ==========================================================================================================================================================================
-  //                                                                       USER AUTH / ACCOUNTS
+  //                                                               USER AUTH / ACCOUNTS
   // ==========================================================================================================================================================================
+
 
   /*
     Function Name: registerUser
+
 
     Technical: Sends user registration data to the backend to create a new user account.
     Tropang Ex: Pang sign-up ng student/admin. Si backend na bahala mag-hash ng password at mag-save sa DB.
@@ -114,10 +130,13 @@ const apiService = {
   },
   // ==========================================================================================================================================================================
 
+
   /*
     Function Name: login
 
+
     Technical: Authenticates a regular user via backend login endpoint.
+
 
     Tropang Ex: Pang login ng student/admin gamit email + password.
   */
@@ -145,15 +164,19 @@ const apiService = {
     }
   },
 
+
   // ==========================================================================================================================================================================
-  //                                                                       ISSUER AUTH / PROFILE
+  //                                                               ISSUER AUTH / PROFILE
   // ==========================================================================================================================================================================
+
 
   /*
     Function Name: registerIssuer
 
+
     Technical:
     Submits an issuer application to the backend for admin approval.
+
 
     Tropang Ex:
     Pang-apply ng school/org bilang issuer (subject for admin review).
@@ -179,8 +202,10 @@ const apiService = {
   },
   // ==========================================================================================================================================================================
 
+
   /*
     Function Name: loginIssuer
+
 
     Technical: Logs in an issuer account (must usually be approved first).
     Tropang Ex: Pang login ng issuer dashboard.
@@ -191,7 +216,7 @@ const apiService = {
       /* Step 1: POST issuer credentials
         Tropang Ex: Login attempt ng issuer.
       */
-    const response = await axios.post('/auth/login-issuer', credentials);
+      const response = await axios.post('/auth/login-issuer', credentials);
 
       /* Step 2: Return issuer session data */
       return response.data;
@@ -203,8 +228,10 @@ const apiService = {
   },
   // ==========================================================================================================================================================================
 
+
   /*
     Function Name: changePassword
+
 
     Technical: Requests backend to change a user’s password after verifying current password.
     Tropang Ex: Pang palit ng password sa settings page.
@@ -232,8 +259,10 @@ const apiService = {
   },
 // ==========================================================================================================================================================================
 
+
   /*
     Function Name: updateProfile
+
 
     Technical: Updates profile summary and visibility settings.
     Tropang Ex: Pang edit ng bio / about me ng user.
@@ -260,8 +289,10 @@ const apiService = {
   },
 // ==========================================================================================================================================================================
 
+
   /*
     Function Name: uploadProfilePicture
+
 
     Technical: Uploads profile image using multipart/form-data.
     Tropang Ex: Pang palit ng avatar/profile picture.
@@ -286,10 +317,13 @@ const apiService = {
     }
   },
 
+
   /*
     Function Name: getUserInfo
 
+
     Technical: Fetches user profile info from backend.
+
 
     Tropang Ex: Pang refresh ng user details sa UI.
   */
@@ -308,12 +342,15 @@ const apiService = {
     }
   },
 
+
   // ==========================================================================================================================================================================
-  //                                                                       ADMIN / ISSUER REVIEW
+  //                                                               ADMIN / ISSUER REVIEW
   // ==========================================================================================================================================================================
+
 
   /* BADING BALIK 
     Function Name: getPendingIssuers
+
 
     Technical: Retrieves issuer applications awaiting admin approval.
     Tropang Ex: Admin dashboard list ng mga nag-apply na issuer.
@@ -322,7 +359,7 @@ const apiService = {
     try {
 
       /* Step 1: GET pending issuers */
-      const response = await axios.get('/pending-issuers');
+      const response = await axios.get('/auth/pending-issuers');
 
       /* Step 2: Return issuer list */
       return response.data;
@@ -334,8 +371,10 @@ const apiService = {
   },
   // ==========================================================================================================================================================================
 
+
   /*
     Function Name: approveIssuer
+
 
     Technical: Approves an issuer application.
     Tropang Ex: “Approve” button ni admin.
@@ -356,8 +395,10 @@ const apiService = {
   },
 // ==========================================================================================================================================================================
 
+
   /*
     Function Name: rejectIssuer
+
 
     Technical: Rejects an issuer application with a reason.
     Tropang Ex: “Reject” button ni admin + reason kung bakit.
@@ -380,20 +421,24 @@ const apiService = {
   },
   // ==========================================================================================================================================================================
 
+
   // ==========================================================================================================================================================================
-  //                                                                       Issuer Credentials (From Blockchain)
+  //                                                               Issuer Credentials (From Blockchain)
   // ==========================================================================================================================================================================
   // ==========================================================================================================================================================================
-  //                                ISSUER CREDENTIAL TEMPLATES (CREATE + READ)
+  //                             ISSUER CREDENTIAL TEMPLATES (CREATE + READ)
   // ==========================================================================================================================================================================
+
 
   /*
     Function Name: Create_CredentialTemplate
 
+
     Technical:
     Creates a new credential TEMPLATE for the logged-in issuer by calling
-    POST /api/issuer/credentials/create. Expects JWT token to be attached
+    POST /issuer/credentials/create. Expects JWT token to be attached
     by axiosInstance for authentication.
+
 
     Tropang Ex:
     Ito yung “Create Template” button ng issuer dashboard.
@@ -407,12 +452,12 @@ const apiService = {
       /* Step 1: POST template data to issuer credential endpoint
          Technical:
          Sends credentialData (credentialType, credentialName, description, metadata)
-         to backend route /api/issuer/credentials/create.
+         to backend route /issuer/credentials/create.
 
          Tropang Ex:
          Ipinapasa yung laman ng create-template form kay backend.
       */
-      const response = await axios.post('/api/issuer/credentials/create', {
+      const response = await axios.post('/issuer/credentials/create', {
         credentialType: credentialData.credentialType,
         credentialName: credentialData.credentialName,
         description: credentialData.description,
@@ -438,19 +483,22 @@ const apiService = {
   },
 // ==========================================================================================================================================================================
 
+
   /*
     Function Name: Get_IssuedCredentials
 
+
     Technical:
     Fetches ISSUED credentials for the logged-in issuer from the backend
-    endpoint GET /api/credentials/issued.
+    endpoint GET /credentials/issued.
+
 
     Tropang Ex:
     Kinukuha lahat ng credentials na na-issue na talaga ng issuer sa mga holders.
   */
   Get_IssuedCredentials: async () => {
     try {
-      const response = await axios.get('/api/credentials/issued');
+      const response = await axios.get('/credentials/issued');
       return response.data.credentials;
     } catch (error) {
       console.error('Error fetching issued credentials:', error.response?.data?.message || error.message);
@@ -459,19 +507,22 @@ const apiService = {
   },
   // ==========================================================================================================================================================================
 
+
   /*
     Function Name: Get_CredentialTemplates
 
+
     Technical:
     Fetches credential TEMPLATES for the logged-in issuer from
-    GET /api/credentials/templates.
+    GET /credentials/templates.
+
 
     Tropang Ex:
     Kinukuha lahat ng credential templates (blueprints) ng issuer.
   */
   Get_CredentialTemplates: async () => {
     try {
-      const response = await axios.get('/api/credentials/templates');
+      const response = await axios.get('/credentials/templates');
       return response.data.credentials;
     } catch (error) {
       console.error('Error fetching credential templates:', error.response?.data?.message || error.message);
@@ -480,21 +531,26 @@ const apiService = {
   },
   // ==========================================================================================================================================================================
 
-    // ==========================================================================================================================================================================
-  //                                 ISSUER CREDENTIAL ISSUANCE (INSTANCE)
+
   // ==========================================================================================================================================================================
+  //                         ISSUER CREDENTIAL ISSUANCE (INSTANCE)
+  // ==========================================================================================================================================================================
+
 
   /*
     Function Name: Issue_CredentialInstance
 
+
     Technical:
     Issues a credential INSTANCE to a specific holder by calling:
-      POST /api/credentials/:credentialId/issue
+      POST /credentials/:credentialId/issue
+
 
     Sends:
       - credentialId (from param)
       - holderID (body)
       - optional expiryDate (body)
+
 
     Tropang Ex:
     Ito yung button na "Issue to student/user".
@@ -507,13 +563,13 @@ const apiService = {
     try {
       /* Step 1: POST issuance request to backend
          Technical:
-         Calls /api/credentials/:credentialId/issue with holderID + expiryDate in body.
+         Calls /credentials/:credentialId/issue with holderID + expiryDate in body.
 
          Tropang Ex:
          Frontend → "Pa-issue nga nitong template na ’to kay holderID na ’to."
       */
       const response = await axios.post(
-        `/api/credentials/${credentialId}/issue`,
+        `/credentials/${credentialId}/issue`,
         {
           holderID: holderID,
           expiryDate: expiryDate || null
@@ -545,12 +601,15 @@ const apiService = {
   },
 // ==========================================================================================================================================================================
 
+
   // ==========================================================================================================================================================================
-  //                                                                       DEBUG / UTIL
+  //                                                               DEBUG / UTIL
   // ==========================================================================================================================================================================
+
 
   /*
     Function Name: getApiBaseUrl
+
 
     Technical: Returns the current axios base URL.
     Tropang Ex: Pang debug kung saan kumokonek yung frontend (local, staging, prod).
@@ -559,5 +618,6 @@ const apiService = {
     return axios.defaults.baseURL || 'http://localhost:4000';
   }
 };
+
 
 export default apiService;

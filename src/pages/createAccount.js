@@ -1,13 +1,13 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import apiService from '../services/apiService';
-import '../styles/createAccount.css';
+import apiService from "../services/apiService";
+import "../styles/createAccount.css";
 
 export default function CreateAccount() {
   const navigate = useNavigate();
-  
+
   // Step state: 'roleSelection', 'userForm', 'issuerForm'
-  const [step, setStep] = useState('roleSelection');
+  const [step, setStep] = useState("roleSelection");
   const [selectedRole, setSelectedRole] = useState(null);
 
   // User form state
@@ -15,9 +15,9 @@ export default function CreateAccount() {
     fullName: "",
     email: "",
     password: "",
-    confirmPassword: ""
+    confirmPassword: "",
   });
-  
+
   // Issuer form state
   const [issuer, setIssuer] = useState({
     orgName: "",
@@ -27,7 +27,7 @@ export default function CreateAccount() {
     confirmPassword: "",
     documents: null,
   });
-  
+
   // State to track if issuer submitted
   const [issuerSubmitted, setIssuerSubmitted] = useState(false);
   const [userError, setUserError] = useState("");
@@ -38,20 +38,27 @@ export default function CreateAccount() {
   // ========== ROLE SELECTION HANDLERS ==========
   const handleRoleSelection = (role) => {
     setSelectedRole(role);
-    if (role === 'user') {
-      setStep('userForm');
+    if (role === "user") {
+      setStep("userForm");
     } else {
-      setStep('issuerForm');
+      setStep("issuerForm");
     }
   };
 
   const handleGoBack = () => {
-    setStep('roleSelection');
+    setStep("roleSelection");
     setSelectedRole(null);
-    setUserError('');
-    setIssuerError('');
+    setUserError("");
+    setIssuerError("");
     setUser({ fullName: "", email: "", password: "", confirmPassword: "" });
-    setIssuer({ orgName: "", contactName: "", email: "", password: "", confirmPassword: "", documents: null });
+    setIssuer({
+      orgName: "",
+      contactName: "",
+      email: "",
+      password: "",
+      confirmPassword: "",
+      documents: null,
+    });
     setIssuerSubmitted(false);
   };
 
@@ -63,8 +70,8 @@ export default function CreateAccount() {
   const submitUser = async (e) => {
     e.preventDefault();
     setUserError("");
-    console.log('USER SUBMIT FIRED', user);
-    
+    console.log("USER SUBMIT FIRED", user);
+
     if (user.password !== user.confirmPassword) {
       setUserError("User passwords do not match.");
       return;
@@ -73,25 +80,30 @@ export default function CreateAccount() {
       setUserError("Email is required.");
       return;
     }
-    
+
     setUserLoading(true);
     try {
-      console.log('CALLING USER REGISTRATION API');
+      console.log("CALLING USER REGISTRATION API");
       const response = await apiService.registerUser({
-        fullName: user.fullName,
+        // FIX: backend expects "username", not "fullName"
+        username: user.fullName,
         email: user.email,
         password: user.password,
-        role: 'user'
+        role: "user",
+        org: "org1", // optional, but matches backend default
       });
+
       if (response.success) {
-        alert('User registration successful!');
+        alert("User registration successful!");
         navigate("/login");
       } else {
-        setUserError(response.message || response.error || 'Registration failed.');
+        setUserError(
+          response.message || response.error || "Registration failed."
+        );
       }
     } catch (err) {
-      console.log('USER REGISTRATION ERROR', err);
-      setUserError(err.response?.data?.message || 'Registration failed.');
+      console.log("USER REGISTRATION ERROR", err);
+      setUserError(err.response?.data?.message || "Registration failed.");
     } finally {
       setUserLoading(false);
     }
@@ -107,89 +119,94 @@ export default function CreateAccount() {
     }
   };
 
- const submitIssuer = async (e) => {
-  e.preventDefault();
-  setIssuerError("");
-  setIssuerLoading(true);
-  setIssuerSubmitted(false); // ensure success state is reset
+  const submitIssuer = async (e) => {
+    e.preventDefault();
+    setIssuerError("");
+    setIssuerLoading(true);
+    setIssuerSubmitted(false); // ensure success state is reset
 
-  if (issuer.password !== issuer.confirmPassword) {
-    setIssuerError("Issuer passwords do not match.");
-    setIssuerLoading(false);
-    return;
-  }
-
-  if (!issuer.orgName || !issuer.contactName || !issuer.email) {
-    setIssuerError("All fields are required.");
-    setIssuerLoading(false);
-    return;
-  }
-
-  try {
-    console.log("CALLING ISSUER REGISTRATION API");
-
-    // Prepare FormData for file upload
-    const formData = new FormData();
-    formData.append('orgName', issuer.orgName);
-    formData.append('contactName', issuer.contactName);
-    formData.append('email', issuer.email);
-    formData.append('password', issuer.password);
-    formData.append('confirmPassword', issuer.confirmPassword);
-
-    if (issuer.documents && issuer.documents.length > 0) {
-      for (let i = 0; i < issuer.documents.length; i++) {
-        formData.append('documents', issuer.documents[i]);
-      }
-    }
-
-    // This should be your axios wrapper; it must send multipart
-    const response = await apiService.registerIssuer(formData);
-
-    // Backend returns success:true ONLY if accredited (after our controller fix)
-    if (response?.success && response?.accredited === true) {
-      setIssuerSubmitted(true);     // show the “waitlisted” card ONLY for accredited orgs
+    if (issuer.password !== issuer.confirmPassword) {
+      setIssuerError("Issuer passwords do not match.");
       setIssuerLoading(false);
       return;
     }
 
-    // Any other shape is a failure
-    setIssuerError(response?.message || response?.error || 'Registration failed.');
-    setIssuerLoading(false);
-  } catch (err) {
-    console.error('ISSUER REGISTRATION ERROR', err);
+    if (!issuer.orgName || !issuer.contactName || !issuer.email) {
+      setIssuerError("All fields are required.");
+      setIssuerLoading(false);
+      return;
+    }
 
-    // 👇 Explicit handling for non-accredited orgs (403 from backend)
-    if (err?.response?.status === 403) {
-      setIssuerError('Your organization is not accredited. Registration denied.');
+    try {
+      console.log("CALLING ISSUER REGISTRATION API");
+
+      // Prepare FormData for file upload
+      const formData = new FormData();
+      formData.append("orgName", issuer.orgName);
+      formData.append("contactName", issuer.contactName);
+      formData.append("email", issuer.email);
+      formData.append("password", issuer.password);
+      formData.append("confirmPassword", issuer.confirmPassword);
+
+      if (issuer.documents && issuer.documents.length > 0) {
+        for (let i = 0; i < issuer.documents.length; i++) {
+          formData.append("documents", issuer.documents[i]);
+        }
+      }
+
+      const response = await apiService.registerIssuer(formData);
+
+      // Backend returns success:true ONLY if accredited (after controller fix)
+      if (response?.success && response?.accredited === true) {
+        setIssuerSubmitted(true); // show the “waitlisted” card ONLY for accredited orgs
+        setIssuerLoading(false);
+        return;
+      }
+
+      // Any other shape is a failure
+      setIssuerError(
+        response?.message || response?.error || "Registration failed."
+      );
+      setIssuerLoading(false);
+    } catch (err) {
+      console.error("ISSUER REGISTRATION ERROR", err);
+
+      if (err?.response?.status === 403) {
+        setIssuerError(
+          "Your organization is not accredited. Registration denied."
+        );
+        setIssuerSubmitted(false);
+        setIssuerLoading(false);
+        return;
+      }
+
+      if (err?.response?.status === 400) {
+        setIssuerError(err.response.data?.message || "Invalid input.");
+      } else {
+        setIssuerError(
+          err.response?.data?.message ||
+            err.message ||
+            "Server error. Please try again later."
+        );
+      }
+
       setIssuerSubmitted(false);
       setIssuerLoading(false);
-      return;
     }
-
-    if (err?.response?.status === 400) {
-      setIssuerError(err.response.data?.message || 'Invalid input.');
-    } else {
-      setIssuerError(err.response?.data?.message || err.message || 'Server error. Please try again later.');
-    }
-
-    setIssuerSubmitted(false);
-    setIssuerLoading(false);
-  }
-};
-
+  };
 
   // ========== ROLE SELECTION SCREEN ==========
-  if (step === 'roleSelection') {
+  if (step === "roleSelection") {
     return (
       <div className="create-account-wrapper role-selection-wrapper">
         <div className="role-selection-container">
           <h1>What would you like to register as?</h1>
           <p>Choose your role to continue with registration</p>
-          
+
           <div className="role-buttons">
             <button
               className="role-button user-role-btn"
-              onClick={() => handleRoleSelection('user')}
+              onClick={() => handleRoleSelection("user")}
             >
               <div className="role-icon">👤</div>
               <h3>Register as User</h3>
@@ -198,7 +215,7 @@ export default function CreateAccount() {
 
             <button
               className="role-button issuer-role-btn"
-              onClick={() => handleRoleSelection('issuer')}
+              onClick={() => handleRoleSelection("issuer")}
             >
               <div className="role-icon">🏢</div>
               <h3>Register as Issuer</h3>
@@ -211,11 +228,13 @@ export default function CreateAccount() {
   }
 
   // ========== USER REGISTRATION FORM ==========
-  if (step === 'userForm') {
+  if (step === "userForm") {
     return (
       <div className="create-account-wrapper">
-        <button className="back-button" onClick={handleGoBack}>← Back</button>
-        
+        <button className="back-button" onClick={handleGoBack}>
+          ← Back
+        </button>
+
         <div className="form-card">
           <h2>User Registration</h2>
           <form onSubmit={submitUser} method="post">
@@ -254,9 +273,13 @@ export default function CreateAccount() {
               placeholder="Confirm password"
               required
             />
-            {userError && <div style={{ color: 'red', marginBottom: '8px' }}>{userError}</div>}
+            {userError && (
+              <div style={{ color: "red", marginBottom: "8px" }}>
+                {userError}
+              </div>
+            )}
             <button type="submit" className="btn-primary" disabled={userLoading}>
-              {userLoading ? 'Creating Account...' : 'Create User Account'}
+              {userLoading ? "Creating Account..." : "Create User Account"}
             </button>
           </form>
         </div>
@@ -265,11 +288,13 @@ export default function CreateAccount() {
   }
 
   // ========== ISSUER REGISTRATION FORM ==========
-  if (step === 'issuerForm') {
+  if (step === "issuerForm") {
     return (
       <div className="create-account-wrapper">
-        <button className="back-button" onClick={handleGoBack}>← Back</button>
-        
+        <button className="back-button" onClick={handleGoBack}>
+          ← Back
+        </button>
+
         <div className="form-card">
           <h2>Issuer Registration</h2>
           {!issuerSubmitted ? (
@@ -325,26 +350,27 @@ export default function CreateAccount() {
                 onChange={handleIssuerChange}
                 accept=".pdf,.jpg,.png"
               />
-              {issuerError && <div style={{ color: 'red', marginBottom: '8px' }}>{issuerError}</div>}
-              <button type="submit" className="btn-primary" disabled={issuerLoading}>
-                {issuerLoading ? 'Submitting...' : 'Submit Issuer Registration'}
+              {issuerError && (
+                <div style={{ color: "red", marginBottom: "8px" }}>
+                  {issuerError}
+                </div>
+              )}
+              <button
+                type="submit"
+                className="btn-primary"
+                disabled={issuerLoading}
+              >
+                {issuerLoading ? "Submitting..." : "Submit Issuer Registration"}
               </button>
             </form>
           ) : (
             <div className="issuer-message">
+              <p>✅ Your registration has been submitted!</p>
               <p>
-                ✅ Your registration has been submitted!
+                You are waitlisted and your registration is subject to approval.
               </p>
-              <p>
-                You are waitlisted and your registration is subject to approval. 
-              </p>
-              <p>
-                Please wait for confirmation from the admin team.
-              </p>
-              <button
-                className="btn-primary"
-                onClick={() => navigate("/")}
-              >
+              <p>Please wait for confirmation from the admin team.</p>
+              <button className="btn-primary" onClick={() => navigate("/")}>
                 Back to Home
               </button>
             </div>
@@ -353,4 +379,6 @@ export default function CreateAccount() {
       </div>
     );
   }
+
+  return null;
 }

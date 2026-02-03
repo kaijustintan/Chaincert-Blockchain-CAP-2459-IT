@@ -45,7 +45,6 @@ const verifierController = require('../controllers/verifierController');
 const couchDB = require('../couchDB_service'); // NOTE: currently not used inside this routes file, but kept for compatibility / future use
 const multer = require('multer');
 const upload = multer({ storage: multer.memoryStorage() });
-const issuerCredentialController = require('../controllers/issuerCredentialController'); // NOTE: currently not used in this file (maybe used in other versions)
 
 // =========================================================================================================
 // ✅ USER AUTH & ACCOUNT ROUTES (simple pass-through routes)

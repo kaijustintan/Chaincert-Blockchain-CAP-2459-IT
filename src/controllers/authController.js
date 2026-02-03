@@ -66,53 +66,67 @@ const authController = {
     Signup ng student/admin. Safe kasi hashed yung password.
     Note: WalletId removed na, so user record = basic identity info lang.
   */
-  register: async (req, res) => { 
-    try {
-      /* Step 1: Extract request body fields */
-      const { username, email, password, role, org } = req.body;
+  register: async (req, res) => {
+  try {
+    // FOR DEBUGGING: log incoming request body
+    console.log('🔥 HIT /api/auth/register, body =', req.body);
 
-      /* Step 2: Basic validation (required fields) */
-      if (!username || !password || !email) {
-        return res.status(400).json({
-          success: false,
-          message: 'Username, password, and email are required'
-        });
-      }
+    /* Step 1: Extract request body fields */
+    const { username, email, password, role, org } = req.body;
 
-      /* Step 3: Hash password (never store plain text) */
-      const hashedPassword = await bcrypt.hash(password, 10);
+    // FOR DEBUGGING: confirm extracted fields
+    console.log('🧪 Extracted fields:', { username, email, hasPassword: !!password, role, org });
 
-      /* Step 4: Build user document to be stored in CouchDB */
-      const userData = {
-        type: 'user',
-        username,
-        email,
-        password: hashedPassword,
-        role: role || 'student',
-        org: org || 'org1',
-        createdAt: new Date(),
-        isActive: true
-      };
-
-      /* Step 5: Save user in CouchDB (via service layer) */
-      const result = await couchDB.saveUser(userData);
-
-      /* Step 6: Return success response */
-      return res.status(201).json({
-        success: true,
-        message: 'User registered successfully',
-        userId: result.id
-      });
-
-    } catch (error) {
-      /* Step 7: Handle server errors */
-      console.error('Registration error:', error);
-      return res.status(500).json({
+    /* Step 2: Basic validation (required fields) */
+    if (!username || !password || !email) {
+      console.log('❌ Missing required fields in register'); // FOR DEBUGGING
+      return res.status(400).json({
         success: false,
-        message: `Registration error: ${error.message}`
+        message: 'Username, password, and email are required'
       });
     }
-  },
+
+    /* Step 3: Hash password (never store plain text) */
+    console.log('🔐 Hashing password...'); // FOR DEBUGGING
+    const hashedPassword = await bcrypt.hash(password, 10);
+    console.log('🔐 Password hashed'); // FOR DEBUGGING
+
+    /* Step 4: Build user document to be stored in CouchDB */
+    const userData = {
+      type: 'user',
+      username,
+      email,
+      password: hashedPassword,
+      role: role || 'student',
+      org: org || 'org1',
+      createdAt: new Date(),
+      isActive: true
+    };
+
+    console.log('📦 Built userData =', userData); // FOR DEBUGGING
+
+    /* Step 5: Save user in CouchDB (via service layer) */
+    console.log('💾 Calling couchDB.saveUser...'); // FOR DEBUGGING
+    const result = await couchDB.saveUser(userData);
+    console.log('✅ couchDB.saveUser result =', result); // FOR DEBUGGING
+
+    /* Step 6: Return success response */
+    console.log('✅ Sending 201 response for register'); // FOR DEBUGGING
+    return res.status(201).json({
+      success: true,
+      message: 'User registered successfully',
+      userId: result.id
+    });
+
+  } catch (error) {
+    /* Step 7: Handle server errors */
+    console.error('🔥 Registration error:', error); // FOR DEBUGGING
+    return res.status(500).json({
+      success: false,
+      message: `Registration error: ${error.message}`
+    });
+  }
+},
 
   // ========================================================================================================================================================================
 

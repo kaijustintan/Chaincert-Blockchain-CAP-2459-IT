@@ -70,10 +70,45 @@ const upload = multer({ storage: multer.memoryStorage() }); // Multer setup: sto
 const couchdb = require('./couchDB_service'); // CouchDB service layer (handles all CouchDB-related operations)
 const app = express(); // Initializes the Express application instance
 
-const authRoutes = require('../src/routes/authRoutes'); // adjust path kung iba folder structure
-app.use('/api/auth', authRoutes); // “Lahat ng request na nagsisimula sa /api/auth ibato mo sa authRoutes.”
+// ==========================================================================================================================================================================
+// MIDDLEWARE SECTION - ORDER MATTERS!
+// ==========================================================================================================================================================================
 
+/* 
+  Function Name: CORS Middleware
 
+  Technical:
+  Enables Cross-Origin Resource Sharing so that frontend applications
+  from different domains/ports can call the backend APIs.
+
+  Tropang Ex:
+  Para payagan yung frontend (ex: localhost:3000) na kumausap sa backend (localhost:4000).
+  Kung wala ito, blocked agad ng browser.
+  
+  NOTE: MUST BE FIRST before any routes or other middleware
+*/
+app.use(cors({
+  origin: 'http://localhost:3000',  // Allow requests from React frontend
+  credentials: true
+}));
+// ==========================================================================================================================================================================
+
+/* 
+  Function Name: JSON Body Parser
+
+  Technical:
+  Automatically parses incoming request bodies with JSON payloads
+  and makes them accessible via req.body.
+
+  Tropang Ex:
+  Para mabasa ng backend yung data na sinend ng frontend
+  (ex: email, password, credential details).
+  
+  NOTE: MUST BE BEFORE routes so that req.body is populated before controllers run
+*/
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
+// ==========================================================================================================================================================================
 
 /* 
   Function Name: Global Auth Middleware (JWT Parser)
@@ -83,7 +118,7 @@ app.use('/api/auth', authRoutes); // “Lahat ng request na nagsisimula sa /api/
   verifies it using JWT_SECRET, and attaches the decoded user data to req.user.
 
   Tropang Ex:
-  Para siyang bouncer sa entrance. Bawat request chine-check kung may “ID” (JWT token).
+  Para siyang bouncer sa entrance. Bawat request chine-check kung may "ID" (JWT token).
   - Kapag valid → papasukin at may req.user
   - Kapag wala / invalid → req.user = null (guest mode)
 */
@@ -105,39 +140,30 @@ app.use((req, res, next) => {
 });
 // ==========================================================================================================================================================================
 
-/* 
-  Function Name: CORS Middleware
-
-  Technical:
-  Enables Cross-Origin Resource Sharing so that frontend applications
-  from different domains/ports can call the backend APIs.
-
-  Tropang Ex:
-  Para payagan yung frontend (ex: localhost:3000) na kumausap sa backend (localhost:4000).
-  Kung wala ito, blocked agad ng browser.
-*/
-app.use(cors());
+// ==========================================================================================================================================================================
+// ROUTES MOUNTING - MUST COME AFTER ALL MIDDLEWARE
 // ==========================================================================================================================================================================
 
 /* 
-  Function Name: JSON Body Parser
-
+  Route Mounting: authRoutes
+  
   Technical:
-  Automatically parses incoming request bodies with JSON payloads
-  and makes them accessible via req.body.
-
+  Mounts the authentication router at /api/auth path.
+  All routes defined in authRoutes.js will be prefixed with /api/auth.
+  
   Tropang Ex:
-  Para mabasa ng backend yung data na sinend ng frontend
-  (ex: email, password, credential details).
+  "Lahat ng request na nagsisimula sa /api/auth ibato mo sa authRoutes."
+  Example: POST /api/auth/register → handled by authRoutes.js
 */
-app.use(express.json());
+const authRoutes = require('./routes/authRoutes');
+app.use('/api/auth', authRoutes);
 // ==========================================================================================================================================================================
 
 /* 
   Function Name: Docker Client Initialization
 
   Technical:
-  Creates a Docker client instance connected to the host’s Docker daemon
+  Creates a Docker client instance connected to the host's Docker daemon
   via Unix socket.
 
   Tropang Ex:
@@ -152,7 +178,7 @@ const docker = new Docker({ socketPath: '/var/run/docker.sock' });
   Absolute path pointing to the local Hyperledger Fabric samples directory.
 
   Tropang Ex:
-  Ito yung “base folder” kung saan nakalagay lahat ng Fabric config files
+  Ito yung "base folder" kung saan nakalagay lahat ng Fabric config files
   (connection profiles, core.yaml, org folders).
 */
 const FABRIC_SAMPLES_PATH = '/home/kaitanz_/fabric-samples/fabric-samples'; // KAI
@@ -162,12 +188,13 @@ const FABRIC_SAMPLES_PATH = '/home/kaitanz_/fabric-samples/fabric-samples'; // K
   Variable Name: CORE_YAML_PATH
 
   Technical:
-  Absolute path to Fabric’s core.yaml configuration file.
+  Absolute path to Fabric's core.yaml configuration file.
 
   Tropang Ex:
   Config file ng Fabric peer — dito naka-set yung CouchDB, logging, at iba pang low-level blockchain settings.
 */
 const CORE_YAML_PATH = `${FABRIC_SAMPLES_PATH}/config/core.yaml`;
+
 // ==========================================================================================================================================================================
 
 /* 
@@ -1141,66 +1168,10 @@ app.get('/api/credentials/:credentialId/verify', async (req, res) => {
 //                                                                       POST Endpoints
 // ==========================================================================================================================================================================
 
-/*
-  Endpoint: POST /api/register
-  Technical: Registers a new user by storing their credentials and metadata in CouchDB.
-  Tropang Ex: validation shi associated with registration \ Dito nagsasign up yung user para magkaroon ng account sa system. 
-              Hindi pa ito blockchain-related — pang system access pa lang.
-*/
-app.post('/api/register', async (req, res) => {
-  try {
-
-     /* Step 1: Extract and validate required fields
-
-      Technical: Validates required registration fields from request body.
-      Tropang Ex: Chine-check kung kumpleto yung pinasa ng user. Kung may kulang, hindi na siya papayagang mag-register.
-      Example: email, password, role dapat meron.
-    */
-    const { email, password, role, fullName } = req.body;
-    if (!email || !password || !role) {
-      return res.status(400).json({ success: false, error: 'Missing required fields.' });
-    }
-    
-    /* Step 2: Check if user already exists
-
-      Technical: Prevents duplicate user accounts by checking existing records.
-      Tropang Ex: Tinitingnan kung may account na yung ginamit na email.
-      Example: Register twice with same email → error.
-    */
-    const existingUsers = await couchdb.getAllUsers();
-    const userExists = existingUsers.find(u => u.email === email);
-    if (userExists) {
-      return res.status(409).json({ success: false, error: 'User already exists with this email.' });
-    }
-    
-     /* Step 3: Generate walletId for the user
-
-      Technical: Generates a unique wallet identifier for the user.
-      Tropang Ex: Gumagawa ng unique ID na pwedeng i-associate sa future wallet or credentials.
-      Example: wallet_1699999999999
-    */
-    const walletId = `wallet_${Date.now()}`;
-
-    // Step 4: Save user to CouchDB with walletId included
-    const result = await couchdb.saveUser({ email, password, role, fullName, walletId });
-    
-    /* Step 5: Return success response
-
-      Technical: Sends success response with userId and walletId.
-      Tropang Ex: Sinasabi sa frontend na successful yung registration.
-    */
-    res.json({ success: true, userId: result.id, walletId });
-  } catch (err) {
-    res.status(500).json({ success: false, error: err.message });
-  }
-
-});
 
 // ==========================================================================================================================================================================
 
-// ==========================================================================================================================================================================
-
-const issuerCredentialController = require('../src/controllers/issuerCredentialController');
+const issuerCredentialController = require('./controllers/issuerCredentialController');  // UBUNTU DIRECTORY BASED 
 /*
   Endpoint: POST /api/issuer/credentials/create
 
@@ -1211,8 +1182,9 @@ const issuerCredentialController = require('../src/controllers/issuerCredentialC
   Tropang explanation:
 Parang receptionist lang siya. Tumatanggap ng request, tapos ituturo kung sino ang gagawa ng trabaho.
 */
+// ✅ CORRECT
 app.post('/api/issuer/credentials/create', (req, res) => {
-  issuerCredentialController.createCredential(req, res, getContractAndGateway);
+  issuerCredentialController.Create_CredentialTemplate(req, res, getContractAndGateway);
 });
 // ==========================================================================================================================================================================
 

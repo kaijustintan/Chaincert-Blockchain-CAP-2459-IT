@@ -612,9 +612,10 @@ app.get('/api/credentials/issued', async (req, res) => {
        Tropang Ex:
        Kailangan natin ng “key” para sabihin sa chaincode: “bigay mo lahat ng issued credentials ni issuer X”.
     */
-    const issuerIdToQuery = user.role === 'issuer'
-      ? (user._id || user.email)
-      : 'ISSUER'; // TODO: refine if admin needs to target a specific issuer
+    const issuerIdToQuery = user.role === 'issuer' 
+      ? user.id  // ✅ NEW - consistent with creation
+      : 'ISSUER';
+
 
     /* Step 5: Query chaincode for ISSUED credentials only
 
@@ -732,9 +733,10 @@ app.get('/api/credentials/templates', async (req, res) => {
        Tropang Ex:
        Ito yung “sino ang issuer na gusto nating kunan ng templates?”.
     */
-    const issuerIdToQuery = user.role === 'issuer'
-      ? (user._id || user.email)
-      : 'ISSUER'; // TODO: refine if admin needs to target specific issuer templates
+    
+    const issuerIdToQuery = user.role === 'issuer' 
+      ? user.id  // ✅ NEW - consistent with creation
+      : 'ISSUER';
 
     /* Step 5: Query chaincode for TEMPLATES only
 

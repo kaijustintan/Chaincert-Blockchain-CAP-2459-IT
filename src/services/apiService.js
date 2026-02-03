@@ -342,6 +342,21 @@ const apiService = {
     }
   },
 
+  /**
+   * Function Name: getAllUsers
+   * Technical: Fetches all non-admin users from backend.
+   * Tropang Ex: Kinukuha lahat ng users para sa dropdown ng "Select Recipient".
+   */
+  getAllUsers: async () => {
+    try {
+      console.log("Fetching all users for recipient dropdown...");
+      const response = await axios.get('/users');
+      return response.data.users || []; // Backend returns { success: true, users: [...] }
+    } catch (error) {
+      console.error('Error fetching all users:', error.response?.data?.message || error.message);
+      throw error;
+    }
+  },
 
   // ==========================================================================================================================================================================
   //                                                               ADMIN / ISSUER REVIEW
@@ -559,7 +574,7 @@ const apiService = {
       1) magsulat sa blockchain (IssueCredential)
       2) mag-save sa CouchDB (issued_credentials + wallet_user_credentials).
   */
-  Issue_CredentialInstance: async (credentialId, holderID, expiryDate) => {
+  Issue_CredentialToUser: async (credentialId, holderID, expiryDate) => {
     try {
       /* Step 1: POST issuance request to backend
          Technical:

@@ -1237,6 +1237,22 @@ app.post('/api/credentials/:credentialId/issue', (req, res) => {
 });
 // ==========================================================================================================================================================================
 
+/*
+  Endpoint: POST /api/credentials/:credentialId/revoke
+
+  Technical:
+  Delegates credential revocation logic to issuerCredentialController.revokeCredential.
+
+  - Expects :credentialId to be the BLOCKCHAIN credential ID (e.g. "cred_1770...").
+  - Controller is responsible for:
+      1) Calling the chaincode function `RevokeCredential` via getContractAndGateway.
+      2) Syncing revocation to CouchDB copies via couchDB_service.revokeCredential(blockchainId, issuerEmail).
+*/
+app.post('/api/credentials/:credentialId/revoke', (req, res) => {
+  issuerCredentialController.revoke_Credential(req, res, getContractAndGateway);
+});
+// ==========================================================================================================================================================================
+
 const PORT = 4000;
 app.listen(PORT, () => {
   console.log(`✅ API running on :${PORT}`);

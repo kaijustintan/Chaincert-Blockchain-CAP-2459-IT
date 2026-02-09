@@ -850,5 +850,154 @@ exports.get_IssuerCredentialsHistory = async (req, res, getContractAndGateway) =
 
 // ==========================================================================================================================================================================
 
+// ==========================================================================================================================================================================
+//                                                          CREDENTIAL REVOCATION (BLOCKCHAIN + COUCHDB)
+// ==========================================================================================================================================================================
+
+/*
+  Function Name: revoke_Credential
+
+  Technical:
+  Revokes a credential INSTANCE by:
+    - Resolving the issuer/admin Fabric identity
+    - Calling chaincode RevokeCredential on the blockchain
+    - Then marking the credential as revoked in BOTH CouchDB copies via service:
+        * Issuer CouchDB: issued_credentials
+        * Admin CouchDB: wallet_user_credentials
+
+  Tropang Ex:
+  Ito yung "Revoke Credential" flow:
+    1) Ia-update muna sa blockchain na revoked na yung credential.
+    2) Pag okay, ia-update yung kopya sa CouchDB ni issuer at sa main DB
+       para tama ang status sa dashboards at verification.
+*/
+exports.revoke_Credential = async (req, res, getContractAndGateway) => {
+  try {
+    /* Step 1: Extract credentialId from req.params
+
+       Tropang Ex:
+       Ito yung blockchain credential ID na ginamit din sa IssueCredential,
+       e.g. "cred_1770....holder....timestamp".
+    */
+    const { credentialId } = req.params;
+    if (!credentialId) {
+      return res.status(400).json({
+        success: false,
+        error: 'credentialId (blockchain ID) is required'
+      });
+    }
+
+    /* Step 2: Check if user is authenticated (JWT/session) */
+    const user = req.user;
+    if (!user) {
+      return res.status(401).json({
+        success: false,
+        error: 'Unauthorized'
+      });
+    }
+
+    /* Step 3: Get Fabric identityName + orgName based on role (issuer/admin)
+
+       Tropang Ex:
+       Dito natin chine-check kung sino ang pipirma sa blockchain transaction.
+    */
+    let identityName;
+    let orgName;
+    let issuerDoc;
+
+    if (user.role === 'issuer') {
+      // Issuer → fetch approved issuerDoc via CouchDB service (by email)
+      issuerDoc = await couchdbService.getApprovedIssuer(user.email);
+      if (!issuerDoc || !issuerDoc.fabricIdentity || !issuerDoc.orgName) {
+        return res.status(403).json({
+          success: false,
+          error: 'Issuer not approved or Fabric identity missing.'
+        });
+      }
+
+      identityName = issuerDoc.fabricIdentity;
+      orgName = issuerDoc.orgName;
+
+    } else if (user.role === 'admin') {
+      // Admin → use Org1 admin identity (same pattern as issue)
+      identityName = 'admin';
+      orgName = 'Org1';
+
+    } else {
+      return res.status(403).json({
+        success: false,
+        error: 'Not authorized to revoke credentials.'
+      });
+    }
+
+    /* Step 4: Connect to blockchain as resolved identity/org */
+    console.log(`[REVOKE] Revoking credential on blockchain...`);
+    const { gateway, contract } = await getContractAndGateway(identityName, orgName);
+
+    /* Step 5: Submit RevokeCredential transaction to BLOCKCHAIN
+
+       Technical:
+       Uses blockchain ID only (no CouchDB prefixes).
+    */
+    const result = await contract.submitTransaction(
+      'RevokeCredential',
+      credentialId
+    );
+
+    const revokedCredential = JSON.parse(result.toString());
+    console.log(`✅ [REVOKE] Blockchain success. Credential ID: ${revokedCredential.id}`);
+
+    /* Step 6: Disconnect Fabric gateway after blockchain transaction */
+    await gateway.disconnect();
+
+    /* Step 7: Sync revocation to CouchDB copies
+
+       Technical:
+       - Uses couchdbService.revokeCredential(blockchainId, issuerEmail)
+       - blockchainId = revokedCredential.id (same as credentialId)
+       - issuerEmail = user.email (current issuer/admin actor)
+    */
+    try {
+      console.log(`[REVOKE] Updating CouchDB copies (issuer + admin)...`);
+
+      const couchResult = await couchdbService.revokeCredential(
+        revokedCredential.id,   // blockchainId (cred_...)
+        user.email              // issuerEmail
+      );
+
+      console.log(`[REVOKE] ✅ CouchDB revoke successful`);
+
+      /* Step 8: Return COMPLETE success response (blockchain + CouchDB ok) */
+      return res.status(200).json({
+        success: true,
+        message: 'Credential revoked successfully (blockchain + CouchDB)',
+        credential: revokedCredential,
+        couchDB: couchResult,
+        timestamp: new Date().toISOString()
+      });
+
+    } catch (couchErr) {
+      console.error(`[REVOKE] ⚠️ CouchDB revoke failed (non-fatal):`, couchErr.message);
+
+      /* Step 8B: Return PARTIAL success (blockchain only, CouchDB sync failed) */
+      return res.status(200).json({
+        success: true,
+        message: 'Credential revoked on blockchain (CouchDB sync failed)',
+        credential: revokedCredential,
+        warning: couchErr.message,
+        timestamp: new Date().toISOString()
+      });
+    }
+
+  } catch (error) {
+    console.error('❌ [REVOKE] Error revoking credential:', error.message);
+    return res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+};
+// ==========================================================================================================================================================================
+
 
 module.exports = exports;

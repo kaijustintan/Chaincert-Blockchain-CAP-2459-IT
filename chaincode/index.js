@@ -257,15 +257,34 @@ class ChainCertContract extends Contract {
        - May expiryDate kung meron,
        - Marked as isTemplate = false (ibig sabihin issued na, hindi na template).
     */
-    const credentialInstance = {
-      ...template,
+      const credentialInstance = {
+      // 1. Identity of this issued instance
       id: `${templateId}_${holderID}_${txTimestamp.seconds}${txTimestamp.nanos}`,
-      txId: txId,  // Add transaction ID for additional uniqueness
-      holderID: holderID,  // ✅ NOW we assign the holder
+
+      // 2. Holder & issuer
+      holderID: holderID,
+      issuerID: template.issuerID,
+
+      // 3. Core template fields
+      credentialType: template.credentialType,
+      credentialName: template.credentialName,
+      description: template.description,
+
+      // 4. Dates & status
+      issuedDate: template.issuedDate,
+      status: 'issued',
       expiryDate: expiryDate || '',
-      isTemplate: false,   // This is an actual instance
-      assignedDate: new Date(txTimestamp.seconds * 1000 + Math.floor(txTimestamp.nanos / 1000000)).toISOString(),
-      status: 'issued'
+      assignedDate: new Date(
+        txTimestamp.seconds * 1000 + Math.floor(txTimestamp.nanos / 1000000)
+      ).toISOString(),
+
+      // 5. Metadata & versioning
+      metadata: template.metadata,
+      version: template.version,
+      isTemplate: false,
+
+      // 6. Traceability
+      txId: txId
     };
 
     /* Step 5: Write the issued credential instance to the ledger
@@ -449,49 +468,75 @@ class ChainCertContract extends Contract {
     Ito yung opisyal na “pag-disable” ng credential sa ledger. Pag na-revoke na, hindi na siya dapat pumasa sa verification.
   */
   async RevokeCredential(ctx, id) {
-    
-    /* Step 1: Load credential from ledger
 
-       Tropang Ex:
-       “Hanapin muna yung credential na gusto mong i-revoke.”
-    */
-    const credentialJSON = await ctx.stub.getState(id);
-    if (!credentialJSON || credentialJSON.length === 0) {
-      throw new Error(`Credential ${id} does not exist`);
-    }
+  /* Step 1: Load credential from ledger
 
-    /* Step 2: Parse and update status to revoked
-
-       Technical:
-       - JSON.parse
-       - credential.status = 'revoked'
-       - credential.revokedAt = new Date().toISOString()
-
-       Tropang Ex:
-       Binabago niya yung status ng credential to 'revoked' at nilalagyan ng oras kung kailan siya na-revoke.
-    */
-    const credential = JSON.parse(credentialJSON.toString());
-    credential.status = 'revoked';
-    credential.revokedAt = new Date().toISOString();
-
-    /* Step 3: Write updated credential back to ledger
-
-       Technical:
-       putState(id, JSON.stringify(credential)).
-    */
-    await ctx.stub.putState(id, Buffer.from(JSON.stringify(credential)));
-    console.log('✅ Credential revoked:', id);
-
-    /* Step 4: Return the updated credential
-
-       Technical:
-       Returns JSON string with revoked status.
-
-       Tropang Ex:
-       Ibinabalik sa caller yung bagong version ng credential na may revoked flag.
-    */
-    return JSON.stringify(credential);
+     Tropang Ex:
+     “Hanapin muna yung credential na gusto mong i-revoke.”
+  */
+  const credentialJSON = await ctx.stub.getState(id);
+  if (!credentialJSON || credentialJSON.length === 0) {
+    throw new Error(`Credential ${id} does not exist`);
   }
+
+  /* Step 2: Parse and update status to revoked (DETERMINISTIC TIME)
+
+     Technical:
+     - JSON.parse
+     - credential.status = 'revoked'
+     - credential.revokedAt uses ctx.stub.getTxTimestamp() so all peers compute the same value.
+
+     Tropang Ex:
+     Binabago niya yung status ng credential to 'revoked' at nilalagyan ng oras kung kailan siya na‑revoke,
+     gamit yung oras galing sa mismong blockchain transaction (pare‑pareho sa lahat ng peers).
+  */
+  const credential = JSON.parse(credentialJSON.toString());
+
+  const txTimestamp = ctx.stub.getTxTimestamp();
+  const revokedAt = new Date(
+    txTimestamp.seconds * 1000 + Math.floor(txTimestamp.nanos / 1000000)
+  ).toISOString();
+
+  // Instead of mutating and re‑stringify as‑is (na pwedeng iba ang field order per peer),
+  // buuin natin ulit sa canonical / fixed field order para deterministic ang ProposalResponsePayload.
+  const updatedCredential = {
+    id: credential.id,
+    holderID: credential.holderID,
+    issuerID: credential.issuerID,
+    credentialType: credential.credentialType,
+    credentialName: credential.credentialName,
+    description: credential.description,
+    issuedDate: credential.issuedDate,
+    status: 'revoked',
+    expiryDate: credential.expiryDate || '',
+    assignedDate: credential.assignedDate,
+    metadata: credential.metadata,
+    version: credential.version,
+    isTemplate: credential.isTemplate,
+    txId: credential.txId,
+    revokedAt: revokedAt
+  };
+
+  /* Step 3: Write updated credential back to ledger
+
+     Technical:
+     putState(id, JSON.stringify(credential)).
+  */
+  await ctx.stub.putState(id, Buffer.from(JSON.stringify(updatedCredential)));
+  console.log('✅ Credential revoked:', id);
+
+  /* Step 4: Return the updated credential
+
+     Technical:
+     Returns JSON string with revoked status.
+
+     Tropang Ex:
+     Ibinabalik sa caller yung bagong version ng credential na may revoked flag.
+  */
+  return JSON.stringify(updatedCredential);
+}
+
+
 // ==========================================================================================================================================================================
 
   // =========================================================================================================

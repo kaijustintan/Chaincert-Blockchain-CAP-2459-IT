@@ -8,7 +8,7 @@
   TECHNICAL: Authentication + account + issuer admin logic
   TROPA: “Brain” ng auth endpoints.
    Used when:
-  - may nag-register/login (user or issuer)
+  - may nag-register/login (user or issue
   - may nag-update ng profile/password/pfp
   - admin actions: view pending issuers, approve/reject
   - issuer dashboard wants fast CouchDB fetch of credentials

@@ -22,6 +22,10 @@ const nano = require('nano');
 // couchDB connection where wallet_user_credentials is
 const COUCHDB_URL = 'http://admin:adminpw@localhost:5985';
 
+
+
+
+
 /**
  * Function Name: verifyCredentialByID
  *

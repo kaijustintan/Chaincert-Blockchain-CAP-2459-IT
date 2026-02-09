@@ -31,8 +31,16 @@ export default function IssuerDashboard() {
   const [issueLoading, setIssueLoading] = useState(false);
   const [availableUsers, setAvailableUsers] = useState([]);
 
-  // CHANGES: separate state for TEMPLATE options (for dropdown)
-  const [templateOptions, setTemplateOptions] = useState([]); // CHANGES
+  // Revoke Credential Modal State
+  const [showRevokeModal, setShowRevokeModal] = useState(false);
+  const [revokeForm, setRevokeForm] = useState({
+    credentialId: "",
+  });
+  const [revokeError, setRevokeError] = useState("");
+  const [revokeLoading, setRevokeLoading] = useState(false);
+
+  // separate state for TEMPLATE options (for dropdown)
+  const [templateOptions, setTemplateOptions] = useState([]);
 
   // Filter state
   const [sortBy, setSortBy] = useState("issuedDate-desc");
@@ -42,7 +50,7 @@ export default function IssuerDashboard() {
   // Fetch credentials on page load
   useEffect(() => {
     fetchCredentials();
-    fetchTemplateOptions(); // CHANGES
+    fetchTemplateOptions();
     fetchAvailableUsers();
   }, []);
 
@@ -67,11 +75,9 @@ export default function IssuerDashboard() {
     try {
       setLoading(true);
 
-      // Optional: still log current user for debugging
       const user = JSON.parse(localStorage.getItem("user"));
       console.log("Fetching ISSUED credentials for issuer:", user?.id);
 
-      // NEW: use blockchain issued-credentials endpoint
       const data = await apiService.Get_IssuedCredentials();
 
       setCredentials(Array.isArray(data) ? data : []);
@@ -95,16 +101,16 @@ export default function IssuerDashboard() {
     }
   };
 
-  // CHANGES: fetch TEMPLATE credentials for dropdown
-  const fetchTemplateOptions = async () => { // CHANGES
+  // fetch TEMPLATE credentials for dropdown
+  const fetchTemplateOptions = async () => {
     try {
-      const data = await apiService.Get_CredentialTemplates(); // CHANGES
-      setTemplateOptions(Array.isArray(data) ? data : []); // CHANGES
-      console.log("Fetched credential TEMPLATES:", data); // CHANGES
+      const data = await apiService.Get_CredentialTemplates();
+      setTemplateOptions(Array.isArray(data) ? data : []);
+      console.log("Fetched credential TEMPLATES:", data);
     } catch (err) {
-      console.error("Error fetching credential templates:", err); // CHANGES
+      console.error("Error fetching credential templates:", err);
     }
-  }; // CHANGES
+  };
 
   const fetchAvailableUsers = async () => {
     try {
@@ -117,39 +123,42 @@ export default function IssuerDashboard() {
 
   // Sorting logic
   const applySorting = (array, sortOption) => {
-  const sorted = [...array];
-  switch (sortOption) {
-    case 'issuedDate-desc':
-      sorted.sort((a, b) => 
-        new Date(b.issuedDate || b.createdAt || 0) - new Date(a.issuedDate || a.createdAt || 0)
-      );
-      break;
-    case 'issuedDate-asc':
-      sorted.sort((a, b) => 
-        new Date(a.issuedDate || a.createdAt || 0) - new Date(b.issuedDate || b.createdAt || 0)
-      );
-      break;
-    case 'expiryDate-desc':
-      sorted.sort((a, b) => 
-        new Date(b.expiryDate || 0) - new Date(a.expiryDate || 0)
-      );
-      break;
-    case 'expiryDate-asc':
-      sorted.sort((a, b) => 
-        new Date(a.expiryDate || 0) - new Date(b.expiryDate || 0)
-      );
-      break;
-    case 'credentialType-asc':
-      sorted.sort((a, b) => 
-        (a.credentialType || '').localeCompare(b.credentialType || '')
-      );
-      break;
-    default:
-      break;
-  }
-  return sorted;
-};
-
+    const sorted = [...array];
+    switch (sortOption) {
+      case "issuedDate-desc":
+        sorted.sort(
+          (a, b) =>
+            new Date(b.issuedDate || b.createdAt || 0) -
+            new Date(a.issuedDate || a.createdAt || 0)
+        );
+        break;
+      case "issuedDate-asc":
+        sorted.sort(
+          (a, b) =>
+            new Date(a.issuedDate || a.createdAt || 0) -
+            new Date(b.issuedDate || b.createdAt || 0)
+        );
+        break;
+      case "expiryDate-desc":
+        sorted.sort(
+          (a, b) => new Date(b.expiryDate || 0) - new Date(a.expiryDate || 0)
+        );
+        break;
+      case "expiryDate-asc":
+        sorted.sort(
+          (a, b) => new Date(a.expiryDate || 0) - new Date(b.expiryDate || 0)
+        );
+        break;
+      case "credentialType-asc":
+        sorted.sort((a, b) =>
+          (a.credentialType || "").localeCompare(b.credentialType || "")
+        );
+        break;
+      default:
+        break;
+    }
+    return sorted;
+  };
 
   const getUniqueCredentialTypes = () => {
     const types = new Set(
@@ -162,15 +171,45 @@ export default function IssuerDashboard() {
     navigate("/issuer/history");
   };
 
-  const handleRevoke = async (credentialId) => {
-    if (window.confirm("Are you sure you want to revoke this credential?")) {
-      try {
-        await apiService.revokeCredential(credentialId);
-        alert("Credential revoked successfully!");
-        fetchCredentials();
-      } catch (err) {
-        alert("Error revoking credential: " + err.message);
+  // Revoke Modal handlers
+  const openRevokeModal = () => {
+    setShowRevokeModal(true);
+    setRevokeError("");
+    setRevokeForm({ credentialId: "" });
+  };
+
+  const closeRevokeModal = () => {
+    setShowRevokeModal(false);
+    setRevokeError("");
+    setRevokeLoading(false);
+  };
+
+  const handleRevokeFormChange = (e) => {
+    const { name, value } = e.target;
+    setRevokeForm((prev) => ({ ...prev, [name]: value }));
+  };
+
+  const handleRevokeSubmit = async (e) => {
+    e.preventDefault();
+    setRevokeLoading(true);
+    setRevokeError("");
+
+    try {
+      if (!revokeForm.credentialId) {
+        setRevokeError("Please select a credential to revoke");
+        setRevokeLoading(false);
+        return;
       }
+
+      await apiService.Revoke_CredentialInstance(revokeForm.credentialId);
+      alert("Credential revoked successfully!");
+      closeRevokeModal();
+      fetchCredentials();
+    } catch (err) {
+      console.error("Error revoking credential:", err);
+      setRevokeError(err?.message || "Failed to revoke credential");
+    } finally {
+      setRevokeLoading(false);
     }
   };
 
@@ -209,27 +248,24 @@ export default function IssuerDashboard() {
         return;
       }
 
-      // ✅ Generate credential ID on CLIENT SIDE
       const credentialId = `cred_${Date.now()}_${Math.random()
         .toString(36)
         .substring(2, 17)}`;
 
       console.log(`[CLIENT] Generated credential ID: ${credentialId}`);
 
-      // ✅ Send ALL fields to backend
       await apiService.Create_CredentialTemplate({
-        id: credentialId, // ✅ ADD THIS
+        id: credentialId,
         credentialType: createForm.credentialType,
         credentialName: createForm.credentialName,
         description: createForm.description,
         metadata: createForm.metadata,
-        // expiryDate: (add this if you want to set expiry during creation)
       });
 
       alert("Credential created successfully!");
       closeCreateModal();
       fetchCredentials();
-      fetchTemplateOptions(); // CHANGES – refresh template list after create
+      fetchTemplateOptions();
     } catch (err) {
       setCreateError(err?.message || "Failed to create credential");
     } finally {
@@ -271,12 +307,10 @@ export default function IssuerDashboard() {
         return;
       }
 
-      // ✅ FIXED: Pass TWO SEPARATE PARAMETERS instead of an object
-      // The function signature is: issueCredential(credentialId, holderID)
       await apiService.Issue_CredentialToUser(
         issueForm.credentialId,
         issueForm.recipientId,
-        issueForm.expiryDate // ← ADD THIS LINE
+        issueForm.expiryDate
       );
 
       alert("Credential issued successfully!");
@@ -315,6 +349,7 @@ export default function IssuerDashboard() {
   return (
     <div className="issuer-dashboard">
       <h2>Issuer Dashboard</h2>
+
       {/* Create Credential Button */}
       <div style={{ margin: "20px 0" }}>
         <button onClick={openCreateModal} className="action-btn create-btn">
@@ -326,6 +361,16 @@ export default function IssuerDashboard() {
       <div style={{ margin: "20px 0" }}>
         <button onClick={openIssueModal} className="action-btn issue-btn">
           + Issue Credential
+        </button>
+      </div>
+
+      {/* Revoke Credential Button */}
+      <div style={{ margin: "20px 0" }}>
+        <button
+          onClick={openRevokeModal}
+          className="action-btn revoke-btn"
+        >
+          Revoke Credential
         </button>
       </div>
 
@@ -425,12 +470,11 @@ export default function IssuerDashboard() {
                   required
                 >
                   <option value="">-- Select a credential --</option>
-                  {/* CHANGES: use templateOptions for dropdown */}
-                  {templateOptions.map((cred) => ( // CHANGES
-                    <option key={cred.id || cred._id} value={cred.id || cred._id}> {/* CHANGES */}
+                  {templateOptions.map((cred) => (
+                    <option key={cred.id || cred._id} value={cred.id || cred._id}>
                       {cred.credentialName} ({cred.credentialType})
                     </option>
-                  ))} {/* CHANGES */}
+                  ))}
                 </select>
               </div>
 
@@ -489,6 +533,72 @@ export default function IssuerDashboard() {
             </form>
           </div>
           <div className="modal-backdrop" onClick={closeIssueModal}></div>
+        </div>
+      )}
+
+      {/* Revoke Credential Modal */}
+      {showRevokeModal && (
+        <div className="modal-overlay">
+          <div className="modal">
+            <h3>Revoke Credential</h3>
+            <form onSubmit={handleRevokeSubmit}>
+              <div className="form-group">
+                <label>Select Issued Credential:</label>
+                <select
+                  name="credentialId"
+                  value={revokeForm.credentialId}
+                  onChange={handleRevokeFormChange}
+                  required
+                >
+                  <option value="">-- Select issued credential --</option>
+                  {credentials
+                    .filter(
+                      (c) =>
+                        c.status === "issued" ||
+                        !c.status ||
+                        c.status === "active"
+                    )
+                    .map((cred) => {
+                      const blockchainId = cred.blockchainId || cred.id;
+                      const shortId = blockchainId?.slice(0, 16) || "";
+                      return (
+                        <option key={blockchainId} value={blockchainId}>
+                          {cred.credentialName || "Untitled"} (
+                          {cred.credentialType || "N/A"})
+                          {cred.holderID ? ` – ${cred.holderID}` : ""}
+                          {shortId ? ` – ${shortId}…` : ""}
+                        </option>
+                      );
+                    })}
+                </select>
+              </div>
+
+              {revokeError && (
+                <div className="form-error" style={{ color: "red" }}>
+                  {revokeError}
+                </div>
+              )}
+
+              <div style={{ marginTop: "1em" }}>
+                <button
+                  type="submit"
+                  className="action-btn revoke-btn"
+                  disabled={revokeLoading}
+                >
+                  {revokeLoading ? "Revoking..." : "Revoke"}
+                </button>
+                <button
+                  type="button"
+                  onClick={closeRevokeModal}
+                  className="action-btn"
+                  style={{ marginLeft: 8 }}
+                >
+                  Cancel
+                </button>
+              </div>
+            </form>
+          </div>
+          <div className="modal-backdrop" onClick={closeRevokeModal}></div>
         </div>
       )}
 
@@ -587,51 +697,48 @@ export default function IssuerDashboard() {
               </tr>
             </thead>
             <tbody>
-              {filteredCredentials.map((credential) => (
-                <tr key={credential.blockchainId || credential.id }>
-                  <td>{credential.blockchainId || credential.id  || "N/A"}</td>
-                  <td>{credential.credentialType || "N/A"}</td>
-                  <td>{credential.credentialName || "N/A"}</td>
-                  <td>{credential.description || "N/A"}</td>
-                  <td>
-                    {credential.issuedDate
-                      ? new Date(credential.issuedDate).toLocaleDateString()
-                      : "N/A"}
-                  </td>
-                  <td>
-                    <span
-                      className={`status-badge status-${
-                        credential.status || "active"
-                      }`}
-                    >
-                      {credential.status || "active"}
-                    </span>
-                  </td>
-                  <td>
-                    {credential.expiryDate
-                      ? new Date(credential.expiryDate).toLocaleDateString()
-                      : "N/A"}
-                  </td>
-                  <td>
-                    {(credential.status === "active" ||
-                      !credential.status) && (
-                      <button
-                        onClick={() => handleRevoke(credential._id)}
-                        className="action-btn revoke-btn"
+              {filteredCredentials.map((credential) => {
+                const blockchainId = credential.blockchainId || credential.id;
+
+                return (
+                  <tr key={blockchainId}>
+                    <td>{blockchainId || "N/A"}</td>
+                    <td>{credential.credentialType || "N/A"}</td>
+                    <td>{credential.credentialName || "N/A"}</td>
+                    <td>{credential.description || "N/A"}</td>
+                    <td>
+                      {credential.issuedDate
+                        ? new Date(credential.issuedDate).toLocaleDateString()
+                        : "N/A"}
+                    </td>
+                    <td>
+                      <span
+                        className={`status-badge status-${
+                          credential.status || "active"
+                        }`}
                       >
-                        Revoke
-                      </button>
-                    )}
-                    {credential.status && credential.status !== "active" && (
-                      <span className="action-text">
-                        {credential.status === "revoked"
-                          ? "Revoked"
-                          : "Expired"}
+                        {credential.status || "active"}
                       </span>
-                    )}
-                  </td>
-                </tr>
-              ))}
+                    </td>
+                    <td>
+                      {credential.expiryDate
+                        ? new Date(credential.expiryDate).toLocaleDateString()
+                        : "N/A"}
+                    </td>
+                    <td>
+                      {credential.status &&
+                        credential.status !== "issued" &&
+                        credential.status !== "active" && (
+                          <span className="action-text">
+                            {credential.status === "revoked"
+                              ? "Revoked"
+                              : "Expired"}
+                          </span>
+                        )}
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>

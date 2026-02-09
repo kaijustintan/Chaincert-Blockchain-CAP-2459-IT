@@ -698,6 +698,57 @@ const apiService = {
   },
 // ==========================================================================================================================================================================
 
+  /*
+    Function Name: Revoke_CredentialInstance
+
+    Technical:
+    Revokes a credential INSTANCE by calling:
+      POST /credentials/:credentialId/revoke
+
+    Sends:
+      - credentialId (URL param, blockchain ID e.g. "cred_1770...")
+      (no body needed for now; backend uses JWT to know which issuer/admin acts)
+
+    Tropang Ex:
+    Ito yung "Revoke" button sa issuer/admin dashboard.
+    Kapag tinawag, ia-update ng backend yung status sa:
+      1) blockchain (RevokeCredential)
+      2) CouchDB copies (issued_credentials + wallet_user_credentials).
+  */
+  Revoke_CredentialInstance: async (credentialId) => {
+    try {
+      /* Step 1: POST revoke request to backend
+         Technical:
+         Calls /credentials/:credentialId/revoke with no extra body.
+      */
+      const response = await axios.post(
+        `/credentials/${credentialId}/revoke`
+      );
+
+      /* Step 2: Return backend result
+         Tropang Ex:
+         Ibinabalik dito yung buong result ng revocation:
+           - success flag
+           - message
+           - updated credential data
+           - CouchDB sync info.
+      */
+      return response.data;
+
+    } catch (error) {
+      /* Step 3: Handle revoke errors
+         Tropang Ex:
+         Kapag pumalya sa blockchain or CouchDB, dito magla-log at ipapasa
+         yung error pabalik sa UI para ma-handle (toast/alert).
+      */
+      console.error(
+        'Error revoking credential:',
+        error.response?.data?.message || error.message
+      );
+      throw error;
+    }
+  },
+// ==========================================================================================================================================================================
 
   // ==========================================================================================================================================================================
   //                                                               DEBUG / UTIL

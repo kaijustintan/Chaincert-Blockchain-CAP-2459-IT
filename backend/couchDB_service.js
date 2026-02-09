@@ -1212,51 +1212,121 @@ async function deleteIssuerCredentialTemplate(credentialId, issuerEmail) {
 }
 // ==========================================================================================================================================================================
 
-/* 
+/*
   Function Name: revokeCredential
 
-  Technical: Marks a credential doc as revoked in issuer’s CouchDB (wallet_issuer_credentials).
-            Does NOT delete; just updates status + revokedAt.
+  Technical:
+  Revokes an issued credential in BOTH:
+  1) Issuer's CouchDB (`issued_credentials` DB)
+  2) Admin/main CouchDB (`wallet_user_credentials` DB)
 
-  ⚠️ Super important note:
-  - This is CouchDB-only revoke. If you also need blockchain revoke, ibang call dapat yun (chaincode).
+  Rules:
+  - Does NOT delete any document.
+  - Sets:
+      status = 'revoked'
+      revokedAt = <ISO timestamp>
+  - Expects the caller to pass the BLOCKCHAIN credential ID (credentialData.id),
+    NOT the CouchDB-prefixed IDs.
+
+  Tropang Ex:
+  Pag nag-revoke ka ng credential:
+  - Ia-update yung kopya sa DB ni issuer (para sa issuer dashboard).
+  - Ia-update din yung kopya sa admin DB / user wallet (para sa holder view / verification).
 */
-async function revokeCredential(credentialId, issuerEmail) {
-  try {
 
-    /* Step 1: Resolve issuer + connect to wallet DB */
+async function revokeCredential(blockchainId, issuerEmail) {
+  try {
+    if (!blockchainId) {
+      throw new Error('blockchainId is required to revoke credential');
+    }
+
+    // =========================================================
+    // Step 1: Resolve issuer & basic validation
+    // =========================================================
+    if (!issuersDB) {
+      await initializeDatabases();
+    }
+
     const issuer = await getIssuerByEmail(issuerEmail);
     if (!issuer || !issuer.couchDBUrl) {
-      throw new Error(`Issuer ${issuerEmail} not found`);
+      throw new Error(`Issuer ${issuerEmail} not found or has no CouchDB URL configured`);
     }
 
+    // =========================================================
+    // Step 2: Revoke in ISSUER CouchDB (issued_credentials)
+    // =========================================================
     const issuerCouch = require('nano')(issuer.couchDBUrl);
-    const walletDb = issuerCouch.use('wallet_issuer_credentials');
-    
-    /* Step 2: Find doc by _id */
-    const result = await walletDb.find({
-      selector: { _id: credentialId },
-      limit: 1
-    });
-    
-    if (result.docs.length === 0) {
-      throw new Error(`Credential ${credentialId} not found`);
+    const issuerIssuedDb = issuerCouch.use('issued_credentials');
+
+    // Match saveIssuedCredentialToBothDBs: issuer_cred_<blockchainId>
+    const issuerDocId = `issuer_cred_${blockchainId}`;
+
+    let issuerDoc;
+    try {
+      issuerDoc = await issuerIssuedDb.get(issuerDocId);
+    } catch (err) {
+      if (err.statusCode === 404) {
+        throw new Error(`Issuer credential document not found: ${issuerDocId}`);
+      }
+      throw err;
     }
-    
-    /* Step 3: Update status to revoked + timestamp, then re-insert */
-    const doc = result.docs[0];
-    doc.status = 'revoked';
-    doc.revokedAt = new Date().toISOString();
-    await walletDb.insert(doc);
-    
-    console.log(`[COUCHDB] Credential ${credentialId} revoked`);
-    return { success: true, message: 'Credential revoked successfully' };
-    
+
+    issuerDoc.status = 'revoked';
+    issuerDoc.revokedAt = new Date().toISOString();
+
+    const issuerSaveResult = await issuerIssuedDb.insert(issuerDoc);
+    console.log(`COUCHDB: Issuer credential revoked in issued_credentials: ${issuerDocId}`);
+
+    // =========================================================
+    // Step 3: Revoke in ADMIN CouchDB (wallet_user_credentials)
+    // =========================================================
+    const adminCouch = require('nano')(COUCHDB_URL); // same constant used above
+    const userWalletDb = adminCouch.use('wallet_user_credentials');
+
+    // Match saveIssuedCredentialToBothDBs: user_cred_<blockchainId>
+    const userDocId = `user_cred_${blockchainId}`;
+
+    let userDoc;
+    try {
+      userDoc = await userWalletDb.get(userDocId);
+    } catch (err) {
+      if (err.statusCode === 404) {
+        console.warn(`COUCHDB: User wallet credential not found for revoke: ${userDocId}`);
+        // We DO NOT throw here; issuer-side revoke already succeeded.
+        userDoc = null;
+      } else {
+        throw err;
+      }
+    }
+
+    let adminSaveResult = null;
+    if (userDoc) {
+      userDoc.status = 'revoked';
+      userDoc.revokedAt = new Date().toISOString();
+
+      adminSaveResult = await userWalletDb.insert(userDoc);
+      console.log(`COUCHDB: User wallet credential revoked in wallet_user_credentials: ${userDocId}`);
+    }
+
+    // =========================================================
+    // Step 4: Return combined result
+    // =========================================================
+    return {
+      success: true,
+      message: 'Credential revoked successfully in CouchDB copies',
+      blockchainId,
+      issuerDocId,
+      userDocId,
+      issuerSave: issuerSaveResult,
+      userWalletSave: adminSaveResult
+    };
+
   } catch (error) {
-    console.error(`Error revoking credential:`, error.message);
+    console.error('COUCHDB: Error revoking credential in CouchDB:', error.message);
     throw error;
   }
 }
+
 // ==========================================================================================================================================================================
 /* 
   Function Name: verifyCredentialFromCouchDB

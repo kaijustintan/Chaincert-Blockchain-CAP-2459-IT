@@ -22,19 +22,30 @@ export default function VerifierDashboard() {
     setResult(null);
 
     try {
-      // Call API to verify credential
-      const response = await apiService.verifyCredential(query);
-      
-      if (response.verified || response.data) {
-        setResult(response.data || response);
-        addLog(query, "Success", response.data || response);
+      // Call API to verify credential (CouchDB + optional blockchain)
+      const response = await apiService.Verify_CredentialById(query);
+
+      // response shape:
+      // {
+      //   success, verified, credentialID, credentialName, holderID,
+      //   issuerName, status, isValid, isRevoked, isExpired, expiryDate, reason, ...
+      // }
+
+      if (response.verified && response.success) {
+        setResult(response);
+        addLog(query, response.isValid ? "Success" : "Invalid", response);
       } else {
-        setResult({ error: "Credential not found or invalid." });
+        const msg = response.reason || "Credential not found or invalid.";
+        setResult({ error: msg });
         addLog(query, "Failed", null);
       }
     } catch (err) {
       console.error("[VERIFY ERROR]", err);
-      const errorMsg = err.response?.data?.message || err.message || "Verification failed";
+      const errorMsg =
+        err.response?.data?.message ||
+        err.response?.data?.reason ||
+        err.message ||
+        "Verification failed";
       setResult({ error: errorMsg });
       addLog(query, "Failed", null);
       setError(errorMsg);
@@ -45,8 +56,8 @@ export default function VerifierDashboard() {
 
   // Helper function to add to logs
   const addLog = (queryStr, status, data) => {
-    setLogs([
-      ...logs,
+    setLogs((prev) => [
+      ...prev,
       {
         id: Date.now(),
         query: queryStr,
@@ -93,14 +104,29 @@ export default function VerifierDashboard() {
 
       {/* Verification result */}
       {result && (
-        <div className={`verify-result ${result.error ? "error" : "success"}`}>
+        <div
+          className={`verify-result ${
+            result.error ? "error" : result.isValid ? "success" : "error"
+          }`}
+        >
           {result.error ? (
             <p className="error">{result.error}</p>
           ) : (
             <div>
-              <h3>✅ Credential Verified</h3>
+              <h3>
+                {result.isValid ? "✅ Credential Valid" : "⚠️ Credential Invalid"}
+              </h3>
+              {result.reason && (
+                <p>
+                  <strong>Reason:</strong> {result.reason}
+                </p>
+              )}
               <p>
-                <strong>Title:</strong> {result.credentialName || result.credentialType || "N/A"}
+                <strong>Credential ID:</strong> {result.credentialID || "N/A"}
+              </p>
+              <p>
+                <strong>Title:</strong>{" "}
+                {result.credentialName || result.credentialType || "N/A"}
               </p>
               <p>
                 <strong>Owner:</strong> {result.holderID || "N/A"}
@@ -109,11 +135,12 @@ export default function VerifierDashboard() {
                 <strong>Issuer:</strong> {result.issuerName || "N/A"}
               </p>
               <p>
-                <strong>Status:</strong> {result.status || "active"}
+                <strong>Status:</strong> {result.status || "unknown"}
               </p>
               {result.expiryDate && (
                 <p>
-                  <strong>Expires:</strong> {new Date(result.expiryDate).toLocaleDateString()}
+                  <strong>Expires:</strong>{" "}
+                  {new Date(result.expiryDate).toLocaleDateString()}
                 </p>
               )}
             </div>
@@ -140,7 +167,9 @@ export default function VerifierDashboard() {
                 <tr key={log.id}>
                   <td>{log.query}</td>
                   <td>
-                    <span className={`status-badge ${log.status.toLowerCase()}`}>
+                    <span
+                      className={`status-badge ${log.status.toLowerCase()}`}
+                    >
                       {log.status}
                     </span>
                   </td>

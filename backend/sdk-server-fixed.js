@@ -69,7 +69,10 @@ const JWT_SECRET = process.env.JWT_SECRET || 'dev_secret_key'; // Secret key use
 const upload = multer({ storage: multer.memoryStorage() }); // Multer setup: stores uploaded files in memory (RAM) instead of disk
 const couchdb = require('./couchDB_service'); // CouchDB service layer (handles all CouchDB-related operations)
 const app = express(); // Initializes the Express application instance
+
 const issuerCredentialController = require('./controllers/issuerCredentialController');  // UBUNTU DIRECTORY BASED 
+const verifierController = require('./controllers/verifierController');  // UBUNTU DIRECTORY BASED 
+
 
 
 // ==========================================================================================================================================================================
@@ -1026,181 +1029,17 @@ app.get('/api/users', async (req, res) => {
 });
 // ==========================================================================================================================================================================
 
-// ✅ VERIFY CREDENTIAL ENDPOINT (QUERY COUCHDB WORLD STATE)
+// ✅ VERIFY CREDENTIAL ENDPOINT (delegates to controller)
 /*
-  Endpoint: GET /api/credentials/:credentialId/verify | PENDING/TO BE FIXED: remove backup verif kasi same lang naman, make it query bc instead
+  Endpoint: GET /api/credentials/:credentialId/verify
 
-  Technical: Verifies a credential via its id in COUCHDB. With fallback to a direct database lookup if not found.
-  Tropang Ex: Dito vine-verify kung legit yung credential ID. Una hahanapin sa “main verify method”
-  (couchdb.verifyCredentialFromCouchDB), tapos pag wala, may fallback search sa wallet_user_credentials DB.
-  NOTE: This endpoint verifies via CouchDB records, not direct Fabric chaincode query. PENDING/TO FIX, TALAGA BA SADYA NA WALANG BC QUERY DITO ?
+  Technical:
+  - Thin route that forwards to credentialVerifyController.verifyCredential.
+  Tropang Ex:
+  - Si controller na ang bahala sa buong verification flow; si server dito taga‑pasa lang.
 */
-app.get('/api/credentials/:credentialId/verify', async (req, res) => {
-  try {
+app.get( '/api/credentials/:credentialId/verify', (req, res) => verifierController.verifyCredentialByID(req, res, getContractAndGateway));
 
-    
-    /* Step 1: Extract credentialId from URL params + validate
-
-      Technical: Reads credentialId and ensures it exists.
-      Example: /api/credentials/user_cred_123/verify
-    */
-    const { credentialId } = req.params;
-
-    if (!credentialId) {
-      return res.status(400).json({
-        success: false,
-        error: 'Credential ID is required'
-      });
-    }
-    console.log(`[VERIFY] Verifying credential: ${credentialId}`);
-
-     /* Step 2: Try primary verification via CouchDB service function
-
-      Technical: Calls verifyCredentialFromCouchDB() which handles lookup and ID cleanup.
-      Tropang Ex: Ito yung “main verification logic” mo sa couchDB_service.js. Siya ang unang maghahanap kung existing yung credential record.
-    */
-    const couchResult = await couchdb.verifyCredentialFromCouchDB(credentialId);
-    
-
-    /* Step 3: If not found yung credential id (and no error), do fallback database lookup
-
-      Technical: If primary lookup says "not verified" but no error occurred, run a manual search in wallet_user_credentials.
-      Tropang Ex: Pag hindi nakita sa unang method, may backup plan: hanapin direkta sa DB.
-      Purpose: Support both direct verification and user wallet lookup even if ID formats differ.
-    */
-    if (couchResult.verified === false && !couchResult.error) {
-
-      /* Step 3A: Connect to admin CouchDB instance
-          Tropang Ex: Kumokonek sa CouchDB as admin para ma-access yung wallet_user_credentials DB.
-          NOTE: This is CouchDB access (world state mirror), not Fabric chaincode query.
-        */      
-      try {
-        const adminNano = nano('http://admin:adminpw@localhost:5985');
-        const issuerDB = adminNano.use('wallet_user_credentials');
-        
-        /* Step 3B: Normalize credential ID format
-
-          Technical: Removes optional prefix and rebuilds ID with expected 'user_cred_' prefix.
-          Tropang Ex: Minsan iba-iba yung format ng credentialId na pinapasa (may prefix/no prefix), so nililinis muna then ginagawang consistent bago maghanap sa DB.
-          Example:
-            input:  "user_cred_ABC" → cleanId="ABC" → searchId="user_cred_ABC"
-            input:  "ABC"           → cleanId="ABC" → searchId="user_cred_ABC"
-        */
-        const cleanId = credentialId.replace(/^user_cred_/, '');
-        const searchId = `user_cred_${cleanId}`;
-        
-         /* Step 3C: Query CouchDB by _id using Mango find()
-          Tropang Ex: Hinahanap yung specific credential record by exact document ID.
-        */
-        const result = await issuerDB.find({
-          selector: {
-            _id: searchId
-          },
-          limit: 1
-        });
-        
-        /* Step 3D: If still not found, return 404
-          Tropang Ex: Wala talaga yung credential sa database, so invalid / not existing.
-        */
-        if (result.docs.length === 0) {
-          return res.status(404).json({
-            success: false,
-            valid: false,
-            reason: 'Credential not found in database',
-            credentialId: credentialId,
-            timestamp: new Date().toISOString()
-          });
-        }
-        
-        /* Step 3E: Compute validity based on status/revocation/expiry
-
-          Technical: Determines if credential is revoked or not issued.
-          Tropang Ex: Kahit nakita yung record, hindi ibig sabihin valid agad.
-          Check natin:
-            - revoked ba?
-            - status == issued ba?
-            - expired na ba?
-        */
-        const credential = result.docs[0];
-        const status = credential.status || 'unknown';
-        const isRevoked = status === 'revoked' || credential.revoked === true;
-        
-        return res.status(200).json({
-          success: true,
-          verified: true,
-          valid: !isRevoked && status === 'issued',
-          credential: {
-            id: credential._id,
-            credentialType: credential.credentialType,
-            credentialName: credential.credentialName,
-            issuer: {
-              id: credential.issuerID,
-              name: credential.issuerName || 'Unknown'
-            },
-            holder: {
-              id: credential.holderID
-            },
-            status: status,
-            issuedDate: credential.savedToUserWalletAt || credential.createdAt,
-            expiryDate: credential.expiryDate,
-            isExpired: credential.expiryDate ? new Date(credential.expiryDate) < new Date() : false
-          },
-          timestamp: new Date().toISOString()
-        });
-        
-      } catch (blockchainErr) {
-
-        /* Step 3F: Fallback lookup failed (return primary result)
-          Tropang Ex: Kung pumalya yung backup DB lookup, babalik tayo sa result ng main verification method.
-          NOTE: Returning couchResult directly might not match API format, so be careful later.
-        */
-        console.error(`[VERIFY] Blockchain lookup failed:`, blockchainErr.message);
-        return couchResult;
-      }
-    }
-    
-    /* Step 4: If primary verification returned an error
-      Technical: Returns 500 error if couchResult contains error.
-      Tropang Ex: Kung nag-error yung verification service mismo, server error ito.
-    */
-    if (couchResult.error) {
-      return res.status(500).json({
-        success: false,
-        error: couchResult.error,
-        timestamp: new Date().toISOString()
-      });
-    }
-    
-     /* Step 5: Return primary verification result
-
-      Technical: Sends couchResult fields as API response.
-      Tropang Ex: Ito yung normal path: na-verify siya via couchDB_service, so ibabalik na result sa frontend.
-    */
-    return res.status(200).json({
-      success: true,
-      verified: couchResult.verified,
-      valid: couchResult.verified,
-      credentialId: couchResult.credentialId,
-      holderID: couchResult.holderID,
-      issuerName: couchResult.issuerName,
-      credentialType: couchResult.credentialType,
-      credentialName: couchResult.credentialName,
-      status: couchResult.status,
-      issuedAt: couchResult.issuedAt,
-      expiryDate: couchResult.expiryDate,
-      message: couchResult.message,
-      timestamp: couchResult.timestamp
-    });
-
-  } catch (error) {
-    console.error(`❌ Verification error: ${error.message}`);
-    res.status(500).json({
-      success: false,
-      error: error.message,
-      timestamp: new Date().toISOString()
-    });
-  }
-});
 // ==========================================================================================================================================================================
 
 // ==========================================================================================================================================================================

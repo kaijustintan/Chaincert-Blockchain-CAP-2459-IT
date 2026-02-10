@@ -750,6 +750,41 @@ const apiService = {
   },
 // ==========================================================================================================================================================================
 
+ // ==========================================================================================================================================================================
+  //                                VERIFIER / PUBLIC CHECK
+  // ==========================================================================================================================================================================
+
+  /*
+    Function Name: Verify_CredentialById
+
+    Technical:
+    Verifies a credential by its ID via backend endpoint:
+      GET /api/credentials/:credentialId/verify
+
+    Tropang Ex:
+    Ito yung ginagamit ng public / verifier UI (or QR scan) para i-check kung:
+      - existing ba yung credential,
+      - valid pa ba (hindi revoked, hindi expired),
+      - ano status sa CouchDB at blockchain.
+  */
+  Verify_CredentialById: async (credentialId) => {
+    try {
+      const response = await axios.get(`/credentials/${credentialId}/verify`);
+      // Backend already returns a rich object:
+      // {
+      //   success, verified, credentialID, status, isValid, isRevoked,
+      //   isExpired, reason, sources: { couchDB, blockchain, ... }, ...
+      // }
+      return response.data;
+    } catch (error) {
+      console.error(
+        'Error verifying credential:',
+        error.response?.data?.message || error.message
+      );
+      throw error;
+    }
+  },
+  // ==========================================================================================================================================================================  
   // ==========================================================================================================================================================================
   //                                                               DEBUG / UTIL
   // ==========================================================================================================================================================================

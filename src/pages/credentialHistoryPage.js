@@ -19,6 +19,9 @@ export default function CredentialHistoryPage() {
   const [totalCount, setTotalCount] = useState(0);
   const [isFiltered, setIsFiltered] = useState(false);
 
+  // NEW: which field to search on (frontend-only)
+  const [searchField, setSearchField] = useState("credentialId"); // "credentialId" | "holderId" | "credentialName"
+
   useEffect(() => {
     fetchAllHistory();
   }, []);
@@ -47,6 +50,26 @@ export default function CredentialHistoryPage() {
       );
     }
 
+    // NEW: local search by selected field
+    const query = searchId.trim().toLowerCase();
+    if (query) {
+      result = result.filter((record) => {
+        if (searchField === "credentialId") {
+          const cid = (record.credentialId || "").toLowerCase();
+          return cid.includes(query);
+        }
+        if (searchField === "holderId") {
+          const hid = (record.value?.holderID || "").toLowerCase();
+          return hid.includes(query);
+        }
+        if (searchField === "credentialName") {
+          const cname = (record.credentialName || "").toLowerCase();
+          return cname.includes(query);
+        }
+        return true;
+      });
+    }
+
     // Apply sorting
     if (sortBy === "timestamp-desc") {
       result.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
@@ -59,7 +82,15 @@ export default function CredentialHistoryPage() {
     }
 
     setFilteredHistory(result);
-  }, [allHistory, sortBy, filterAction, filterStatus, filterType]);
+  }, [
+    allHistory,
+    sortBy,
+    filterAction,
+    filterStatus,
+    filterType,
+    searchId,      // NEW dep
+    searchField,   // NEW dep
+  ]);
 
   // ✅ NEW: Simplified fetch using new API endpoint
   const fetchAllHistory = async () => {
@@ -84,11 +115,12 @@ export default function CredentialHistoryPage() {
     }
   };
 
-  // ✅ NEW: Simplified search using new API endpoint
+  // ✅ UPDATED: keep API call as-is, but let frontend handle multi-field search
   const handleSearch = async (e) => {
     e.preventDefault();
 
-    if (searchId.trim()) {
+    // OPTIONAL: keep current backend search by credentialId if field is credentialId
+    if (searchId.trim() && searchField === "credentialId") {
       try {
         setLoading(true);
         setError(null);
@@ -109,6 +141,10 @@ export default function CredentialHistoryPage() {
       } finally {
         setLoading(false);
       }
+    } else if (searchId.trim()) {
+      // For holderId / credentialName, we just rely on local filtering.
+      // No backend changes needed; allHistory stays as last loaded dataset.
+      setIsFiltered(true);
     } else {
       fetchAllHistory();
     }
@@ -198,9 +234,31 @@ export default function CredentialHistoryPage() {
             marginBottom: "15px",
           }}
         >
+          {/* NEW: dropdown to pick which field to search */}
+          <select
+            value={searchField}
+            onChange={(e) => setSearchField(e.target.value)}
+            style={{
+              padding: "10px",
+              border: "1px solid #ddd",
+              borderRadius: "4px",
+              fontSize: "14px",
+            }}
+          >
+            <option value="credentialId">Credential ID</option>
+            <option value="holderId">Holder ID</option>
+            <option value="credentialName">Credential Name</option>
+          </select>
+
           <input
             type="text"
-            placeholder="Search by credential ID (e.g., cred_1770034187089_16z191x77)"
+            placeholder={
+              searchField === "credentialId"
+                ? "Search by credential ID (e.g., cred_1770034187089_16z191x77)"
+                : searchField === "holderId"
+                ? "Search by holder ID"
+                : "Search by credential name"
+            }
             value={searchId}
             onChange={(e) => setSearchId(e.target.value)}
             style={{
@@ -236,8 +294,8 @@ export default function CredentialHistoryPage() {
           }}
         >
           💡{" "}
-          {isFiltered
-            ? `Showing filtered history for: ${searchId}`
+          {isFiltered && searchId.trim()
+            ? `Showing filtered history for ${searchField}: ${searchId}`
             : "Showing complete blockchain history for all credentials sorted by most recent activity"}
         </p>
       </div>

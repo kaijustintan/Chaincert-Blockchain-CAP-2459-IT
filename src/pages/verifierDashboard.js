@@ -24,6 +24,21 @@ export default function VerifierDashboard() {
   const [logsLoading, setLogsLoading] = useState(false);
   const [logsError, setLogsError] = useState(null);
 
+  // NEW: gate – kailangan muna ma-fill up verifier form
+  const [hasVerifierInfo, setHasVerifierInfo] = useState(false);
+  const [verifierFormError, setVerifierFormError] = useState("");
+
+  // Optional: load saved verifier info from localStorage
+  useEffect(() => {
+    const savedName = localStorage.getItem("verifierName") || "";
+    const savedEmail = localStorage.getItem("verifierEmail") || "";
+    if (savedName || savedEmail) {
+      setVerifierName(savedName);
+      setVerifierEmail(savedEmail);
+      setHasVerifierInfo(true);
+    }
+  }, []);
+
   // Helper: load verification logs from backend (blockchain audit)
   const fetchVerificationLogs = async () => {
     try {
@@ -44,14 +59,17 @@ export default function VerifierDashboard() {
     }
   };
 
-  // Initial load of audit logs
+  // Initial load of audit logs (after verifier info is set)
   useEffect(() => {
-    fetchVerificationLogs();
-  }, []);
+    if (hasVerifierInfo) {
+      fetchVerificationLogs();
+    }
+  }, [hasVerifierInfo]);
 
   // Helper: call backend to write on-chain verification log
   const saveVerificationLogOnChain = async (credentialId, verifyResponse) => {
-    // Optional: skip if walang name/email
+    // Optional: skip if walang name/email (pero in theory di na mangyayari
+    // kasi required na yung form)
     if (!verifierName.trim() && !verifierEmail.trim()) {
       return;
     }
@@ -105,12 +123,6 @@ export default function VerifierDashboard() {
       // Call API to verify credential (CouchDB + optional blockchain)
       const response = await apiService.Verify_CredentialById(query);
 
-      // response shape:
-      // {
-      //   success, verified, credentialID, credentialName, holderID,
-      //   issuerName, status, isValid, isRevoked, isExpired, expiryDate, reason, ...
-      // }
-
       if (response.verified && response.success) {
         setResult(response);
 
@@ -135,17 +147,99 @@ export default function VerifierDashboard() {
     }
   };
 
-  // Handle Enter key press
+  // Handle Enter key press sa credential input
   const handleKeyPress = (e) => {
     if (e.key === "Enter") {
       handleVerify();
     }
   };
 
+  // NEW: submit handler for verifier info form
+  const handleVerifierFormSubmit = (e) => {
+    e.preventDefault();
+    const trimmedName = verifierName.trim();
+    const trimmedEmail = verifierEmail.trim();
+
+    if (!trimmedName || !trimmedEmail) {
+      setVerifierFormError("Please provide both your name and email to continue.");
+      return;
+    }
+
+    setVerifierFormError("");
+    setHasVerifierInfo(true);
+
+    // Optional: persist for next visits
+    localStorage.setItem("verifierName", trimmedName);
+    localStorage.setItem("verifierEmail", trimmedEmail);
+  };
+
+  // If walang verifier info pa, show prereq form card
+  if (!hasVerifierInfo) {
+    return (
+      <div className="verifier-container">
+        <div className="verifier-form-card">
+          <h1>Verifier Information</h1>
+          <p>Please enter your details before accessing the verification dashboard.</p>
+
+          <form onSubmit={handleVerifierFormSubmit} className="verifier-form">
+            <div className="form-group">
+              <label>Your Name</label>
+              <input
+                type="text"
+                placeholder="e.g. Kai Verifier"
+                value={verifierName}
+                onChange={(e) => setVerifierName(e.target.value)}
+              />
+            </div>
+
+            <div className="form-group">
+              <label>Your Email</label>
+              <input
+                type="email"
+                placeholder="e.g. verifier@example.com"
+                value={verifierEmail}
+                onChange={(e) => setVerifierEmail(e.target.value)}
+              />
+            </div>
+
+            {verifierFormError && (
+              <div className="error-banner">
+                <p>❌ {verifierFormError}</p>
+              </div>
+            )}
+
+            <div className="form-actions">
+              <button type="submit" className="primary">
+                Continue to Verifier Dashboard
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+    );
+  }
+
+  // Normal dashboard view once verifier info is set
   return (
     <div className="verifier-container">
       <h1>Verifier Dashboard</h1>
       <p>Enter a credential ID or code to verify authenticity.</p>
+
+      {/* Small reminder of who is logged as verifier */}
+      <div className="verifier-summary">
+        <span>
+          Verifier: <strong>{verifierName}</strong> ({verifierEmail})
+        </span>
+        <button
+          className="link-button"
+          onClick={() => {
+            // allow changing verifier info
+            setHasVerifierInfo(false);
+          }}
+        >
+          Change
+        </button>
+      </div>
 
       {/* Search box */}
       <div className="verify-controls">
@@ -160,24 +254,6 @@ export default function VerifierDashboard() {
         <button onClick={handleVerify} disabled={loading || logSaving}>
           {loading ? "Verifying..." : "Verify"}
         </button>
-      </div>
-
-      {/* Verifier identity (for on-chain audit logs) */}
-      <div className="verifier-info">
-        <input
-          type="text"
-          placeholder="Your name (for audit logs)"
-          value={verifierName}
-          onChange={(e) => setVerifierName(e.target.value)}
-          disabled={loading || logSaving}
-        />
-        <input
-          type="email"
-          placeholder="Your email (for audit logs)"
-          value={verifierEmail}
-          onChange={(e) => setVerifierEmail(e.target.value)}
-          disabled={loading || logSaving}
-        />
       </div>
 
       {/* Error message */}

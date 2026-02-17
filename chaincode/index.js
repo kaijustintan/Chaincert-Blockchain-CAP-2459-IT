@@ -452,7 +452,269 @@ class ChainCertContract extends Contract {
     */
     return JSON.stringify({ valid: true, credential: credential });
   }
+// ==========================================================================================================================================================================
 
+// ==========================================================================================================================================================================
+// G. VERIFICATION LOGS (ON-CHAIN AUDIT)
+// ==========================================================================================================================================================================
+
+/*
+  Function Name: LogVerification
+
+  Technical:
+  Writes a verification audit log entry to the ledger.
+
+  - Does NOT re-verify the credential.
+  - Assumes the backend already called VerifyCredential and passes the result.
+  - Stores one log per transaction under key = vlog_<txId>.
+
+  Tropang Ex:
+  Tuwing may magve-verify sa UI (may name/email), puwede mong tawagin 'to
+  para may naka-record sa blockchain kung:
+    - anong credential ang na-check,
+    - sino ang HOLDER at anong credential name,
+    - ano ang naging result (valid / reason),
+    - sino sa Fabric side (identity + org) ang nag-log,
+    - anong oras nangyari (oras galing sa blockchain, hindi sa local PC).
+*/
+async LogVerification(ctx, credentialId, verifierName, verifierEmail, resultJson) {
+
+  // Step 1: Basic validation ng input
+  // Tropang Ex: Siguraduhin na may credential ID na ike-kwento sa log.
+  if (!credentialId) {
+    throw new Error('credentialId is required for LogVerification');
+  }
+
+  verifierName = verifierName || '';
+  verifierEmail = verifierEmail || '';
+  resultJson = resultJson || '';
+
+  // Step 2: Kunin kung sino ang tumatawag sa Fabric side (X.509 identity)
+  // Tropang Ex: Para alam natin kung aling org/identity ang nag-log ng verification.
+  const cid = ctx.clientIdentity;
+  const invokerId = cid.getID();      // unique string based on cert
+  const invokerMSP = cid.getMSPID();  // e.g. Org1MSP, DLSUMSP
+
+  // Step 3: Gumamit ng blockchain transaction time (deterministic)
+  // Tropang Ex: Oras galing mismo sa Fabric, hindi sa local machine time.
+  const txTime = ctx.stub.getTxTimestamp();
+  const verifiedAt = new Date(
+    txTime.seconds * 1000 + Math.floor(txTime.nanos / 1000000)
+  ).toISOString();
+
+  // Step 4: I-parse yung verification result na pinasa ng backend (optional)
+  // Tropang Ex: Halimbawa: { "valid": true, "reason": "Credential is valid on-chain" }
+  let parsedResult = null;
+  try {
+    if (resultJson && resultJson.length > 0) {
+      parsedResult = JSON.parse(resultJson);
+    }
+  } catch (e) {
+    parsedResult = { raw: resultJson };
+  }
+
+  // Step 4.1: Enrich log with credential details (holderID, credentialName, issuerID)
+  // Tropang Ex:
+  //  “Para sa logs, maganda nang kita agad kung kaninong holder at anong certificate
+  //   yung na-verify, hindi lang raw credentialId string.”
+  let holderID = '';
+  let credentialName = '';
+  let issuerID = '';
+
+  try {
+    const credJSON = await ctx.stub.getState(credentialId);
+    if (credJSON && credJSON.length > 0) {
+      const cred = JSON.parse(credJSON.toString());
+      holderID = cred.holderID || '';
+      credentialName = cred.credentialName || '';
+      issuerID = cred.issuerID || '';
+    }
+  } catch (e) {
+    console.warn(
+      'LogVerification: failed to enrich with credential details',
+      e.message
+    );
+    // best-effort lang, huwag i-fail yung log kahit pumalya ito
+  }
+
+  // Step 5: Buoin ang log object na ise-save sa ledger
+  // Tropang Ex: vlog_<txId> ang ID para unique per transaction.
+  const logId = `vlog_${ctx.stub.getTxID()}`;
+
+  const log = {
+    id: logId,
+    type: 'verification',
+    credentialId,
+    // NEW enriched fields:
+    holderID,
+    credentialName,
+    issuerID,
+    verifierName,
+    verifierEmail,
+    result: parsedResult,
+    invokerId,
+    invokerMSP,
+    txId: ctx.stub.getTxID(),
+    verifiedAt,
+    version: 1,
+  };
+
+  // Step 6: Isulat sa world state (CouchDB)
+  // Tropang Ex: Para ma-query mo lahat ng verification logs sa future.
+  await ctx.stub.putState(logId, Buffer.from(JSON.stringify(log)));
+
+  // Step 7: Mag-emit ng Fabric event (optional, pang future real-time UI)
+  await ctx.stub.setEvent('VerificationLogged', Buffer.from(JSON.stringify(log)));
+
+  // Step 8: Ibalik ang log sa caller
+  return JSON.stringify(log);
+}
+// ==========================================================================================================================================================================
+
+// ==========================================================================================================================================================================
+/*
+  Function Name: GetVerificationLogById
+
+  Technical:
+  Retrieves a single verification log from the ledger by its ID (e.g., "vlog_<txId>").
+  - Uses getState(logId) to fetch the record.
+  - Throws if not found.
+  - Validates that the record is indeed a verification log (type === 'verification').
+
+  Tropang Ex:
+  Kapag alam mo na yung exact vlog ID galing sa LogVerification (yung "id" field sa payload),
+  dito mo makukuha yung buong detalye ng log na yun para ma-check sa UI/API.
+*/
+async GetVerificationLogById(ctx, logId) {
+
+  /* Step 1: Basic input validation
+
+     Tropang Ex:
+     “Siguraduhin muna na may ID tayong hahanapin.”
+  */
+  if (!logId) {
+    throw new Error('logId is required for GetVerificationLogById');
+  }
+
+  console.log('🔎 Fetching verification log by ID:', logId);
+
+  /* Step 2: Read ledger state by key (logId)
+
+     Technical:
+     Uses ctx.stub.getState(logId).
+  */
+  const logJSON = await ctx.stub.getState(logId);
+  if (!logJSON || logJSON.length === 0) {
+    throw new Error(`Verification log with id ${logId} does not exist`);
+  }
+
+  /* Step 3: Parse and validate that this is a verification log
+
+     Tropang Ex:
+     “Double-check na hindi ibang klase ng record ‘to (e.g., credential),
+      dapat type === 'verification'.”
+  */
+  const log = JSON.parse(logJSON.toString());
+
+  if (log.type !== 'verification') {
+    throw new Error(
+      `State with id ${logId} is not a verification log (type = ${log.type})`
+    );
+  }
+
+  /* Step 4: Return the log as JSON string
+
+     Technical:
+     Returns the raw log object as JSON string for the client to parse.
+
+     Tropang Ex:
+     Ibinabalik yung buong log para pwedeng i-display sa dashboard o i-store sa backend.
+  */
+  return JSON.stringify(log);
+}
+// ==========================================================================================================================================================================
+
+// ==========================================================================================================================================================================
+/*
+  Function Name: GetAllVerificationLogs
+
+  Technical:
+  Retrieves all verification logs stored in the world state.
+  - Scans all keys using getStateByRange('', '').
+  - Parses each value as JSON.
+  - Filters records where type === 'verification'.
+  - Returns an array of log objects.
+
+  Tropang Ex:
+  Ito yung pang-“audit view” ng lahat ng verification attempts na na-log sa blockchain.
+  Makikita mo dito lahat ng:
+  - credentialId na na-check,
+  - HOLDER ID at credentialName (kung na-enrich),
+  - result (valid / reason),
+  - verifierName / verifierEmail,
+  - Fabric identity (invokerMSP, invokerId),
+  - at oras (verifiedAt).
+*/
+async GetAllVerificationLogs(ctx) {
+
+  /* Step 1: Open iterator over all keys in this chaincode namespace
+
+     Technical:
+     Uses getStateByRange('', '') to iterate through entire world state.
+  */
+  console.log('📜 Fetching ALL verification logs from world state...');
+
+  const iterator = await ctx.stub.getStateByRange('', '');
+  const results = [];
+
+  /* Step 2: Loop through all records and filter only verification logs
+
+     Tropang Ex:
+     “Dadaan sa lahat ng entries, tapos kukunin lang yung may type === 'verification'.”
+  */
+  let res = await iterator.next();
+  while (!res.done) {
+    if (res.value && res.value.value) {
+      try {
+        const raw = res.value.value.toString('utf8');
+        const parsed = JSON.parse(raw);
+
+        // Only keep verification log entries
+        if (parsed.type === 'verification') {
+          results.push(parsed);
+        }
+      } catch (err) {
+        console.warn(
+          '⚠️ Failed to parse state value as JSON, skipping. Key:',
+          res.value.key,
+          'Error:',
+          err
+        );
+      }
+    }
+
+    res = await iterator.next();
+  }
+
+  /* Step 3: Close iterator and log count
+
+     Technical:
+     Closes iterator and logs how many logs were found.
+  */
+  await iterator.close();
+  console.log(`✅ Found ${results.length} verification logs in world state`);
+
+  /* Step 4: Return logs as JSON string
+
+     Technical:
+     Returns JSON.stringify(arrayOfLogs).
+
+     Tropang Ex:
+     Ibinabalik lahat ng verification logs para ma-render sa UI
+     bilang list / table ng lahat ng verification events.
+  */
+  return JSON.stringify(results);
+}
 // ==========================================================================================================================================================================
   /*
     Function Name: RevokeCredential

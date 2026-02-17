@@ -360,8 +360,304 @@ const getVerificationStats = async (req, res) => {
   }
 };
 
+/**
+ * Function Name: logVerificationEvent
+ *
+ * Technical:
+ * Creates an on-chain verification log entry by calling the chaincode
+ * function LogVerification(ctx, credentialId, verifierName, verifierEmail, resultJson).
+ *
+ * PLUS: Best-effort lookup of holderID + holderName from CouchDB (wallet_user_credentials + users),
+ * then i-aattach sa HTTP response (off-chain enrichment).
+ *
+ * Expected req.params:
+ *   { credentialId: "<BLOCKCHAIN_CREDENTIAL_ID>" }
+ *
+ * Expected req.body:
+ *   {
+ *     verifierName: "Juan Dela Cruz",
+ *     verifierEmail: "juan@example.com",
+ *     verifyResult: {
+ *       valid: true,
+ *       reason: "Credential is valid on-chain"
+ *     }
+ *   }
+ *
+ * Expected extra param from router:
+ *   getContractAndGateway(identityName, orgName) => { gateway, contract }
+ */
+const logVerificationEvent = async (req, res, getContractAndGateway) => {
+  try {
+    const { credentialId } = req.params;
+    const { verifierName, verifierEmail, verifyResult } = req.body || {};
+
+    // Step 0: Basic validation
+    if (!credentialId) {
+      return res.status(400).json({
+        success: false,
+        message: 'credentialId (path param) is required',
+      });
+    }
+
+    const name = verifierName || '';
+    const email = verifierEmail || '';
+
+    // --- Try to resolve holderID + holderName from CouchDB ---
+    let holderID = null;
+    let holderName = null;
+
+    try {
+      const adminCouch = nano(COUCHDB_URL);
+      const userWalletDb = adminCouch.use('wallet_user_credentials');
+
+      // reuse same normalization pattern as verifyCredentialByID
+      const normalizedId = normalizeCredentialId(credentialId);
+
+      const result = await userWalletDb.find({
+        selector: { _id: normalizedId },
+        limit: 1,
+      });
+
+      if (result.docs && result.docs.length > 0) {
+        const credDoc = result.docs[0];
+        holderID = credDoc.holderID || null;
+
+        if (holderID) {
+          try {
+            // getUser() already chooses usersDb vs issuersDb based on ID prefix
+            const user = await couchdbService.getUser(holderID);
+
+            // users doc (see Fauxton) has `fullName`, plus these fallbacks
+            holderName =
+              user.fullName ||
+              user.username ||
+              user.name ||
+              user.displayName ||
+              user.email ||
+              null;
+          } catch (userErr) {
+            console.warn(
+              '[VERIFY-LOG] Failed to resolve holder user by holderID:',
+              userErr.message
+            );
+          }
+        }
+      }
+    } catch (resolveErr) {
+      console.warn(
+        '[VERIFY-LOG] Failed to resolve holder info from CouchDB:',
+        resolveErr.message
+      );
+    }
+    // --- END holder resolve ---
+
+    // Take result from previous /verify call (backend/chaincode output)
+    const resultSummary = verifyResult || {};
+    const resultJson = JSON.stringify({
+      valid: !!resultSummary.valid,
+      reason: resultSummary.reason || '',
+    });
+
+    console.log('[VERIFY-LOG] Creating verification log for credential:', credentialId);
+
+    // Step 1: Choose Fabric identity/org for logging
+    // You can later switch this to DLSU identity if you want.
+    const identityName = 'admin';
+    const orgName = 'Org1';
+
+    const { gateway, contract } = await getContractAndGateway(identityName, orgName);
+
+    // Step 2: Submit LogVerification transaction
+    const logBuffer = await contract.submitTransaction(
+      'LogVerification',
+      credentialId,
+      name,
+      email,
+      resultJson
+    );
+
+    await gateway.disconnect();
+
+    const log = JSON.parse(logBuffer.toString());
+    console.log('[VERIFY-LOG] On-chain verification log created:', log.id);
+
+    // Attach holderName/holderID in HTTP response (off-chain enrichment only)
+    const enrichedLog = {
+      ...log,
+      holderID: log.holderID || holderID,
+      holderName: holderName || null,
+    };
+
+    return res.status(201).json({
+      success: true,
+      message: 'Verification log created on-chain',
+      log: enrichedLog,
+    });
+  } catch (error) {
+    console.error('[VERIFY-LOG ERROR]', error.message);
+
+    return res.status(500).json({
+      success: false,
+      message: 'Error creating verification log',
+      error: error.message,
+      credentialID: req.params.credentialId,
+    });
+  }
+};
+
+// ============================================================================
+// VERIFICATION LOGS: Blockchain-sourced audit
+// ============================================================================
+
+/*
+  Function Name: getAllVerificationLogs
+
+  Technical:
+  - Uses getContractAndGateway to connect as Org1 admin (generic verifier).
+  - Calls chaincode function GetAllVerificationLogs (evaluateTransaction).
+  - THEN best-effort enriches each log with holderName from CouchDB users DB
+    using holderID (via couchdbService.getUser).
+  - Returns array of enriched verification log objects.
+
+  Tropang Ex:
+  Ito yung pang-dashboard na listahan ng LAHAT ng verification attempts
+  na na-log sa blockchain (UI + CLI), good for audit view, PLUS may
+  Holder Name na galing sa users DB kung ma-resolve.
+*/
+const getAllVerificationLogs = async (req, res, getContractAndGateway) => {
+  try {
+    // Step 1: Resolve identity (generic Org1 admin for verifier side)
+    const identityName = 'admin';
+    const orgName = 'Org1';
+
+    // Step 2: Connect to blockchain
+    const { gateway, contract } = await getContractAndGateway(identityName, orgName);
+
+    // Step 3: Call chaincode GetAllVerificationLogs (read-only)
+    const resultBuffer = await contract.evaluateTransaction('GetAllVerificationLogs');
+    const logs = JSON.parse(resultBuffer.toString());
+
+    await gateway.disconnect();
+
+    // Step 4: Best-effort enrichment from CouchDB users DB
+    // Para mabigyan ng Holder Name based on holderID.
+    const enrichedLogs = await Promise.all(
+      (logs || []).map(async (log) => {
+        let holderName = null;
+
+        try {
+          const holderID = log.holderID;
+
+          if (holderID) {
+            // getUser() already chooses usersDb vs issuersDb based on ID prefix
+            const user = await couchdbService.getUser(holderID);
+
+            holderName =
+              user.fullName ||
+              user.username ||
+              user.name ||
+              user.displayName ||
+              user.email ||
+              null;
+          }
+        } catch (e) {
+          console.warn(
+            '[VERIFY-LOGS] Failed to enrich holderName for log',
+            log.id,
+            e.message
+          );
+        }
+
+        return {
+          ...log,
+          holderName,
+        };
+      })
+    );
+
+    // Step 5: Return enriched logs
+    return res.status(200).json({
+      success: true,
+      logs: enrichedLogs,
+      count: enrichedLogs.length || 0,
+      timestamp: new Date().toISOString(),
+    });
+  } catch (error) {
+    console.error('VERIFY LOGS ERROR (all):', error.message);
+    return res.status(500).json({
+      success: false,
+      message: 'Error fetching verification logs from blockchain',
+      error: error.message,
+    });
+  }
+};
+
+/*
+  Function Name: getVerificationLogById
+
+  Technical:
+  - Uses getContractAndGateway to connect as Org1 admin.
+  - Calls chaincode function GetVerificationLogById with a specific logId.
+  - Returns the single log object if found.
+
+  Tropang Ex:
+  Kapag may pinili kang specific log sa UI (e.g. vlog_123...),
+  dito makukuha yung buong detalye niya galing blockchain.
+*/
+const getVerificationLogById = async (req, res, getContractAndGateway) => {
+  try {
+    const logId = req.params.logId;
+    if (!logId) {
+      return res.status(400).json({
+        success: false,
+        message: 'logId is required',
+      });
+    }
+
+    const identityName = 'admin';
+    const orgName = 'Org1';
+
+    const { gateway, contract } = await getContractAndGateway(identityName, orgName);
+
+    const resultBuffer = await contract.evaluateTransaction(
+      'GetVerificationLogById',
+      logId
+    );
+    const log = JSON.parse(resultBuffer.toString());
+
+    await gateway.disconnect();
+
+    return res.status(200).json({
+      success: true,
+      log,
+      timestamp: new Date().toISOString(),
+    });
+  } catch (error) {
+    console.error('VERIFY LOGS ERROR (byId):', error.message);
+
+    // 404-style response if chaincode throws "does not exist"
+    if (error.message && error.message.includes('does not exist')) {
+      return res.status(404).json({
+        success: false,
+        message: 'Verification log not found on blockchain',
+        error: error.message,
+      });
+    }
+
+    return res.status(500).json({
+      success: false,
+      message: 'Error fetching verification log from blockchain',
+      error: error.message,
+    });
+  }
+};
+
+
 /* Ito yung pinapagamit natin sa router. Kapag may tumawag ng /verify o stats endpoint, dito rin babagsak. */
 module.exports = {
   verifyCredentialByID,
   getVerificationStats,
+  logVerificationEvent,
+  getAllVerificationLogs,
+  getVerificationLogById,
 };

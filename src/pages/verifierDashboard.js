@@ -1,14 +1,92 @@
 // Verifier dashboard for credential verification
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import "../styles/verifierDashboard.css";
 import apiService from "../services/apiService";
 
 export default function VerifierDashboard() {
   const [query, setQuery] = useState("");
   const [result, setResult] = useState(null);
+
+  // On-chain audit logs from backend/blockchain
   const [logs, setLogs] = useState([]);
+
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+
+  // verifier identity + on-chain log status
+  const [verifierName, setVerifierName] = useState("");
+  const [verifierEmail, setVerifierEmail] = useState("");
+  const [logSaving, setLogSaving] = useState(false);
+  const [logError, setLogError] = useState(null);
+  const [logSuccess, setLogSuccess] = useState(null);
+
+  // loading state for audit log fetch
+  const [logsLoading, setLogsLoading] = useState(false);
+  const [logsError, setLogsError] = useState(null);
+
+  // Helper: load verification logs from backend (blockchain audit)
+  const fetchVerificationLogs = async () => {
+    try {
+      setLogsLoading(true);
+      setLogsError(null);
+      const res = await apiService.Get_AllVerificationLogs();
+      setLogs(res.logs || []);
+    } catch (err) {
+      console.error("[VERIFY-LOGS FETCH ERROR]", err);
+      const msg =
+        err.response?.data?.message ||
+        err.response?.data?.error ||
+        err.message ||
+        "Failed to load verification logs.";
+      setLogsError(msg);
+    } finally {
+      setLogsLoading(false);
+    }
+  };
+
+  // Initial load of audit logs
+  useEffect(() => {
+    fetchVerificationLogs();
+  }, []);
+
+  // Helper: call backend to write on-chain verification log
+  const saveVerificationLogOnChain = async (credentialId, verifyResponse) => {
+    // Optional: skip if walang name/email
+    if (!verifierName.trim() && !verifierEmail.trim()) {
+      return;
+    }
+
+    try {
+      setLogSaving(true);
+      setLogError(null);
+      setLogSuccess(null);
+
+      await apiService.Log_VerificationEvent(
+        credentialId,
+        verifierName,
+        verifierEmail,
+        {
+          valid: verifyResponse.isValid,
+          reason: verifyResponse.reason,
+        }
+      );
+
+      setLogSuccess("Verification event logged on-chain.");
+
+      // Refresh audit logs table after successful write
+      await fetchVerificationLogs();
+    } catch (err) {
+      console.error("[VERIFY-LOG ERROR]", err);
+      const msg =
+        err.response?.data?.message ||
+        err.response?.data?.error ||
+        err.message ||
+        "Failed to log verification on-chain.";
+      setLogError(msg);
+    } finally {
+      setLogSaving(false);
+    }
+  };
 
   // Handle verification via credential ID
   const handleVerify = async () => {
@@ -20,6 +98,8 @@ export default function VerifierDashboard() {
     setLoading(true);
     setError(null);
     setResult(null);
+    setLogError(null);
+    setLogSuccess(null);
 
     try {
       // Call API to verify credential (CouchDB + optional blockchain)
@@ -33,11 +113,13 @@ export default function VerifierDashboard() {
 
       if (response.verified && response.success) {
         setResult(response);
-        addLog(query, response.isValid ? "Success" : "Invalid", response);
+
+        // write on-chain verification log (if verifier info provided)
+        const credIdForLog = response.credentialID || query;
+        await saveVerificationLogOnChain(credIdForLog, response);
       } else {
         const msg = response.reason || "Credential not found or invalid.";
         setResult({ error: msg });
-        addLog(query, "Failed", null);
       }
     } catch (err) {
       console.error("[VERIFY ERROR]", err);
@@ -47,25 +129,10 @@ export default function VerifierDashboard() {
         err.message ||
         "Verification failed";
       setResult({ error: errorMsg });
-      addLog(query, "Failed", null);
       setError(errorMsg);
     } finally {
       setLoading(false);
     }
-  };
-
-  // Helper function to add to logs
-  const addLog = (queryStr, status, data) => {
-    setLogs((prev) => [
-      ...prev,
-      {
-        id: Date.now(),
-        query: queryStr,
-        status: status,
-        ts: new Date().toLocaleString(),
-        data: data,
-      },
-    ]);
   };
 
   // Handle Enter key press
@@ -88,17 +155,47 @@ export default function VerifierDashboard() {
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           onKeyPress={handleKeyPress}
-          disabled={loading}
+          disabled={loading || logSaving}
         />
-        <button onClick={handleVerify} disabled={loading}>
+        <button onClick={handleVerify} disabled={loading || logSaving}>
           {loading ? "Verifying..." : "Verify"}
         </button>
+      </div>
+
+      {/* Verifier identity (for on-chain audit logs) */}
+      <div className="verifier-info">
+        <input
+          type="text"
+          placeholder="Your name (for audit logs)"
+          value={verifierName}
+          onChange={(e) => setVerifierName(e.target.value)}
+          disabled={loading || logSaving}
+        />
+        <input
+          type="email"
+          placeholder="Your email (for audit logs)"
+          value={verifierEmail}
+          onChange={(e) => setVerifierEmail(e.target.value)}
+          disabled={loading || logSaving}
+        />
       </div>
 
       {/* Error message */}
       {error && (
         <div className="error-banner">
           <p>❌ {error}</p>
+        </div>
+      )}
+
+      {/* On-chain log status */}
+      {logError && (
+        <div className="error-banner">
+          <p>⚠️ {logError}</p>
+        </div>
+      )}
+      {logSuccess && (
+        <div className="success-banner">
+          <p>✅ {logSuccess}</p>
         </div>
       )}
 
@@ -148,32 +245,65 @@ export default function VerifierDashboard() {
         </div>
       )}
 
-      {/* Logs */}
+      {/* Logs (on-chain audit history from backend) */}
       <div className="verify-logs">
-        <h2>Verification Logs</h2>
-        {logs.length === 0 ? (
-          <p className="empty">No verification attempts yet.</p>
-        ) : (
+        <h2>Verification Logs (On-chain Audit)</h2>
+
+        {logsLoading && <p className="empty">Loading verification logs...</p>}
+        {logsError && (
+          <div className="error-banner">
+            <p>⚠️ {logsError}</p>
+          </div>
+        )}
+
+        {!logsLoading && !logsError && logs.length === 0 && (
+          <p className="empty">No verification logs found.</p>
+        )}
+
+        {!logsLoading && !logsError && logs.length > 0 && (
           <table>
             <thead>
               <tr>
-                <th>Query</th>
-                <th>Status</th>
+                <th>Verification Log ID</th>
+                <th>Verifier Name</th>
+                <th>Verifier Email</th>
+                <th>Credential ID</th>
+                <th>Holder ID</th>
+                <th>Holder Name</th>
+                <th>Result</th>
                 <th>Timestamp</th>
               </tr>
             </thead>
             <tbody>
               {logs.map((log) => (
                 <tr key={log.id}>
-                  <td>{log.query}</td>
+                  {/* 1) Verification Log ID */}
+                  <td>{log.id}</td>
+
+                  {/* 2) Verifier Name */}
+                  <td>{log.verifierName || "N/A"}</td>
+
+                  {/* 3) Verifier Email */}
+                  <td>{log.verifierEmail || "N/A"}</td>
+
+                  {/* 4) Credential ID */}
+                  <td>{log.credentialId || log.credentialID || "N/A"}</td>
+
+                  {/* 5) Holder ID */}
+                  <td>{log.holderID || "N/A"}</td>
+
+                  {/* 6) Holder Name */}
+                  <td>{log.holderName || "N/A"}</td>
+
+                  {/* 7) Result */}
                   <td>
-                    <span
-                      className={`status-badge ${log.status.toLowerCase()}`}
-                    >
-                      {log.status}
-                    </span>
+                    {log.result?.reason ||
+                      log.result?.message ||
+                      (typeof log.result === "string" ? log.result : "N/A")}
                   </td>
-                  <td>{log.ts}</td>
+
+                  {/* 8) Timestamp */}
+                  <td>{log.verifiedAt || log.timestamp || "N/A"}</td>
                 </tr>
               ))}
             </tbody>

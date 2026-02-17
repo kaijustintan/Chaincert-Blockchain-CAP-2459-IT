@@ -785,6 +785,77 @@ const apiService = {
     }
   },
   // ==========================================================================================================================================================================  
+    /*
+    Function Name: Log_VerificationEvent
+
+    Technical:
+    Creates an on-chain verification log entry for a credential via:
+      POST /credentials/:credentialId/log-verification
+
+    Expects:
+      - credentialId (URL param)
+      - payload from frontend:
+        {
+          verifierName,
+          verifierEmail,
+          verifyResult: { valid, reason }
+        }
+
+    Tropang Ex:
+    Pagkatapos mong mag-Verify sa UI (may result na), tatawagin mo 'to
+    para isulat sa blockchain na:
+      - sino ang nag-verify (name/email),
+      - anong credential ang chineck,
+      - ano ang naging result.
+  */
+  Log_VerificationEvent: async (credentialId, verifierName, verifierEmail, verifyResult) => {
+    try {
+      const response = await axios.post(
+        `/credentials/${credentialId}/log-verification`,
+        {
+          verifierName,
+          verifierEmail,
+          verifyResult
+        }
+      );
+      return response.data; // { success, message, log }
+    } catch (error) {
+      console.error(
+        'Error logging verification event:',
+        error.response?.data?.message || error.message
+      );
+      throw error;
+    }
+  },
+
+  // Get all verification logs (blockchain)
+Get_AllVerificationLogs: async () => {
+  try {
+    const response = await axios.get('/verification-logs'); // baseURL already has /api
+    return response.data; // { success, logs, count, timestamp }
+  } catch (error) {
+    console.error(
+      'Error fetching verification logs:',
+      error.response?.data?.message || error.message
+    );
+    throw error;
+  }
+},
+
+// Get single verification log by ID
+Get_VerificationLogById: async (logId) => {
+  try {
+    const response = await axios.get(`/verification-logs/${logId}`);
+    return response.data; // { success, log, timestamp }
+  } catch (error) {
+    console.error(
+      'Error fetching verification log by ID:',
+      error.response?.data?.message || error.message
+    );
+    throw error;
+  }
+},
+
   // ==========================================================================================================================================================================
   //                                                               DEBUG / UTIL
   // ==========================================================================================================================================================================

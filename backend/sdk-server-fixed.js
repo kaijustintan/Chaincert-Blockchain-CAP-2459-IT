@@ -1092,6 +1092,33 @@ app.post('/api/credentials/:credentialId/revoke', (req, res) => {
 });
 // ==========================================================================================================================================================================
 
+/* 
+  Endpoint: POST /api/credentials/:credentialId/log-verification
+
+  Technical:
+  Delegates on-chain verification logging to verifierController.logVerificationEvent,
+  passing the Fabric getContractAndGateway helper.
+
+  Tropang Ex:
+  Pagkatapos mag-Verify sa UI (may name/email), dito dadaan para magsulat ng
+  verification log sa blockchain via LogVerification() chaincode function.
+*/
+app.post('/api/credentials/:credentialId/log-verification', (req, res) => {
+  verifierController.logVerificationEvent(req, res, getContractAndGateway);
+});
+// ==========================================================================================================================================================================
+// NEW: Verification logs (all)
+app.get('/api/verification-logs', (req, res) =>
+  verifierController.getAllVerificationLogs(req, res, getContractAndGateway)
+);
+// ==========================================================================================================================================================================
+
+// NEW: Verification log by ID
+app.get('/api/verification-logs/:logId', (req, res) =>
+  verifierController.getVerificationLogById(req, res, getContractAndGateway)
+);
+// ==========================================================================================================================================================================
+
 const PORT = 4000;
 app.listen(PORT, () => {
   console.log(`✅ API running on :${PORT}`);

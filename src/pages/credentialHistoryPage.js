@@ -20,7 +20,7 @@ export default function CredentialHistoryPage() {
   const [isFiltered, setIsFiltered] = useState(false);
 
   // NEW: which field to search on (frontend-only)
-  const [searchField, setSearchField] = useState("credentialId"); // "credentialId" | "holderId" | "credentialName"
+  const [searchField, setSearchField] = useState("credentialId"); // "credentialId" | "holderId" | "holderName" | "credentialName"
 
   useEffect(() => {
     fetchAllHistory();
@@ -61,6 +61,10 @@ export default function CredentialHistoryPage() {
         if (searchField === "holderId") {
           const hid = (record.value?.holderID || "").toLowerCase();
           return hid.includes(query);
+        }
+        if (searchField === "holderName") {
+          const hname = (record.holderName || "").toLowerCase(); // NEW
+          return hname.includes(query);
         }
         if (searchField === "credentialName") {
           const cname = (record.credentialName || "").toLowerCase();
@@ -142,7 +146,7 @@ export default function CredentialHistoryPage() {
         setLoading(false);
       }
     } else if (searchId.trim()) {
-      // For holderId / credentialName, we just rely on local filtering.
+      // For holderId / holderName / credentialName, we just rely on local filtering.
       // No backend changes needed; allHistory stays as last loaded dataset.
       setIsFiltered(true);
     } else {
@@ -247,6 +251,7 @@ export default function CredentialHistoryPage() {
           >
             <option value="credentialId">Credential ID</option>
             <option value="holderId">Holder ID</option>
+            <option value="holderName">Holder Name</option> {/* NEW */}
             <option value="credentialName">Credential Name</option>
           </select>
 
@@ -257,6 +262,8 @@ export default function CredentialHistoryPage() {
                 ? "Search by credential ID (e.g., cred_1770034187089_16z191x77)"
                 : searchField === "holderId"
                 ? "Search by holder ID"
+                : searchField === "holderName"
+                ? "Search by holder name"
                 : "Search by credential name"
             }
             value={searchId}
@@ -341,7 +348,7 @@ export default function CredentialHistoryPage() {
                   padding: "8px",
                   borderRadius: "4px",
                   border: "1px solid #ddd",
-                  fontSize: "14px",
+                    fontSize: "14px",
                 }}
               >
                 <option value="all">All Actions</option>
@@ -496,7 +503,7 @@ export default function CredentialHistoryPage() {
                 <th>Credential Name</th>
                 <th>Credential Type</th>
                 <th>Status</th>
-                <th>Holder ID</th>
+                <th>Holder</th>
                 <th>Credential ID</th>
                 <th>Transaction ID</th>
               </tr>
@@ -572,7 +579,14 @@ export default function CredentialHistoryPage() {
                         </span>
                       )}
                     </td>
-                    <td>{record.value?.holderID || "N/A"}</td>
+                    <td>
+                      <div>
+                        <strong>{record.holderName || "N/A"}</strong>
+                      </div>
+                      <div style={{ fontSize: "11px", color: "#666" }}>
+                        {record.value?.holderID || "N/A"}
+                      </div>
+                    </td>
                     <td
                       style={{
                         fontSize: "11px",

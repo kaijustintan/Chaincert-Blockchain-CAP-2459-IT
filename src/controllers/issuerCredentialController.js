@@ -606,6 +606,7 @@ exports.get_CredentialTemplatesByIssuerID = async (req, res) => {
 /*
   Function Name: get_IssuerCredentialsHistory
 
+
   Technical:
   Retrieves the complete audit trail of ALL credentials for the logged-in issuer:
     1. Resolves issuer's Fabric identity + org from CouchDB
@@ -615,14 +616,17 @@ exports.get_CredentialTemplatesByIssuerID = async (req, res) => {
     5. Optionally filters by credentialId (if search query provided)
     6. Returns formatted history for audit dashboard
 
+
   Tropang Ex:
   Ito yung "buong timeline ng lahat ng nangyari sa credentials ng issuer" —
   whether template creation, credential issuance, revocation, etc.
   Perfect for compliance audit at blockchain transparency.
 
+
   Inputs / Parameters:
   - req.user.id → issuerId
   - req.query.credentialId (optional) → filter by specific credential ID
+
 
   Output:
   - 200 success with sorted/filtered history array
@@ -634,7 +638,9 @@ exports.get_CredentialTemplatesByIssuerID = async (req, res) => {
 exports.get_IssuerCredentialsHistory = async (req, res, getContractAndGateway) => {
   try {
 
+
     /* Step 0: Check authentication
+
 
        Technical: Requires JWT middleware to populate req.user.
        Tropang Ex: Bawal kumuha ng history kung di ka logged in as issuer.
@@ -646,19 +652,24 @@ exports.get_IssuerCredentialsHistory = async (req, res, getContractAndGateway) =
       });
     }
 
+
     const issuerId = req.user.id;
     const { credentialId } = req.query; // Optional search filter
+
 
     console.log(`\n📊 [HISTORY] Fetching credential history for issuer: ${issuerId}`);
     if (credentialId) {
       console.log(`🔍 [HISTORY] Search filter applied: ${credentialId}`);
     }
 
+
     // =====================================================
     // STEP 1: RESOLVE ISSUER IDENTITY (for blockchain)
     // =====================================================
 
+
     /* Step 1: Resolve issuer identity + org info
+
 
        Tropang Ex:
        Kukunin natin yung issuer profile para malaman:
@@ -668,6 +679,7 @@ exports.get_IssuerCredentialsHistory = async (req, res, getContractAndGateway) =
     let identityName, orgName, issuerDoc;
     const adminNano = nano('http://admin:adminpw@localhost:5985');
     const issuersDB = adminNano.use('issuers');
+
 
     // Fetch issuerDoc using issuerId
     try {
@@ -682,6 +694,7 @@ exports.get_IssuerCredentialsHistory = async (req, res, getContractAndGateway) =
       throw err;
     }
 
+
     // Validate issuer is approved: must have fabricIdentity + orgName
     if (!issuerDoc || !issuerDoc.fabricIdentity || !issuerDoc.orgName) {
       return res.status(403).json({
@@ -690,6 +703,7 @@ exports.get_IssuerCredentialsHistory = async (req, res, getContractAndGateway) =
       });
     }
 
+
     identityName = issuerDoc.fabricIdentity;
     
     // 🔥 CRITICAL: Normalize orgName to lowercase with no spaces
@@ -697,16 +711,20 @@ exports.get_IssuerCredentialsHistory = async (req, res, getContractAndGateway) =
     
     console.log(`✅ [HISTORY] Identity: ${identityName}, Org: ${orgName}`);
 
+
     // =====================================================
     // STEP 2: QUERY BLOCKCHAIN FOR HISTORY
     // =====================================================
 
+
     /* Step 2: Query blockchain for complete history
+
 
        Technical:
        - Calls Get_IssuerCredentialsHistory chaincode function
        - Returns array of credentials with their full history
        - Uses evaluateTransaction (read-only, no state change)
+
 
        Tropang Ex:
        Ito yung pag-kuha ng raw data galing sa blockchain.
@@ -715,12 +733,15 @@ exports.get_IssuerCredentialsHistory = async (req, res, getContractAndGateway) =
     try {
       console.log(`📡 [HISTORY] Querying blockchain...`);
 
+
       // Get contract connection
       if (!getContractAndGateway) {
         throw new Error('getContractAndGateway function not provided');
       }
 
+
       const { gateway, contract } = await getContractAndGateway(identityName, orgName);
+
 
       // Call blockchain chaincode - Get_IssuerCredentialsHistory
       const result = await contract.evaluateTransaction(
@@ -728,11 +749,14 @@ exports.get_IssuerCredentialsHistory = async (req, res, getContractAndGateway) =
         issuerId
       );
 
+
       rawHistory = JSON.parse(result.toString());
       console.log(`✅ [HISTORY] Blockchain query successful. Found ${rawHistory.length} credentials.`);
 
+
       // Disconnect gateway
       await gateway.disconnect();
+
 
     } catch (blockchainError) {
       console.error(`❌ [HISTORY] Blockchain error:`, blockchainError.message);
@@ -743,11 +767,14 @@ exports.get_IssuerCredentialsHistory = async (req, res, getContractAndGateway) =
       });
     }
 
+
     // =====================================================
     // STEP 3: FLATTEN & SORT HISTORY ENTRIES
     // =====================================================
 
+
     /* Step 3: Flatten all history entries into single array
+
 
        Technical:
        - Each credential has a history array
@@ -755,11 +782,13 @@ exports.get_IssuerCredentialsHistory = async (req, res, getContractAndGateway) =
        - Attach credential metadata to each entry
        - Sort by timestamp (most recent first)
 
+
        Tropang Ex:
        Imbes na grouped by credential, gusto natin isang timeline
        ng LAHAT ng nangyari sorted by date.
     */
     console.log(`🔄 [HISTORY] Flattening and sorting history entries...`);
+
 
     const allHistoryEntries = [];
     
@@ -782,22 +811,84 @@ exports.get_IssuerCredentialsHistory = async (req, res, getContractAndGateway) =
       });
     });
 
+
     // Sort by timestamp (most recent first)
     allHistoryEntries.sort((a, b) => 
       new Date(b.timestamp) - new Date(a.timestamp)
     );
 
+
     console.log(`✅ [HISTORY] Flattened ${allHistoryEntries.length} total history entries.`);
+
+
+    // =====================================================
+    // STEP 3.5: ENRICH WITH HOLDER NAME (from CouchDB)
+    // =====================================================
+
+    /*
+      NEW Step: Resolve holderName for each distinct holderID
+      using couchDB_service.getUser(), then attach holderName
+      to every history entry.
+
+      Tropang Ex:
+      Para makapag-search ka sa frontend by holder name
+      (hindi lang holder ID) gamit yung same history endpoint.
+    */
+    try {
+      const couchdbService = require('../couchDB_service'); // same service used elsewhere
+
+      const holderIdSet = new Set();
+      allHistoryEntries.forEach((entry) => {
+        const hid = entry?.value?.holderID;
+        if (hid) holderIdSet.add(hid);
+      });
+
+      const holderIdArray = Array.from(holderIdSet);
+      const holderNameCache = {};
+
+      for (const hid of holderIdArray) {
+        try {
+          const userDoc = await couchdbService.getUser(hid);
+
+          const name =
+            userDoc.fullName ||
+            userDoc.name ||
+            [userDoc.firstName, userDoc.lastName].filter(Boolean).join(' ') ||
+            hid;
+
+          holderNameCache[hid] = name;
+        } catch (e) {
+          console.error('[HISTORY] Failed to resolve holder name for', hid, e.message);
+          holderNameCache[hid] = hid; // fallback: just ID
+        }
+      }
+
+      allHistoryEntries.forEach((entry) => {
+        const hid = entry?.value?.holderID;
+        entry.holderName = hid ? holderNameCache[hid] || null : null;
+      });
+
+      console.log(
+        `✅ [HISTORY] Enriched history entries with holderName for ${holderIdArray.length} unique holders.`
+      );
+    } catch (enrichErr) {
+      console.error('⚠️ [HISTORY] Error enriching holder names:', enrichErr.message);
+      // Non-fatal: continue without holderName if something fails
+    }
+
 
     // =====================================================
     // STEP 4: OPTIONAL FILTER BY CREDENTIAL ID
     // =====================================================
 
+
     /* Step 4: Filter by credentialId if search query provided
+
 
        Technical:
        - If req.query.credentialId exists, filter entries
        - Uses .includes() to support partial matches
+
 
        Tropang Ex:
        Kung nag-search yung user ng specific credential ID,
@@ -812,16 +903,20 @@ exports.get_IssuerCredentialsHistory = async (req, res, getContractAndGateway) =
       console.log(`🔍 [HISTORY] Filtered to ${filteredHistory.length} entries matching: ${credentialId}`);
     }
 
+
     // =====================================================
     // ✅ SUCCESS: Return sorted (and optionally filtered) history
     // =====================================================
 
+
     /* Step 5: Return final response
+
 
        Tropang Ex:
        Ibinabalik na yung sorted history, ready for display sa UI.
     */
     console.log(`✅ [HISTORY] Returning ${filteredHistory.length} history entries.\n`);
+
 
     return res.status(200).json({
       success: true,
@@ -832,9 +927,12 @@ exports.get_IssuerCredentialsHistory = async (req, res, getContractAndGateway) =
       timestamp: new Date().toISOString()
     });
 
+
   } catch (error) {
 
+
     /* Step 6: Catch-all error handler
+
 
        Tropang Ex: Safety net para sa unexpected errors.
     */
@@ -847,7 +945,6 @@ exports.get_IssuerCredentialsHistory = async (req, res, getContractAndGateway) =
     });
   }
 };
-
 // ==========================================================================================================================================================================
 
 // ==========================================================================================================================================================================

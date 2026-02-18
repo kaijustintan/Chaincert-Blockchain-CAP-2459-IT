@@ -90,6 +90,10 @@ router.post('/approve-issuer/:issuerId', authController.approveIssuer);
 // POST /api/auth/reject-issuer/:issuerId - Reject issuer (Admin)
 router.post('/reject-issuer/:issuerId', authController.rejectIssuer);
 
+// GET /api/auth/approved-issuers - Get all APPROVED issuers (Admin)
+router.get('/approved-issuers', authController.getApprovedIssuers);
+
+
 // =========================================================================================================
 // 📄 CREDENTIAL ROUTES (simple pass-through routes)
 // =========================================================================================================

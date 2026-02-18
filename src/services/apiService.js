@@ -350,7 +350,7 @@ const apiService = {
   getAllUsers: async () => {
     try {
       console.log("Fetching all users for recipient dropdown...");
-      const response = await axios.get('/users');
+      const response = await axios.get('/auth/users');
       return response.data.users || []; // Backend returns { success: true, users: [...] }
     } catch (error) {
       console.error('Error fetching all users:', error.response?.data?.message || error.message);
@@ -386,6 +386,31 @@ const apiService = {
   },
   // ==========================================================================================================================================================================
 
+    /*
+    Function Name: getApprovedIssuers
+
+    Technical:
+    Retrieves all APPROVED issuers from backend.
+    Tropang Ex: Admin dashboard list ng lahat ng currently approved issuers
+    / accredited organizations.
+  */
+  getApprovedIssuers: async () => {
+    try {
+      // Step 1: GET approved issuers
+      const response = await axios.get('/auth/approved-issuers');
+
+      // Step 2: Return payload (backend already sends { success, data, count, ... })
+      return response.data;
+    } catch (error) {
+      console.error(
+        'Error fetching approved issuers:',
+        error.response?.data?.message || error.message
+      );
+      throw error;
+    }
+  },
+
+  // ==========================================================================================================================================================================
 
   /*
     Function Name: approveIssuer

@@ -129,17 +129,20 @@ async function getUser(userId) {
   Function Name: getAllUsers
 
   Technical:
-  Retrieves all user documents from the users database.
+  Retrieves all NON-ADMIN user documents from the users database.
+  - Filters out any docs that are not real user accounts.
+  - Excludes admin roles.
   Returns the full documents instead of just document IDs.
 
   Tropang Ex:
-  Kinukuha lahat ng registered users sa system.
-  Usually gamit ito ng admin features (ex: dropdown ng users, dashboards, reports).
+  Kinukuha lahat ng pwedeng gawing credential holder (students/regular users)
+  para sa dropdown, dashboards, reports.
 */
+// couchDB_service.js
 async function getAllUsers() {
   if (!usersDb) await initializeDatabases();
   const result = await usersDb.list({ include_docs: true });
-  return result.rows.map(row => row.doc);
+  return result.rows.map(row => row.doc);  // raw user docs
 }
 // ==========================================================================================================================================================================
 
@@ -1398,6 +1401,66 @@ async function verifyCredentialFromCouchDB(credentialId) {
 }
 // ==========================================================================================================================================================================
 
+// =================================================================================================
+// NEW: Get all APPROVED issuers (for admin dashboard)
+// =================================================================================================
+
+/*
+  Function Name: getApprovedIssuers
+  Technical: Fetches all issuer registration documents with status = "approved", sorted by createdAt.
+  Tropang Ex: Pangkuha ng lahat ng issuers na na-approve na ni admin para lumabas sa "Approved Issuers"
+              section ng admin dashboard.
+*/
+async function getApprovedIssuers() {
+  try {
+    /* Step 1: Ensure issuers DB is initialized
+       
+       Technical: Make sure na naka-setup na yung CouchDB connection / handle bago mag-query.
+       Tropang Ex: Para siguradong may nakakabit na "kable" papunta sa issuers database bago tayo humingi
+                   ng listahan ng approved orgs.
+    */
+    if (!issuersDB) await initializeDatabases();
+
+    /* Step 2: Query approved issuer registrations
+       
+       Technical:
+         - Mango query filtering by:
+             type   = "issuer_registration"
+             status = "approved"
+         - Sorted by "createdAt" (same style as getPendingIssuers) para pinaka-recent applications
+           ang nasa unahan.
+       Tropang Ex: Pareho lang sa pending issuers, pero status = approved. Iniisa-isa niya lahat ng org
+                   na pasado na at inaayos yung list ayon sa kung kelan sila nag-apply / na-approve.
+    */
+    const result = await issuersDB.find({
+      selector: {
+        type: 'issuer_registration',
+        status: 'approved'
+      },
+      sort: ['createdAt'] // CHANGES: same sort as pending issuers; avoids no_usable_index on orgName
+    });
+
+    /* Step 3: Return approved issuer documents
+       
+       Technical: Returns raw issuer docs (full CouchDB documents).
+       Tropang Ex: Ibinabalik yung buong info ng approved issuers (orgName, contactName, email, status,
+                   accredited, etc.) para ma-display sa "Approved Issuers" table sa frontend.
+    */
+    return result.docs;
+
+  } catch (error) {
+    /* Step 4: Error handling
+       
+       Technical: Logs and rethrows any CouchDB / query errors for upstream handling.
+       Tropang Ex: Kapag pumalpak yung query (ex: down yung DB), maglo-log tayo ng malinaw na error
+                   tapos ibabalik sa caller para ma-convert niya to 500 response.
+    */
+    console.error('[COUCHDB] Error getting approved issuers:', error.message);
+    throw error;
+  }
+}
+// ==========================================================================================================================================================================
+
 module.exports = {
   // Core initialization
   nano,
@@ -1445,5 +1508,8 @@ module.exports = {
   save_CredentialTemplateToIssuerDB,
   deleteIssuerCredentialTemplate,
   revokeCredential,
-  verifyCredentialFromCouchDB            // ✅ UPDATED: Now properly cleans credential IDs
+  verifyCredentialFromCouchDB, // ✅ UPDATED: Now properly cleans credential IDs
+
+  // ADMIN DASHBOARD
+  getApprovedIssuers
 };

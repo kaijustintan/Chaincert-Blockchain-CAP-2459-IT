@@ -581,7 +581,7 @@ app.get('/api/credentials/issued', async (req, res) => {
          Kapag admin, generic Org1 admin ang ginagamit para makapag-query sa blockchain.
          (Puwede pang i-refine later kung may hiwalay na admin org.)
       */
-      identityName = 'admin';
+      identityName = 'chaincert-admin';
       orgName = 'Org1';
     } else {
       /* Step 2C: Block other roles
@@ -720,7 +720,7 @@ app.get('/api/credentials/templates', async (req, res) => {
       identityName = issuerDoc.fabricIdentity;
       orgName = issuerDoc.orgName;
     } else if (user.role === 'admin') {
-      identityName = 'admin';
+      identityName = 'chaincert-admin';
       orgName = 'Org1';
     } else {
       return res.status(403).json({ success: false, error: 'Not authorized to view templates.' });
@@ -997,36 +997,6 @@ app.get('/api/issuer/credentials/history', (req, res) => {
 
 // ==========================================================================================================================================================================
 
-/*
-  Endpoint: GET /api/users
-
-  Technical: Retrieves a filtered list of non-admin users from CouchDB.
-  Tropang Ex: Kinukuha dito yung list ng regular users (e.g. students) na pwedeng pagpilian bilang credential holders.
-  Ex: used para makita list of users na pwede sendan/issuhan ng credentials sa issuer dashboard 
-*/
-app.get('/api/users', async (req, res) => {
-  try {
-
-     /* Step 1: Fetch all users from CouchDB */
-    const users = await couchdb.getAllUsers();
-
-     /* Step 2: Filter out admin users to get normal users only*/
-    const filtered = users.filter(u => !u.role || u.role === 'user');
-
-    /* Step 3: Return simplified user list
-
-      Technical: Maps user records to minimal fields (id, email) before returning.
-      Tropang Ex: Hindi na binabalik lahat ng user info — sapat na yung ID at email para pumili ng credential holder.
-    */
-    res.json({
-      success: true,
-      users: filtered.map(u => ({ id: u._id, email: u.email })),
-      timestamp: new Date().toISOString()
-    });
-  } catch (err) {
-    res.status(500).json({ success: false, error: err.message });
-  }
-});
 // ==========================================================================================================================================================================
 
 // ✅ VERIFY CREDENTIAL ENDPOINT (delegates to controller)

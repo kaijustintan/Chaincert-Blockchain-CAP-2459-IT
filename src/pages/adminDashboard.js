@@ -16,22 +16,44 @@ export default function AdminDashboard() {
   const [logsLoading, setLogsLoading] = useState(false);
   const [message, setMessage] = useState("");
 
-  // Proper data handling from API response
+  // CHANGES: local view filter for issuers (approved / pending / rejected)
+  //          default = "approved"
+  const [issuerFilter, setIssuerFilter] = useState("approved");
+
+  // CHANGES: users state for Manage Users
+  const [users, setUsers] = useState([]);
+  const [usersLoading, setUsersLoading] = useState(false);
+
+  // ======================================================================
+  // ISSUER FETCHING (PENDING + APPROVED)
+  // ======================================================================
+
   const fetchPendingIssuers = async () => {
     try {
       setLoading(true);
       const response = await apiService.getPendingIssuers();
-      const allIssuers = Array.isArray(response.data) ? response.data : [];
-      // Separate into pending and approved
-      const pending = allIssuers.filter(issuer => issuer.status === "pending");
-      const approved = allIssuers.filter(issuer => issuer.status === "approved");
+      // CHANGES: response.data already holds the array from backend
+      const pending = Array.isArray(response.data) ? response.data : [];
       setPendingIssuers(pending);
-      setApprovedIssuers(approved);
       setMessage("");
     } catch (error) {
-      console.error("Error fetching issuers:", error);
-      setMessage("Failed to load issuers");
+      console.error("Error fetching pending issuers:", error);
+      setMessage("Failed to load pending issuers");
       setPendingIssuers([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const fetchApprovedIssuers = async () => {
+    try {
+      setLoading(true);
+      const response = await apiService.getApprovedIssuers();
+      // response.data na agad yung array galing backend
+      const approved = Array.isArray(response.data) ? response.data : [];
+      setApprovedIssuers(approved);
+    } catch (error) {
+      console.error("Error fetching approved issuers:", error);
       setApprovedIssuers([]);
     } finally {
       setLoading(false);
@@ -43,7 +65,8 @@ export default function AdminDashboard() {
     try {
       await apiService.approveIssuer(issuerId);
       setMessage("✅ Issuer approved successfully!");
-      fetchPendingIssuers(); // Refresh list
+      await fetchPendingIssuers();
+      await fetchApprovedIssuers();
     } catch (error) {
       console.error("Error approving issuer:", error);
       setMessage("❌ Failed to approve issuer");
@@ -56,14 +79,36 @@ export default function AdminDashboard() {
     try {
       await apiService.rejectIssuer(issuerId, rejectionReason || "");
       setMessage("✅ Issuer rejected successfully!");
-      fetchPendingIssuers(); // Refresh list
+      await fetchPendingIssuers();
+      await fetchApprovedIssuers();
     } catch (error) {
       console.error("Error rejecting issuer:", error);
       setMessage("❌ Failed to reject issuer");
     }
   };
 
-  // Fetch all credentials
+  // ======================================================================
+  // USERS FETCHING (MANAGE USERS TAB)
+  // ======================================================================
+
+  const fetchUsers = async () => {
+    try {
+      setUsersLoading(true);
+      const data = await apiService.getAllUsers();
+      const list = Array.isArray(data) ? data : [];
+      setUsers(list);
+    } catch (error) {
+      console.error("Error fetching users:", error);
+      setUsers([]);
+    } finally {
+      setUsersLoading(false);
+    }
+  };
+
+  // ======================================================================
+  // CREDENTIALS / VERIFICATIONS / LOGS (unchanged behavior)
+  // ======================================================================
+
   const fetchCredentials = async () => {
     try {
       setCredentialsLoading(true);
@@ -77,23 +122,22 @@ export default function AdminDashboard() {
     }
   };
 
-  // Fetch verifications (using credential verification data)
   const fetchVerifications = async () => {
     try {
       setVerificationsLoading(true);
-      // Fetch all credentials and filter for verification status
       const allCredentials = await apiService.getAllCredentials();
-      const credentialsList = Array.isArray(allCredentials) ? allCredentials : [];
-      
-      // Get verification requests (credentials that have been verified or are pending verification)
-      const verificationData = credentialsList.map(cred => ({
+      const credentialsList = Array.isArray(allCredentials)
+        ? allCredentials
+        : [];
+
+      const verificationData = credentialsList.map((cred) => ({
         id: cred.id,
         requester: cred.holderID || "Unknown",
         credential: cred.credentialType || "N/A",
         status: cred.verified ? "Approved" : "Pending",
-        submitted: cred.issueDate || cred.timestamp || "N/A"
+        submitted: cred.issueDate || cred.timestamp || "N/A",
       }));
-      
+
       setVerifications(verificationData);
     } catch (error) {
       console.error("Error fetching verifications:", error);
@@ -103,26 +147,26 @@ export default function AdminDashboard() {
     }
   };
 
-  // Fetch audit logs (using credential history and issuer actions)
   const fetchLogs = async () => {
     try {
       setLogsLoading(true);
-      // For now, we'll create logs from credential and issuer data
-      // In a real system, this would come from a dedicated audit log endpoint
       const allCredentials = await apiService.getAllCredentials();
-      const credentialsList = Array.isArray(allCredentials) ? allCredentials : [];
-      
+      const credentialsList = Array.isArray(allCredentials)
+        ? allCredentials
+        : [];
+
       const logData = credentialsList
-        .filter(cred => cred.issueDate || cred.revokedDate)
-        .map(cred => ({
-          event: cred.revoked 
-            ? `Credential revoked: ${cred.id}` 
+        .filter((cred) => cred.issueDate || cred.revokedDate)
+        .map((cred) => ({
+          event: cred.revoked
+            ? `Credential revoked: ${cred.id}`
             : `Credential issued: ${cred.credentialType || cred.id}`,
-          timestamp: cred.revokedDate || cred.issueDate || cred.timestamp || "N/A",
-          actor: cred.issuerID || "system"
+          timestamp:
+            cred.revokedDate || cred.issueDate || cred.timestamp || "N/A",
+          actor: cred.issuerID || "system",
         }))
-        .slice(0, 50); // Limit to 50 most recent
-      
+        .slice(0, 50);
+
       setLogs(logData);
     } catch (error) {
       console.error("Error fetching logs:", error);
@@ -136,15 +180,31 @@ export default function AdminDashboard() {
   useEffect(() => {
     if (tab === "issuers") {
       fetchPendingIssuers();
+      fetchApprovedIssuers();
+      // CHANGES: reset filter to "approved" whenever you open Issuers tab
+      setIssuerFilter("approved");
     } else if (tab === "credentials") {
       fetchCredentials();
     } else if (tab === "verifications") {
       fetchVerifications();
     } else if (tab === "logs") {
       fetchLogs();
+    } else if (tab === "users") {
+      fetchUsers();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tab]);
+
+  // CHANGES: derived list based on issuerFilter
+  const getVisibleIssuers = () => {
+    if (issuerFilter === "approved") return approvedIssuers;
+    if (issuerFilter === "pending") return pendingIssuers;
+    // placeholder for "rejected" – currently no separate list, so empty
+    if (issuerFilter === "rejected") return [];
+    return [];
+  };
+
+  const visibleIssuers = getVisibleIssuers();
 
   return (
     <div className="admin-container">
@@ -163,6 +223,13 @@ export default function AdminDashboard() {
           className={tab === "issuers" ? "active" : ""}
         >
           Manage Issuers
+        </button>
+        {/* CHANGES: new Manage Users tab */}
+        <button
+          onClick={() => setTab("users")}
+          className={tab === "users" ? "active" : ""}
+        >
+          Manage Users
         </button>
         <button
           onClick={() => setTab("verifications")}
@@ -185,18 +252,15 @@ export default function AdminDashboard() {
       </div>
 
       {/* Message Display */}
-      {message && (
-        <div className="admin-message">
-          {message}
-        </div>
-      )}
+      {message && <div className="admin-message">{message}</div>}
 
-      {/* Content */}
       {/* CREDENTIALS TAB */}
       {tab === "credentials" && (
         <div className="tab-card">
           <h2>Credential Management</h2>
-          <p className="tab-subtitle">View and manage all credentials in the system.</p>
+          <p className="tab-subtitle">
+            View and manage all credentials in the system.
+          </p>
           {credentialsLoading ? (
             <div className="tab-placeholder">Loading credentials...</div>
           ) : credentials.length > 0 ? (
@@ -213,7 +277,7 @@ export default function AdminDashboard() {
                   </tr>
                 </thead>
                 <tbody>
-                  {credentials.map(cred => (
+                  {credentials.map((cred) => (
                     <tr key={cred.id}>
                       <td>{cred.id}</td>
                       <td>{cred.credentialType || "N/A"}</td>
@@ -245,18 +309,36 @@ export default function AdminDashboard() {
         <div className="tab-card">
           <h2>Issuer Management</h2>
           <p className="tab-subtitle">
-            Review, approve, or reject issuer applications. Monitor onboarding activity in real time.
+            Review, approve, or reject issuer applications. Monitor onboarding
+            activity in real time.
           </p>
+
+          {/* CHANGES: Dropdown filter for issuer status */}
+          <div className="issuer-filter-row">
+            <label htmlFor="issuerFilter">View:</label>
+            <select
+              id="issuerFilter"
+              value={issuerFilter}
+              onChange={(e) => setIssuerFilter(e.target.value)}
+            >
+              <option value="approved">Approved Issuers</option>
+              <option value="pending">Pending Issuers</option>
+              <option value="rejected">Rejected Issuers</option>
+            </select>
+          </div>
+
           {loading ? (
             <div className="tab-placeholder">Loading issuers...</div>
           ) : (
             <>
-              {/* PENDING ISSUERS */}
-              {pendingIssuers.length > 0 && (
+              {/* When filter = pending, show pending table with actions */}
+              {issuerFilter === "pending" && pendingIssuers.length > 0 && (
                 <div className="issuer-section">
                   <div className="section-header">
                     <h3>Pending Issuers</h3>
-                    <span className="section-count">{pendingIssuers.length}</span>
+                    <span className="section-count">
+                      {pendingIssuers.length}
+                    </span>
                   </div>
                   <div className="table-wrapper">
                     <table className="admin-table">
@@ -267,16 +349,24 @@ export default function AdminDashboard() {
                           <th>Email</th>
                           <th>Status</th>
                           <th>Accredited</th>
+                          <th>Created At</th>
+                          <th>Approved At</th>
+                          <th>Approved By</th>
+                          <th>Fabric Identity</th>
+                          <th>CouchDB URL</th>
+                          <th>Wallet ID</th>
                           <th>Actions</th>
                         </tr>
                       </thead>
                       <tbody>
-                        {pendingIssuers.map(issuer => (
+                        {pendingIssuers.map((issuer) => (
                           <tr key={issuer._id}>
                             <td>{issuer.orgName}</td>
                             <td>{issuer.contactName}</td>
                             <td>{issuer.email}</td>
-                            <td className="status-pending">{issuer.status}</td>
+                            <td className="status-pending">
+                              {issuer.status}
+                            </td>
                             <td>
                               {issuer.accredited ? (
                                 <span className="badge green">Yes</span>
@@ -284,16 +374,30 @@ export default function AdminDashboard() {
                                 <span className="badge red">No</span>
                               )}
                             </td>
+                            <td>{issuer.createdAt || "N/A"}</td>
+                            <td>{issuer.approvedAt || "N/A"}</td>
+                            <td>{issuer.approvedBy || "N/A"}</td>
+                            <td>{issuer.fabricIdentity || "N/A"}</td>
+                            <td>{issuer.couchDBUrl || "N/A"}</td>
+                            <td>
+                              {issuer.walletId ||
+                                issuer.walletID ||
+                                "N/A"}
+                            </td>
                             <td className="action-cell">
                               <button
                                 className="btn-approve"
-                                onClick={() => handleApproveIssuer(issuer._id)}
+                                onClick={() =>
+                                  handleApproveIssuer(issuer._id)
+                                }
                               >
                                 ✅ Approve
                               </button>
                               <button
                                 className="btn-reject"
-                                onClick={() => handleRejectIssuer(issuer._id)}
+                                onClick={() =>
+                                  handleRejectIssuer(issuer._id)
+                                }
                               >
                                 ❌ Reject
                               </button>
@@ -306,12 +410,14 @@ export default function AdminDashboard() {
                 </div>
               )}
 
-              {/* APPROVED ISSUERS */}
-              {approvedIssuers.length > 0 && (
+              {/* When filter = approved, show approved table (default view) */}
+              {issuerFilter === "approved" && approvedIssuers.length > 0 && (
                 <div className="issuer-section">
                   <div className="section-header">
                     <h3>Approved Issuers</h3>
-                    <span className="section-count">{approvedIssuers.length}</span>
+                    <span className="section-count">
+                      {approvedIssuers.length}
+                    </span>
                   </div>
                   <div className="table-wrapper">
                     <table className="admin-table">
@@ -322,21 +428,39 @@ export default function AdminDashboard() {
                           <th>Email</th>
                           <th>Status</th>
                           <th>Accredited</th>
+                          <th>Created At</th>
+                          <th>Approved At</th>
+                          <th>Approved By</th>
+                          <th>Fabric Identity</th>
+                          <th>CouchDB URL</th>
+                          <th>Wallet ID</th>
                         </tr>
                       </thead>
                       <tbody>
-                        {approvedIssuers.map(issuer => (
-                          <tr key={issuer._id}>
+                        {approvedIssuers.map((issuer) => (
+                          <tr key={issuer.id || issuer._id}>
                             <td>{issuer.orgName}</td>
                             <td>{issuer.contactName}</td>
                             <td>{issuer.email}</td>
-                            <td className="status-approved">{issuer.status}</td>
+                            <td className="status-approved">
+                              {issuer.status}
+                            </td>
                             <td>
                               {issuer.accredited ? (
                                 <span className="badge green">Yes</span>
                               ) : (
                                 <span className="badge red">No</span>
                               )}
+                            </td>
+                            <td>{issuer.createdAt || "N/A"}</td>
+                            <td>{issuer.approvedAt || "N/A"}</td>
+                            <td>{issuer.approvedBy || "N/A"}</td>
+                            <td>{issuer.fabricIdentity || "N/A"}</td>
+                            <td>{issuer.couchDBUrl || "N/A"}</td>
+                            <td>
+                              {issuer.walletId ||
+                                issuer.walletID ||
+                                "N/A"}
                             </td>
                           </tr>
                         ))}
@@ -346,10 +470,78 @@ export default function AdminDashboard() {
                 </div>
               )}
 
-              {pendingIssuers.length === 0 && approvedIssuers.length === 0 && (
+              {/* When filter = rejected – placeholder for now */}
+              {issuerFilter === "rejected" && (
+                <div className="issuer-section">
+                  <div className="section-header">
+                    <h3>Rejected Issuers</h3>
+                    <span className="section-count">0</span>
+                  </div>
+                  <div className="tab-placeholder">
+                    Rejected issuers view not implemented yet.
+                  </div>
+                </div>
+              )}
+
+              {/* If selected filter has no data */}
+              {visibleIssuers.length === 0 && (
                 <div className="tab-placeholder">No issuers found.</div>
               )}
             </>
+          )}
+        </div>
+      )}
+
+      {/* MANAGE USERS TAB */}
+      {tab === "users" && (
+        <div className="tab-card">
+          <h2>User Management</h2>
+          <p className="tab-subtitle">
+            View all registered users (holders and admins) in the system.
+          </p>
+          {usersLoading ? (
+            <div className="tab-placeholder">Loading users...</div>
+          ) : users.length > 0 ? (
+            <div className="table-wrapper">
+              <table className="admin-table">
+                <thead>
+                  <tr>
+                    <th>User ID</th>
+                    <th>Email</th>
+                    <th>Username</th>
+                    <th>Role</th>
+                    <th>Org</th>
+                    <th>Created At</th>
+                    <th>Active</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {users.map((user) => (
+                    <tr key={user._id || user.id}>
+                      <td>{user._id || user.id}</td>
+                      <td>{user.email || "N/A"}</td>
+                      <td>{user.username || user.fullName || "N/A"}</td>
+                      <td>{user.role || "user"}</td>
+                      <td>{user.org || "N/A"}</td>
+                      <td>
+                        {user.createdAt
+                          ? new Date(user.createdAt).toLocaleString()
+                          : "N/A"}
+                      </td>
+                      <td>
+                        {user.isActive === false ? (
+                          <span className="badge red">No</span>
+                        ) : (
+                          <span className="badge green">Yes</span>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ) : (
+            <div className="tab-placeholder">No users found.</div>
           )}
         </div>
       )}
@@ -359,7 +551,8 @@ export default function AdminDashboard() {
         <div className="tab-card">
           <h2>Verification Oversight</h2>
           <p className="tab-subtitle">
-            Monitor credential verification requests and track their resolution status.
+            Monitor credential verification requests and track their resolution
+            status.
           </p>
           {verificationsLoading ? (
             <div className="tab-placeholder">Loading verifications...</div>
@@ -369,13 +562,19 @@ export default function AdminDashboard() {
                 <div className="stat-card">
                   <span className="stat-label">Pending Requests</span>
                   <span className="stat-value">
-                    {verifications.filter(v => v.status === "Pending").length}
+                    {
+                      verifications.filter((v) => v.status === "Pending")
+                        .length
+                    }
                   </span>
                 </div>
                 <div className="stat-card">
                   <span className="stat-label">Approved</span>
                   <span className="stat-value">
-                    {verifications.filter(v => v.status === "Approved").length}
+                    {
+                      verifications.filter((v) => v.status === "Approved")
+                        .length
+                    }
                   </span>
                 </div>
                 <div className="stat-card">
@@ -398,7 +597,13 @@ export default function AdminDashboard() {
                       <tr key={verification.id || index}>
                         <td>{verification.requester}</td>
                         <td>{verification.credential}</td>
-                        <td className={verification.status === "Approved" ? "status-approved" : "status-pending"}>
+                        <td
+                          className={
+                            verification.status === "Approved"
+                              ? "status-approved"
+                              : "status-pending"
+                          }
+                        >
                           {verification.status}
                         </td>
                         <td>{verification.submitted}</td>
@@ -409,7 +614,9 @@ export default function AdminDashboard() {
               </div>
             </>
           ) : (
-            <div className="tab-placeholder">No verification requests found.</div>
+            <div className="tab-placeholder">
+              No verification requests found.
+            </div>
           )}
         </div>
       )}
@@ -419,7 +626,8 @@ export default function AdminDashboard() {
         <div className="tab-card">
           <h2>Audit Logs</h2>
           <p className="tab-subtitle">
-            Trace key administrative actions for compliance and security reviews.
+            Trace key administrative actions for compliance and security
+            reviews.
           </p>
           {logsLoading ? (
             <div className="tab-placeholder">Loading audit logs...</div>
@@ -455,7 +663,8 @@ export default function AdminDashboard() {
         <div className="tab-card">
           <h2>System Settings</h2>
           <p className="tab-subtitle">
-            Configure administrative controls for institutions, infrastructure, and integrations.
+            Configure administrative controls for institutions,
+            infrastructure, and integrations.
           </p>
           <div className="settings-grid">
             <button>+ Add Institution</button>

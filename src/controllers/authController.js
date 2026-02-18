@@ -150,9 +150,9 @@ const authController = {
   Login ng student/admin. Kapag tama credentials → may token ka na + user info na
   pwede gamitin sa UI.
 */
+// Endpoint: POST /api/auth/login
 login: async (req, res) => {
   try {
-    // Step 1: Validate request inputs
     const { email, password } = req.body;
     if (!email || !password) {
       return res.status(400).json({
@@ -161,11 +161,10 @@ login: async (req, res) => {
       });
     }
 
-    // Step 2: Fetch all users and find the matching USER record
+    // Step 2: Fetch all users and find the matching record by email
     const users = await couchDB.getAllUsers();
-    const user = users.find(u => u.email === email && u.type === 'user');
+    const user = users.find(u => u.email === email);
 
-    // Step 3: If not found, reject
     if (!user) {
       return res.status(401).json({
         success: false,
@@ -173,7 +172,6 @@ login: async (req, res) => {
       });
     }
 
-    // Step 4: Compare password
     const passwordMatch = await bcrypt.compare(password, user.password);
     if (!passwordMatch) {
       return res.status(401).json({
@@ -182,7 +180,6 @@ login: async (req, res) => {
       });
     }
 
-    // Step 5: Create JWT token (24h, same feel as sdk-server-fixed)
     const token = jwt.sign(
       {
         id: user._id,
@@ -193,10 +190,8 @@ login: async (req, res) => {
       { expiresIn: '24h' }
     );
 
-    // Step 6: Strip password before sending user back (like sdk-server-fixed)
     const { password: pw, ...userData } = user;
 
-    // Step 7: Return token + user data
     return res.status(200).json({
       success: true,
       message: 'Login successful',
@@ -271,44 +266,50 @@ login: async (req, res) => {
   // ========================================================================================================================================================================
 
   /*
-    Endpoint: GET /api/auth/users
-    Function Name: getAllUsers
+  Endpoint: GET /api/auth/users
+  Function Name: getAllUsers
 
-    Technical:
-    Fetches all documents from users DB then filters only type === 'user'.
-    Returns list + count.
+  Technical:
+  Fetches all user documents from CouchDB via couchDB.getAllUsers().
+  Returns list + count as-is (any filtering should be handled in the service layer).
 
-    Tropang Ex:
-    Ginagamit to pang dropdown ni issuer (pipili siya sinong holder/student).
+  Tropang Ex:
+  Ginagamit to pang dropdown ni issuer (pipili siya sinong holder/student).
 
-    Note:
-    Comment says "Admin only", but this function itself does not enforce admin auth.
-    (Access control should be in middleware / route protection.)
-  */
-  getAllUsers: async (req, res) => {
-    try {
-      /* Step 1: Fetch all user docs from CouchDB */
-      const users = await couchDB.getAllUsers();
+  Note:
+  Comment says "Admin only", but this function itself does not enforce admin auth.
+  (Access control should be in middleware / route protection.)
+*/
+/*
+  Endpoint: GET /api/auth/users
+  Function Name: getAllUsers
 
-      /* Step 2: Filter out only real user accounts */
-      const filteredUsers = users.filter(u => u.type === 'user');
+  Technical:
+  Fetches all user documents from CouchDB via couchDB.getAllUsers().
+  Applies non-admin filter for recipient dropdown use-cases.
+  Returns list + count.
+*/
+getAllUsers: async (req, res) => {
+  try {
+    const users = await couchDB.getAllUsers();
 
-      /* Step 3: Return list */
-      return res.status(200).json({
-        success: true,
-        message: 'Users retrieved successfully',
-        users: filteredUsers,
-        count: filteredUsers.length
-      });
+    // Keep only non-admin accounts for dropdown (holders/recipients)
+    const filteredUsers = users.filter(u => !u.role || u.role === 'user');
 
-    } catch (error) {
-      /* Step 4: Handle errors */
-      return res.status(500).json({
-        success: false,
-        message: `Retrieve users error: ${error.message}`
-      });
-    }
-  },
+    return res.status(200).json({
+      success: true,
+      message: 'Users retrieved successfully',
+      users: filteredUsers,
+      count: filteredUsers.length
+    });
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: `Retrieve users error: ${error.message}`
+    });
+  }
+},
+
 
   // ========================================================================================================================================================================
   //                                                               USER SETTINGS (PROFILE / PASSWORD / PFP)
@@ -600,6 +601,60 @@ login: async (req, res) => {
       res.status(500).json({
         success: false,
         message: error.message
+      });
+    }
+  },
+  // ========================================================================================================================================================================
+
+    /*
+    Endpoint: GET /api/auth/approved-issuers
+    Function Name: getApprovedIssuers
+
+    Technical:
+    Fetches all issuer registration documents where status = "approved"
+    via couchDB.getApprovedIssuers().
+
+    Tropang Ex:
+    Ito yung listahan ng lahat ng kasalukuyang approved issuers /
+    accredited organizations para sa admin dashboard.
+  */
+  getApprovedIssuers: async (req, res) => {
+    try {
+      // (Optional) dito mo pwedeng i-enforce na admin lang:
+      // if (!req.user || req.user.role !== 'admin') {
+      //   return res.status(403).json({ success: false, message: 'Forbidden' });
+      // }
+
+      const approvedIssuers = await couchDB.getApprovedIssuers();
+
+      // Optionally map to only the fields you want to expose in the UI
+      const safeIssuers = approvedIssuers.map(doc => ({
+        id: doc._id,
+        orgName: doc.orgName,
+        contactName: doc.contactName,
+        email: doc.email,
+        status: doc.status,
+        accredited: doc.accredited,
+        accreditedType: doc.accreditedType,
+        createdAt: doc.createdAt,        // CHANGES: add this
+        approvedAt: doc.approvedAt,
+        approvedBy: doc.approvedBy,
+        walletId: doc.walletId,
+        fabricIdentity: doc.fabricIdentity,
+        couchDBUrl: doc.couchDBUrl
+      }));
+
+      return res.status(200).json({
+        success: true,
+        message: 'Approved issuers retrieved successfully',
+        data: safeIssuers,
+        count: safeIssuers.length
+      });
+    } catch (error) {
+      console.error('Error fetching approved issuers:', error);
+      return res.status(500).json({
+        success: false,
+        message: `Error fetching approved issuers: ${error.message}`
       });
     }
   },

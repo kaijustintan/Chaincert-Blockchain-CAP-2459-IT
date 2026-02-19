@@ -1,5 +1,6 @@
 // Admin dashboard for credential management
 import React, { useState, useEffect } from "react";
+import ReactDOM from "react-dom";
 import "../styles/adminDashboard.css";
 import apiService from "../services/apiService";
 
@@ -37,6 +38,13 @@ export default function AdminDashboard() {
   const [adminCredSearchQuery, setAdminCredSearchQuery] = useState("");
   const [filteredAdminCredentials, setFilteredAdminCredentials] = useState([]);
 
+  // ✅ NEW: modal state for viewing a specific credential's blockchain history
+  const [showHistoryModal, setShowHistoryModal] = useState(false);
+  const [selectedCredentialRow, setSelectedCredentialRow] = useState(null);
+  const [credentialHistory, setCredentialHistory] = useState([]);
+  const [credentialHistoryLoading, setCredentialHistoryLoading] = useState(false);
+  const [credentialHistoryError, setCredentialHistoryError] = useState(null);
+
   // -------------------------------------------------------------------
   // Helpers
   // -------------------------------------------------------------------
@@ -59,6 +67,61 @@ export default function AdminDashboard() {
   };
 
   const visibleIssuers = getVisibleIssuers();
+
+  const getHistoryActionLabel = (entry, idx) => {
+    if (!entry) return "Unknown";
+    if (entry.isDelete) return "Deleted";
+
+    const v = entry.value || {};
+    if (v.status === "revoked" || v.revokedAt) return "Revoked";
+    if (v.assignedDate && v.holderID) return "Issued";
+    if (v.isTemplate === true || v.holderID === "") return "Created Template";
+
+    if (idx === credentialHistory.length - 1) return "Created";
+    return "Updated";
+  };
+
+  const openHistoryModalForRow = async (row) => {
+    const typeLower = String(row?.type || "").toLowerCase();
+    if (!row || typeLower !== "issued") return;
+
+    try {
+      // open modal immediately (even before API finishes)
+      setSelectedCredentialRow(row);
+      setShowHistoryModal(true);
+
+      setCredentialHistory([]);
+      setCredentialHistoryError(null);
+      setCredentialHistoryLoading(true);
+
+      const resp = await apiService.Get_CredentialHistoryById(row.credentialId);
+
+      const list = Array.isArray(resp.history) ? resp.history : [];
+      const sorted = [...list].sort(
+        (a, b) => new Date(b.timestamp) - new Date(a.timestamp)
+      );
+
+      setCredentialHistory(sorted);
+    } catch (error) {
+      const msg =
+        error.response?.data?.error ||
+        error.response?.data?.message ||
+        error.message ||
+        "Failed to load credential history";
+      setCredentialHistoryError(msg);
+      setCredentialHistory([]);
+    } finally {
+      setCredentialHistoryLoading(false);
+    }
+  };
+
+  const closeHistoryModal = () => {
+    setShowHistoryModal(false);
+    setSelectedCredentialRow(null);
+    setCredentialHistory([]);
+    setCredentialHistoryError(null);
+    setCredentialHistoryLoading(false);
+  };
 
   // -------------------------------------------------------------------
   // ISSUERS
@@ -211,7 +274,7 @@ export default function AdminDashboard() {
     }
   };
 
-  // ✅ NEW: Local filter/search for adminCredentials (like your CredentialHistoryPage approach)
+  // ✅ Local filter/search for adminCredentials
   useEffect(() => {
     let result = [...adminCredentials];
 
@@ -228,7 +291,6 @@ export default function AdminDashboard() {
           return String(row.holderName || "").toLowerCase().includes(q);
         }
         if (adminCredSearchField === "credentialName") {
-          // note: your table shows credentialType as title, but backend may return credentialName too
           return String(row.credentialName || row.credentialType || "")
             .toLowerCase()
             .includes(q);
@@ -252,7 +314,6 @@ export default function AdminDashboard() {
       setVerificationLogs(logsArray);
     } catch (error) {
       console.error("Error fetching verification logs:", error);
-      console.log("RAW verification logs error payload =", error?.response?.data);
       const raw =
         error?.response?.data?.message ||
         error?.response?.data ||
@@ -303,10 +364,7 @@ export default function AdminDashboard() {
       fetchApprovedIssuers();
       setIssuerFilter("approved");
     } else if (tab === "credentials") {
-      // Admin global view:
-      // 1) make sure we have issuers for dropdown
       fetchApprovedIssuers();
-      // 2) load aggregated credentials across issuers
       fetchAdminCredentials();
     } else if (tab === "verifications") {
       fetchVerifications();
@@ -332,7 +390,6 @@ export default function AdminDashboard() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [logCategory]);
 
-  // Re-fetch admin credentials whenever filters change (while on credentials tab)
   useEffect(() => {
     if (tab !== "credentials") return;
     fetchAdminCredentials();
@@ -346,7 +403,6 @@ export default function AdminDashboard() {
     <div className="admin-container">
       <h1 className="admin-title">Admin Dashboard</h1>
 
-      {/* Tabs */}
       <div className="admin-tabs">
         <button
           onClick={() => setTab("credentials")}
@@ -388,6 +444,197 @@ export default function AdminDashboard() {
 
       {message && <div className="admin-message">{message}</div>}
 
+      {/* ✅ MODAL VIA PORTAL (fixes "click but nothing shows") */}
+      {showHistoryModal &&
+        ReactDOM.createPortal(
+          <div
+            onClick={closeHistoryModal}
+            style={{
+              position: "fixed",
+              inset: 0,
+              background: "rgba(0,0,0,0.6)",
+              zIndex: 999999,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              padding: "20px",
+            }}
+          >
+            <div
+              onClick={(e) => e.stopPropagation()}
+              style={{
+                width: "min(1000px, 95vw)",
+                maxHeight: "85vh",
+                overflow: "auto",
+                background: "#101018",
+                borderRadius: "12px",
+                border: "1px solid rgba(255,255,255,0.15)",
+                padding: "18px",
+                boxShadow: "0 10px 40px rgba(0,0,0,0.4)",
+                color: "#fff",
+              }}
+            >
+              <div
+                style={{
+                  display: "flex",
+                  gap: "12px",
+                  alignItems: "flex-start",
+                  justifyContent: "space-between",
+                  marginBottom: "12px",
+                }}
+              >
+                <div>
+                  <h3 style={{ margin: 0 }}>
+                    Credential History (Blockchain Audit Trail)
+                  </h3>
+                  <div
+                    style={{
+                      fontSize: "13px",
+                      opacity: 0.85,
+                      marginTop: "6px",
+                    }}
+                  >
+                    <div>
+                      <strong>Credential ID:</strong>{" "}
+                      <span style={{ fontFamily: "monospace" }}>
+                        {selectedCredentialRow?.credentialId || "N/A"}
+                      </span>
+                    </div>
+                    <div>
+                      <strong>Credential Name:</strong>{" "}
+                      {selectedCredentialRow?.credentialName ||
+                        selectedCredentialRow?.credentialType ||
+                        "—"}
+                    </div>
+                    <div>
+                      <strong>Issuer:</strong>{" "}
+                      {selectedCredentialRow?.issuerName || "—"}
+                    </div>
+                    <div>
+                      <strong>Holder:</strong>{" "}
+                      {selectedCredentialRow?.holderName || "—"}{" "}
+                      <span style={{ opacity: 0.8 }}>
+                        ({selectedCredentialRow?.holderID || "—"})
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                <button
+                  onClick={closeHistoryModal}
+                  type="button"
+                  style={{
+                    background: "transparent",
+                    border: "1px solid rgba(255,255,255,0.25)",
+                    color: "#fff",
+                    borderRadius: "8px",
+                    padding: "8px 10px",
+                    cursor: "pointer",
+                  }}
+                >
+                  ✕ Close
+                </button>
+              </div>
+
+              {credentialHistoryLoading ? (
+                <div style={{ padding: "16px", opacity: 0.9 }}>
+                  Loading credential history...
+                </div>
+              ) : credentialHistoryError ? (
+                <div
+                  style={{
+                    padding: "12px",
+                    background: "rgba(255,0,0,0.12)",
+                    border: "1px solid rgba(255,0,0,0.25)",
+                    borderRadius: "10px",
+                    color: "#ffd2d2",
+                  }}
+                >
+                  ❌ {credentialHistoryError}
+                </div>
+              ) : credentialHistory.length > 0 ? (
+                <div style={{ marginTop: "10px" }}>
+                  <div
+                    style={{
+                      fontSize: "13px",
+                      opacity: 0.85,
+                      marginBottom: "10px",
+                    }}
+                  >
+                    Showing {credentialHistory.length} history record(s)
+                  </div>
+
+                  <div className="table-wrapper">
+                    <table className="admin-table">
+                      <thead>
+                        <tr>
+                          <th>Timestamp</th>
+                          <th>Action</th>
+                          <th>Status</th>
+                          <th>Tx ID</th>
+                          <th>Snapshot</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {credentialHistory.map((entry, idx) => {
+                          const action = getHistoryActionLabel(entry, idx);
+                          const status =
+                            entry?.value?.status ||
+                            (entry.isDelete ? "deleted" : "N/A");
+
+                          return (
+                            <tr key={entry.txId || idx}>
+                              <td>{formatTimestamp(entry.timestamp)}</td>
+                              <td>{action}</td>
+                              <td>{String(status)}</td>
+                              <td
+                                style={{
+                                  fontFamily: "monospace",
+                                  fontSize: "12px",
+                                }}
+                              >
+                                {String(entry.txId || "N/A").slice(0, 18)}...
+                              </td>
+                              <td style={{ fontSize: "12px", opacity: 0.95 }}>
+                                {entry.isDelete ? (
+                                  <span>Record deleted</span>
+                                ) : (
+                                  <span>
+                                    {entry.value?.credentialName ||
+                                      entry.value?.credentialType ||
+                                      "—"}
+                                    {" | "}
+                                    Holder:{" "}
+                                    <span style={{ fontFamily: "monospace" }}>
+                                      {entry.value?.holderID || "—"}
+                                    </span>
+                                    {entry.value?.revokedAt ? (
+                                      <>
+                                        {" | "}
+                                        RevokedAt:{" "}
+                                        {formatTimestamp(entry.value.revokedAt)}
+                                      </>
+                                    ) : null}
+                                  </span>
+                                )}
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              ) : (
+                <div style={{ padding: "16px", opacity: 0.9 }}>
+                  No history found for this credential.
+                </div>
+              )}
+            </div>
+          </div>,
+          document.body
+        )}
+
       {/* CREDENTIALS TAB - NOW USING GLOBAL ADMIN VIEW */}
       {tab === "credentials" && (
         <div className="tab-card">
@@ -396,7 +643,6 @@ export default function AdminDashboard() {
             View all templates and issued credentials across issuers.
           </p>
 
-          {/* Filters row */}
           <div className="filter-row">
             <div className="filter-item">
               <label>Issuer</label>
@@ -428,7 +674,6 @@ export default function AdminDashboard() {
               </select>
             </div>
 
-            {/* ✅ NEW: Search dropdown */}
             <div className="filter-item">
               <label>Search By</label>
               <select
@@ -442,7 +687,6 @@ export default function AdminDashboard() {
               </select>
             </div>
 
-            {/* ✅ NEW: Search input */}
             <div className="filter-item" style={{ flex: 1 }}>
               <label>Search</label>
               <input
@@ -486,22 +730,42 @@ export default function AdminDashboard() {
                     <th>Holder ID</th>
                     <th>Status</th>
                     <th>Created At</th>
+                    <th>History</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {filteredAdminCredentials.map((row, idx) => (
-                    <tr key={row.credentialId || idx}>
-                      <td>{row.issuerName}</td>
-                      <td>{row.credentialName || "—"}</td>
-                      <td>{row.credentialId}</td>
-                      <td>{row.type}</td>
-                      <td>{row.credentialType}</td>
-                      <td>{row.holderName || "—"}</td>
-                      <td>{row.holderID || "—"}</td>
-                      <td>{row.status}</td>
-                      <td>{formatTimestamp(row.createdAt)}</td>
-                    </tr>
-                  ))}
+                  {filteredAdminCredentials.map((row, idx) => {
+                    const typeLower = String(row?.type || "").toLowerCase();
+
+                    return (
+                      <tr key={row.credentialId || idx}>
+                        <td>{row.issuerName}</td>
+                        <td>{row.credentialName || "—"}</td>
+                        <td>{row.credentialId}</td>
+                        <td>{row.type}</td>
+                        <td>{row.credentialType}</td>
+                        <td>{row.holderName || "—"}</td>
+                        <td>{row.holderID || "—"}</td>
+                        <td>{row.status}</td>
+                        <td>{formatTimestamp(row.createdAt)}</td>
+
+                        <td>
+                          {typeLower === "issued" ? (
+                            <button
+                              className="btn-history"
+                              type="button"
+                              onClick={() => openHistoryModalForRow(row)}
+                              title="View blockchain history for this credential"
+                            >
+                              See History
+                            </button>
+                          ) : (
+                            <span style={{ opacity: 0.6 }}>—</span>
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>
@@ -811,7 +1075,6 @@ export default function AdminDashboard() {
             </select>
           </div>
 
-          {/* VERIFICATION LOGS VIEW */}
           {logCategory === "verification" && (
             <>
               {logsLoading ? (
@@ -873,7 +1136,6 @@ export default function AdminDashboard() {
             </>
           )}
 
-          {/* ADMIN/SYNTHETIC LOGS VIEW */}
           {logCategory === "admin" && (
             <>
               {logsLoading ? (

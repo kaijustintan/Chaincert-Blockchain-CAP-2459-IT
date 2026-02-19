@@ -945,7 +945,60 @@ Get_VerificationLogById: async (logId) => {
       throw error;
     }
   },
+  // ==========================================================================================================================================================================
 
+    /*
+    Function Name: Get_CredentialHistoryById
+
+    Technical:
+    Fetches the FULL blockchain history of a specific credential
+    via endpoint:
+      GET /api/credentials/:credentialId/history
+
+    Returns:
+    {
+      success: true,
+      history: [ ...history records... ],
+      timestamp: "..."
+    }
+
+    Tropang Ex:
+    Ito yung tatawagin kapag pinindot mo yung "See History"
+    ng isang issued credential sa dashboard.
+    Ibinabalik nito lahat ng blockchain transactions ng credential —
+    creation, issuance, updates, revoke, etc.
+  */
+  Get_CredentialHistoryById: async (credentialId) => {
+    try {
+
+      /* Step 1: Validate input */
+      if (!credentialId) {
+        throw new Error("credentialId is required");
+      }
+
+      /* Step 2: Send GET request to backend */
+      const response = await axios.get(
+        `/credentials/${credentialId}/history`
+      );
+
+      /* Step 3: Return backend payload
+         Backend returns:
+         {
+           success: true,
+           history: [...],
+           timestamp: "..."
+         }
+      */
+      return response.data;
+
+    } catch (error) {
+      console.error(
+        'Error fetching credential history by ID:',
+        error.response?.data?.error || error.message
+      );
+      throw error;
+    }
+  },
   // ==========================================================================================================================================================================
   //                                                               DEBUG / UTIL
   // ==========================================================================================================================================================================

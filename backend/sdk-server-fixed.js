@@ -927,7 +927,7 @@ app.get('/api/credentials/:id/history', async (req, res) => {
 
     } 
     else if (user.role === 'admin') {
-      identityName = 'admin';
+      identityName = 'chaincert-admin';
       orgName = 'Org1';
     } 
     else {

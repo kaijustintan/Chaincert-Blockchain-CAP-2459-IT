@@ -275,3 +275,21 @@ h1.admin-title {
   color: #4caf50;
   font-weight: 600;
 }
+
+.btn-history {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 8px 12px;
+  min-width: 110px;
+  height: 34px;
+  border-radius: 8px;
+  border: 1px solid #2c91ff;
+  background: #2c91ff;
+  color: #fff;
+  cursor: pointer;
+  font-weight: 700;
+  font-size: 12px;
+  line-height: 1;
+  white-space: nowrap;
+}

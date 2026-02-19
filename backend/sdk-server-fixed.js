@@ -72,6 +72,8 @@ const app = express(); // Initializes the Express application instance
 
 const issuerCredentialController = require('./controllers/issuerCredentialController');  // UBUNTU DIRECTORY BASED 
 const verifierController = require('./controllers/verifierController');  // UBUNTU DIRECTORY BASED 
+const adminDashboardController = require('./controllers/adminDashboardController'); // UBUNTU DIRECTORY BASED 
+
 
 
 
@@ -1087,6 +1089,31 @@ app.get('/api/verification-logs', (req, res) =>
 app.get('/api/verification-logs/:logId', (req, res) =>
   verifierController.getVerificationLogById(req, res, getContractAndGateway)
 );
+// ==========================================================================================================================================================================
+
+/*
+  Endpoint: GET /api/admin/credentials/all
+
+  Technical:
+  Delegates the "global credentials view" logic to the adminDashboardController,
+  which calls the CouchDB helper to aggregate all credentials across all issuers.
+  Accepts optional query params:
+    - issuerId: limit results to a specific issuer
+    - type: 'issued' | 'templates' (or omitted for all)
+
+  Tropang Ex:
+  Ito yung endpoint na ginagamit ng Admin Dashboard para makuha
+  lahat ng credentials (templates + issued) ng lahat ng issuers.
+  Dito lang tumatanggap ng HTTP request — yung tunay na logic nasa controller/service.
+
+  Tropang explanation:
+  Parang receptionist lang din:
+  - Tumatanggap ng GET request sa /api/admin/credentials/all
+  - Sinasabi kay adminDashboardController: “Ikaw na bahala sa aggregation.”
+*/
+app.get('/api/admin/credentials/all', (req, res) => {
+  adminDashboardController.getAllIssuerCredentialsAdminController(req, res);
+});
 // ==========================================================================================================================================================================
 
 const PORT = 4000;

@@ -880,6 +880,71 @@ Get_VerificationLogById: async (logId) => {
     throw error;
   }
 },
+// ==========================================================================================================================================================================
+
+  // ==========================================================================================================================================================================
+  //                                               ADMIN / DASHBOARD - GLOBAL CREDENTIALS VIEW
+  // ==========================================================================================================================================================================
+
+  /*
+    Function Name: Get_AllAdminCredentials
+
+    Technical:
+    Fetches an aggregated list of ALL credentials (templates + issued)
+    across ALL approved issuers via:
+      GET /api/admin/credentials/all
+
+    Supports optional filters via query params:
+      - issuerId: limit results to a specific issuer
+      - type: 'issued' | 'templates' (or omit for all)
+
+    Tropang Ex:
+    Ito yung kinukuha ng Admin Dashboard → Credentials tab.
+    - Puwede mong piliin “All issuers” o specific school (DLSU, Ateneo, etc.).
+    - Puwede mong piliin “Issued only” o “Templates only”.
+  */
+  Get_AllAdminCredentials: async (params = {}) => {
+    try {
+      /* Step 1: Send GET request with optional filters
+         Technical:
+         axios.get('/admin/credentials/all', { params }) will automatically build
+         the query string (?issuerId=...&type=...).
+
+         Tropang Ex:
+         Frontend → backend: “Bigyan mo ako ng master list, optionally filtered
+         by issuer at type.”
+      */
+      const response = await axios.get('/admin/credentials/all', { params });
+
+      /* Step 2: Return backend response payload
+         Technical:
+         Backend returns:
+           {
+             success: true,
+             data: [...rows...],
+             count: number,
+             filters: { issuerId, type },
+             timestamp: "..."
+           }
+
+         Tropang Ex:
+         Ibinabalik buong object para may access ka sa data + count + filters.
+      */
+      return response.data;
+
+    } catch (error) {
+      /* Step 3: Handle request errors
+         Tropang Ex:
+         Kapag pumalya yung aggregation sa backend (CouchDB / logic),
+         dito magla-log ng error at ipapasa pabalik sa UI.
+      */
+      console.error(
+        'Error fetching all admin credentials:',
+        error.response?.data?.message || error.message
+      );
+      throw error;
+    }
+  },
 
   // ==========================================================================================================================================================================
   //                                                               DEBUG / UTIL

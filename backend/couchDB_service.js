@@ -1461,6 +1461,205 @@ async function getApprovedIssuers() {
 }
 // ==========================================================================================================================================================================
 
+async function getIssuerTemplatesByIssuerId(issuerId) {
+  try {
+    if (!issuersDB) await initializeDatabases();
+    const issuer = await getIssuerById(issuerId);
+
+    if (!issuer || !issuer.couchDBUrl) {
+      throw new Error(`❌ Issuer ${issuerId} has no CouchDB URL configured`);
+    }
+
+    const issuerCouch = require('nano')(issuer.couchDBUrl);
+    const db = issuerCouch.use('wallet_issuer_credentials');
+
+    // Based on your screenshot: templates are marked with isTemplate: true
+    const result = await db.find({
+      selector: {
+        $or: [
+          { isTemplate: true },
+          { type: 'credential_template' } // optional fallback if you ever use this later
+        ]
+      }
+    });
+
+    console.log(`[COUCHDB] Found ${result.docs.length} TEMPLATE(s) for issuer ${issuerId}`);
+    return result.docs;
+
+  } catch (error) {
+    console.error(`❌ Error fetching templates for issuer ${issuerId}:`, error.message);
+    return [];
+  }
+}
+// ==========================================================================================================================================================================
+
+async function getIssuerIssuedByIssuerId(issuerId) {
+  try {
+    if (!issuersDB) await initializeDatabases();
+    const issuer = await getIssuerById(issuerId);
+
+    if (!issuer || !issuer.couchDBUrl) {
+      throw new Error(`❌ Issuer ${issuerId} has no CouchDB URL configured`);
+    }
+
+    const issuerCouch = require('nano')(issuer.couchDBUrl);
+    const db = issuerCouch.use('issued_credentials');
+
+    // Based on your screenshot: issued copies have type: "credential_instance"
+    const result = await db.find({
+      selector: { type: 'credential_instance' }
+      // Optional strict filter (not required since per-issuer DB):
+      // selector: { type: 'credential_instance', issuerID: issuerId }
+    });
+
+    console.log(`[COUCHDB] Found ${result.docs.length} ISSUED credential(s) for issuer ${issuerId}`);
+    return result.docs;
+
+  } catch (error) {
+    console.error(`❌ Error fetching issued credentials for issuer ${issuerId}:`, error.message);
+    return [];
+  }
+}
+// ==========================================================================================================================================================================
+
+async function getAllIssuerCredentialsAdmin(options = {}) {
+  try {
+    const issuerIdFilter = options.issuerId || null; // optional specific issuer
+    const typeFilter = options.type || null;         // 'issued' | 'templates' | null
+
+    // Step 1: Get approved issuers
+    const approvedIssuers = await getApprovedIssuers();
+    const issuers = Array.isArray(approvedIssuers) ? approvedIssuers : [];
+
+    const allRows = [];
+
+    for (const issuer of issuers) {
+      const issuerId = issuer._id || issuer.id;
+      if (!issuerId) continue;
+
+      // Optional issuer filter
+      if (issuerIdFilter && issuerIdFilter !== issuerId) continue;
+
+      // Step 2: Fetch docs depending on type filter
+      let templateDocs = [];
+      let issuedDocs = [];
+
+      if (typeFilter === 'templates') {
+        templateDocs = await getIssuerTemplatesByIssuerId(issuerId);
+      } else if (typeFilter === 'issued') {
+        issuedDocs = await getIssuerIssuedByIssuerId(issuerId);
+      } else {
+        templateDocs = await getIssuerTemplatesByIssuerId(issuerId);
+        issuedDocs = await getIssuerIssuedByIssuerId(issuerId);
+      }
+
+      const docs = [...templateDocs, ...issuedDocs];
+
+      // Step 3: Normalize into flat rows for the admin dashboard
+      for (const doc of docs) {
+        const isTemplate = doc.isTemplate === true;
+        const isIssued = doc.type === 'credential_instance';
+
+        const nested =
+          doc.blockchain && doc.blockchain.credentialData
+            ? doc.blockchain.credentialData
+            : {};
+
+        const credentialType =
+          doc.credentialType ||
+          nested.credentialType ||
+          'N/A';
+
+        const credentialName =
+          doc.credentialName ||
+          nested.credentialName ||
+          doc.title ||
+          'N/A';
+
+        const holderID =
+          doc.holderID ||
+          nested.holderID ||
+          null;
+
+        const createdAt =
+          doc.createdAt ||
+          doc.savedToCouchDBAt ||
+          doc.savedToUserWalletAt ||
+          doc.issueDate ||
+          doc.issuedDate ||
+          null;
+
+        allRows.push({
+          issuerId,
+          issuerName:
+            issuer.orgName ||
+            issuer.name ||
+            issuer.contactName ||
+            'Unknown Issuer',
+          issuerEmail: issuer.email || 'N/A',
+
+          credentialId:
+            doc.blockchainId ||
+            doc.credentialId ||
+            doc.id ||
+            doc._id ||
+            null,
+
+          type: isTemplate ? 'Template' : (isIssued ? 'Issued' : 'Unknown'),
+
+          credentialType,
+          credentialName,
+          holderID,
+          holderName: null, // will enrich below
+          status: doc.status || nested.status || 'unknown',
+          createdAt
+        });
+      }
+    }
+
+    // ✅ STEP A: Enrich holderName (same logic as verifier logs)
+    for (const row of allRows) {
+      if (row.type !== 'Issued' || !row.holderID) {
+        row.holderName = '—';
+        continue;
+      }
+
+      try {
+        const user = await getUser(row.holderID);
+
+        row.holderName =
+          user.fullName ||
+          user.username ||
+          user.name ||
+          user.displayName ||
+          user.email ||
+          'Unknown';
+      } catch (err) {
+        console.warn(
+          '[ADMIN] Failed to resolve holderName for',
+          row.holderID,
+          err.message
+        );
+        row.holderName = 'Unknown';
+      }
+    }
+
+    // Step 4: Sort newest first
+    allRows.sort((a, b) => {
+      const ta = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+      const tb = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+      return tb - ta;
+    });
+
+    return allRows;
+
+  } catch (error) {
+    console.error('Error in getAllIssuerCredentialsAdmin:', error.message);
+    throw error;
+  }
+}
+// ==========================================================================================================================================================================
+
 module.exports = {
   // Core initialization
   nano,
@@ -1511,5 +1710,8 @@ module.exports = {
   verifyCredentialFromCouchDB, // ✅ UPDATED: Now properly cleans credential IDs
 
   // ADMIN DASHBOARD
-  getApprovedIssuers
+  getApprovedIssuers,
+  getIssuerTemplatesByIssuerId,
+  getIssuerIssuedByIssuerId,
+  getAllIssuerCredentialsAdmin
 };

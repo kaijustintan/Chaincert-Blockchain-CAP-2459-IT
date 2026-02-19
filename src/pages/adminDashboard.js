@@ -25,6 +25,18 @@ export default function AdminDashboard() {
   const [verificationLogs, setVerificationLogs] = useState([]);
   const [verificationLogsError, setVerificationLogsError] = useState(null);
 
+  // NEW: Admin credentials view filters + data (global across issuers)
+  const [adminCredIssuerFilter, setAdminCredIssuerFilter] = useState("all"); // 'all' or issuerId
+  const [adminCredTypeFilter, setAdminCredTypeFilter] = useState("all"); // 'all' | 'issued' | 'templates'
+  const [adminCredentials, setAdminCredentials] = useState([]);
+  const [adminCredentialsLoading, setAdminCredentialsLoading] = useState(false);
+  const [adminCredentialsError, setAdminCredentialsError] = useState(null);
+
+  // ✅ NEW: local search (frontend-only) for admin credentials table
+  const [adminCredSearchField, setAdminCredSearchField] = useState("holderName"); // 'holderName' | 'holderID' | 'credentialId' | 'credentialName'
+  const [adminCredSearchQuery, setAdminCredSearchQuery] = useState("");
+  const [filteredAdminCredentials, setFilteredAdminCredentials] = useState([]);
+
   // -------------------------------------------------------------------
   // Helpers
   // -------------------------------------------------------------------
@@ -124,7 +136,7 @@ export default function AdminDashboard() {
   };
 
   // -------------------------------------------------------------------
-  // CREDENTIALS / VERIFICATIONS
+  // CREDENTIALS / VERIFICATIONS (OLD, PER-CREDENTIAL LIST)
   // -------------------------------------------------------------------
   const fetchCredentials = async () => {
     try {
@@ -165,6 +177,70 @@ export default function AdminDashboard() {
   };
 
   // -------------------------------------------------------------------
+  // NEW: ADMIN GLOBAL CREDENTIALS VIEW (across all issuers)
+  // -------------------------------------------------------------------
+  const fetchAdminCredentials = async () => {
+    try {
+      setAdminCredentialsLoading(true);
+      setAdminCredentialsError(null);
+
+      const params = {};
+      if (adminCredIssuerFilter !== "all") {
+        params.issuerId = adminCredIssuerFilter;
+      }
+      if (adminCredTypeFilter === "issued") {
+        params.type = "issued";
+      } else if (adminCredTypeFilter === "templates") {
+        params.type = "templates";
+      }
+
+      const resp = await apiService.Get_AllAdminCredentials(params);
+      const rows = Array.isArray(resp.data) ? resp.data : [];
+      setAdminCredentials(rows);
+    } catch (error) {
+      console.error("Error loading admin credentials:", error);
+      const msg =
+        error.response?.data?.message ||
+        error.response?.data?.error ||
+        error.message ||
+        "Failed to load credentials";
+      setAdminCredentials([]);
+      setAdminCredentialsError(msg);
+    } finally {
+      setAdminCredentialsLoading(false);
+    }
+  };
+
+  // ✅ NEW: Local filter/search for adminCredentials (like your CredentialHistoryPage approach)
+  useEffect(() => {
+    let result = [...adminCredentials];
+
+    const q = adminCredSearchQuery.trim().toLowerCase();
+    if (q) {
+      result = result.filter((row) => {
+        if (adminCredSearchField === "credentialId") {
+          return String(row.credentialId || "").toLowerCase().includes(q);
+        }
+        if (adminCredSearchField === "holderID") {
+          return String(row.holderID || "").toLowerCase().includes(q);
+        }
+        if (adminCredSearchField === "holderName") {
+          return String(row.holderName || "").toLowerCase().includes(q);
+        }
+        if (adminCredSearchField === "credentialName") {
+          // note: your table shows credentialType as title, but backend may return credentialName too
+          return String(row.credentialName || row.credentialType || "")
+            .toLowerCase()
+            .includes(q);
+        }
+        return true;
+      });
+    }
+
+    setFilteredAdminCredentials(result);
+  }, [adminCredentials, adminCredSearchField, adminCredSearchQuery]);
+
+  // -------------------------------------------------------------------
   // LOGS
   // -------------------------------------------------------------------
   const fetchVerificationLogs = async () => {
@@ -176,10 +252,7 @@ export default function AdminDashboard() {
       setVerificationLogs(logsArray);
     } catch (error) {
       console.error("Error fetching verification logs:", error);
-      console.log(
-        "RAW verification logs error payload =",
-        error?.response?.data
-      );
+      console.log("RAW verification logs error payload =", error?.response?.data);
       const raw =
         error?.response?.data?.message ||
         error?.response?.data ||
@@ -207,8 +280,7 @@ export default function AdminDashboard() {
           event: cred.revoked
             ? `Credential revoked: ${cred.id}`
             : `Credential issued: ${cred.credentialType || cred.id}`,
-          timestamp:
-            cred.revokedDate || cred.issueDate || cred.timestamp || "N/A",
+          timestamp: cred.revokedDate || cred.issueDate || cred.timestamp || "N/A",
           actor: cred.issuerID || "system",
         }))
         .slice(0, 50);
@@ -231,7 +303,11 @@ export default function AdminDashboard() {
       fetchApprovedIssuers();
       setIssuerFilter("approved");
     } else if (tab === "credentials") {
-      fetchCredentials();
+      // Admin global view:
+      // 1) make sure we have issuers for dropdown
+      fetchApprovedIssuers();
+      // 2) load aggregated credentials across issuers
+      fetchAdminCredentials();
     } else if (tab === "verifications") {
       fetchVerifications();
     } else if (tab === "logs") {
@@ -255,6 +331,13 @@ export default function AdminDashboard() {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [logCategory]);
+
+  // Re-fetch admin credentials whenever filters change (while on credentials tab)
+  useEffect(() => {
+    if (tab !== "credentials") return;
+    fetchAdminCredentials();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [adminCredIssuerFilter, adminCredTypeFilter]);
 
   // -------------------------------------------------------------------
   // RENDER
@@ -305,47 +388,118 @@ export default function AdminDashboard() {
 
       {message && <div className="admin-message">{message}</div>}
 
-      {/* CREDENTIALS TAB */}
+      {/* CREDENTIALS TAB - NOW USING GLOBAL ADMIN VIEW */}
       {tab === "credentials" && (
         <div className="tab-card">
           <h2>Credential Management</h2>
           <p className="tab-subtitle">
-            View and manage all credentials in the system.
+            View all templates and issued credentials across issuers.
           </p>
-          {credentialsLoading ? (
+
+          {/* Filters row */}
+          <div className="filter-row">
+            <div className="filter-item">
+              <label>Issuer</label>
+              <select
+                value={adminCredIssuerFilter}
+                onChange={(e) => setAdminCredIssuerFilter(e.target.value)}
+              >
+                <option value="all">All Issuers</option>
+                {approvedIssuers.map((issuer) => (
+                  <option
+                    key={issuer._id || issuer.id}
+                    value={issuer._id || issuer.id}
+                  >
+                    {issuer.orgName || issuer.name || issuer.email}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div className="filter-item">
+              <label>Type</label>
+              <select
+                value={adminCredTypeFilter}
+                onChange={(e) => setAdminCredTypeFilter(e.target.value)}
+              >
+                <option value="all">All</option>
+                <option value="issued">Issued Credentials</option>
+                <option value="templates">Templates</option>
+              </select>
+            </div>
+
+            {/* ✅ NEW: Search dropdown */}
+            <div className="filter-item">
+              <label>Search By</label>
+              <select
+                value={adminCredSearchField}
+                onChange={(e) => setAdminCredSearchField(e.target.value)}
+              >
+                <option value="holderName">Holder Name</option>
+                <option value="holderID">Holder ID</option>
+                <option value="credentialId">Credential ID</option>
+                <option value="credentialName">Credential Name</option>
+              </select>
+            </div>
+
+            {/* ✅ NEW: Search input */}
+            <div className="filter-item" style={{ flex: 1 }}>
+              <label>Search</label>
+              <input
+                type="text"
+                value={adminCredSearchQuery}
+                onChange={(e) => setAdminCredSearchQuery(e.target.value)}
+                placeholder={
+                  adminCredSearchField === "holderName"
+                    ? "Search holder name..."
+                    : adminCredSearchField === "holderID"
+                    ? "Search holder ID..."
+                    : adminCredSearchField === "credentialId"
+                    ? "Search credential ID..."
+                    : "Search credential name..."
+                }
+                style={{
+                  width: "100%",
+                  padding: "8px",
+                  borderRadius: "4px",
+                  border: "1px solid #ddd",
+                }}
+              />
+            </div>
+          </div>
+
+          {adminCredentialsLoading ? (
             <div className="tab-placeholder">Loading credentials...</div>
-          ) : credentials.length > 0 ? (
+          ) : adminCredentialsError ? (
+            <div className="tab-placeholder">{adminCredentialsError}</div>
+          ) : filteredAdminCredentials.length > 0 ? (
             <div className="table-wrapper">
               <table className="admin-table">
                 <thead>
                   <tr>
+                    <th>Issuer</th>
+                    <th>Credential Name</th>
                     <th>Credential ID</th>
                     <th>Type</th>
-                    <th>Holder</th>
-                    <th>Issuer</th>
+                    <th>Title</th>
+                    <th>Holder Name</th>
+                    <th>Holder ID</th>
                     <th>Status</th>
-                    <th>Issue Date</th>
+                    <th>Created At</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {credentials.map((cred) => (
-                    <tr key={cred.id}>
-                      <td>{cred.id}</td>
-                      <td>{cred.credentialType || "N/A"}</td>
-                      <td>{cred.holderID || "N/A"}</td>
-                      <td>{cred.issuerID || "N/A"}</td>
-                      <td>
-                        {cred.revoked ? (
-                          <span className="badge red">Revoked</span>
-                        ) : cred.verified ? (
-                          <span className="badge green">Verified</span>
-                        ) : (
-                          <span className="status-pending">Pending</span>
-                        )}
-                      </td>
-                      <td>
-                        {formatTimestamp(cred.issueDate || cred.timestamp)}
-                      </td>
+                  {filteredAdminCredentials.map((row, idx) => (
+                    <tr key={row.credentialId || idx}>
+                      <td>{row.issuerName}</td>
+                      <td>{row.credentialName || "—"}</td>
+                      <td>{row.credentialId}</td>
+                      <td>{row.type}</td>
+                      <td>{row.credentialType}</td>
+                      <td>{row.holderName || "—"}</td>
+                      <td>{row.holderID || "—"}</td>
+                      <td>{row.status}</td>
+                      <td>{formatTimestamp(row.createdAt)}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -387,9 +541,7 @@ export default function AdminDashboard() {
                 <div className="issuer-section">
                   <div className="section-header">
                     <h3>Pending Issuers</h3>
-                    <span className="section-count">
-                      {pendingIssuers.length}
-                    </span>
+                    <span className="section-count">{pendingIssuers.length}</span>
                   </div>
                   <div className="table-wrapper">
                     <table className="admin-table">
@@ -415,9 +567,7 @@ export default function AdminDashboard() {
                             <td>{issuer.orgName}</td>
                             <td>{issuer.contactName}</td>
                             <td>{issuer.email}</td>
-                            <td className="status-pending">
-                              {issuer.status}
-                            </td>
+                            <td className="status-pending">{issuer.status}</td>
                             <td>
                               {issuer.accredited ? (
                                 <span className="badge green">Yes</span>
@@ -430,25 +580,17 @@ export default function AdminDashboard() {
                             <td>{issuer.approvedBy || "N/A"}</td>
                             <td>{issuer.fabricIdentity || "N/A"}</td>
                             <td>{issuer.couchDBUrl || "N/A"}</td>
-                            <td>
-                              {issuer.walletId ||
-                                issuer.walletID ||
-                                "N/A"}
-                            </td>
+                            <td>{issuer.walletId || issuer.walletID || "N/A"}</td>
                             <td className="action-cell">
                               <button
                                 className="btn-approve"
-                                onClick={() =>
-                                  handleApproveIssuer(issuer._id)
-                                }
+                                onClick={() => handleApproveIssuer(issuer._id)}
                               >
                                 ✅ Approve
                               </button>
                               <button
                                 className="btn-reject"
-                                onClick={() =>
-                                  handleRejectIssuer(issuer._id)
-                                }
+                                onClick={() => handleRejectIssuer(issuer._id)}
                               >
                                 ❌ Reject
                               </button>
@@ -465,9 +607,7 @@ export default function AdminDashboard() {
                 <div className="issuer-section">
                   <div className="section-header">
                     <h3>Approved Issuers</h3>
-                    <span className="section-count">
-                      {approvedIssuers.length}
-                    </span>
+                    <span className="section-count">{approvedIssuers.length}</span>
                   </div>
                   <div className="table-wrapper">
                     <table className="admin-table">
@@ -492,9 +632,7 @@ export default function AdminDashboard() {
                             <td>{issuer.orgName}</td>
                             <td>{issuer.contactName}</td>
                             <td>{issuer.email}</td>
-                            <td className="status-approved">
-                              {issuer.status}
-                            </td>
+                            <td className="status-approved">{issuer.status}</td>
                             <td>
                               {issuer.accredited ? (
                                 <span className="badge green">Yes</span>
@@ -507,11 +645,7 @@ export default function AdminDashboard() {
                             <td>{issuer.approvedBy || "N/A"}</td>
                             <td>{issuer.fabricIdentity || "N/A"}</td>
                             <td>{issuer.couchDBUrl || "N/A"}</td>
-                            <td>
-                              {issuer.walletId ||
-                                issuer.walletID ||
-                                "N/A"}
-                            </td>
+                            <td>{issuer.walletId || issuer.walletID || "N/A"}</td>
                           </tr>
                         ))}
                       </tbody>
@@ -606,26 +740,18 @@ export default function AdminDashboard() {
                 <div className="stat-card">
                   <span className="stat-label">Pending Requests</span>
                   <span className="stat-value">
-                    {
-                      verifications.filter((v) => v.status === "Pending")
-                        .length
-                    }
+                    {verifications.filter((v) => v.status === "Pending").length}
                   </span>
                 </div>
                 <div className="stat-card">
                   <span className="stat-label">Approved</span>
                   <span className="stat-value">
-                    {
-                      verifications.filter((v) => v.status === "Approved")
-                        .length
-                    }
+                    {verifications.filter((v) => v.status === "Approved").length}
                   </span>
                 </div>
                 <div className="stat-card">
                   <span className="stat-label">Total Requests</span>
-                  <span className="stat-value">
-                    {verifications.length}
-                  </span>
+                  <span className="stat-value">{verifications.length}</span>
                 </div>
               </div>
               <div className="table-wrapper">
@@ -660,9 +786,7 @@ export default function AdminDashboard() {
               </div>
             </>
           ) : (
-            <div className="tab-placeholder">
-              No verification requests found.
-            </div>
+            <div className="tab-placeholder">No verification requests found.</div>
           )}
         </div>
       )}
@@ -672,8 +796,7 @@ export default function AdminDashboard() {
         <div className="tab-card">
           <h2>Audit Logs</h2>
           <p className="tab-subtitle">
-            Trace key administrative actions for compliance and security
-            reviews.
+            Trace key administrative actions for compliance and security reviews.
           </p>
 
           <div className="issuer-filter-row">
@@ -692,13 +815,9 @@ export default function AdminDashboard() {
           {logCategory === "verification" && (
             <>
               {logsLoading ? (
-                <div className="tab-placeholder">
-                  Loading verification logs...
-                </div>
+                <div className="tab-placeholder">Loading verification logs...</div>
               ) : verificationLogsError ? (
-                <div className="tab-placeholder">
-                  {verificationLogsError}
-                </div>
+                <div className="tab-placeholder">{verificationLogsError}</div>
               ) : verificationLogs.length > 0 ? (
                 <div className="table-wrapper">
                   <table className="admin-table">
@@ -721,9 +840,7 @@ export default function AdminDashboard() {
                           log.result?.message ||
                           (typeof log.result === "string"
                             ? log.result
-                            : log.verifyResult ||
-                              log.result ||
-                              null);
+                            : log.verifyResult || log.result || null);
 
                         const safeResult =
                           typeof safeResultSource === "string"
@@ -739,11 +856,7 @@ export default function AdminDashboard() {
                             <td>{String(log.id)}</td>
                             <td>{log.verifierName || "N/A"}</td>
                             <td>{log.verifierEmail || "N/A"}</td>
-                            <td>
-                              {log.credentialId ||
-                                log.credentialID ||
-                                "N/A"}
-                            </td>
+                            <td>{log.credentialId || log.credentialID || "N/A"}</td>
                             <td>{log.holderID || "N/A"}</td>
                             <td>{log.holderName || "N/A"}</td>
                             <td>{safeResult}</td>
@@ -755,9 +868,7 @@ export default function AdminDashboard() {
                   </table>
                 </div>
               ) : (
-                <div className="tab-placeholder">
-                  No verification logs found.
-                </div>
+                <div className="tab-placeholder">No verification logs found.</div>
               )}
             </>
           )}
@@ -801,8 +912,8 @@ export default function AdminDashboard() {
         <div className="tab-card">
           <h2>System Settings</h2>
           <p className="tab-subtitle">
-            Configure administrative controls for institutions,
-            infrastructure, and integrations.
+            Configure administrative controls for institutions, infrastructure,
+            and integrations.
           </p>
           <div className="settings-grid">
             <button>+ Add Institution</button>

@@ -16,23 +16,45 @@ export default function AdminDashboard() {
   const [logsLoading, setLogsLoading] = useState(false);
   const [message, setMessage] = useState("");
 
-  // CHANGES: local view filter for issuers (approved / pending / rejected)
-  //          default = "approved"
   const [issuerFilter, setIssuerFilter] = useState("approved");
 
-  // CHANGES: users state for Manage Users
   const [users, setUsers] = useState([]);
   const [usersLoading, setUsersLoading] = useState(false);
 
-  // ======================================================================
-  // ISSUER FETCHING (PENDING + APPROVED)
-  // ======================================================================
+  const [logCategory, setLogCategory] = useState("verification");
+  const [verificationLogs, setVerificationLogs] = useState([]);
+  const [verificationLogsError, setVerificationLogsError] = useState(null);
 
+  // -------------------------------------------------------------------
+  // Helpers
+  // -------------------------------------------------------------------
+  const formatTimestamp = (ts) => {
+    if (!ts) return "N/A";
+    try {
+      const d = new Date(ts);
+      if (Number.isNaN(d.getTime())) return ts;
+      return d.toLocaleString();
+    } catch {
+      return ts;
+    }
+  };
+
+  const getVisibleIssuers = () => {
+    if (issuerFilter === "approved") return approvedIssuers;
+    if (issuerFilter === "pending") return pendingIssuers;
+    if (issuerFilter === "rejected") return [];
+    return [];
+  };
+
+  const visibleIssuers = getVisibleIssuers();
+
+  // -------------------------------------------------------------------
+  // ISSUERS
+  // -------------------------------------------------------------------
   const fetchPendingIssuers = async () => {
     try {
       setLoading(true);
       const response = await apiService.getPendingIssuers();
-      // CHANGES: response.data already holds the array from backend
       const pending = Array.isArray(response.data) ? response.data : [];
       setPendingIssuers(pending);
       setMessage("");
@@ -49,7 +71,6 @@ export default function AdminDashboard() {
     try {
       setLoading(true);
       const response = await apiService.getApprovedIssuers();
-      // response.data na agad yung array galing backend
       const approved = Array.isArray(response.data) ? response.data : [];
       setApprovedIssuers(approved);
     } catch (error) {
@@ -60,7 +81,6 @@ export default function AdminDashboard() {
     }
   };
 
-  // Approve issuer
   const handleApproveIssuer = async (issuerId) => {
     try {
       await apiService.approveIssuer(issuerId);
@@ -73,7 +93,6 @@ export default function AdminDashboard() {
     }
   };
 
-  // Reject issuer
   const handleRejectIssuer = async (issuerId) => {
     const rejectionReason = prompt("Enter rejection reason (optional):");
     try {
@@ -87,10 +106,9 @@ export default function AdminDashboard() {
     }
   };
 
-  // ======================================================================
-  // USERS FETCHING (MANAGE USERS TAB)
-  // ======================================================================
-
+  // -------------------------------------------------------------------
+  // USERS
+  // -------------------------------------------------------------------
   const fetchUsers = async () => {
     try {
       setUsersLoading(true);
@@ -105,10 +123,9 @@ export default function AdminDashboard() {
     }
   };
 
-  // ======================================================================
-  // CREDENTIALS / VERIFICATIONS / LOGS (unchanged behavior)
-  // ======================================================================
-
+  // -------------------------------------------------------------------
+  // CREDENTIALS / VERIFICATIONS
+  // -------------------------------------------------------------------
   const fetchCredentials = async () => {
     try {
       setCredentialsLoading(true);
@@ -147,6 +164,35 @@ export default function AdminDashboard() {
     }
   };
 
+  // -------------------------------------------------------------------
+  // LOGS
+  // -------------------------------------------------------------------
+  const fetchVerificationLogs = async () => {
+    try {
+      setLogsLoading(true);
+      setVerificationLogsError(null);
+      const data = await apiService.Get_AllVerificationLogs();
+      const logsArray = Array.isArray(data.logs) ? data.logs : [];
+      setVerificationLogs(logsArray);
+    } catch (error) {
+      console.error("Error fetching verification logs:", error);
+      console.log(
+        "RAW verification logs error payload =",
+        error?.response?.data
+      );
+      const raw =
+        error?.response?.data?.message ||
+        error?.response?.data ||
+        error?.message ||
+        "Failed to load verification logs";
+      const msg = typeof raw === "string" ? raw : JSON.stringify(raw);
+      setVerificationLogs([]);
+      setVerificationLogsError(msg);
+    } finally {
+      setLogsLoading(false);
+    }
+  };
+
   const fetchLogs = async () => {
     try {
       setLogsLoading(true);
@@ -176,36 +222,43 @@ export default function AdminDashboard() {
     }
   };
 
-  // Fetch data when tab changes
+  // -------------------------------------------------------------------
+  // EFFECTS
+  // -------------------------------------------------------------------
   useEffect(() => {
     if (tab === "issuers") {
       fetchPendingIssuers();
       fetchApprovedIssuers();
-      // CHANGES: reset filter to "approved" whenever you open Issuers tab
       setIssuerFilter("approved");
     } else if (tab === "credentials") {
       fetchCredentials();
     } else if (tab === "verifications") {
       fetchVerifications();
     } else if (tab === "logs") {
-      fetchLogs();
+      if (logCategory === "verification") {
+        fetchVerificationLogs();
+      } else {
+        fetchLogs();
+      }
     } else if (tab === "users") {
       fetchUsers();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tab]);
 
-  // CHANGES: derived list based on issuerFilter
-  const getVisibleIssuers = () => {
-    if (issuerFilter === "approved") return approvedIssuers;
-    if (issuerFilter === "pending") return pendingIssuers;
-    // placeholder for "rejected" – currently no separate list, so empty
-    if (issuerFilter === "rejected") return [];
-    return [];
-  };
+  useEffect(() => {
+    if (tab !== "logs") return;
+    if (logCategory === "verification") {
+      fetchVerificationLogs();
+    } else {
+      fetchLogs();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [logCategory]);
 
-  const visibleIssuers = getVisibleIssuers();
-
+  // -------------------------------------------------------------------
+  // RENDER
+  // -------------------------------------------------------------------
   return (
     <div className="admin-container">
       <h1 className="admin-title">Admin Dashboard</h1>
@@ -224,7 +277,6 @@ export default function AdminDashboard() {
         >
           Manage Issuers
         </button>
-        {/* CHANGES: new Manage Users tab */}
         <button
           onClick={() => setTab("users")}
           className={tab === "users" ? "active" : ""}
@@ -251,7 +303,6 @@ export default function AdminDashboard() {
         </button>
       </div>
 
-      {/* Message Display */}
       {message && <div className="admin-message">{message}</div>}
 
       {/* CREDENTIALS TAB */}
@@ -292,7 +343,9 @@ export default function AdminDashboard() {
                           <span className="status-pending">Pending</span>
                         )}
                       </td>
-                      <td>{cred.issueDate || cred.timestamp || "N/A"}</td>
+                      <td>
+                        {formatTimestamp(cred.issueDate || cred.timestamp)}
+                      </td>
                     </tr>
                   ))}
                 </tbody>
@@ -304,7 +357,7 @@ export default function AdminDashboard() {
         </div>
       )}
 
-      {/* ISSUERS TAB - MAIN FUNCTIONALITY */}
+      {/* ISSUERS TAB */}
       {tab === "issuers" && (
         <div className="tab-card">
           <h2>Issuer Management</h2>
@@ -313,7 +366,6 @@ export default function AdminDashboard() {
             activity in real time.
           </p>
 
-          {/* CHANGES: Dropdown filter for issuer status */}
           <div className="issuer-filter-row">
             <label htmlFor="issuerFilter">View:</label>
             <select
@@ -331,7 +383,6 @@ export default function AdminDashboard() {
             <div className="tab-placeholder">Loading issuers...</div>
           ) : (
             <>
-              {/* When filter = pending, show pending table with actions */}
               {issuerFilter === "pending" && pendingIssuers.length > 0 && (
                 <div className="issuer-section">
                   <div className="section-header">
@@ -374,8 +425,8 @@ export default function AdminDashboard() {
                                 <span className="badge red">No</span>
                               )}
                             </td>
-                            <td>{issuer.createdAt || "N/A"}</td>
-                            <td>{issuer.approvedAt || "N/A"}</td>
+                            <td>{formatTimestamp(issuer.createdAt)}</td>
+                            <td>{formatTimestamp(issuer.approvedAt)}</td>
                             <td>{issuer.approvedBy || "N/A"}</td>
                             <td>{issuer.fabricIdentity || "N/A"}</td>
                             <td>{issuer.couchDBUrl || "N/A"}</td>
@@ -410,7 +461,6 @@ export default function AdminDashboard() {
                 </div>
               )}
 
-              {/* When filter = approved, show approved table (default view) */}
               {issuerFilter === "approved" && approvedIssuers.length > 0 && (
                 <div className="issuer-section">
                   <div className="section-header">
@@ -452,8 +502,8 @@ export default function AdminDashboard() {
                                 <span className="badge red">No</span>
                               )}
                             </td>
-                            <td>{issuer.createdAt || "N/A"}</td>
-                            <td>{issuer.approvedAt || "N/A"}</td>
+                            <td>{formatTimestamp(issuer.createdAt)}</td>
+                            <td>{formatTimestamp(issuer.approvedAt)}</td>
                             <td>{issuer.approvedBy || "N/A"}</td>
                             <td>{issuer.fabricIdentity || "N/A"}</td>
                             <td>{issuer.couchDBUrl || "N/A"}</td>
@@ -470,7 +520,6 @@ export default function AdminDashboard() {
                 </div>
               )}
 
-              {/* When filter = rejected – placeholder for now */}
               {issuerFilter === "rejected" && (
                 <div className="issuer-section">
                   <div className="section-header">
@@ -483,7 +532,6 @@ export default function AdminDashboard() {
                 </div>
               )}
 
-              {/* If selected filter has no data */}
               {visibleIssuers.length === 0 && (
                 <div className="tab-placeholder">No issuers found.</div>
               )}
@@ -492,7 +540,7 @@ export default function AdminDashboard() {
         </div>
       )}
 
-      {/* MANAGE USERS TAB */}
+      {/* USERS TAB */}
       {tab === "users" && (
         <div className="tab-card">
           <h2>User Management</h2>
@@ -523,11 +571,7 @@ export default function AdminDashboard() {
                       <td>{user.username || user.fullName || "N/A"}</td>
                       <td>{user.role || "user"}</td>
                       <td>{user.org || "N/A"}</td>
-                      <td>
-                        {user.createdAt
-                          ? new Date(user.createdAt).toLocaleString()
-                          : "N/A"}
-                      </td>
+                      <td>{formatTimestamp(user.createdAt)}</td>
                       <td>
                         {user.isActive === false ? (
                           <span className="badge red">No</span>
@@ -579,7 +623,9 @@ export default function AdminDashboard() {
                 </div>
                 <div className="stat-card">
                   <span className="stat-label">Total Requests</span>
-                  <span className="stat-value">{verifications.length}</span>
+                  <span className="stat-value">
+                    {verifications.length}
+                  </span>
                 </div>
               </div>
               <div className="table-wrapper">
@@ -629,31 +675,123 @@ export default function AdminDashboard() {
             Trace key administrative actions for compliance and security
             reviews.
           </p>
-          {logsLoading ? (
-            <div className="tab-placeholder">Loading audit logs...</div>
-          ) : logs.length > 0 ? (
-            <div className="table-wrapper">
-              <table className="admin-table">
-                <thead>
-                  <tr>
-                    <th>Event</th>
-                    <th>Timestamp</th>
-                    <th>Actor</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {logs.map((log, index) => (
-                    <tr key={index}>
-                      <td>{log.event}</td>
-                      <td>{log.timestamp}</td>
-                      <td>{log.actor}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          ) : (
-            <div className="tab-placeholder">No audit logs found.</div>
+
+          <div className="issuer-filter-row">
+            <label htmlFor="logCategory">Log Category:</label>
+            <select
+              id="logCategory"
+              value={logCategory}
+              onChange={(e) => setLogCategory(e.target.value)}
+            >
+              <option value="verification">Verification Logs</option>
+              <option value="admin">Admin Logs (from credentials)</option>
+            </select>
+          </div>
+
+          {/* VERIFICATION LOGS VIEW */}
+          {logCategory === "verification" && (
+            <>
+              {logsLoading ? (
+                <div className="tab-placeholder">
+                  Loading verification logs...
+                </div>
+              ) : verificationLogsError ? (
+                <div className="tab-placeholder">
+                  {verificationLogsError}
+                </div>
+              ) : verificationLogs.length > 0 ? (
+                <div className="table-wrapper">
+                  <table className="admin-table">
+                    <thead>
+                      <tr>
+                        <th>Verification Log ID</th>
+                        <th>Verifier Name</th>
+                        <th>Verifier Email</th>
+                        <th>Credential ID</th>
+                        <th>Holder ID</th>
+                        <th>Holder Name</th>
+                        <th>Result</th>
+                        <th>Timestamp</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {verificationLogs.map((log) => {
+                        const safeResultSource =
+                          log.result?.reason ||
+                          log.result?.message ||
+                          (typeof log.result === "string"
+                            ? log.result
+                            : log.verifyResult ||
+                              log.result ||
+                              null);
+
+                        const safeResult =
+                          typeof safeResultSource === "string"
+                            ? safeResultSource
+                            : safeResultSource
+                            ? JSON.stringify(safeResultSource)
+                            : "N/A";
+
+                        const ts = log.verifiedAt || log.timestamp;
+
+                        return (
+                          <tr key={log.id}>
+                            <td>{String(log.id)}</td>
+                            <td>{log.verifierName || "N/A"}</td>
+                            <td>{log.verifierEmail || "N/A"}</td>
+                            <td>
+                              {log.credentialId ||
+                                log.credentialID ||
+                                "N/A"}
+                            </td>
+                            <td>{log.holderID || "N/A"}</td>
+                            <td>{log.holderName || "N/A"}</td>
+                            <td>{safeResult}</td>
+                            <td>{formatTimestamp(ts)}</td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              ) : (
+                <div className="tab-placeholder">
+                  No verification logs found.
+                </div>
+              )}
+            </>
+          )}
+
+          {/* ADMIN/SYNTHETIC LOGS VIEW */}
+          {logCategory === "admin" && (
+            <>
+              {logsLoading ? (
+                <div className="tab-placeholder">Loading audit logs...</div>
+              ) : logs.length > 0 ? (
+                <div className="table-wrapper">
+                  <table className="admin-table">
+                    <thead>
+                      <tr>
+                        <th>Event</th>
+                        <th>Timestamp</th>
+                        <th>Actor</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {logs.map((log, index) => (
+                        <tr key={index}>
+                          <td>{log.event}</td>
+                          <td>{formatTimestamp(log.timestamp)}</td>
+                          <td>{log.actor}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              ) : (
+                <div className="tab-placeholder">No audit logs found.</div>
+              )}
+            </>
           )}
         </div>
       )}

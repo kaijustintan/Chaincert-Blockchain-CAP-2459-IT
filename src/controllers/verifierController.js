@@ -513,7 +513,12 @@ const logVerificationEvent = async (req, res, getContractAndGateway) => {
   Function Name: getAllVerificationLogs
 
   Technical:
-  - Uses getContractAndGateway to connect as Org1 admin (generic verifier).
+  - Dynamically chooses which Org1 Fabric identity to use:
+    - If called by a logged-in admin user (admin dashboard):
+      uses 'chaincert-admin' (public admin identity for admin accounts).
+    - Otherwise (verifier dashboard / CLI / no user context):
+      uses 'admin' (generic Org1 verifier/non-user Fabric identity).
+  - Uses getContractAndGateway to connect to Fabric.
   - Calls chaincode function GetAllVerificationLogs (evaluateTransaction).
   - THEN best-effort enriches each log with holderName from CouchDB users DB
     using holderID (via couchdbService.getUser).
@@ -522,13 +527,30 @@ const logVerificationEvent = async (req, res, getContractAndGateway) => {
   Tropang Ex:
   Ito yung pang-dashboard na listahan ng LAHAT ng verification attempts
   na na-log sa blockchain (UI + CLI), good for audit view, PLUS may
-  Holder Name na galing sa users DB kung ma-resolve.
+  Holder Name na galing sa users DB kung ma-resolve. Kapag galing sa
+  admin dashboard, gagamit ng chaincert-admin identity; kapag galing
+  sa verifier side na walang user context, generic admin identity lang.
 */
 const getAllVerificationLogs = async (req, res, getContractAndGateway) => {
   try {
-    // Step 1: Resolve identity (generic Org1 admin for verifier side)
-    const identityName = 'admin';
+    // Step 1: Resolve identity based on context
+    // - Admin dashboard (logged-in admin user) -> chaincert-admin
+    // - Verifier dashboard / CLI / no user     -> admin
+    let identityName;
     const orgName = 'Org1';
+
+    if (req.user && req.user.role === 'admin') {
+      identityName = 'chaincert-admin';
+    } else {
+      identityName = 'admin';
+    }
+
+    console.log(
+      '[VERIFY-LOGS] Using Fabric identity',
+      identityName,
+      'for user',
+      req.user ? `${req.user.id} (${req.user.role})` : 'NO-USER'
+    );
 
     // Step 2: Connect to blockchain
     const { gateway, contract } = await getContractAndGateway(identityName, orgName);

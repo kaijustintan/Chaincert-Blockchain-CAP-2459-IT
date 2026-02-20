@@ -217,37 +217,51 @@ export default function CredentialHistoryPage() {
     return Array.from(names).sort();
   };
 
+  /* CSS-CHANGE: helper to get action badge class name based on action type */
+  const getActionBadgeClass = (action) => {
+    switch (action) {
+      case "Created Template": return "history-action-badge history-action-badge--created";
+      case "Issued": return "history-action-badge history-action-badge--issued";
+      case "Revoked": return "history-action-badge history-action-badge--revoked";
+      default: return "history-action-badge history-action-badge--updated";
+    }
+  };
+
+  /* CSS-CHANGE: helper to get action display text */
+  const getActionDisplayText = (action) => {
+    switch (action) {
+      case "Created Template": return "✅ Created Template";
+      case "Issued": return "📝 Issued";
+      case "Revoked": return "❌ Revoked";
+      default: return "🔄 Updated";
+    }
+  };
+
+  /* CSS-CHANGE: helper to get status class and text */
+  const getStatusInfo = (record) => {
+    const status = record.currentStatus || record.value?.status;
+    if (status === "revoked") return { className: "history-status history-status--revoked", text: "🔴 Revoked" };
+    if (status === "active") return { className: "history-status history-status--active", text: "🟢 Active" };
+    if (status === "issued") return { className: "history-status history-status--issued", text: "🟢 Issued" };
+    return { className: "history-status history-status--unknown", text: "Status Unknown" };
+  };
+
   return (
     <div className="issuer-dashboard">
       <h2>🔍 Credential History (Blockchain Audit Trail)</h2>
 
-      <div
-        style={{
-          marginBottom: "20px",
-          padding: "20px",
-          background: "#f8f9fa",
-          borderRadius: "8px",
-        }}
-      >
+      {/* CSS-CHANGE: replaced inline style div with className */}
+      <div className="history-search-container">
         <form
           onSubmit={handleSearch}
-          style={{
-            display: "flex",
-            gap: "10px",
-            alignItems: "center",
-            marginBottom: "15px",
-          }}
+          className="history-search-form" /* CSS-CHANGE: replaced inline style */
         >
           {/* NEW: dropdown to pick which field to search */}
+          {/* CSS-CHANGE: replaced inline style with className */}
           <select
             value={searchField}
             onChange={(e) => setSearchField(e.target.value)}
-            style={{
-              padding: "10px",
-              border: "1px solid #ddd",
-              borderRadius: "4px",
-              fontSize: "14px",
-            }}
+            className="history-search-select" /* CSS-CHANGE: replaced inline style */
           >
             <option value="credentialId">Credential ID</option>
             <option value="holderId">Holder ID</option>
@@ -255,6 +269,7 @@ export default function CredentialHistoryPage() {
             <option value="credentialName">Credential Name</option>
           </select>
 
+          {/* CSS-CHANGE: replaced inline style with className */}
           <input
             type="text"
             placeholder={
@@ -268,38 +283,28 @@ export default function CredentialHistoryPage() {
             }
             value={searchId}
             onChange={(e) => setSearchId(e.target.value)}
-            style={{
-              flex: 1,
-              padding: "10px",
-              border: "1px solid #ddd",
-              borderRadius: "4px",
-              fontSize: "16px",
-            }}
+            className="history-search-input" /* CSS-CHANGE: replaced inline style */
           />
+          {/* CSS-CHANGE: replaced className="create-btn" with themed button class */}
           <button
             type="submit"
-            className="create-btn"
+            className="history-search-btn history-search-btn--primary"
             disabled={loading}
           >
             {loading ? "🔄 Loading..." : "🔍 Search"}
           </button>
+          {/* CSS-CHANGE: replaced inline style background with themed class */}
           <button
             type="button"
             onClick={fetchAllHistory}
-            className="create-btn"
+            className="history-search-btn history-search-btn--success"
             disabled={loading}
-            style={{ background: "#28a745" }}
           >
             Show All
           </button>
         </form>
-        <p
-          style={{
-            marginTop: "10px",
-            color: "#666",
-            fontSize: "14px",
-          }}
-        >
+        {/* CSS-CHANGE: replaced inline style with className */}
+        <p className="history-search-hint">
           💡{" "}
           {isFiltered && searchId.trim()
             ? `Showing filtered history for ${searchField}: ${searchId}`
@@ -308,48 +313,23 @@ export default function CredentialHistoryPage() {
       </div>
 
       {/* 🔧 FILTER SECTION */}
+      {/* CSS-CHANGE: replaced inline styles with classNames */}
       {!loading && allHistory.length > 0 && (
-        <div
-          style={{
-            marginBottom: "20px",
-            padding: "15px",
-            background: "#f0f8ff",
-            borderRadius: "8px",
-            border: "1px solid #cce5ff",
-          }}
-        >
-          <h4 style={{ marginTop: 0, marginBottom: "15px" }}>
+        <div className="history-filter-section">
+          <h4 className="history-filter-title">
             🔎 Filter & Sort History
           </h4>
-          <div
-            style={{
-              display: "grid",
-              gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))",
-              gap: "15px",
-            }}
-          >
+          <div className="history-filter-grid">
             {/* Action Filter */}
-            <div>
-              <label
-                style={{
-                  display: "block",
-                  fontWeight: "bold",
-                  marginBottom: "5px",
-                  fontSize: "14px",
-                }}
-              >
+            <div className="history-filter-group">
+              <label className="history-filter-label">
                 Action
               </label>
+              {/* CSS-CHANGE: replaced inline style with className */}
               <select
                 value={filterAction}
                 onChange={(e) => setFilterAction(e.target.value)}
-                style={{
-                  width: "100%",
-                  padding: "8px",
-                  borderRadius: "4px",
-                  border: "1px solid #ddd",
-                    fontSize: "14px",
-                }}
+                className="history-filter-select"
               >
                 <option value="all">All Actions</option>
                 <option value="Created Template">✅ Created Template</option>
@@ -360,27 +340,15 @@ export default function CredentialHistoryPage() {
             </div>
 
             {/* Status Filter */}
-            <div>
-              <label
-                style={{
-                  display: "block",
-                  fontWeight: "bold",
-                  marginBottom: "5px",
-                  fontSize: "14px",
-                }}
-              >
+            <div className="history-filter-group">
+              <label className="history-filter-label">
                 Status
               </label>
+              {/* CSS-CHANGE: replaced inline style with className */}
               <select
                 value={filterStatus}
                 onChange={(e) => setFilterStatus(e.target.value)}
-                style={{
-                  width: "100%",
-                  padding: "8px",
-                  borderRadius: "4px",
-                  border: "1px solid #ddd",
-                  fontSize: "14px",
-                }}
+                className="history-filter-select"
               >
                 <option value="all">All Statuses</option>
                 <option value="active">🟢 Active</option>
@@ -390,27 +358,15 @@ export default function CredentialHistoryPage() {
             </div>
 
             {/* Credential Type Filter */}
-            <div>
-              <label
-                style={{
-                  display: "block",
-                  fontWeight: "bold",
-                  marginBottom: "5px",
-                  fontSize: "14px",
-                }}
-              >
+            <div className="history-filter-group">
+              <label className="history-filter-label">
                 Credential Type
               </label>
+              {/* CSS-CHANGE: replaced inline style with className */}
               <select
                 value={filterType}
                 onChange={(e) => setFilterType(e.target.value)}
-                style={{
-                  width: "100%",
-                  padding: "8px",
-                  borderRadius: "4px",
-                  border: "1px solid #ddd",
-                  fontSize: "14px",
-                }}
+                className="history-filter-select"
               >
                 <option value="all">All Types</option>
                 {getUniqueCredentialTypes().map((type) => (
@@ -422,27 +378,15 @@ export default function CredentialHistoryPage() {
             </div>
 
             {/* Sort By */}
-            <div>
-              <label
-                style={{
-                  display: "block",
-                  fontWeight: "bold",
-                  marginBottom: "5px",
-                  fontSize: "14px",
-                }}
-              >
+            <div className="history-filter-group">
+              <label className="history-filter-label">
                 Sort By
               </label>
+              {/* CSS-CHANGE: replaced inline style with className */}
               <select
                 value={sortBy}
                 onChange={(e) => setSortBy(e.target.value)}
-                style={{
-                  width: "100%",
-                  padding: "8px",
-                  borderRadius: "4px",
-                  border: "1px solid #ddd",
-                  fontSize: "14px",
-                }}
+                className="history-filter-select"
               >
                 <option value="timestamp-desc">📅 Most Recent</option>
                 <option value="timestamp-asc">📅 Oldest First</option>
@@ -458,36 +402,24 @@ export default function CredentialHistoryPage() {
         </div>
       )}
 
+      {/* CSS-CHANGE: replaced inline style with className */}
       {error && (
-        <div
-          style={{
-            padding: "15px",
-            background: "#fee",
-            borderRadius: "8px",
-            color: "#c00",
-            marginBottom: "20px",
-          }}
-        >
+        <div className="history-error-box">
           ❌ {error}
         </div>
       )}
 
+      {/* CSS-CHANGE: replaced inline style with className */}
       {loading && (
-        <div style={{ textAlign: "center", padding: "40px" }}>
+        <div className="history-loading">
           <h3>⏳ Fetching blockchain history...</h3>
         </div>
       )}
 
       {!loading && filteredHistory.length > 0 && (
         <>
-          <div
-            style={{
-              marginBottom: "20px",
-              padding: "15px",
-              background: "#e7f3ff",
-              borderRadius: "8px",
-            }}
-          >
+          {/* CSS-CHANGE: replaced inline style with className */}
+          <div className="history-stats-box">
             <strong>
               📊 Showing {filteredHistory.length} of {totalCount} transaction(s)
             </strong>
@@ -511,40 +443,15 @@ export default function CredentialHistoryPage() {
             <tbody>
               {filteredHistory.map((record, index) => {
                 const action = getActionType(record);
+                const statusInfo = getStatusInfo(record); /* CSS-CHANGE: use helper */
 
                 return (
                   <tr key={`${record.credentialId}-${record.txId}-${index}`}>
                     <td>{formatDate(record.timestamp)}</td>
                     <td>
-                      <span
-                        style={{
-                          padding: "4px 8px",
-                          borderRadius: "4px",
-                          background:
-                            action === "Created Template"
-                              ? "#d4edda"
-                              : action === "Issued"
-                              ? "#cfe2ff"
-                              : action === "Revoked"
-                              ? "#f8d7da"
-                              : "#fff3cd",
-                          color:
-                            action === "Created Template"
-                              ? "#155724"
-                              : action === "Issued"
-                              ? "#084298"
-                              : action === "Revoked"
-                              ? "#721c24"
-                              : "#856404",
-                        }}
-                      >
-                        {action === "Created Template"
-                          ? "✅ Created Template"
-                          : action === "Issued"
-                          ? "📝 Issued"
-                          : action === "Revoked"
-                          ? "❌ Revoked"
-                          : "🔄 Updated"}
+                      {/* CSS-CHANGE: replaced inline style with className using helper */}
+                      <span className={getActionBadgeClass(action)}>
+                        {getActionDisplayText(action)}
                       </span>
                     </td>
                     <td>
@@ -552,55 +459,26 @@ export default function CredentialHistoryPage() {
                     </td>
                     <td>{record.credentialType || "N/A"}</td>
                     <td>
-                      {record.currentStatus === "revoked" ||
-                      record.value?.status === "revoked" ? (
-                        <span
-                          style={{ color: "red", fontWeight: "bold" }}
-                        >
-                          🔴 Revoked
-                        </span>
-                      ) : record.currentStatus === "active" ||
-                        record.value?.status === "active" ? (
-                        <span
-                          style={{ color: "green", fontWeight: "bold" }}
-                        >
-                          🟢 Active
-                        </span>
-                      ) : record.currentStatus === "issued" ||
-                        record.value?.status === "issued" ? (
-                        <span
-                          style={{ color: "green", fontWeight: "bold" }}
-                        >
-                          🟢 Issued
-                        </span>
-                      ) : (
-                        <span style={{ fontWeight: "bold" }}>
-                          Status Unknown
-                        </span>
-                      )}
+                      {/* CSS-CHANGE: replaced inline styles with className using helper */}
+                      <span className={statusInfo.className}>
+                        {statusInfo.text}
+                      </span>
                     </td>
                     <td>
-                      <div>
-                        <strong>{record.holderName || "N/A"}</strong>
+                      {/* CSS-CHANGE: replaced inline styles with classNames */}
+                      <div className="history-holder-name">
+                        {record.holderName || "N/A"}
                       </div>
-                      <div style={{ fontSize: "11px", color: "#666" }}>
+                      <div className="history-holder-id">
                         {record.value?.holderID || "N/A"}
                       </div>
                     </td>
-                    <td
-                      style={{
-                        fontSize: "11px",
-                        fontFamily: "monospace",
-                      }}
-                    >
+                    {/* CSS-CHANGE: replaced inline style with className */}
+                    <td className="history-mono-cell">
                       {record.credentialId.substring(0, 20)}...
                     </td>
-                    <td
-                      style={{
-                        fontSize: "11px",
-                        fontFamily: "monospace",
-                      }}
-                    >
+                    {/* CSS-CHANGE: replaced inline style with className */}
+                    <td className="history-mono-cell">
                       {record.txId.substring(0, 12)}...
                     </td>
                   </tr>
@@ -611,30 +489,20 @@ export default function CredentialHistoryPage() {
         </>
       )}
 
+      {/* CSS-CHANGE: replaced inline style with className */}
       {!loading &&
         allHistory.length > 0 &&
         filteredHistory.length === 0 && (
-          <div
-            style={{
-              textAlign: "center",
-              padding: "40px",
-              color: "#666",
-            }}
-          >
+          <div className="history-empty">
             <p>
               No records match your filters. Try adjusting the filter options.
             </p>
           </div>
         )}
 
+      {/* CSS-CHANGE: replaced inline style with className */}
       {!loading && allHistory.length === 0 && (
-        <div
-          style={{
-            textAlign: "center",
-            padding: "40px",
-            color: "#666",
-          }}
-        >
+        <div className="history-empty">
           <p>
             No history found.{" "}
             {isFiltered

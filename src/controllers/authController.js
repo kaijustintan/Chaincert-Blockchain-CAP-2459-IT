@@ -897,6 +897,69 @@ loginIssuer: async (req, res) => {
         message: `Error fetching credentials: ${error.message}`
       });
     }
+  },
+
+  // ========================================================================================================================================================================
+  //                                                               USER CREDENTIALS (STUDENT WALLET)
+  // ========================================================================================================================================================================
+
+  /*
+    Endpoint: GET /api/auth/credentials/user/:holderID
+    Function Name: getUserCredentials
+
+    Technical:
+    Fetches all issued credentials for a specific user/holder from
+    the admin CouchDB (wallet_user_credentials) using their holderID
+    CouchDB only — no blockchain call needed
+
+    Tropang Ex:
+    Pang-fetch ng credentials ng student para sa personal dashboard
+    Kinukuha lahat ng credentials na naka-assign sa kanya sa wallet_user_credentials DB
+
+    Expected req.params:
+    { holderID } - the user's CouchDB _id
+
+    // - polo
+  */
+  getUserCredentials: async (req, res) => {
+    try {
+      /* Step 1: Extract holderID from URL params
+         // - polo
+      */
+      const { holderID } = req.params;
+
+      if (!holderID) {
+        return res.status(400).json({
+          success: false,
+          message: 'holderID is required'
+        });
+      }
+
+      /* Step 2: Fetch credentials from CouchDB using existing service function
+         Technical: Calls getUserCredentialsByHolderId which queries wallet_user_credentials.
+         Tropang Ex: Kunin lahat ng credentials na naka-assign sa student na ito.
+         // - polo
+      */
+      const credentials = await couchDB.getUserCredentialsByHolderId(holderID);
+
+      /* Step 3: Return credentials list
+         // - polo
+      */
+      return res.status(200).json({
+        success: true,
+        credentials: credentials || [],
+        count: (credentials || []).length,
+        timestamp: new Date().toISOString()
+      });
+
+    } catch (error) {
+      /* Step 4: Handle errors */
+      console.error('Error fetching user credentials:', error);
+      return res.status(500).json({
+        success: false,
+        message: `Error fetching credentials: ${error.message}`
+      });
+    }
   }
 };
 

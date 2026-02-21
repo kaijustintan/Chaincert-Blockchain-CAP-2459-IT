@@ -101,6 +101,10 @@ router.get('/approved-issuers', authController.getApprovedIssuers);
 // GET /api/auth/issuer/:issuerId/credentials - Get issuer credentials (fast reads / dashboard)
 router.get('/issuer/:issuerId/credentials', authController.getIssuerCredentials);
 
+// GET /api/auth/credentials/user/:holderID - Get student wallet credentials (CouchDB only)
+// - polo
+router.get('/credentials/user/:holderID', authController.getUserCredentials);
+
 // =========================================================================================================
 // ✅ VERIFICATION ROUTES (Verifier Module) - detailed routes with inline logic
 // =========================================================================================================

@@ -929,7 +929,15 @@ app.get('/api/credentials/:id/history', async (req, res) => {
     else if (user.role === 'admin') {
       identityName = 'chaincert-admin';
       orgName = 'Org1';
-    } 
+    }
+    /* Allow students to view credential history using chaincert-admin identity (read-only)
+       Technical: Students can only read history, not submit transactions
+       // - polo
+    */
+    else if (user.role === 'student' || user.role === 'user') {
+      identityName = 'chaincert-admin';
+      orgName = 'Org1';
+    }
     else {
       return res.status(403).json({ success: false, error: 'Forbidden: Not allowed.' });
     }

@@ -1,71 +1,210 @@
-import React, { useMemo, useState } from "react";
-import "../styles/studentDashboard.css"; // new CSS file
+// ==========================================================================================================================================================================
+//                                                               studentDashboard.js
+// ==========================================================================================================================================================================
 
-const MOCK_CREDENTIALS = [
-  {
-    id: "cred-001",
-    title: "Bachelor of Science in Information Technology",
-    course: "BS Information Technology",
-    issuer: "De La Salle University - Manila",
-    dateIssued: "2025-03-21",
-    status: "active",
-    fileName: "cred-001.pdf",
-    shareCode: "sc_01w4l1dExAMPLe",
-  },
-  {
-    id: "cred-002",
-    title: "AWS Cloud Practitioner (Microcredential)",
-    course: "AWS Cloud Fundamentals",
-    issuer: "AWS Academy",
-    dateIssued: "2025-05-10",
-    status: "active",
-    fileName: "cred-002.pdf",
-    shareCode: "sc_02w4l1dExAMPLe",
-  },
-  {
-    id: "cred-003",
-    title: "TESDA NC II – Computer Systems Servicing",
-    course: "Computer Systems Servicing NC II",
-    issuer: "TESDA",
-    dateIssued: "2023-11-01",
-    status: "expired",
-    fileName: "cred-003.pdf",
-    shareCode: "sc_03w4l1dExAMPLe",
-  },
-];
+/* [ OUTLINE ]
+  =====================================================================
+  FILE: studentDashboard.js
+  TECHNICAL: Student/user dashboard — displays credentials from CouchDB (wallet_user_credentials)
+  TROPA: Personal credential wallet ng student. Dito niya makikita lahat ng credentials na na-issue sa kanya.
+  =====================================================================
 
-const MOCK_NOTIFS = [
-  { id: "n1", type: "issued", message: "New credential issued: AWS Cloud Practitioner", ts: "2025-05-10 16:20" },
-  { id: "n2", type: "verify", message: "Verification request from: ACME Corp (HR)", ts: "2025-06-01 10:30" },
-];
+  CHANGES FROM STATIC → DYNAMIC (// - polo):
+  - Removed MOCK_CREDENTIALS static array
+  - Added useEffect to fetch real credentials from CouchDB via apiService.Get_UserCredentials(holderID)
+  - holderID pulled from localStorage "user" object (same pattern as issuerDashboardPage.js)
+  - Added loading + error states
+  - UI: credential name only on cards (first sight), click → modal with full details + See History
+  - See History uses apiService.Get_CredentialHistoryById (same as admin dashboard)
+*/
 
-const formatDate = (iso) => new Date(iso).toLocaleDateString();
+import React, { useState, useEffect, useMemo } from "react";
+import apiService from "../services/apiService";
+import "../styles/studentDashboard.css";
 
-const StatusPill = ({ status }) => (
-  <span className={`status-pill ${status}`}>{status.charAt(0).toUpperCase() + status.slice(1)}</span>
-);
+// ==========================================================================================================================================================================
+// HELPERS
+// ==========================================================================================================================================================================
+
+const formatDate = (iso) => {
+  if (!iso) return "N/A";
+  try {
+    return new Date(iso).toLocaleDateString();
+  } catch {
+    return iso;
+  }
+};
+
+/*
+  StatusPill
+  Technical: Maps CouchDB status values to display pills
+  CouchDB uses "issued" but we display as "Active" for readability
+  // - polo
+*/
+const StatusPill = ({ status }) => {
+  const normalized = status === "issued" ? "active" : status;
+  return (
+    <span className={`status-pill ${normalized}`}>
+      {normalized.charAt(0).toUpperCase() + normalized.slice(1)}
+    </span>
+  );
+};
+
+// ==========================================================================================================================================================================
+// MAIN COMPONENT
+// ==========================================================================================================================================================================
 
 export default function StudentDashboard() {
+
+  // ── State ──────────────────────────────────────────────────────────────────
+
+  /* Dynamic credentials from CouchDB (replaces MOCK_CREDENTIALS)
+     // - polo
+  */
+  const [credentials, setCredentials] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+
+  /* UI state */
   const [view, setView] = useState("cards");
   const [query, setQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
-  const [notifs] = useState(MOCK_NOTIFS);
-  const [qrOpen, setQrOpen] = useState(false);
-  const [qrLink, setQrLink] = useState("");
+
+  /* Credential detail modal
+     Technical: selectedCred holds the full CouchDB doc when user clicks a card
+     // - polo
+  */
+  const [selectedCred, setSelectedCred] = useState(null);
+
+  /* See History modal (inside detail modal)
+     Technical: Same pattern as admin dashboard See History
+     // - polo
+  */
+  const [historyData, setHistoryData] = useState(null);
+  const [historyLoading, setHistoryLoading] = useState(false);
+  const [historyError, setHistoryError] = useState(null);
+  const [historyOpen, setHistoryOpen] = useState(false);
+
+  // ── Fetch credentials on mount ─────────────────────────────────────────────
+
+  /*
+    Technical:
+    On component mount, reads logged-in user from localStorage (same as issuerDashboardPage.js line 78)
+    then calls apiService.Get_UserCredentials(holderID) to fetch from CouchDB.
+
+    Tropang Ex:
+    Pagload ng dashboard, kunin agad yung credentials ni student.
+
+    // - polo
+  */
+  useEffect(() => {
+    const fetchCredentials = async () => {
+      try {
+        setLoading(true);
+        setError(null);
+
+        /* Step 1: Get logged-in user from localStorage
+           Technical: Same pattern as issuerDashboardPage.js
+           // - polo
+        */
+        const user = JSON.parse(localStorage.getItem("user"));
+        if (!user || !user._id) {
+          setError("User session not found. Please log in again.");
+          setLoading(false);
+          return;
+        }
+
+        const holderID = user._id;
+        console.log("[STUDENT DASHBOARD] Fetching credentials for holder:", holderID); // - polo
+
+        /* Step 2: Fetch from CouchDB via apiService
+           // - polo
+        */
+        const data = await apiService.Get_UserCredentials(holderID);
+        console.log("[STUDENT DASHBOARD] Credentials fetched:", data?.length); // - polo
+
+        setCredentials(Array.isArray(data) ? data : []);
+
+      } catch (err) {
+        console.error("[STUDENT DASHBOARD] Error fetching credentials:", err);
+        setError("Failed to load credentials. Please try again.");
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchCredentials();
+  }, []);
+
+  // ── Filter logic ───────────────────────────────────────────────────────────
 
   const filtered = useMemo(() => {
-    return MOCK_CREDENTIALS.filter((c) => {
-      const matchesQ = [c.title, c.course, c.issuer].join(" ").toLowerCase().includes(query.toLowerCase());
-      const matchesS = statusFilter === "all" ? true : c.status === statusFilter;
+    return credentials.filter((c) => {
+      const searchable = [c.credentialName, c.credentialType, c.issuerName].join(" ").toLowerCase();
+      const matchesQ = searchable.includes(query.toLowerCase());
+      /* Technical: CouchDB uses "issued" status, normalize for filter comparison
+         // - polo
+      */
+      const normalizedStatus = c.status === "issued" ? "active" : c.status;
+      const matchesS = statusFilter === "all" ? true : normalizedStatus === statusFilter;
       return matchesQ && matchesS;
     });
-  }, [query, statusFilter]);
+  }, [credentials, query, statusFilter]);
 
-  const mockShareUrl = (cred) =>
-    `https://example.com/verify?code=${encodeURIComponent(cred.shareCode)}&id=${encodeURIComponent(cred.id)}`;
+  // ── See History handler ────────────────────────────────────────────────────
+
+  /*
+    Technical:
+    Same flow as admin dashboard "See History" button.
+    Uses apiService.Get_CredentialHistoryById(blockchainId)
+    blockchainId is stored as cred.blockchainId in wallet_user_credentials docs.
+
+    // - polo
+  */
+  const handleSeeHistory = async (cred) => {
+    try {
+      setHistoryLoading(true);
+      setHistoryError(null);
+      setHistoryData(null);
+      setHistoryOpen(true);
+
+      const blockchainId = cred.blockchainId;
+      if (!blockchainId) {
+        setHistoryError("No blockchain ID found for this credential.");
+        setHistoryLoading(false);
+        return;
+      }
+
+      console.log("[STUDENT DASHBOARD] Fetching history for:", blockchainId); // - polo
+      const result = await apiService.Get_CredentialHistoryById(blockchainId);
+      setHistoryData(result);
+
+    } catch (err) {
+      console.error("[STUDENT DASHBOARD] History fetch error:", err);
+      setHistoryError("Failed to load credential history.");
+    } finally {
+      setHistoryLoading(false);
+    }
+  };
+
+  const closeDetailModal = () => {
+    setSelectedCred(null);
+    setHistoryOpen(false);
+    setHistoryData(null);
+    setHistoryError(null);
+  };
+
+  const closeHistoryModal = () => {
+    setHistoryOpen(false);
+    setHistoryData(null);
+    setHistoryError(null);
+  };
+
+  // ── Render ─────────────────────────────────────────────────────────────────
 
   return (
     <div className="dashboard-container">
+
       {/* Header */}
       <div className="dashboard-header">
         <h1>My Credentials</h1>
@@ -79,25 +218,11 @@ export default function StudentDashboard() {
         </div>
       </div>
 
-      {/* Notifications */}
-      {notifs.length > 0 && (
-        <div className="notif-section">
-          {notifs.map((n) => (
-            <div key={n.id} className="notif-card">
-              <div>
-                <strong>{n.type === "issued" ? "🆕 Issued" : "🔎 Verify"}:</strong> {n.message}
-              </div>
-              <span className="notif-time">{n.ts}</span>
-            </div>
-          ))}
-        </div>
-      )}
-
       {/* Controls */}
       <div className="controls">
         <input
           type="text"
-          placeholder="Search title, course, issuer…"
+          placeholder="Search credential name, type, issuer…"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
         />
@@ -106,68 +231,72 @@ export default function StudentDashboard() {
           <option value="active">Active</option>
           <option value="expired">Expired</option>
           <option value="revoked">Revoked</option>
-          <option value="pending">Pending</option>
         </select>
       </div>
 
       {/* Content */}
       <div className="content">
-        {filtered.length === 0 ? (
-          <div className="empty-card">No credentials match your filters.</div>
-        ) : view === "cards" ? (
+
+        {/* Loading state */}
+        {loading && (
+          <div className="empty-card">Loading credentials...</div>
+        )}
+
+        {/* Error state */}
+        {!loading && error && (
+          <div className="empty-card error">{error}</div>
+        )}
+
+        {/* Empty state */}
+        {!loading && !error && filtered.length === 0 && (
+          <div className="empty-card">
+            {credentials.length === 0
+              ? "No credentials have been issued to you yet."
+              : "No credentials match your filters."}
+          </div>
+        )}
+
+        {/* Cards view
+            Technical: Shows credential name + status only on first sight (per Kyle)
+            Click → opens detail modal
+            // - polo
+        */}
+        {!loading && !error && filtered.length > 0 && view === "cards" && (
           <div className="card-grid">
             {filtered.map((cred) => (
-              <div key={cred.id} className="cred-card">
-                <div className="cred-header">
-                  <div>
-                    <h3>{cred.title}</h3>
-                    <p>
-                      <strong>Course:</strong> {cred.course}
-                      <br />
-                      <strong>Issuer:</strong> {cred.issuer}
-                      <br />
-                      <strong>Issued:</strong> {formatDate(cred.dateIssued)}
-                    </p>
-                  </div>
-                  <StatusPill status={cred.status} />
-                </div>
-                <div className="cred-actions">
-                  <button className="action-btn view" onClick={() => alert(`View details for ${cred.id} (mock)`)}>👁 View</button>
-                  <button className="action-btn share" onClick={() => { navigator.clipboard?.writeText(mockShareUrl(cred)); alert("Share link copied!"); }}>🔗 Share</button>
-                  <button className="action-btn qr" onClick={() => { setQrLink(mockShareUrl(cred)); setQrOpen(true); }}>📱 QR</button>
-                  <button className="action-btn pdf" onClick={() => alert(`Downloading ${cred.fileName} (mock)`)}>⬇ PDF</button>
-                </div>
+              <div
+                key={cred._id}
+                className="cred-card clickable"
+                onClick={() => setSelectedCred(cred)}
+              >
+                <div className="cred-card-name">{cred.credentialName}</div>
+                <StatusPill status={cred.status} />
               </div>
             ))}
           </div>
-        ) : (
+        )}
+
+        {/* List view
+            Technical: Shows credential name + status only (per Kyle), click for details
+            // - polo
+        */}
+        {!loading && !error && filtered.length > 0 && view === "list" && (
           <table className="cred-table">
             <thead>
               <tr>
-                <th>Title</th>
-                <th>Course</th>
-                <th>Issuer</th>
-                <th>Issued</th>
+                <th>Credential Name</th>
                 <th>Status</th>
-                <th>Actions</th>
               </tr>
             </thead>
             <tbody>
               {filtered.map((cred) => (
-                <tr key={cred.id}>
-                  <td>{cred.title}</td>
-                  <td>{cred.course}</td>
-                  <td>{cred.issuer}</td>
-                  <td>{formatDate(cred.dateIssued)}</td>
+                <tr
+                  key={cred._id}
+                  className="clickable-row"
+                  onClick={() => setSelectedCred(cred)}
+                >
+                  <td>{cred.credentialName}</td>
                   <td><StatusPill status={cred.status} /></td>
-                  <td>
-                  <div className="cred-actions">
-                    <button className="action-btn view" onClick={() => alert(`View details for ${cred.id} (mock)`)}>👁 View</button>
-                    <button className="action-btn share" onClick={() => { navigator.clipboard?.writeText(mockShareUrl(cred)); alert("Link copied!"); }}>🔗 Share</button>
-                    <button className="action-btn qr" onClick={() => { setQrLink(mockShareUrl(cred)); setQrOpen(true); }}>📱 QR</button>
-                    <button className="action-btn pdf" onClick={() => alert(`Downloading ${cred.fileName} (mock)`)}>⬇ PDF</button>
-                  </div>
-                </td>
                 </tr>
               ))}
             </tbody>
@@ -175,18 +304,97 @@ export default function StudentDashboard() {
         )}
       </div>
 
-      {/* QR Modal */}
-      {qrOpen && (
-        <div className="modal-overlay">
-          <div className="modal">
-            <h3>Share via QR (Mock)</h3>
-            <button className="close-btn" onClick={() => setQrOpen(false)}>Close</button>
-            <div className="qr-preview">QR Preview</div>
-            <code className="qr-link">{qrLink}</code>
-            <p className="qr-note">In a real build, a scannable QR code would appear here.</p>
+      {/* ── Credential Detail Modal ──────────────────────────────────────────
+          Technical: Shows full details of selected credential
+          Kapag pinindot yung card → lalabas ito (per Kyle's Credly-style UX)
+          // - polo
+      */}
+      {selectedCred && (
+        <div className="modal-overlay" onClick={closeDetailModal}>
+          <div className="modal detail-modal" onClick={(e) => e.stopPropagation()}>
+
+            <div className="modal-header">
+              <h2>{selectedCred.credentialName}</h2>
+              <button className="close-btn" onClick={closeDetailModal}>✕</button>
+            </div>
+
+            <div className="modal-body">
+              <div className="detail-row">
+                <span className="detail-label">Type</span>
+                <span className="detail-value">{selectedCred.credentialType || "N/A"}</span>
+              </div>
+              <div className="detail-row">
+                <span className="detail-label">Issuer</span>
+                <span className="detail-value">{selectedCred.issuerName || "N/A"}</span>
+              </div>
+              <div className="detail-row">
+                <span className="detail-label">Status</span>
+                <span className="detail-value"><StatusPill status={selectedCred.status} /></span>
+              </div>
+              <div className="detail-row">
+                <span className="detail-label">Issued On</span>
+                <span className="detail-value">{formatDate(selectedCred.savedToUserWalletAt)}</span>
+              </div>
+              <div className="detail-row">
+                <span className="detail-label">Expiry Date</span>
+                <span className="detail-value">{formatDate(selectedCred.expiryDate)}</span>
+              </div>
+              <div className="detail-row">
+                <span className="detail-label">Blockchain ID</span>
+                <span className="detail-value mono">{selectedCred.blockchainId || "N/A"}</span>
+              </div>
+            </div>
+
+            {/* See History button — same as admin dashboard
+                Technical: Calls Get_CredentialHistoryById using cred.blockchainId
+                // - polo
+            */}
+            <div className="modal-footer">
+              <button
+                className="action-btn history"
+                onClick={() => handleSeeHistory(selectedCred)}
+              >
+                📜 See History
+              </button>
+            </div>
+
+            {/* History section (inside detail modal)
+                // - polo
+            */}
+            {historyOpen && (
+              <div className="history-section">
+                <div className="history-header">
+                  <h3>Blockchain History</h3>
+                  <button className="close-btn small" onClick={closeHistoryModal}>✕</button>
+                </div>
+
+                {historyLoading && <p className="history-loading">Loading history...</p>}
+                {historyError && <p className="history-error">{historyError}</p>}
+
+                {historyData && historyData.history && (
+                  <div className="history-list">
+                    {historyData.history.map((entry, idx) => (
+                      <div key={idx} className="history-entry">
+                        <div className="history-entry-header">
+                          <span className="history-tx-id">{entry.txId || `TX-${idx + 1}`}</span>
+                          <span className="history-timestamp">
+                            {entry.timestamp ? formatDate(entry.timestamp) : "N/A"}
+                          </span>
+                        </div>
+                        <div className="history-entry-status">
+                          Status: <strong>{entry.value?.status || entry.status || "N/A"}</strong>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+
           </div>
         </div>
       )}
+
     </div>
   );
 }

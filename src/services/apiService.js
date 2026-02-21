@@ -999,6 +999,56 @@ Get_VerificationLogById: async (logId) => {
       throw error;
     }
   },
+
+  // ==========================================================================================================================================================================
+  //                                                               USER CREDENTIALS (STUDENT WALLET)
+  // ==========================================================================================================================================================================
+
+  /*
+    Function Name: Get_UserCredentials
+
+    Technical:
+    Fetches all credentials for a specific student/holder from
+    the admin CouchDB (wallet_user_credentials) via:
+      GET /api/auth/credentials/user/:holderID
+
+    Tropang Ex:
+    Ito yung kinukuha ng student dashboard para makita niya
+    lahat ng credentials na na-issue sa kanya
+    CouchDB only — mabilis, walang blockchain call
+
+    // - polo
+  */
+  Get_UserCredentials: async (holderID) => {
+    try {
+      /* Step 1: Validate input
+         // - polo
+      */
+      if (!holderID) {
+        throw new Error('holderID is required');
+      }
+
+      /* Step 2: Send GET request to backend
+         // - polo
+      */
+      const response = await axios.get(`/auth/credentials/user/${holderID}`);
+
+      /* Step 3: Return credentials array
+         Technical: Backend returns { success, credentials, count, timestamp }
+         Tropang Ex: Ibinabalik lang yung credentials array para sa dashboard.
+         // - polo
+      */
+      return response.data.credentials || [];
+
+    } catch (error) {
+      console.error(
+        'Error fetching user credentials:',
+        error.response?.data?.message || error.message
+      );
+      throw error;
+    }
+  },
+
   // ==========================================================================================================================================================================
   //                                                               DEBUG / UTIL
   // ==========================================================================================================================================================================

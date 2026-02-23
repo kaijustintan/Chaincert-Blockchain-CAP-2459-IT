@@ -27,6 +27,19 @@ function NavBar() {
     navigate('/login'); // Redirect to login page
   };
 
+  // Map role to correct dashboard route (handles "user" → student dashboard)
+  // - polo
+  const getDashboardRoute = (role) => {
+    const routes = {
+      'student': '/student/dashboard',
+      'user': '/student/dashboard',
+      'admin': '/admin/dashboard',
+      'issuer': '/issuer/dashboard',
+      'verifier': '/verifier/dashboard'
+    };
+    return routes[role] || '/student/dashboard';
+  };
+
   return (
     <nav className="navbar">
       {/* Logo */}
@@ -108,7 +121,7 @@ function NavBar() {
 
                   {/* Dashboard Link */}
                   <li>
-                    <Link to={`/${userRole}/dashboard`}>Dashboard</Link>
+                    <Link to={getDashboardRoute(userRole)}>Dashboard</Link>
                   </li>
 
                   {/* Profile & Settings */}

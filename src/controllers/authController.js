@@ -38,6 +38,10 @@
 
   CATEGORY: ISSUER DASHBOARD (FAST COUCHDB FETCH)
   - getIssuerCredentials(req, res)
+
+  CATEGORY: USER CREDENTIALS (STUDENT WALLET)
+  - getUserCredentials(req, res)
+  - updateCredentialVisibility(req, res)  // - polo
 */
 
 const couchDB = require('../couchDB_service');
@@ -959,6 +963,41 @@ loginIssuer: async (req, res) => {
         success: false,
         message: `Error fetching credentials: ${error.message}`
       });
+    }
+  },
+
+  /*
+    Endpoint: PATCH /api/auth/credentials/:credentialId/visibility
+    Function Name: updateCredentialVisibility
+    Technical: Updates visibility field of a credential in wallet_user_credentials (CouchDB only)
+    No blockchain call needed — visibility is UI/privacy preference only
+    // - polo
+  */
+  updateCredentialVisibility: async (req, res) => {
+    try {
+      const { credentialId } = req.params;
+      const { visibility } = req.body;
+
+      if (!credentialId) {
+        return res.status(400).json({ success: false, message: 'credentialId is required' });
+      }
+      if (!visibility || !['public', 'private'].includes(visibility)) {
+        return res.status(400).json({ success: false, message: 'visibility must be "public" or "private"' });
+      }
+
+      await couchDB.updateCredentialVisibility(credentialId, visibility);
+
+      return res.status(200).json({
+        success: true,
+        message: `Credential visibility updated to ${visibility}`,
+        credentialId,
+        visibility,
+        timestamp: new Date().toISOString()
+      });
+
+    } catch (error) {
+      console.error('[AUTH CONTROLLER] Error updating credential visibility:', error);
+      return res.status(500).json({ success: false, message: `Error updating visibility: ${error.message}` });
     }
   }
 };

@@ -627,3 +627,23 @@
   object-fit: cover; /* This scales the image nicely */
   border-radius: 50%; /* This makes it round */
 }
+
+.visibility-toggle-btn {
+  padding: 4px 14px;
+  border-radius: 20px;
+  border: none;
+  cursor: pointer;
+  font-size: 0.85rem;
+  font-weight: 600;
+  transition: background 0.2s;
+}
+.visibility-toggle-btn.public {
+  background: rgba(80, 200, 120, 0.2);
+  color: #50c878;
+  border: 1px solid #50c878;
+}
+.visibility-toggle-btn.private {
+  background: rgba(255, 100, 100, 0.2);
+  color: #ff6464;
+  border: 1px solid #ff6464;
+}

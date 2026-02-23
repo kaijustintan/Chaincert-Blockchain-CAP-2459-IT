@@ -1049,6 +1049,30 @@ Get_VerificationLogById: async (logId) => {
     }
   },
 
+  /*
+    Function Name: Update_CredentialVisibility
+    Technical:
+    Updates visibility of a credential in CouchDB via:
+      PATCH /api/auth/credentials/:credentialId/visibility
+    CouchDB only — no blockchain call
+    // - polo
+  */
+  Update_CredentialVisibility: async (credentialId, visibility) => {
+    try {
+      if (!credentialId) throw new Error('credentialId is required');
+      if (!['public', 'private'].includes(visibility)) throw new Error('visibility must be public or private');
+
+      const response = await axios.patch(
+        `/auth/credentials/${credentialId}/visibility`,
+        { visibility }
+      );
+      return response.data;
+    } catch (error) {
+      console.error('Error updating credential visibility:', error.response?.data?.message || error.message);
+      throw error;
+    }
+  },
+
   // ==========================================================================================================================================================================
   //                                                               DEBUG / UTIL
   // ==========================================================================================================================================================================

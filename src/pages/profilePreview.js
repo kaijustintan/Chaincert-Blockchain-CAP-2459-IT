@@ -30,8 +30,10 @@ export default function ProfilePreview() {
           // - polo
           try {
             const data = await apiService.Get_UserCredentials(userId);
-            // Only show public credentials 
-            setCredentials(Array.isArray(data) ? data : []);
+            // Filter to public only — private credentials hidden from public view
+            // - polo
+            const publicOnly = Array.isArray(data) ? data.filter(c => c.visibility === 'public' || !c.visibility) : [];
+            setCredentials(publicOnly);
           } catch (err) {
             console.error("[PROFILE PREVIEW] Error fetching credentials:", err);
           } finally {

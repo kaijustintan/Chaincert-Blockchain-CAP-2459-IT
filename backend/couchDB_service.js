@@ -1001,7 +1001,8 @@ async function saveIssuedCredentialToBothDBs(issuerEmail, credentialData) {
       ...credentialDoc,
       _id: `user_cred_${blockchainId}`,
       holderID: credentialData.holderID,
-      savedToUserWalletAt: new Date().toISOString()
+      savedToUserWalletAt: new Date().toISOString(),
+      visibility: 'public'
     };
     console.log(`[COUCHDB] 2️⃣ Saving to ADMIN DB: ${COUCHDB_URL}/wallet_user_credentials`);
     const adminResult = await userWalletDb.insert(userCredentialDoc);
@@ -1161,6 +1162,49 @@ async function getUserCredentialsByHolderId(holderID) {
     return [];
   }
 }
+// ==========================================================================================================================================================================
+/*
+  Function Name: updateCredentialVisibility
+
+  Technical:
+  Updates the visibility field of a credential in wallet_user_credentials.
+  Called when user toggles public/private on their profile page.
+  CouchDB only — no blockchain call needed (visibility is UI/privacy preference)
+  // - polo
+*/
+async function updateCredentialVisibility(credentialId, newVisibility) {
+  try {
+    console.log(`[COUCHDB] Updating visibility for: ${credentialId} → ${newVisibility}`);
+
+    /* Step 1: Connect to admin CouchDB + wallet_user_credentials
+       // - polo
+    */
+    const adminCouch = require('nano')(COUCHDB_URL);
+    const userWalletDb = adminCouch.use('wallet_user_credentials');
+
+    /* Step 2: Normalize and fetch the credential doc
+       Technical: Need _rev to update in CouchDB
+       // - polo
+    */
+    const docId = `user_cred_${credentialId.replace(/^user_cred_/, '')}`;
+    const doc = await userWalletDb.get(docId);
+
+    /* Step 3: Update visibility field
+       // - polo
+    */
+    doc.visibility = newVisibility;
+
+    /* Step 4: Save updated doc back to CouchDB */
+    const result = await userWalletDb.insert(doc);
+    console.log(`[COUCHDB] ✅ Visibility updated for: ${docId}`);
+    return result;
+
+  } catch (error) {
+    console.error(`[COUCHDB] ❌ Error updating visibility:`, error.message);
+    throw error;
+  }
+}
+
 // ==========================================================================================================================================================================
 
 /* 
@@ -1675,6 +1719,7 @@ module.exports = {
   updateProfile,
   updateProfilePicture,
   getAllUsers,
+  updateCredentialVisibility, // - Newly added - olops
 
 
   // Accreditation

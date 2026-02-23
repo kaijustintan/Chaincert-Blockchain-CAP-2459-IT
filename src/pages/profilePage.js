@@ -440,6 +440,34 @@ export default function ProfilePage() {
                 <span className="detail-label">Blockchain ID</span>
                 <span className="detail-value mono">{selectedCred.blockchainId || "N/A"}</span>
               </div>
+              <div className="detail-row">
+                <span className="detail-label">Visibility</span>
+                <span className="detail-value">
+                  <button
+                    className={`visibility-toggle-btn ${selectedCred.visibility === 'private' ? 'private' : 'public'}`}
+                    onClick={async (e) => {
+                      e.stopPropagation();
+                      console.log('[DEBUG] Full selectedCred object:', JSON.stringify(selectedCred, null, 2));
+                      console.log('[DEBUG] blockchainId value:', selectedCred.blockchainId);
+                      const newVisibility = selectedCred.visibility === 'private' ? 'public' : 'private';
+                      try {
+                        await apiService.Update_CredentialVisibility(selectedCred.blockchainId, newVisibility);
+                        // Update local state so UI reflects change immediately
+                        // - polo
+                        setSelectedCred(prev => ({ ...prev, visibility: newVisibility }));
+                        setCredentials(prev => prev.map(c =>
+                          c._id === selectedCred._id ? { ...c, visibility: newVisibility } : c
+                        ));
+                      } catch (err) {
+                        console.error('[PROFILE PAGE] Error updating visibility:', err);
+                        alert('Failed to update visibility. Please try again.');
+                      }
+                    }}
+                  >
+                    {selectedCred.visibility === 'private' ? '🔒 Private' : '🌐 Public'}
+                  </button>
+                </span>
+              </div>
             </div>
             <div className="modal-footer">
               <button className="action-btn history" onClick={() => handleSeeHistory(selectedCred)}>

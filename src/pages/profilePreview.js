@@ -11,9 +11,13 @@ export default function ProfilePreview() {
   const userId = user._id || user.id || '';
 
   const [summary, setSummary] = useState("");
-  const [profilePicture, setProfilePicture] = useState(""); // Added Nov 12 - olops
   const [loading, setLoading] = useState(true);
   const [avatar, setAvatar] = useState("👤"); // ✅ avatar state
+
+  // Dynamic credentials from CouchDB (replaces static badges)
+  // - polo
+  const [credentials, setCredentials] = useState([]);
+  const [credLoading, setCredLoading] = useState(true);
 
     useEffect(() => {
     const loadUserProfile = async () => {
@@ -21,6 +25,18 @@ export default function ProfilePreview() {
         const response = await apiService.getUserInfo(userId);
         if (response.success && response.user) {
           setSummary(response.user.summary || '');
+
+          // Fetch credentials for public profile display
+          // - polo
+          try {
+            const data = await apiService.Get_UserCredentials(userId);
+            // Only show public credentials 
+            setCredentials(Array.isArray(data) ? data : []);
+          } catch (err) {
+            console.error("[PROFILE PREVIEW] Error fetching credentials:", err);
+          } finally {
+            setCredLoading(false);
+          }
 
           // ✅ load avatar if profilePicture exists
           if (response.user.profilePicture) {
@@ -37,36 +53,6 @@ export default function ProfilePreview() {
     loadUserProfile();
   }, [userId]);
 
-  const badges = [
-    {
-      id: 1,
-      title: "CCNA: Enterprise Networking, Security, and Automation",
-      issuer: "Cisco",
-      date: "Issued Aug 1, 2024",
-      image: "🎓",
-    },
-    {
-      id: 2,
-      title: "CCNA: Switching, Routing, and Wireless Essentials",
-      issuer: "Cisco",
-      date: "Issued Apr 16, 2024",
-      image: "🌐",
-    },
-    {
-      id: 3,
-      title: "Network Defense",
-      issuer: "Cisco",
-      date: "Issued Nov 26, 2024",
-      image: "🛡️",
-    },
-  ];
-
-  const skills = [
-    { id: 1, name: "Access Control" },
-    { id: 2, name: "Application Security" },
-    { id: 3, name: "Network Defense" },
-  ];
-
   if (loading) {
     return (
       <div className="profile-preview">
@@ -74,6 +60,10 @@ export default function ProfilePreview() {
       </div>
     );
   }
+
+  // Derive skills from credentials (same as profilePage)
+  // - polo
+  const derivedSkills = [...new Set(credentials.map(c => c.credentialType).filter(Boolean))];
 
   return (
     <div className="profile-preview">
@@ -114,19 +104,21 @@ export default function ProfilePreview() {
       <section className="badge-wallet">
         <h3>Credentials & Badges</h3>
         <div className="badge-grid">
-          {badges.map((badge) => (
-            <div
-              key={badge.id}
-              className="badge-card"
-              onClick={() =>
-                window.open(`/profile-preview/badge-details/${badge.id}`, "_blank")
-              }
-            >
-              <div className="badge-img">{badge.image}</div>
-              <h4>{badge.title}</h4>
-              <p className="issuer">{badge.issuer}</p>
-              <p className="date">{badge.date}</p>
-            </div>
+          {credLoading && <div>Loading credentials...</div>}
+          {!credLoading && credentials.length === 0 && (
+            <div>No public credentials yet.</div>
+          )}
+          {!credLoading && credentials.map((cred) => (
+            <div key={cred._id} className={`badge-card ${cred.status === 'revoked' ? 'revoked-card' : ''}`}>
+            <div className="badge-img">🎓</div>
+            <h4>{cred.credentialName}</h4>
+            {/* Show revoked status visually on public profile // - polo */}
+            {cred.status === 'revoked' && (
+              <span className="status-pill revoked">Revoked</span>
+            )}
+            <p className="issuer">{cred.issuerName}</p>
+            <p className="date">{cred.savedToUserWalletAt ? new Date(cred.savedToUserWalletAt).toLocaleDateString() : "N/A"}</p>
+          </div>
           ))}
         </div>
       </section>
@@ -135,11 +127,13 @@ export default function ProfilePreview() {
       <section className="skills-section">
         <h3>Skills</h3>
         <div className="skills-grid">
-          {skills.map((skill) => (
-            <div key={skill.id} className="skill-badge">
-              {skill.name}
-            </div>
-          ))}
+          {derivedSkills.length === 0 ? (
+            <div>No skills yet.</div>
+          ) : (
+            derivedSkills.map((skill, idx) => (
+              <div key={idx} className="skill-badge">{skill}</div>
+            ))
+          )}
         </div>
       </section>
 

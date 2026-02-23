@@ -12,7 +12,21 @@ export default function ProfilePage() {
 
   const [summary, setSummary] = useState("");
   const [isPublic, setIsPublic] = useState(true);
-  const [selectedBadge, setSelectedBadge] = useState(null);
+
+  // Dynamic credentials from CouchDB (replaces static badges array)
+  // - polo
+  const [credentials, setCredentials] = useState([]);
+  const [credLoading, setCredLoading] = useState(true);
+  const [credError, setCredError] = useState(null);
+  const [selectedCred, setSelectedCred] = useState(null);
+
+  // See History state (same as studentDashboard)
+  // - polo
+  const [historyData, setHistoryData] = useState(null);
+  const [historyLoading, setHistoryLoading] = useState(false);
+  const [historyError, setHistoryError] = useState(null);
+  const [historyOpen, setHistoryOpen] = useState(false);
+
   const [loading, setLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [saveMessage, setSaveMessage] = useState("");
@@ -48,6 +62,85 @@ export default function ProfilePage() {
       setLoading(false);
     }
   };
+
+  // Fetch credentials from CouchDB on mount (same as studentDashboard)
+  // - polo
+  useEffect(() => {
+    const fetchCredentials = async () => {
+      try {
+        setCredLoading(true);
+        setCredError(null);
+        const data = await apiService.Get_UserCredentials(userId);
+        setCredentials(Array.isArray(data) ? data : []);
+      } catch (err) {
+        console.error("[PROFILE PAGE] Error fetching credentials:", err);
+        setCredError("Failed to load credentials.");
+      } finally {
+        setCredLoading(false);
+      }
+    };
+    if (userId) fetchCredentials();
+  }, [userId]);
+
+  // formatDate helper
+  // - polo
+  const formatDate = (iso) => {
+    if (!iso) return "N/A";
+    try { return new Date(iso).toLocaleDateString(); } catch { return iso; }
+  };
+
+  // StatusPill helper
+  // - polo
+  const StatusPill = ({ status }) => {
+    const normalized = status === "issued" ? "active" : status;
+    return (
+      <span className={`status-pill ${normalized}`}>
+        {normalized.charAt(0).toUpperCase() + normalized.slice(1)}
+      </span>
+    );
+  };
+
+  // See History handler (same as studentDashboard)
+  // - polo
+  const handleSeeHistory = async (cred) => {
+    try {
+      setHistoryLoading(true);
+      setHistoryError(null);
+      setHistoryData(null);
+      setHistoryOpen(true);
+      const blockchainId = cred.blockchainId;
+      if (!blockchainId) {
+        setHistoryError("No blockchain ID found for this credential.");
+        setHistoryLoading(false);
+        return;
+      }
+      console.log("[PROFILE PAGE] Fetching history for:", blockchainId);
+      const result = await apiService.Get_CredentialHistoryById(blockchainId);
+      setHistoryData(result);
+    } catch (err) {
+      console.error("[PROFILE PAGE] History fetch error:", err);
+      setHistoryError("Failed to load credential history.");
+    } finally {
+      setHistoryLoading(false);
+    }
+  };
+
+  const closeCredModal = () => {
+    setSelectedCred(null);
+    setHistoryOpen(false);
+    setHistoryData(null);
+    setHistoryError(null);
+  };
+
+  const closeHistorySection = () => {
+    setHistoryOpen(false);
+    setHistoryData(null);
+    setHistoryError(null);
+  };
+
+  // Derive skills from credentials (same source, no extra fetch)
+  // - polo
+  const derivedSkills = [...new Set(credentials.map(c => c.credentialType).filter(Boolean))];
 
   const handleSaveProfile = async () => {
     setIsSaving(true);
@@ -92,7 +185,7 @@ export default function ProfilePage() {
     alert(
       `File selected: ${file.name}\n\nIn the next step, we'll hook this up to the backend.`
     );
-// This is the new logic
+    // This is the new logic
     try {
       const formData = new FormData();
       formData.append('profilePicture', file); // 'profilePicture' must match the backend
@@ -113,71 +206,6 @@ export default function ProfilePage() {
       alert('An error occurred while uploading the image.');
     }
   };
-
-  // Static badge data (demo)
-  const badges = [
-    {
-      id: 1,
-      title: "CCNA: Enterprise Networking, Security, and Automation",
-      issuer: "Cisco",
-      description:
-        "Cisco verifies the earner of this badge successfully completed the CCNA: Enterprise Networking, Security, and Automation course.",
-      date: "Aug 1, 2024",
-      expires: "This credential does not expire",
-      credentialId: "b6b4f34c-5053-431c-8cd9-8d2dc22bcc22",
-      image: "🎓",
-    },
-    {
-      id: 2,
-      title: "CCNA: Switching, Routing, and Wireless Essentials",
-      issuer: "Cisco",
-      description:
-        "Cisco certifies the skills in routing and switching fundamentals and wireless network implementation.",
-      date: "Apr 16, 2024",
-      expires: "This credential does not expire",
-      credentialId: "a7e1f34c-2223-431c-8cd9-9d2dc22bcc11",
-      image: "🌐",
-    },
-    {
-      id: 3,
-      title: "Network Defense",
-      issuer: "Cisco",
-      description:
-        "Cisco certifies knowledge in Network Defense strategies and cybersecurity best practices.",
-      date: "Nov 26, 2024",
-      expires: "This credential does not expire",
-      credentialId: "c8f4d44a-3333-555c-9cd9-1a2bc22bcc55",
-      image: "🛡️",
-    },
-  ];
-
-  // Static skills data (demo)
-  const skills = [
-    {
-      id: 1,
-      name: "Access Control",
-      evidence: "2 sources of skill evidence",
-      level: "Advanced",
-    },
-    {
-      id: 2,
-      name: "Application Security",
-      evidence: "1 source of skill evidence",
-      level: "Intermediate",
-    },
-    {
-      id: 3,
-      name: "Network Security",
-      evidence: "3 sources of skill evidence",
-      level: "Advanced",
-    },
-    {
-      id: 4,
-      name: "Threat Detection",
-      evidence: "2 sources of skill evidence",
-      level: "Intermediate",
-    },
-  ];
 
   const handleCopyUrl = () => {
     navigator.clipboard
@@ -320,110 +348,131 @@ export default function ProfilePage() {
         </div>
       </section>
 
-      {/* Badge Wallet */}
+      {/* Credential Wallet — dynamic from CouchDB (replaces static badges)
+          Technical: Same fetch + modal pattern as studentDashboard.js
+          // - polo
+      */}
       <section className="profile-section">
         <div className="section-header">
-          <h3>Badge Wallet</h3>
-          <button className="secondary-btn">+ Upload Badge</button>
+          <h3>Credential Wallet</h3>
         </div>
 
-        <div className="badges-grid">
-          {badges.map((badge) => (
-            <div
-              key={badge.id}
-              className="badge-card"
-              onClick={() => setSelectedBadge(badge)}
-            >
-              <div className="badge-image">{badge.image}</div>
-              <h4>{badge.title}</h4>
-              <p className="badge-date">{badge.date}</p>
-              <p className="badge-issuer">Issued by {badge.issuer}</p>
-            </div>
-          ))}
+        {credLoading && <div className="empty-card">Loading credentials...</div>}
+        {!credLoading && credError && <div className="empty-card error">{credError}</div>}
+        {!credLoading && !credError && credentials.length === 0 && (
+          <div className="empty-card">No credentials have been issued to you yet.</div>
+        )}
 
-          {/* Add New Badge Card */}
-          <div className="badge-card-enhanced add-new">
-            <div className="add-new-content">
-              <span className="add-icon">➕</span>
-              <h3>Add New Badge</h3>
-              <p>Upload external credentials</p>
-            </div>
+        {!credLoading && !credError && credentials.length > 0 && (
+          <div className="badges-grid">
+            {credentials.map((cred) => (
+              <div
+                key={cred._id}
+                className="badge-card"
+                onClick={() => { setSelectedCred(cred); setHistoryOpen(false); setHistoryData(null); }}
+              >
+                <div className="badge-image">🎓</div>
+                <h4>{cred.credentialName}</h4>
+                <StatusPill status={cred.status} />
+                <p className="badge-issuer">Issued by {cred.issuerName}</p>
+              </div>
+            ))}
           </div>
-        </div>
+        )}
       </section>
 
-      {/* Skills Wallet */}
+      {/* Skills Wallet — derived from credentials (no separate fetch)
+          Technical: Extracts unique credentialTypes from fetched credentials
+          // - polo
+      */}
       <section className="profile-section">
         <div className="section-header">
           <h3>Skills Wallet</h3>
-          <button className="secondary-btn">+ Add Skill</button>
         </div>
-
-        <div className="skills-grid">
-          {skills.map((skill) => (
-            <div key={skill.id} className="skill-card">
-              <div className="skill-info">
-                <h4>{skill.name}</h4>
-                <p>{skill.evidence}</p>
+        {derivedSkills.length === 0 ? (
+          <div className="empty-card">No skills derived yet. Skills are based on your issued credentials.</div>
+        ) : (
+          <div className="skills-grid">
+            {derivedSkills.map((skill, idx) => (
+              <div key={idx} className="skill-card">
+                <div className="skill-info">
+                  <h4>{skill}</h4>
+                  <p>Derived from your issued credentials</p>
+                </div>
               </div>
-              <button className="small-btn">Edit</button>
-            </div>
-          ))}
-        </div>
+            ))}
+          </div>
+        )}
       </section>
 
-      {/* Enhanced Modal */}
-      {selectedBadge && (
-        <div
-          className="modal-overlay"
-          onClick={() => setSelectedBadge(null)}
-        >
-          <div
-            className="modal-content"
-            onClick={(e) => e.stopPropagation()}
-          >
+      {/* Credential Detail Modal (same as studentDashboard)
+          // - polo
+      */}
+      {selectedCred && (
+        <div className="modal-overlay" onClick={closeCredModal}>
+          <div className="modal detail-modal" onClick={(e) => e.stopPropagation()}>
             <div className="modal-header">
-              <h3>Badge Details</h3>
-              <button
-                className="close-btn"
-                onClick={() => setSelectedBadge(null)}
-              >
-                ✕
-              </button>
+              <h2>{selectedCred.credentialName}</h2>
+              <button className="close-btn" onClick={closeCredModal}>✕</button>
             </div>
             <div className="modal-body">
-              <div className="modal-badge-image">{selectedBadge.image}</div>
-              <h4>{selectedBadge.title}</h4>
-              <div className="modal-details">
-                <p>
-                  <strong>Issuing Organization:</strong>{" "}
-                  {selectedBadge.issuer}
-                </p>
-                <p>
-                  <strong>Description:</strong> {selectedBadge.description}
-                </p>
-                <p>
-                  <strong>Issuing Date:</strong> {selectedBadge.date}
-                </p>
-                <p>
-                  <strong>Expiration Date:</strong> {selectedBadge.expires}
-                </p>
-                <p>
-                  <strong>Credential ID:</strong>{" "}
-                  {selectedBadge.credentialId}
-                </p>
+              <div className="detail-row">
+                <span className="detail-label">Type</span>
+                <span className="detail-value">{selectedCred.credentialType || "N/A"}</span>
+              </div>
+              <div className="detail-row">
+                <span className="detail-label">Issuer</span>
+                <span className="detail-value">{selectedCred.issuerName || "N/A"}</span>
+              </div>
+              <div className="detail-row">
+                <span className="detail-label">Status</span>
+                <span className="detail-value"><StatusPill status={selectedCred.status} /></span>
+              </div>
+              <div className="detail-row">
+                <span className="detail-label">Issued On</span>
+                <span className="detail-value">{formatDate(selectedCred.savedToUserWalletAt)}</span>
+              </div>
+              <div className="detail-row">
+                <span className="detail-label">Expiry Date</span>
+                <span className="detail-value">{formatDate(selectedCred.expiryDate)}</span>
+              </div>
+              <div className="detail-row">
+                <span className="detail-label">Blockchain ID</span>
+                <span className="detail-value mono">{selectedCred.blockchainId || "N/A"}</span>
               </div>
             </div>
             <div className="modal-footer">
-              <button
-                className="share-btn"
-                onClick={() =>
-                  window.open(`/share-credential/${selectedBadge.id}`, "_blank")
-                }
-              >
-                Share Badge
+              <button className="action-btn history" onClick={() => handleSeeHistory(selectedCred)}>
+                📜 See History
               </button>
             </div>
+            {historyOpen && (
+              <div className="history-section">
+                <div className="history-header">
+                  <h3>Blockchain History</h3>
+                  <button className="close-btn small" onClick={closeHistorySection}>✕</button>
+                </div>
+                {historyLoading && <p className="history-loading">Loading history...</p>}
+                {historyError && <p className="history-error">{historyError}</p>}
+                {historyData && historyData.history && (
+                  <div className="history-list">
+                    {historyData.history.map((entry, idx) => (
+                      <div key={idx} className="history-entry">
+                        <div className="history-entry-header">
+                          <span className="history-tx-id">{entry.txId || `TX-${idx + 1}`}</span>
+                          <span className="history-timestamp">
+                            {entry.timestamp ? formatDate(entry.timestamp) : "N/A"}
+                          </span>
+                        </div>
+                        <div className="history-entry-status">
+                          Status: <strong>{entry.value?.status || entry.status || "N/A"}</strong>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         </div>
       )}

@@ -977,6 +977,7 @@ exports.revoke_Credential = async (req, res, getContractAndGateway) => {
        e.g. "cred_1770....holder....timestamp".
     */
     const { credentialId } = req.params;
+    const { rejectionReason } = req.body; // - polo
     if (!credentialId) {
       return res.status(400).json({
         success: false,
@@ -1038,7 +1039,8 @@ exports.revoke_Credential = async (req, res, getContractAndGateway) => {
     */
     const result = await contract.submitTransaction(
       'RevokeCredential',
-      credentialId
+      credentialId,
+      rejectionReason || '' // - polo
     );
 
     const revokedCredential = JSON.parse(result.toString());
@@ -1059,7 +1061,8 @@ exports.revoke_Credential = async (req, res, getContractAndGateway) => {
 
       const couchResult = await couchdbService.revokeCredential(
         revokedCredential.id,   // blockchainId (cred_...)
-        user.email              // issuerEmail
+        user.email,             // issuerEmail
+        rejectionReason || ''        // - polo
       );
 
       console.log(`[REVOKE] ✅ CouchDB revoke successful`);

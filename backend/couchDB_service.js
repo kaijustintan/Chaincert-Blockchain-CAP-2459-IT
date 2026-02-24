@@ -1281,7 +1281,7 @@ async function deleteIssuerCredentialTemplate(credentialId, issuerEmail) {
   - Ia-update din yung kopya sa admin DB / user wallet (para sa holder view / verification).
 */
 
-async function revokeCredential(blockchainId, issuerEmail) {
+async function revokeCredential(blockchainId, issuerEmail, rejectionReason) {
   try {
     if (!blockchainId) {
       throw new Error('blockchainId is required to revoke credential');
@@ -1320,6 +1320,7 @@ async function revokeCredential(blockchainId, issuerEmail) {
 
     issuerDoc.status = 'revoked';
     issuerDoc.revokedAt = new Date().toISOString();
+    issuerDoc.rejectionReason = rejectionReason || ''; // - polo
 
     const issuerSaveResult = await issuerIssuedDb.insert(issuerDoc);
     console.log(`COUCHDB: Issuer credential revoked in issued_credentials: ${issuerDocId}`);
@@ -1350,6 +1351,7 @@ async function revokeCredential(blockchainId, issuerEmail) {
     if (userDoc) {
       userDoc.status = 'revoked';
       userDoc.revokedAt = new Date().toISOString();
+      userDoc.rejectionReason = rejectionReason || ''; // - polo
 
       adminSaveResult = await userWalletDb.insert(userDoc);
       console.log(`COUCHDB: User wallet credential revoked in wallet_user_credentials: ${userDocId}`);

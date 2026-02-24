@@ -35,6 +35,7 @@ export default function IssuerDashboard() {
   const [showRevokeModal, setShowRevokeModal] = useState(false);
   const [revokeForm, setRevokeForm] = useState({
     credentialId: "",
+    rejectionReason: "", // - polo
   });
   const [revokeError, setRevokeError] = useState("");
   const [revokeLoading, setRevokeLoading] = useState(false);
@@ -175,7 +176,7 @@ export default function IssuerDashboard() {
   const openRevokeModal = () => {
     setShowRevokeModal(true);
     setRevokeError("");
-    setRevokeForm({ credentialId: "" });
+    setRevokeForm({ credentialId: "", rejectionReason: "" }); // - polo
   };
 
   const closeRevokeModal = () => {
@@ -200,8 +201,14 @@ export default function IssuerDashboard() {
         setRevokeLoading(false);
         return;
       }
+      // Rejection reason is required before revoke pushes through // - polo
+      if (!revokeForm.rejectionReason.trim()) {
+        setRevokeError("Please provide a rejection reason");
+        setRevokeLoading(false);
+        return;
+      }
 
-      await apiService.Revoke_CredentialInstance(revokeForm.credentialId);
+      await apiService.Revoke_CredentialInstance(revokeForm.credentialId, revokeForm.rejectionReason); // - polo
       alert("Credential revoked successfully!");
       closeRevokeModal();
       fetchCredentials();
@@ -571,6 +578,19 @@ export default function IssuerDashboard() {
                       );
                     })}
                 </select>
+              </div>
+
+              {/* Rejection Reason — required before revoke pushes through // - polo */}
+              <div className="form-group">
+                <label>Rejection Reason:</label>
+                <textarea
+                  name="rejectionReason"
+                  value={revokeForm.rejectionReason}
+                  onChange={handleRevokeFormChange}
+                  rows={3}
+                  placeholder="State the reason for revoking this credential..."
+                  required
+                />
               </div>
 
               {revokeError && (

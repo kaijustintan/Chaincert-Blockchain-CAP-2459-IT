@@ -740,14 +740,15 @@ const apiService = {
       1) blockchain (RevokeCredential)
       2) CouchDB copies (issued_credentials + wallet_user_credentials).
   */
-  Revoke_CredentialInstance: async (credentialId) => {
+    Revoke_CredentialInstance: async (credentialId, rejectionReason) => { // - polo
     try {
       /* Step 1: POST revoke request to backend
          Technical:
          Calls /credentials/:credentialId/revoke with no extra body.
       */
       const response = await axios.post(
-        `/credentials/${credentialId}/revoke`
+        `/credentials/${credentialId}/revoke`,
+        { rejectionReason: rejectionReason || '' } // - polo
       );
 
       /* Step 2: Return backend result

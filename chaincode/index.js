@@ -729,7 +729,7 @@ async GetAllVerificationLogs(ctx) {
     Tropang Ex:
     Ito yung opisyal na “pag-disable” ng credential sa ledger. Pag na-revoke na, hindi na siya dapat pumasa sa verification.
   */
-  async RevokeCredential(ctx, id) {
+  async RevokeCredential(ctx, id, rejectionReason) {
 
   /* Step 1: Load credential from ledger
 
@@ -776,7 +776,8 @@ async GetAllVerificationLogs(ctx) {
     version: credential.version,
     isTemplate: credential.isTemplate,
     txId: credential.txId,
-    revokedAt: revokedAt
+    revokedAt: revokedAt,
+    rejectionReason: rejectionReason || ''  // - polo
   };
 
   /* Step 3: Write updated credential back to ledger

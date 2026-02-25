@@ -331,6 +331,12 @@ export default function StudentDashboard() {
                 <span className="detail-label">Status</span>
                 <span className="detail-value"><StatusPill status={selectedCred.status} /></span>
               </div>
+              {(selectedCred.status === "revoked" || selectedCred.status === "REVOKED") && selectedCred.rejectionReason && (
+                <div className="detail-row">
+                  <span className="detail-label">Rejection Reason</span>
+                  <span className="detail-value" style={{color: "#ff6b6b"}}>{selectedCred.rejectionReason}</span>
+                </div>
+              )}
               <div className="detail-row">
                 <span className="detail-label">Issued On</span>
                 <span className="detail-value">{formatDate(selectedCred.savedToUserWalletAt)}</span>
@@ -384,6 +390,11 @@ export default function StudentDashboard() {
                         <div className="history-entry-status">
                           Status: <strong>{entry.value?.status || entry.status || "N/A"}</strong>
                         </div>
+                        {(entry.value?.status === "revoked" || entry.status === "revoked") && (entry.value?.rejectionReason || entry.rejectionReason) && (
+                          <div className="history-entry-status" style={{color: "#ff6b6b"}}>
+                            Rejection Reason: <strong>{entry.value?.rejectionReason || entry.rejectionReason}</strong>
+                          </div>
+                        )}
                       </div>
                     ))}
                   </div>

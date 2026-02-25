@@ -118,6 +118,11 @@ export default function ProfilePreview() {
             {cred.status === 'revoked' && (
               <span className="status-pill revoked">Revoked</span>
             )}
+            {cred.status === 'revoked' && cred.rejectionReason && (
+              <p style={{color: "#ff6b6b", fontSize: "0.75rem", margin: "4px 0"}}>
+                Reason: {cred.rejectionReason}
+              </p>
+            )}
             <p className="issuer">{cred.issuerName}</p>
             <p className="date">{cred.savedToUserWalletAt ? new Date(cred.savedToUserWalletAt).toLocaleDateString() : "N/A"}</p>
           </div>

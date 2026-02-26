@@ -1005,6 +1005,20 @@ Get_AllVerificationLogs: async () => {
   }
 },
 
+// Get all issuer/user status-change logs (blockchain)
+Get_AllStatusLogs: async () => {
+  try {
+    const response = await axios.get('/admin/status-logs');
+    return response.data; // { success, logs, count }
+  } catch (error) {
+    console.error(
+      'Error fetching status logs:',
+      error.response?.data?.message || error.message
+    );
+    throw error;
+  }
+},
+
 // Get single verification log by ID
 Get_VerificationLogById: async (logId) => {
   try {

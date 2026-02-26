@@ -1188,17 +1188,19 @@ disableIssuer: async (req, res, getContractAndGateway) => {
     const identityName = 'chaincert-admin';
     const orgName = 'Org1';
 
-    const cg = await getContractAndGateway(identityName, orgName);
-    gateway = cg.gateway;
-    const contract = cg.contract;
+    if (typeof getContractAndGateway === 'function') {
+      const cg = await getContractAndGateway(identityName, orgName);
+      gateway = cg.gateway;
+      const contract = cg.contract;
 
-    await contract.submitTransaction(
-      'LogIssuerStatusChange',
-      issuer.email,
-      previousStatus,
-      'disabled',
-      reason
-    );
+      await contract.submitTransaction(
+        'LogIssuerStatusChange',
+        issuer.email,
+        previousStatus,
+        'disabled',
+        reason
+      );
+    }
 
     return res.status(200).json({
       success: true,
@@ -1251,17 +1253,19 @@ enableIssuer: async (req, res, getContractAndGateway) => {
     const identityName = 'chaincert-admin';
     const orgName = 'Org1';
 
-    const cg = await getContractAndGateway(identityName, orgName);
-    gateway = cg.gateway;
-    const contract = cg.contract;
+    if (typeof getContractAndGateway === 'function') {
+      const cg = await getContractAndGateway(identityName, orgName);
+      gateway = cg.gateway;
+      const contract = cg.contract;
 
-    await contract.submitTransaction(
-      'LogIssuerStatusChange',
-      issuer.email,
-      previousStatus,
-      'approved',
-      reason
-    );
+      await contract.submitTransaction(
+        'LogIssuerStatusChange',
+        issuer.email,
+        previousStatus,
+        'approved',
+        reason
+      );
+    }
 
     return res.status(200).json({
       success: true,
@@ -1321,17 +1325,19 @@ disableUser: async (req, res, getContractAndGateway) => {
     const identityName = 'chaincert-admin';
     const orgName = 'Org1';
 
-    const cg = await getContractAndGateway(identityName, orgName);
-    gateway = cg.gateway;
-    const contract = cg.contract;
+    if (typeof getContractAndGateway === 'function') {
+      const cg = await getContractAndGateway(identityName, orgName);
+      gateway = cg.gateway;
+      const contract = cg.contract;
 
-    await contract.submitTransaction(
-      'LogUserStatusChange',
-      user.email,
-      previousStatus,
-      'disabled',
-      reason
-    );
+      await contract.submitTransaction(
+        'LogUserStatusChange',
+        user.email,
+        previousStatus,
+        'disabled',
+        reason
+      );
+    }
 
     return res.status(200).json({
       success: true,
@@ -1388,17 +1394,19 @@ enableUser: async (req, res, getContractAndGateway) => {
     const identityName = 'chaincert-admin';
     const orgName = 'Org1';
 
-    const cg = await getContractAndGateway(identityName, orgName);
-    gateway = cg.gateway;
-    const contract = cg.contract;
+    if (typeof getContractAndGateway === 'function') {
+      const cg = await getContractAndGateway(identityName, orgName);
+      gateway = cg.gateway;
+      const contract = cg.contract;
 
-    await contract.submitTransaction(
-      'LogUserStatusChange',
-      user.email,
-      previousStatus,
-      'active',
-      reason
-    );
+      await contract.submitTransaction(
+        'LogUserStatusChange',
+        user.email,
+        previousStatus,
+        'active',
+        reason
+      );
+    }
 
     return res.status(200).json({
       success: true,
@@ -1416,6 +1424,55 @@ enableUser: async (req, res, getContractAndGateway) => {
   }
 },
   
+
+
+// ========================================================================================================================================================================
+// ADMIN: STATUS LOGS (ISSUER + USER ENABLE/DISABLE)
+// ========================================================================================================================================================================
+
+getAllStatusLogs: async (req, res, getContractAndGateway) => {
+  let gateway;
+  try {
+    if (typeof getContractAndGateway !== 'function') {
+      return res.status(500).json({
+        success: false,
+        message: 'Blockchain gateway is not available'
+      });
+    }
+
+    const identityName = 'chaincert-admin';
+    const orgName = 'Org1';
+
+    const cg = await getContractAndGateway(identityName, orgName);
+    gateway = cg.gateway;
+    const contract = cg.contract;
+
+    const resultBuffer = await contract.evaluateTransaction('GetAllStatusLogs');
+    const raw = resultBuffer.toString();
+    let logs;
+
+    try {
+      logs = JSON.parse(raw || '[]');
+    } catch (_) {
+      logs = [];
+    }
+
+    return res.status(200).json({
+      success: true,
+      logs: Array.isArray(logs) ? logs : [],
+      count: Array.isArray(logs) ? logs.length : 0
+    });
+  } catch (error) {
+    console.error('getAllStatusLogs error:', error);
+    return res.status(500).json({
+      success: false,
+      message: error.message || 'Failed to fetch status logs'
+    });
+  } finally {
+    try { if (gateway) await gateway.disconnect(); } catch (_) {}
+  }
+},
+
 };
 
 module.exports = authController;

@@ -159,7 +159,13 @@ const apiService = {
       /* Step 3: Handle login failure
         Tropang Ex: Mali password / user not found.
       */
-      console.error('Login failed:', error.response?.data?.message || error.message);
+      const status = error?.response?.status;
+      const message = error?.response?.data?.message || error.message;
+      if (status >= 500 || !status) {
+        console.error('Login failed:', message);
+      } else {
+        console.warn('Login request rejected:', message);
+      }
       throw error;
     }
   },
@@ -222,7 +228,13 @@ const apiService = {
       return response.data;
 
     } catch (error) {
-      console.error('Issuer login failed:', error.response?.data?.message || error.message);
+      const status = error?.response?.status;
+      const message = error?.response?.data?.message || error.message;
+      if (status >= 500 || !status) {
+        console.error('Issuer login failed:', message);
+      } else {
+        console.warn('Issuer login request rejected:', message);
+      }
       throw error;
     }
   },

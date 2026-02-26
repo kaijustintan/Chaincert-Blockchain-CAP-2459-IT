@@ -21,7 +21,7 @@
   - updateProfile(userId, fields)
 
   CATEGORY: ISSUER REGISTRATION / STATUS
-  - checkIfOrgAccredited(orgName)
+  - checkIfOrgAccredited(orgName) UNUSED
   - createIssuerRegistration(issuerData, accreditationCheck)
   - getPendingIssuers()
   - approveIssuer(issuerId, adminId)
@@ -283,7 +283,8 @@ async function getAllAccreditedOrganizations() {
 }
 // ==========================================================================================================================================================================
 
-/*
+/* UNUSED 
+
   Function Name: checkIfOrgAccredited
 
   Technical: Checks if an organization exists in the "accredited_organizations" database by matching its name.
@@ -350,6 +351,7 @@ async function checkIfOrgAccredited(orgName) {
   }
 }
 
+
 // ==========================================================================================================================================================================
 //                                                                 ISSUER Functions
 // ==========================================================================================================================================================================
@@ -359,8 +361,12 @@ async function checkIfOrgAccredited(orgName) {
 
   Technical: Creates a new issuer registration document in the "issuers" CouchDB database with pending status.
   Tropang Ex: Pang-register ng school/org bilang issuer (subject for admin approval).
+
+  NOTE:
+  - Accreditation gating removed: ANY org can register.
+  - Accreditation fields retained for future use (default false/null if not provided).
 */
-async function createIssuerRegistration(issuerData, accreditationCheck) {
+async function createIssuerRegistration(issuerData, accreditationCheck = null) {
   try {
 
     /* Step 1: Ensure issuers DB is initialized
@@ -370,23 +376,34 @@ async function createIssuerRegistration(issuerData, accreditationCheck) {
     */
     if (!issuersDB) await initializeDatabases();
 
-    /* Step 2: Log accreditation info (debugging / trace)
+    /* Step 2: Normalize accreditation info (optional / non-blocking)
 
-      Technical: Logs org name and accreditation result.
-      Tropang Ex: Pang-check lang kung accredited ba yung org habang nagre-register.
+      Technical: If accreditationCheck is not provided, default values are used.
+      Tropang Ex: Kahit walang accreditation check, tuloy pa rin yung registration.
+    */
+    const accreditationInfo = {
+      isAccredited: accreditationCheck?.isAccredited ?? false,
+      accreditedType: accreditationCheck?.accreditedType ?? null
+    };
+
+    /* Step 3: Log registration info (debugging / trace)
+
+      Technical: Logs org name + accreditation (if any).
+      Tropang Ex: Pang-check lang ng info habang nagre-register.
     */
     console.log('[COUCHDB] Creating issuer registration with data:', {
       orgName: issuerData.orgName,
-      accredited: accreditationCheck.isAccredited,
-      accreditedType: accreditationCheck.accreditedType
+      accredited: accreditationInfo.isAccredited,
+      accreditedType: accreditationInfo.accreditedType,
+      note: 'Accreditation gating disabled (non-blocking).'
     });
 
-    /* Step 3: Build issuer registration document
+    /* Step 4: Build issuer registration document
 
       Technical: Constructs the issuer registration object with:
         - unique issuer_ ID
         - pending status
-        - accreditation info
+        - (optional) accreditation info kept for future
       Tropang Ex: Gumagawa ng “application form” document ng issuer.
     */
     const issuerDoc = {
@@ -398,8 +415,11 @@ async function createIssuerRegistration(issuerData, accreditationCheck) {
       email: issuerData.email,
       password: issuerData.password,
       documents: issuerData.documents || [],
-      accredited: accreditationCheck.isAccredited,
-      accreditedType: accreditationCheck.accreditedType,
+
+      // ✅ kept for future use, but no longer used to block registration
+      accredited: accreditationInfo.isAccredited,
+      accreditedType: accreditationInfo.accreditedType,
+
       status: 'pending',
       createdAt: new Date().toISOString(),
       approvedAt: null,
@@ -407,16 +427,18 @@ async function createIssuerRegistration(issuerData, accreditationCheck) {
       rejectionReason: null
     };
 
-    /* Step 4: Final log before insert
+    /* Step 5: Final log before insert
       Tropang Ex: Last check bago i-save sa DB.
     */
     console.log('[COUCHDB] Final issuer doc before insert:', {
       _id: issuerDoc._id,
+      orgName: issuerDoc.orgName,
       accredited: issuerDoc.accredited,
-      accreditedType: issuerDoc.accreditedType
+      accreditedType: issuerDoc.accreditedType,
+      status: issuerDoc.status
     });
 
-    /* Step 5: Insert issuer registration into CouchDB
+    /* Step 6: Insert issuer registration into CouchDB
       Technical: Saves issuer application into issuers DB.
     */
     return await issuersDB.insert(issuerDoc);

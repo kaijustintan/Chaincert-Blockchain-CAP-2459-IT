@@ -481,100 +481,104 @@ getAllUsers: async (req, res) => {
   // ========================================================================================================================================================================
 
   /*
-    Endpoint: POST /api/auth/register-issuer
-    Function Name: registerIssuer
+  Endpoint: POST /api/auth/register-issuer
+  Function Name: registerIssuer
 
-    Technical:
-    Submits an issuer application (NOT auto-approved).
-    Flow:
-      - validate fields + confirm password
-      - check accreditation via couchDB.checkIfOrgAccredited(orgName)
-      - if not accredited → 403 deny registration
-      - hash password
-      - prepare issuerData (includes uploaded doc file if any)
-      - create issuer registration doc via couchDB.createIssuerRegistration(issuerData, accreditationCheck)
-      - returns issuerId
+  Technical:
+  Submits an issuer application (NOT auto-approved).
+  UPDATED FLOW (Accreditation gating removed):
+    - validate fields + confirm password
+    - (optional) check accreditation via couchDB.checkIfOrgAccredited(orgName) for tagging ONLY
+    - DO NOT deny if not accredited (anyone can register)
+    - hash password
+    - prepare issuerData (includes uploaded doc file if any)
+    - create issuer registration doc via couchDB.createIssuerRegistration(issuerData, accreditationCheck?)  // non-blocking
+    - returns issuerId + accreditation tag (optional)
 
-    Tropang Ex:
-    Apply ka muna bilang issuer. Pag hindi accredited org → bagsak agad.
-    Pag accredited → mapupunta sa "pending" list for admin approval.
+  Tropang Ex:
+  Kahit sino pwedeng mag-apply bilang issuer. Lahat mapupunta sa "pending" list for admin approval.
+  Yung accreditation check, pang-label nalang (optional), hindi na pang-block.
 
-    Expected req.body:
-    { orgName, contactName, email, password, confirmPassword }
+  Expected req.body:
+  { orgName, contactName, email, password, confirmPassword }
 
-    Upload:
-    upload.single('documents') gives req.file (single file)
-  */
-  registerIssuer: async (req, res) => {
-    try {
-      /* Step 1: Extract fields from request */
-      const { orgName, contactName, email, password, confirmPassword } = req.body;
+  Upload:
+  upload.single('documents') gives req.file (single file)
+*/
+registerIssuer: async (req, res) => {
+  try {
+    /* Step 1: Extract fields from request */
+    const { orgName, contactName, email, password, confirmPassword } = req.body;
 
-      /* Step 2: Debug logs (trace registration flow) */
-      console.log('=== ISSUER REGISTRATION DEBUG START (authController) ===');
-      console.log('[1] Organization Name from request:', orgName);
-      console.log('[1b] Contact Name from request:', contactName);
+    /* Step 2: Debug logs (trace registration flow) */
+    console.log('=== ISSUER REGISTRATION DEBUG START (authController) ===');
+    console.log('[1] Organization Name from request:', orgName);
+    console.log('[1b] Contact Name from request:', contactName);
 
-      /* Step 3: Validate required fields */
-      if (!orgName || !contactName || !email || !password) {
-        return res.status(400).json({ success: false, message: 'All fields are required' });
-      }
-
-      /* Step 4: Confirm passwords match */
-      if (password !== confirmPassword) {
-        return res.status(400).json({ success: false, message: 'Passwords do not match' });
-      }
-
-      /* Step 5: Accreditation check (hard gate) */
-      console.log(`[2] Checking accreditation for "${orgName}"...`);
-      const accreditationCheck = await couchDB.checkIfOrgAccredited(orgName);
-      console.log('[3] Accreditation check result:', accreditationCheck);
-
-      /* Step 6: If not accredited, deny */
-      if (!accreditationCheck.isAccredited) {
-        console.log('[4] ❌ REJECTING registration: Organization is not accredited.');
-        console.log('=== ISSUER REGISTRATION DEBUG END ===\n');
-        return res.status(403).json({
-          success: false,
-          accredited: false,
-          message: `Organization "${orgName}" is not accredited. Registration denied.`
-        });
-      }
-
-      /* Step 7: Hash password */
-      console.log('[5] ✅ PASSED ACCREDITATION. Proceeding with registration...');
-      const hashedPassword = await bcrypt.hash(password, 10);
-
-      /* Step 8: Build issuerData doc to be stored (pending status will be set by service) */
-      const issuerData = {
-        orgName,
-        contactName,
-        email,
-        password: hashedPassword,
-        documents: req.file ? [req.file] : []
-      };
-
-      /* Step 9: Save issuer registration (pending) into CouchDB */
-      console.log('[6] Saving to CouchDB...');
-      const result = await couchDB.createIssuerRegistration(issuerData, accreditationCheck);
-
-      /* Step 10: Return success response */
-      console.log('[7] Registration result:', result);
-      console.log('=== ISSUER REGISTRATION DEBUG END ===\n');
-
-      return res.status(201).json({
-        success: true,
-        message: 'Issuer registration submitted successfully',
-        issuerId: result.id,
-        accredited: true
-      });
-
-    } catch (error) {
-      /* Step 11: Handle errors */
-      console.error('Issuer registration error:', error);
-      return res.status(500).json({ success: false, message: error.message });
+    /* Step 3: Validate required fields */
+    if (!orgName || !contactName || !email || !password) {
+      return res.status(400).json({ success: false, message: 'All fields are required' });
     }
-  },
+
+    /* Step 4: Confirm passwords match */
+    if (password !== confirmPassword) {
+      return res.status(400).json({ success: false, message: 'Passwords do not match' });
+    }
+
+    /* Step 5: OPTIONAL accreditation check (NON-BLOCKING)
+       Technical: Still checking accreditation for possible tagging / future use,
+       but registration will proceed regardless of result.
+    */
+    let accreditationCheck = null;
+    try {
+      console.log(`[2] (Optional) Checking accreditation for "${orgName}"...`);
+      accreditationCheck = await couchDB.checkIfOrgAccredited(orgName);
+      console.log('[3] Accreditation check result (non-blocking):', accreditationCheck);
+    } catch (accErr) {
+      // If accreditation DB/check is unavailable, we still proceed.
+      console.warn('[3b] Accreditation check failed (proceeding anyway):', accErr.message);
+      accreditationCheck = null;
+    }
+
+    /* Step 6: Hash password
+       Tropang Ex: Kahit hindi accredited, tuloy pa rin. Admin approval ang tunay na gate.
+    */
+    console.log('[4] Proceeding with registration (accreditation no longer a gate)...');
+    const hashedPassword = await bcrypt.hash(password, 10);
+
+    /* Step 7: Build issuerData doc to be stored (pending status will be set by service) */
+    const issuerData = {
+      orgName,
+      contactName,
+      email,
+      password: hashedPassword,
+      documents: req.file ? [req.file] : []
+    };
+
+    /* Step 8: Save issuer registration (pending) into CouchDB */
+    console.log('[5] Saving to CouchDB (pending issuer application)...');
+    // createIssuerRegistration now supports optional accreditationCheck
+    const result = await couchDB.createIssuerRegistration(issuerData, accreditationCheck);
+
+    /* Step 9: Return success response */
+    console.log('[6] Registration result:', result);
+    console.log('=== ISSUER REGISTRATION DEBUG END ===\n');
+
+    return res.status(201).json({
+      success: true,
+      message: 'Issuer registration submitted successfully (pending admin approval)',
+      issuerId: result.id,
+      // ✅ no longer forced true; just pass along what we found (or false if unknown)
+      accredited: accreditationCheck?.isAccredited ?? false,
+      accreditedType: accreditationCheck?.accreditedType ?? null
+    });
+
+  } catch (error) {
+    /* Step 10: Handle errors */
+    console.error('Issuer registration error:', error);
+    return res.status(500).json({ success: false, message: error.message });
+  }
+},
 
   // ========================================================================================================================================================================
 

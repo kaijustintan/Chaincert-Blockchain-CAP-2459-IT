@@ -499,8 +499,15 @@ export default function ProfilePage() {
                           </span>
                         </div>
                         <div className="history-entry-status">
-                          Status: <strong>{entry.value?.status || entry.status || "N/A"}</strong>
+                        Status: <strong>{entry.value?.status || entry.status || "N/A"}</strong>
                         </div>
+                        {(entry.value?.status === "revoked" || entry.status === "revoked") &&
+                        (entry.value?.rejectionReason || entry.rejectionReason) && (
+                          <div className="history-entry-status" style={{ color: "#ff6b6b" }}>
+                            Rejection Reason:{" "}
+                            <strong>{entry.value?.rejectionReason || entry.rejectionReason}</strong>
+                          </div>
+                        )}
                       </div>
                     ))}
                   </div>

@@ -45,6 +45,13 @@ export default function AdminDashboard() {
   const [credentialHistoryLoading, setCredentialHistoryLoading] = useState(false);
   const [credentialHistoryError, setCredentialHistoryError] = useState(null);
 
+  // ✅ NEW: Reject Issuer modal state (required rejection reason)
+const [showRejectIssuerModal, setShowRejectIssuerModal] = useState(false);
+const [rejectIssuerId, setRejectIssuerId] = useState(null);
+const [rejectReason, setRejectReason] = useState("");
+const [rejectIssuerError, setRejectIssuerError] = useState("");
+const [rejectIssuerLoading, setRejectIssuerLoading] = useState(false);
+
   // -------------------------------------------------------------------
   // Helpers
   // -------------------------------------------------------------------
@@ -123,6 +130,44 @@ export default function AdminDashboard() {
     setCredentialHistoryLoading(false);
   };
 
+  const closeRejectIssuerModal = () => {
+  if (rejectIssuerLoading) return; // prevent closing while submitting
+  setShowRejectIssuerModal(false);
+  setRejectIssuerId(null);
+  setRejectReason("");
+  setRejectIssuerError("");
+};
+
+const submitRejectIssuer = async (e) => {
+  e.preventDefault();
+
+  const trimmed = rejectReason.trim();
+  if (!trimmed) {
+    setRejectIssuerError("Rejection reason is required.");
+    return;
+  }
+
+  try {
+    setRejectIssuerLoading(true);
+    setRejectIssuerError("");
+
+    await apiService.rejectIssuer(rejectIssuerId, trimmed);
+
+    setMessage("✅ Issuer rejected successfully!");
+    closeRejectIssuerModal();
+
+    await fetchPendingIssuers();
+    await fetchApprovedIssuers();
+  } catch (error) {
+    console.error("Error rejecting issuer:", error);
+    setRejectIssuerError(
+      error.response?.data?.message || "❌ Failed to reject issuer"
+    );
+  } finally {
+    setRejectIssuerLoading(false);
+  }
+};
+
   // -------------------------------------------------------------------
   // ISSUERS
   // -------------------------------------------------------------------
@@ -169,17 +214,11 @@ export default function AdminDashboard() {
   };
 
   const handleRejectIssuer = async (issuerId) => {
-    const rejectionReason = prompt("Enter rejection reason (optional):");
-    try {
-      await apiService.rejectIssuer(issuerId, rejectionReason || "");
-      setMessage("✅ Issuer rejected successfully!");
-      await fetchPendingIssuers();
-      await fetchApprovedIssuers();
-    } catch (error) {
-      console.error("Error rejecting issuer:", error);
-      setMessage("❌ Failed to reject issuer");
-    }
-  };
+  setRejectIssuerId(issuerId);
+  setRejectReason("");
+  setRejectIssuerError("");
+  setShowRejectIssuerModal(true);
+};
 
   // -------------------------------------------------------------------
   // USERS
@@ -577,50 +616,78 @@ export default function AdminDashboard() {
                       </thead>
                       <tbody>
                         {credentialHistory.map((entry, idx) => {
-                          const action = getHistoryActionLabel(entry, idx);
-                          const status =
-                            entry?.value?.status ||
-                            (entry.isDelete ? "deleted" : "N/A");
+                            const action = getHistoryActionLabel(entry, idx);
 
-                          return (
-                            <tr key={entry.txId || idx}>
-                              <td>{formatTimestamp(entry.timestamp)}</td>
-                              <td>{action}</td>
-                              <td>{String(status)}</td>
-                              <td
-                                style={{
-                                  fontFamily: "monospace",
-                                  fontSize: "12px",
-                                }}
-                              >
-                                {String(entry.txId || "N/A").slice(0, 18)}...
-                              </td>
-                              <td style={{ fontSize: "12px", opacity: 0.95 }}>
-                                {entry.isDelete ? (
-                                  <span>Record deleted</span>
-                                ) : (
-                                  <span>
-                                    {entry.value?.credentialName ||
-                                      entry.value?.credentialType ||
-                                      "—"}
-                                    {" | "}
-                                    Holder:{" "}
-                                    <span style={{ fontFamily: "monospace" }}>
-                                      {entry.value?.holderID || "—"}
-                                    </span>
-                                    {entry.value?.revokedAt ? (
-                                      <>
-                                        {" | "}
-                                        RevokedAt:{" "}
-                                        {formatTimestamp(entry.value.revokedAt)}
-                                      </>
-                                    ) : null}
+                            const status =
+                              entry?.value?.status ||
+                              (entry.isDelete ? "deleted" : "N/A");
+
+                            const statusLower = String(status || "").toLowerCase();
+                            const isRevoked = statusLower === "revoked";
+
+                            // ✅ NEW: pull rejection reason (supports both shapes)
+                            const rejectionReason =
+                              entry?.value?.rejectionReason || entry?.rejectionReason || "";
+
+                            return (
+                              <tr key={entry.txId || idx}>
+                                <td>{formatTimestamp(entry.timestamp)}</td>
+
+                                <td>{action}</td>
+
+                                {/* ✅ UPDATED: make revoked status red + show rejection reason */}
+                                <td>
+                                  <span
+                                    style={
+                                      isRevoked
+                                        ? { color: "#ff6b6b", fontWeight: 700 }
+                                        : { fontWeight: 600 }
+                                    }
+                                  >
+                                    {String(status)}
                                   </span>
-                                )}
-                              </td>
-                            </tr>
-                          );
-                        })}
+
+                                  {isRevoked && rejectionReason ? (
+                                    <div style={{ marginTop: "6px", color: "#ff6b6b", fontSize: "12px" }}>
+                                      Rejection Reason: <strong>{rejectionReason}</strong>
+                                    </div>
+                                  ) : null}
+                                </td>
+
+                                <td
+                                  style={{
+                                    fontFamily: "monospace",
+                                    fontSize: "12px",
+                                  }}
+                                >
+                                  {String(entry.txId || "N/A").slice(0, 18)}...
+                                </td>
+
+                                <td style={{ fontSize: "12px", opacity: 0.95 }}>
+                                  {entry.isDelete ? (
+                                    <span>Record deleted</span>
+                                  ) : (
+                                    <span>
+                                      {entry.value?.credentialName ||
+                                        entry.value?.credentialType ||
+                                        "—"}
+                                      {" | "}
+                                      Holder:{" "}
+                                      <span style={{ fontFamily: "monospace" }}>
+                                        {entry.value?.holderID || "—"}
+                                      </span>
+                                      {entry.value?.revokedAt ? (
+                                        <>
+                                          {" | "}
+                                          RevokedAt: {formatTimestamp(entry.value.revokedAt)}
+                                        </>
+                                      ) : null}
+                                    </span>
+                                  )}
+                                </td>
+                              </tr>
+                            );
+                          })}
                       </tbody>
                     </table>
                   </div>
@@ -634,6 +701,107 @@ export default function AdminDashboard() {
           </div>,
           document.body
         )}
+        {showRejectIssuerModal &&
+            ReactDOM.createPortal(
+              <div
+                onClick={closeRejectIssuerModal}
+                style={{
+                  position: "fixed",
+                  inset: 0,
+                  background: "rgba(0,0,0,0.6)",
+                  zIndex: 999999,
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  padding: "20px",
+                }}
+              >
+                <div
+                  onClick={(e) => e.stopPropagation()}
+                  style={{
+                    width: "min(520px, 95vw)",
+                    background: "#101018",
+                    borderRadius: "12px",
+                    border: "1px solid rgba(255,255,255,0.15)",
+                    padding: "18px",
+                    boxShadow: "0 10px 40px rgba(0,0,0,0.4)",
+                    color: "#fff",
+                  }}
+                >
+                  <h3 style={{ marginTop: 0, marginBottom: 10 }}>Reject Issuer</h3>
+
+                  <form onSubmit={submitRejectIssuer}>
+                    <div style={{ marginBottom: 12 }}>
+                      <label style={{ display: "block", fontSize: 13, opacity: 0.9, marginBottom: 6 }}>
+                        Rejection Reason: <span style={{ color: "#ff6b6b" }}>*</span>
+                      </label>
+
+                      <textarea
+                        value={rejectReason}
+                        onChange={(e) => setRejectReason(e.target.value)}
+                        placeholder="State the reason for rejecting this issuer application..."
+                        rows={4}
+                        style={{
+                          width: "100%",
+                          resize: "vertical",
+                          background: "rgba(255,255,255,0.06)",
+                          border: "1px solid rgba(255,255,255,0.15)",
+                          borderRadius: 10,
+                          padding: 12,
+                          color: "#fff",
+                          outline: "none",
+                        }}
+                      />
+                    </div>
+
+                    {rejectIssuerError ? (
+                      <div style={{ color: "#ff6b6b", fontSize: 13, marginBottom: 10 }}>
+                        ⚠️ {rejectIssuerError}
+                      </div>
+                    ) : null}
+
+                    <div style={{ display: "flex", gap: 10, marginTop: 10 }}>
+                      <button
+                        type="submit"
+                        disabled={rejectIssuerLoading}
+                        style={{
+                          flex: 1,
+                          padding: "10px 14px",
+                          borderRadius: 10,
+                          border: "none",
+                          cursor: "pointer",
+                          fontWeight: 700,
+                          background: "linear-gradient(180deg, #ff4d4d, #cc2b2b)",
+                          color: "#fff",
+                          opacity: rejectIssuerLoading ? 0.7 : 1,
+                        }}
+                      >
+                        {rejectIssuerLoading ? "Rejecting..." : "Reject"}
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={closeRejectIssuerModal}
+                        disabled={rejectIssuerLoading}
+                        style={{
+                          flex: 1,
+                          padding: "10px 14px",
+                          borderRadius: 10,
+                          border: "1px solid rgba(255,255,255,0.2)",
+                          background: "transparent",
+                          color: "#fff",
+                          cursor: "pointer",
+                          opacity: rejectIssuerLoading ? 0.7 : 1,
+                        }}
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  </form>
+                </div>
+              </div>,
+              document.body
+            )}
 
       {/* CREDENTIALS TAB - NOW USING GLOBAL ADMIN VIEW */}
       {tab === "credentials" && (
@@ -746,7 +914,17 @@ export default function AdminDashboard() {
                         <td>{row.credentialType}</td>
                         <td>{row.holderName || "—"}</td>
                         <td>{row.holderID || "—"}</td>
-                        <td>{row.status}</td>
+                        <td>
+                        {(() => {
+                          const s = String(row.status || "").toLowerCase();
+                          const isRevoked = s === "revoked";
+                          return (
+                            <span style={isRevoked ? { color: "#ff6b6b", fontWeight: 700 } : { fontWeight: 600 }}>
+                              {isRevoked ? "● " : ""}{row.status || "—"}
+                            </span>
+                          );
+                        })()}
+                      </td>                        
                         <td>{formatTimestamp(row.createdAt)}</td>
 
                         <td>
@@ -815,7 +993,6 @@ export default function AdminDashboard() {
                           <th>Contact Name</th>
                           <th>Email</th>
                           <th>Status</th>
-                          <th>Accredited</th>
                           <th>Created At</th>
                           <th>Approved At</th>
                           <th>Approved By</th>
@@ -832,13 +1009,6 @@ export default function AdminDashboard() {
                             <td>{issuer.contactName}</td>
                             <td>{issuer.email}</td>
                             <td className="status-pending">{issuer.status}</td>
-                            <td>
-                              {issuer.accredited ? (
-                                <span className="badge green">Yes</span>
-                              ) : (
-                                <span className="badge red">No</span>
-                              )}
-                            </td>
                             <td>{formatTimestamp(issuer.createdAt)}</td>
                             <td>{formatTimestamp(issuer.approvedAt)}</td>
                             <td>{issuer.approvedBy || "N/A"}</td>
@@ -881,7 +1051,6 @@ export default function AdminDashboard() {
                           <th>Contact Name</th>
                           <th>Email</th>
                           <th>Status</th>
-                          <th>Accredited</th>
                           <th>Created At</th>
                           <th>Approved At</th>
                           <th>Approved By</th>
@@ -897,13 +1066,6 @@ export default function AdminDashboard() {
                             <td>{issuer.contactName}</td>
                             <td>{issuer.email}</td>
                             <td className="status-approved">{issuer.status}</td>
-                            <td>
-                              {issuer.accredited ? (
-                                <span className="badge green">Yes</span>
-                              ) : (
-                                <span className="badge red">No</span>
-                              )}
-                            </td>
                             <td>{formatTimestamp(issuer.createdAt)}</td>
                             <td>{formatTimestamp(issuer.approvedAt)}</td>
                             <td>{issuer.approvedBy || "N/A"}</td>

@@ -157,11 +157,12 @@ export default function CreateAccount() {
       const response = await apiService.registerIssuer(formData);
 
       // Backend returns success:true ONLY if accredited (after controller fix)
-      if (response?.success && response?.accredited === true) {
-        setIssuerSubmitted(true); // show the “waitlisted” card ONLY for accredited orgs
-        setIssuerLoading(false);
-        return;
-      }
+      // ✅ New logic: anyone can submit; always pending admin approval
+        if (response?.success) {
+          setIssuerSubmitted(true); // show the “waitlisted/pending” card for ALL issuer applications
+          setIssuerLoading(false);
+          return;
+        }
 
       // Any other shape is a failure
       setIssuerError(
@@ -171,10 +172,10 @@ export default function CreateAccount() {
     } catch (err) {
       console.error("ISSUER REGISTRATION ERROR", err);
 
+      // ✅ 403 is no longer "not accredited" in the new design.
+      // Keep a generic message if it ever happens (e.g., auth/permission issues).
       if (err?.response?.status === 403) {
-        setIssuerError(
-          "Your organization is not accredited. Registration denied."
-        );
+        setIssuerError(err.response?.data?.message || "Access denied.");
         setIssuerSubmitted(false);
         setIssuerLoading(false);
         return;

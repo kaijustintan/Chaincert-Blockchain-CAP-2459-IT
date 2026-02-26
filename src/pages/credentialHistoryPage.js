@@ -172,28 +172,32 @@ export default function CredentialHistoryPage() {
 
   // ✅ SIMPLIFIED: Determine action type from single record
   const getActionType = (record) => {
-    if (!record || !record.value) return "Unknown";
+  if (!record || !record.value) return "Unknown";
 
-    const value = record.value;
+  const value = record.value;
 
-    if (value.isTemplate === true || (value.holderID === "" || !value.holderID)) {
-      return "Created Template";
-    }
+  // ✅ 1) Revoked should win over everything else
+  if (value.status?.toLowerCase() === "revoked" || value.revokedAt) {
+    return "Revoked";
+  }
 
-    if (value.holderID && value.assignedDate) {
-      return "Issued";
-    }
+  // ✅ 2) Template creation
+  if (value.isTemplate === true || (value.holderID === "" || !value.holderID)) {
+    return "Created Template";
+  }
 
-    if (value.status === "revoked" || value.revokedAt) {
-      return "Revoked";
-    }
+  // ✅ 3) Issued
+  if (value.holderID && value.assignedDate) {
+    return "Issued";
+  }
 
-    if (value.status === "active" && value.holderID) {
-      return "Updated";
-    }
+  // ✅ 4) Updated (if you really want this as a separate type)
+  if (value.status?.toLowerCase() === "active" && value.holderID) {
+    return "Updated";
+  }
 
-    return "Created";
-  };
+  return "Created";
+};
 
   // 🔧 GET UNIQUE CREDENTIAL TYPES FOR FILTER
   const getUniqueCredentialTypes = () => {
@@ -239,12 +243,13 @@ export default function CredentialHistoryPage() {
 
   /* CSS-CHANGE: helper to get status class and text */
   const getStatusInfo = (record) => {
-    const status = record.currentStatus || record.value?.status;
-    if (status === "revoked") return { className: "history-status history-status--revoked", text: "🔴 Revoked" };
-    if (status === "active") return { className: "history-status history-status--active", text: "🟢 Active" };
-    if (status === "issued") return { className: "history-status history-status--issued", text: "🟢 Issued" };
-    return { className: "history-status history-status--unknown", text: "Status Unknown" };
-  };
+  const rawStatus = record.value?.status || record.currentStatus || "";
+  const status = String(rawStatus).toLowerCase();
+  if (status === "revoked") return { className: "history-status history-status--revoked", text: "🔴 Revoked" };
+  if (status === "active") return { className: "history-status history-status--active", text: "🟢 Active" };
+  if (status === "issued") return { className: "history-status history-status--issued", text: "🟢 Issued" };
+  return { className: "history-status history-status--unknown", text: "Status Unknown" };
+};
 
   return (
     <div className="issuer-dashboard">

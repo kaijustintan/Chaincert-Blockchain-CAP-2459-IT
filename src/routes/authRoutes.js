@@ -98,6 +98,22 @@ router.get('/approved-issuers', authController.getApprovedIssuers);
 // GET /api/auth/rejected-issuers - Get all REJECTED issuers (Admin)
 router.get('/rejected-issuers', authController.getRejectedIssuers);
 
+// GET /api/auth/disabled-issuers - Get all DISABLED issuers (Admin)
+router.get('/disabled-issuers', authController.getDisabledIssuers);
+
+
+// POST /api/auth/disable-issuer/:issuerId - Disable issuer account (Admin)
+router.post('/disable-issuer/:issuerId', authController.disableIssuer);
+
+// POST /api/auth/enable-issuer/:issuerId - Re-enable issuer account (Admin)
+router.post('/enable-issuer/:issuerId', authController.enableIssuer);
+
+// POST /api/auth/disable-user/:userId - Disable user account (Admin)
+router.post('/disable-user/:userId', authController.disableUser);
+
+// POST /api/auth/enable-user/:userId - Re-enable user account (Admin)
+router.post('/enable-user/:userId', authController.enableUser);
+
 // =========================================================================================================
 // 📄 CREDENTIAL ROUTES (simple pass-through routes)
 // =========================================================================================================

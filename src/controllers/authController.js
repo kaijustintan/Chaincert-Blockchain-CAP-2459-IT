@@ -748,6 +748,52 @@ getRejectedIssuers: async (req, res) => {
   }
 },
 
+/*
+  Endpoint: GET /api/auth/disabled-issuers
+  Function Name: getDisabledIssuers
+
+  Technical:
+  Fetches all issuer registration documents where status = "disabled"
+  via couchDB.getDisabledIssuers().
+*/
+getDisabledIssuers: async (req, res) => {
+  try {
+    const disabledIssuers = await couchDB.getDisabledIssuers();
+
+    const safeIssuers = disabledIssuers.map(doc => ({
+      id: doc._id,
+      orgName: doc.orgName,
+      contactName: doc.contactName,
+      email: doc.email,
+      status: doc.status,
+      accredited: doc.accredited,
+      accreditedType: doc.accreditedType,
+      createdAt: doc.createdAt,
+      approvedAt: doc.approvedAt || null,
+      approvedBy: doc.approvedBy || null,
+      disabledAt: doc.disabledAt || null,
+      disabledBy: doc.disabledBy || null,
+      disableReason: doc.disableReason || null,
+      walletId: doc.walletId,
+      fabricIdentity: doc.fabricIdentity,
+      couchDBUrl: doc.couchDBUrl
+    }));
+
+    return res.status(200).json({
+      success: true,
+      message: 'Disabled issuers retrieved successfully',
+      data: safeIssuers,
+      count: safeIssuers.length
+    });
+  } catch (error) {
+    console.error('Error fetching disabled issuers:', error);
+    return res.status(500).json({
+      success: false,
+      message: `Error fetching disabled issuers: ${error.message}`
+    });
+  }
+},
+
   // ========================================================================================================================================================================
 
   /*

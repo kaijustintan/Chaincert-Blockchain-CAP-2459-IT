@@ -447,6 +447,26 @@ getRejectedIssuers: async () => {
 },
   // ==========================================================================================================================================================================
 
+/*
+  Function Name: getDisabledIssuers
+
+  Technical:
+  Retrieves all DISABLED issuers from backend.
+*/
+getDisabledIssuers: async () => {
+  try {
+    const response = await axios.get('/auth/disabled-issuers');
+    return response.data;
+  } catch (error) {
+    console.error(
+      'Error fetching disabled issuers:',
+      error.response?.data?.message || error.message
+    );
+    throw error;
+  }
+},
+  // ==========================================================================================================================================================================
+
   /*
     Function Name: approveIssuer
 

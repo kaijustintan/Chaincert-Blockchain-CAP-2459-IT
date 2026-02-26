@@ -401,6 +401,23 @@ const submitIssuerStatusChange = async (e) => {
     const userId = userStatusTarget?._id || userStatusTarget?.id;
     if (!userId) {
       setUserStatusError("User ID not found.");
+  const handleUserStatusChange = async (user, action) => {
+    const userId = user?._id || user?.id;
+    if (!userId) {
+      setMessage('❌ User ID not found.');
+      return;
+    }
+
+    const reasonPrompt = action === 'disable'
+      ? 'Enter reason for disabling this user:'
+      : 'Enter reason for enabling this user:';
+
+    const reason = window.prompt(reasonPrompt, '');
+    if (reason === null) return;
+
+    const trimmed = reason.trim();
+    if (!trimmed) {
+      setMessage('❌ Reason is required.');
       return;
     }
 
@@ -421,6 +438,18 @@ const submitIssuerStatusChange = async (e) => {
     } catch (error) {
       console.error('Error updating user status:', error);
       setUserStatusError(
+      if (action === 'disable') {
+        await apiService.disableUser(userId, trimmed);
+        setMessage('✅ User disabled successfully!');
+      } else {
+        await apiService.enableUser(userId, trimmed);
+        setMessage('✅ User enabled successfully!');
+      }
+
+      await fetchUsers();
+    } catch (error) {
+      console.error('Error updating user status:', error);
+      setMessage(
         error.response?.data?.message ||
           error.response?.data?.error ||
           '❌ Failed to update user status'
@@ -1768,6 +1797,7 @@ const submitIssuerStatusChange = async (e) => {
                             type="button"
                             onClick={() =>
                               openUserStatusModal(user, isDisabled ? "enable" : "disable")
+                              handleUserStatusChange(user, isDisabled ? "enable" : "disable")
                             }
                             style={{
                               padding: "8px 12px",

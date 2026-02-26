@@ -168,17 +168,18 @@ login: async (req, res) => {
     // Step 2: Fetch all users and find the matching record by email
     const users = await couchDB.getAllUsers();
     const user = users.find(u => u.email === email);
-    if (user.isActive === false) {
-      return res.status(403).json({
-        success: false,
-        message: 'Your account has been disabled. Please contact administrator.'
-      });
-    }
 
     if (!user) {
       return res.status(401).json({
         success: false,
         message: 'User not found'
+      });
+    }
+
+    if (user.isActive === false) {
+      return res.status(403).json({
+        success: false,
+        message: 'Your account has been disabled. Please contact administrator.'
       });
     }
 
@@ -859,14 +860,23 @@ loginIssuer: async (req, res) => {
     }
 
     // Step 2: Only approved issuers can login
-    const issuer = await couchDB.getApprovedIssuer(email);
+    const issuer = await couchDB.getIssuerByEmail(email);
+
+    if (!issuer) {
+      return res.status(401).json({
+        success: false,
+        message: 'Issuer not found or not approved yet'
+      });
+    }
+
     if (issuer.status === 'disabled') {
         return res.status(403).json({
           success: false,
           message: 'Your issuer account has been disabled. Please contact administrator.'
         });
       }
-    if (!issuer) {
+
+    if (issuer.status !== 'approved') {
       return res.status(401).json({
         success: false,
         message: 'Issuer not found or not approved yet'

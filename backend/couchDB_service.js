@@ -362,8 +362,9 @@ async function checkIfOrgAccredited(orgName) {
   Technical: Creates a new issuer registration document in the "issuers" CouchDB database with pending status.
   Tropang Ex: Pang-register ng school/org bilang issuer (subject for admin approval).
 
-  NOTE:
-  - Accreditation gating removed: ANY org can register.
+  UPDATED:
+  - Accreditation gating removed: ANY org can register (pending approval).
+  - Duplicate prevention added: blocks if same email + orgName already exists with status pending/approved.
   - Accreditation fields retained for future use (default false/null if not provided).
 */
 async function createIssuerRegistration(issuerData, accreditationCheck = null) {
@@ -376,7 +377,26 @@ async function createIssuerRegistration(issuerData, accreditationCheck = null) {
     */
     if (!issuersDB) await initializeDatabases();
 
-    /* Step 2: Normalize accreditation info (optional / non-blocking)
+    /* Step 2: Duplicate check (email + orgName)
+
+      Technical:
+        - Prevent duplicate issuer registrations when there is already an existing record
+          with same email + orgName AND status is pending/approved.
+      Tropang Ex:
+        - Kapag may existing na application/account gamit same email + org, bawal na ulit.
+    */
+    const dup = await checkDuplicateIssuerRegistration(issuerData.email, issuerData.orgName);
+    if (dup.isDuplicate) {
+      const err = new Error(
+        `Issuer registration already exists for ${issuerData.email} (${issuerData.orgName}). ` +
+        `Existing status: ${dup.existing.status}`
+      );
+      err.statusCode = 409; // Conflict
+      err.details = dup.existing;
+      throw err;
+    }
+
+    /* Step 3: Normalize accreditation info (optional / non-blocking)
 
       Technical: If accreditationCheck is not provided, default values are used.
       Tropang Ex: Kahit walang accreditation check, tuloy pa rin yung registration.
@@ -386,19 +406,20 @@ async function createIssuerRegistration(issuerData, accreditationCheck = null) {
       accreditedType: accreditationCheck?.accreditedType ?? null
     };
 
-    /* Step 3: Log registration info (debugging / trace)
+    /* Step 4: Log registration info (debugging / trace)
 
       Technical: Logs org name + accreditation (if any).
       Tropang Ex: Pang-check lang ng info habang nagre-register.
     */
     console.log('[COUCHDB] Creating issuer registration with data:', {
       orgName: issuerData.orgName,
+      email: issuerData.email,
       accredited: accreditationInfo.isAccredited,
       accreditedType: accreditationInfo.accreditedType,
-      note: 'Accreditation gating disabled (non-blocking).'
+      note: 'Accreditation gating disabled (non-blocking). Duplicate prevention enabled.'
     });
 
-    /* Step 4: Build issuer registration document
+    /* Step 5: Build issuer registration document
 
       Technical: Constructs the issuer registration object with:
         - unique issuer_ ID
@@ -416,7 +437,7 @@ async function createIssuerRegistration(issuerData, accreditationCheck = null) {
       password: issuerData.password,
       documents: issuerData.documents || [],
 
-      // ✅ kept for future use, but no longer used to block registration
+      // kept for future use, but no longer used to block registration
       accredited: accreditationInfo.isAccredited,
       accreditedType: accreditationInfo.accreditedType,
 
@@ -424,21 +445,26 @@ async function createIssuerRegistration(issuerData, accreditationCheck = null) {
       createdAt: new Date().toISOString(),
       approvedAt: null,
       approvedBy: null,
-      rejectionReason: null
+
+      // rejection fields (used when admin rejects)
+      rejectionReason: null,
+      rejectedAt: null,
+      rejectedBy: null
     };
 
-    /* Step 5: Final log before insert
+    /* Step 6: Final log before insert
       Tropang Ex: Last check bago i-save sa DB.
     */
     console.log('[COUCHDB] Final issuer doc before insert:', {
       _id: issuerDoc._id,
       orgName: issuerDoc.orgName,
+      email: issuerDoc.email,
+      status: issuerDoc.status,
       accredited: issuerDoc.accredited,
-      accreditedType: issuerDoc.accreditedType,
-      status: issuerDoc.status
+      accreditedType: issuerDoc.accreditedType
     });
 
-    /* Step 6: Insert issuer registration into CouchDB
+    /* Step 7: Insert issuer registration into CouchDB
       Technical: Saves issuer application into issuers DB.
     */
     return await issuersDB.insert(issuerDoc);
@@ -540,6 +566,58 @@ async function getIssuerByEmail(email) {
     console.error('Error getting issuer by email:', error.message);
     throw error;
   }
+}
+// ==========================================================================================================================================================================
+
+/*
+  Function Name: checkDuplicateIssuerRegistration
+
+  Technical:
+  Checks if an issuer registration already exists for the same email/orgName.
+  Blocks duplicates if existing status is pending/approved (optionally include rejected).
+
+  Tropang Ex:
+  Pang-iwas double registration. Kapag may existing na application/account gamit same email/org,
+  bawal na mag-register ulit.
+*/
+async function checkDuplicateIssuerRegistration(email, orgName) {
+  if (!issuersDB) await initializeDatabases();
+
+  // Normalize to avoid "De La Salle University" vs "de la salle university" issues
+  const normalizedOrg = (orgName || "").trim().toLowerCase();
+
+  const result = await issuersDB.find({
+    selector: {
+      type: 'issuer_registration',
+      email: email
+    },
+    limit: 50
+  });
+
+  const matches = (result.docs || []).filter(doc => {
+    const docOrg = (doc.orgName || "").trim().toLowerCase();
+
+    // must match org too (as per your requirement)
+    const sameOrg = docOrg === normalizedOrg;
+
+    // block only if still active-ish
+    const blockedStatus = doc.status === 'pending' || doc.status === 'approved';
+
+    return sameOrg && blockedStatus;
+  });
+
+  if (matches.length > 0) {
+    return {
+      isDuplicate: true,
+      existing: {
+        id: matches[0]._id,
+        status: matches[0].status,
+        createdAt: matches[0].createdAt
+      }
+    };
+  }
+
+  return { isDuplicate: false, existing: null };
 }
 // ==========================================================================================================================================================================
 
@@ -1527,6 +1605,51 @@ async function getApprovedIssuers() {
     throw error;
   }
 }
+
+/*
+  Function Name: getRejectedIssuers
+  Technical: Fetches all issuer registration documents with status = "rejected", sorted by createdAt.
+  Tropang Ex: Pangkuha ng lahat ng issuers na ni-reject ni admin para lumabas sa "Rejected Issuers"
+              section ng admin dashboard.
+*/
+async function getRejectedIssuers() {
+  try {
+    /* Step 1: Ensure issuers DB is initialized
+
+       Technical: Make sure na naka-setup na yung CouchDB connection / handle bago mag-query.
+       Tropang Ex: Para siguradong may nakakabit na "kable" papunta sa issuers database bago tayo humingi
+                   ng listahan ng rejected orgs.
+    */
+    if (!issuersDB) await initializeDatabases();
+
+    /* Step 2: Query rejected issuer registrations
+
+       Technical:
+         - Mango query filtering by:
+             type   = "issuer_registration"
+             status = "rejected"
+         - Sorted by "createdAt" para consistent sa pending/approved.
+       Tropang Ex: Pareho lang sa approved issuers, pero status = rejected.
+    */
+    const result = await issuersDB.find({
+      selector: {
+        type: 'issuer_registration',
+        status: 'rejected'
+      },
+      sort: ['createdAt']
+    });
+
+    /* Step 3: Return rejected issuer documents
+       Tropang Ex: Ibinabalik yung buong info ng rejected issuers kasama rejection reason.
+    */
+    return result.docs;
+
+  } catch (error) {
+    /* Step 4: Error handling */
+    console.error('[COUCHDB] Error getting rejected issuers:', error.message);
+    throw error;
+  }
+}
 // ==========================================================================================================================================================================
 
 async function getIssuerTemplatesByIssuerId(issuerId) {
@@ -1726,6 +1849,75 @@ async function getAllIssuerCredentialsAdmin(options = {}) {
     throw error;
   }
 }
+
+async function disableIssuer(issuerId, adminId, reason) {
+  if (!issuersDB) await initializeDatabases();
+
+  if (!reason || reason.trim() === "") {
+    throw new Error("Disable reason is required");
+  }
+
+  const issuerDoc = await issuersDB.get(issuerId);
+
+  issuerDoc.status = "disabled";
+  issuerDoc.disabledAt = new Date().toISOString();
+  issuerDoc.disabledBy = adminId;
+  issuerDoc.disableReason = reason;
+
+  return await issuersDB.insert(issuerDoc);
+}
+
+async function enableIssuer(issuerId, adminId, reason) {
+  if (!issuersDB) await initializeDatabases();
+
+  if (!reason || reason.trim() === "") {
+    throw new Error("Enable reason is required");
+  }
+
+  const issuerDoc = await issuersDB.get(issuerId);
+
+  issuerDoc.status = "approved";
+  issuerDoc.enabledAt = new Date().toISOString();
+  issuerDoc.enabledBy = adminId;
+  issuerDoc.enableReason = reason;
+
+  return await issuersDB.insert(issuerDoc);
+}
+
+async function disableUser(userId, adminId, reason) {
+  if (!usersDb) await initializeDatabases();
+
+  if (!reason || reason.trim() === "") {
+    throw new Error("Disable reason is required");
+  }
+
+  const userDoc = await usersDb.get(userId);
+
+  userDoc.isActive = false;
+  userDoc.disabledAt = new Date().toISOString();
+  userDoc.disabledBy = adminId;
+  userDoc.disableReason = reason;
+
+  return await usersDb.insert(userDoc);
+}
+
+async function enableUser(userId, adminId, reason) {
+  if (!usersDb) await initializeDatabases();
+
+  if (!reason || reason.trim() === "") {
+    throw new Error("Enable reason is required");
+  }
+
+  const userDoc = await usersDb.get(userId);
+
+  userDoc.isActive = true;
+  userDoc.enabledAt = new Date().toISOString();
+  userDoc.enabledBy = adminId;
+  userDoc.enableReason = reason;
+
+  return await usersDb.insert(userDoc);
+}
+
 // ==========================================================================================================================================================================
 
 module.exports = {
@@ -1755,8 +1947,10 @@ module.exports = {
   // Issuer lifecycle
   createIssuerRegistration,
   getPendingIssuers,
+  getRejectedIssuers,
   getIssuerById,
   getIssuerByEmail,
+  checkDuplicateIssuerRegistration,
   approveIssuer,
   rejectIssuer,
   getApprovedIssuer,
@@ -1782,5 +1976,10 @@ module.exports = {
   getApprovedIssuers,
   getIssuerTemplatesByIssuerId,
   getIssuerIssuedByIssuerId,
-  getAllIssuerCredentialsAdmin
+  getAllIssuerCredentialsAdmin,
+
+  disableIssuer,
+  enableIssuer,
+  disableUser,
+  enableUser
 };

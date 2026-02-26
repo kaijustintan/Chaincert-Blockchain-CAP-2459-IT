@@ -409,7 +409,30 @@ const apiService = {
       throw error;
     }
   },
+  // ==========================================================================================================================================================================
 
+  /*
+  Function Name: getRejectedIssuers
+
+  Technical:
+  Retrieves all REJECTED issuers from backend.
+  Tropang Ex: Admin dashboard list ng lahat ng rejected issuer applications.
+*/
+getRejectedIssuers: async () => {
+  try {
+    // Step 1: GET rejected issuers
+    const response = await axios.get('/auth/rejected-issuers');
+
+    // Step 2: Return payload
+    return response.data;
+  } catch (error) {
+    console.error(
+      'Error fetching rejected issuers:',
+      error.response?.data?.message || error.message
+    );
+    throw error;
+  }
+},
   // ==========================================================================================================================================================================
 
   /*
@@ -460,7 +483,89 @@ const apiService = {
     }
   },
   // ==========================================================================================================================================================================
+// ==========================================================================================================================================================================
+//                                                               ADMIN / STATUS MANAGEMENT (DISABLE / ENABLE)
+// ==========================================================================================================================================================================
 
+/*
+  Function Name: disableIssuer
+  Technical: Disables an APPROVED issuer (admin action) with required reason.
+*/
+disableIssuer: async (issuerId, reason) => {
+  try {
+    if (!issuerId) throw new Error('issuerId is required');
+    if (!reason || reason.trim() === '') throw new Error('reason is required');
+
+    const response = await axios.post(`/auth/disable-issuer/${issuerId}`, { reason });
+    return response.data;
+  } catch (error) {
+    console.error(
+      'Error disabling issuer:',
+      error.response?.data?.message || error.message
+    );
+    throw error;
+  }
+},
+
+/*
+  Function Name: enableIssuer
+  Technical: Re-enables a DISABLED issuer (admin action) with required reason.
+*/
+enableIssuer: async (issuerId, reason) => {
+  try {
+    if (!issuerId) throw new Error('issuerId is required');
+    if (!reason || reason.trim() === '') throw new Error('reason is required');
+
+    const response = await axios.post(`/auth/enable-issuer/${issuerId}`, { reason });
+    return response.data;
+  } catch (error) {
+    console.error(
+      'Error enabling issuer:',
+      error.response?.data?.message || error.message
+    );
+    throw error;
+  }
+},
+
+/*
+  Function Name: disableUser
+  Technical: Disables a USER account (admin action) with required reason.
+*/
+disableUser: async (userId, reason) => {
+  try {
+    if (!userId) throw new Error('userId is required');
+    if (!reason || reason.trim() === '') throw new Error('reason is required');
+
+    const response = await axios.post(`/auth/disable-user/${userId}`, { reason });
+    return response.data;
+  } catch (error) {
+    console.error(
+      'Error disabling user:',
+      error.response?.data?.message || error.message
+    );
+    throw error;
+  }
+},
+
+/*
+  Function Name: enableUser
+  Technical: Re-enables a disabled USER account (admin action) with required reason.
+*/
+enableUser: async (userId, reason) => {
+  try {
+    if (!userId) throw new Error('userId is required');
+    if (!reason || reason.trim() === '') throw new Error('reason is required');
+
+    const response = await axios.post(`/auth/enable-user/${userId}`, { reason });
+    return response.data;
+  } catch (error) {
+    console.error(
+      'Error enabling user:',
+      error.response?.data?.message || error.message
+    );
+    throw error;
+  }
+},
 
   // ==========================================================================================================================================================================
   //                                                               Issuer Credentials (From Blockchain)

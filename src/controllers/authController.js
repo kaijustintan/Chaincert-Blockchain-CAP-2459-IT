@@ -168,6 +168,12 @@ login: async (req, res) => {
     // Step 2: Fetch all users and find the matching record by email
     const users = await couchDB.getAllUsers();
     const user = users.find(u => u.email === email);
+    if (user.isActive === false) {
+      return res.status(403).json({
+        success: false,
+        message: 'Your account has been disabled. Please contact administrator.'
+      });
+    }
 
     if (!user) {
       return res.status(401).json({
@@ -558,8 +564,19 @@ registerIssuer: async (req, res) => {
     /* Step 8: Save issuer registration (pending) into CouchDB */
     console.log('[5] Saving to CouchDB (pending issuer application)...');
     // createIssuerRegistration now supports optional accreditationCheck
-    const result = await couchDB.createIssuerRegistration(issuerData, accreditationCheck);
-
+      let result;
+      try {
+        result = await couchDB.createIssuerRegistration(issuerData, accreditationCheck);
+      } catch (err) {
+        if (err.statusCode === 409) {
+          return res.status(409).json({
+            success: false,
+            message: 'Issuer registration already exists for this email/org.',
+            existing: err.details || null
+          });
+        }
+        throw err;
+      }
     /* Step 9: Return success response */
     console.log('[6] Registration result:', result);
     console.log('=== ISSUER REGISTRATION DEBUG END ===\n');
@@ -666,6 +683,69 @@ registerIssuer: async (req, res) => {
       });
     }
   },
+
+  /*
+  Endpoint: GET /api/auth/rejected-issuers
+  Function Name: getRejectedIssuers
+
+  Technical:
+  Fetches all issuer registration documents where status = "rejected"
+  via couchDB.getRejectedIssuers().
+
+  Tropang Ex:
+  Ito yung listahan ng lahat ng rejected issuers / rejected applications para sa admin dashboard.
+*/
+getRejectedIssuers: async (req, res) => {
+  try {
+    // (Optional) enforce admin only:
+    // if (!req.user || req.user.role !== 'admin') {
+    //   return res.status(403).json({ success: false, message: 'Forbidden' });
+    // }
+
+    const rejectedIssuers = await couchDB.getRejectedIssuers();
+
+    const safeIssuers = rejectedIssuers.map(doc => ({
+      id: doc._id,
+      orgName: doc.orgName,
+      contactName: doc.contactName,
+      email: doc.email,
+      status: doc.status,
+
+      // Keep these if still existing in schema
+      accredited: doc.accredited,
+      accreditedType: doc.accreditedType,
+
+      createdAt: doc.createdAt,
+
+      // ✅ Rejection metadata
+      rejectedAt: doc.rejectedAt || null,
+      rejectedBy: doc.rejectedBy || null,
+      rejectionReason: doc.rejectionReason || null,
+
+      // still present fields (might be null for rejected)
+      approvedAt: doc.approvedAt || null,
+      approvedBy: doc.approvedBy || null,
+
+      walletId: doc.walletId,
+      fabricIdentity: doc.fabricIdentity,
+      couchDBUrl: doc.couchDBUrl
+    }));
+
+    return res.status(200).json({
+      success: true,
+      message: 'Rejected issuers retrieved successfully',
+      data: safeIssuers,
+      count: safeIssuers.length
+    });
+
+  } catch (error) {
+    console.error('Error fetching rejected issuers:', error);
+    return res.status(500).json({
+      success: false,
+      message: `Error fetching rejected issuers: ${error.message}`
+    });
+  }
+},
 
   // ========================================================================================================================================================================
 
@@ -780,6 +860,12 @@ loginIssuer: async (req, res) => {
 
     // Step 2: Only approved issuers can login
     const issuer = await couchDB.getApprovedIssuer(email);
+    if (issuer.status === 'disabled') {
+        return res.status(403).json({
+          success: false,
+          message: 'Your issuer account has been disabled. Please contact administrator.'
+        });
+      }
     if (!issuer) {
       return res.status(401).json({
         success: false,
@@ -1003,7 +1089,277 @@ loginIssuer: async (req, res) => {
       console.error('[AUTH CONTROLLER] Error updating credential visibility:', error);
       return res.status(500).json({ success: false, message: `Error updating visibility: ${error.message}` });
     }
+  },
+
+  // ========================================================================================================================================================================
+// ADMIN: DISABLE / ENABLE ISSUER (WITH BLOCKCHAIN AUDIT LOG)
+// ========================================================================================================================================================================
+
+disableIssuer: async (req, res, getContractAndGateway) => {
+  let gateway;
+  try {
+    const { issuerId } = req.params;
+    const { reason } = req.body;
+
+    if (!reason || reason.trim() === '') {
+      return res.status(400).json({
+        success: false,
+        message: 'Disabling reason is required.'
+      });
+    }
+
+    // 1) Get issuer doc
+    const issuer = await couchDB.getIssuerById(issuerId);
+    if (!issuer) {
+      return res.status(404).json({ success: false, message: 'Issuer not found.' });
+    }
+
+    const previousStatus = issuer.status || '';
+
+    // Optional: prevent redundant disable
+    if (previousStatus === 'disabled') {
+      return res.status(400).json({
+        success: false,
+        message: 'Issuer is already disabled.'
+      });
+    }
+
+    // 2) Update CouchDB (operational enforcement)
+    // ✅ Use existing function in couchDB_service.js
+    await couchDB.disableIssuer(issuerId, 'chaincert-admin', reason);
+
+    // 3) Log to blockchain (audit trail)
+    const identityName = 'chaincert-admin';
+    const orgName = 'Org1';
+
+    const cg = await getContractAndGateway(identityName, orgName);
+    gateway = cg.gateway;
+    const contract = cg.contract;
+
+    await contract.submitTransaction(
+      'LogIssuerStatusChange',
+      issuer.email,
+      previousStatus,
+      'disabled',
+      reason
+    );
+
+    return res.status(200).json({
+      success: true,
+      message: 'Issuer disabled successfully.'
+    });
+
+  } catch (error) {
+    console.error('disableIssuer error:', error);
+    return res.status(500).json({ success: false, message: error.message });
+  } finally {
+    try { if (gateway) await gateway.disconnect(); } catch (_) {}
   }
+},
+
+
+enableIssuer: async (req, res, getContractAndGateway) => {
+  let gateway;
+  try {
+    const { issuerId } = req.params;
+    const { reason } = req.body;
+
+    if (!reason || reason.trim() === '') {
+      return res.status(400).json({
+        success: false,
+        message: 'Re-enable reason is required.'
+      });
+    }
+
+    // 1) Get issuer doc
+    const issuer = await couchDB.getIssuerById(issuerId);
+    if (!issuer) {
+      return res.status(404).json({ success: false, message: 'Issuer not found.' });
+    }
+
+    const previousStatus = issuer.status || '';
+
+    // Optional: prevent redundant enable
+    if (previousStatus === 'approved') {
+      return res.status(400).json({
+        success: false,
+        message: 'Issuer is already enabled (approved).'
+      });
+    }
+
+    // 2) Update CouchDB (operational enforcement)
+    // ✅ Use existing function in couchDB_service.js
+    await couchDB.enableIssuer(issuerId, 'chaincert-admin', reason);
+
+    // 3) Log to blockchain (audit trail)
+    const identityName = 'chaincert-admin';
+    const orgName = 'Org1';
+
+    const cg = await getContractAndGateway(identityName, orgName);
+    gateway = cg.gateway;
+    const contract = cg.contract;
+
+    await contract.submitTransaction(
+      'LogIssuerStatusChange',
+      issuer.email,
+      previousStatus,
+      'approved',
+      reason
+    );
+
+    return res.status(200).json({
+      success: true,
+      message: 'Issuer re-enabled successfully.'
+    });
+
+  } catch (error) {
+    console.error('enableIssuer error:', error);
+    return res.status(500).json({ success: false, message: error.message });
+  } finally {
+    try { if (gateway) await gateway.disconnect(); } catch (_) {}
+  }
+},
+
+
+
+// ========================================================================================================================================================================
+// ADMIN: DISABLE / ENABLE USER (WITH BLOCKCHAIN AUDIT LOG)
+// ========================================================================================================================================================================
+
+disableUser: async (req, res, getContractAndGateway) => {
+  let gateway;
+
+  try {
+    const { userId } = req.params;
+    const { reason } = req.body;
+
+    if (!reason || reason.trim() === '') {
+      return res.status(400).json({
+        success: false,
+        message: 'Disabling reason is required.'
+      });
+    }
+
+    // 1) Fetch user doc
+    const user = await couchDB.getUser(userId);
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: 'User not found.'
+      });
+    }
+
+    const previousStatus = user.isActive ? 'active' : 'disabled';
+
+    if (!user.isActive) {
+      return res.status(400).json({
+        success: false,
+        message: 'User is already disabled.'
+      });
+    }
+
+    // 2) Update CouchDB using existing service function
+    await couchDB.disableUser(userId, 'chaincert-admin', reason);
+
+    // 3) Blockchain log
+    const identityName = 'chaincert-admin';
+    const orgName = 'Org1';
+
+    const cg = await getContractAndGateway(identityName, orgName);
+    gateway = cg.gateway;
+    const contract = cg.contract;
+
+    await contract.submitTransaction(
+      'LogUserStatusChange',
+      user.email,
+      previousStatus,
+      'disabled',
+      reason
+    );
+
+    return res.status(200).json({
+      success: true,
+      message: 'User disabled successfully.'
+    });
+
+  } catch (error) {
+    console.error('disableUser error:', error);
+    return res.status(500).json({
+      success: false,
+      message: error.message
+    });
+  } finally {
+    try { if (gateway) await gateway.disconnect(); } catch (_) {}
+  }
+},
+
+enableUser: async (req, res, getContractAndGateway) => {
+  let gateway;
+
+  try {
+    const { userId } = req.params;
+    const { reason } = req.body;
+
+    if (!reason || reason.trim() === '') {
+      return res.status(400).json({
+        success: false,
+        message: 'Re-enable reason is required.'
+      });
+    }
+
+    // 1) Fetch user doc
+    const user = await couchDB.getUser(userId);
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: 'User not found.'
+      });
+    }
+
+    const previousStatus = user.isActive ? 'active' : 'disabled';
+
+    if (user.isActive) {
+      return res.status(400).json({
+        success: false,
+        message: 'User is already active.'
+      });
+    }
+
+    // 2) Update CouchDB using existing service function
+    await couchDB.enableUser(userId, 'chaincert-admin', reason);
+
+    // 3) Blockchain log
+    const identityName = 'chaincert-admin';
+    const orgName = 'Org1';
+
+    const cg = await getContractAndGateway(identityName, orgName);
+    gateway = cg.gateway;
+    const contract = cg.contract;
+
+    await contract.submitTransaction(
+      'LogUserStatusChange',
+      user.email,
+      previousStatus,
+      'active',
+      reason
+    );
+
+    return res.status(200).json({
+      success: true,
+      message: 'User re-enabled successfully.'
+    });
+
+  } catch (error) {
+    console.error('enableUser error:', error);
+    return res.status(500).json({
+      success: false,
+      message: error.message
+    });
+  } finally {
+    try { if (gateway) await gateway.disconnect(); } catch (_) {}
+  }
+},
+  
 };
 
 module.exports = authController;

@@ -571,7 +571,184 @@ async LogVerification(ctx, credentialId, verifierName, verifierEmail, resultJson
 }
 // ==========================================================================================================================================================================
 
+async LogIssuerStatusChange(ctx, issuerEmail, previousStatus, newStatus, reason) {
+
+  if (!issuerEmail) {
+    throw new Error("issuerEmail is required");
+  }
+
+  if (!newStatus) {
+    throw new Error("newStatus is required");
+  }
+
+  if (!reason || reason.trim() === "") {
+    throw new Error("Reason is required for issuer status change");
+  }
+
+  const txTimestamp = ctx.stub.getTxTimestamp();
+  const timestamp = new Date(
+    txTimestamp.seconds * 1000 + Math.floor(txTimestamp.nanos / 1000000)
+  ).toISOString();
+
+  const txId = ctx.stub.getTxID();
+
+  const logId = `issuer_status_${txId}`;
+
+  const log = {
+    id: logId,
+    type: "issuer_status_change",
+    entity: "issuer",
+    issuerEmail,
+    previousStatus: previousStatus || "",
+    newStatus,
+    reason,
+    performedBy: ctx.clientIdentity.getID(),
+    performedByMSP: ctx.clientIdentity.getMSPID(),
+    txId,
+    timestamp,
+    version: 1
+  };
+
+  await ctx.stub.putState(logId, Buffer.from(JSON.stringify(log)));
+
+  await ctx.stub.setEvent("IssuerStatusChanged", Buffer.from(JSON.stringify(log)));
+
+  return JSON.stringify(log);
+}
 // ==========================================================================================================================================================================
+
+async LogUserStatusChange(ctx, userEmail, previousStatus, newStatus, reason) {
+
+  if (!userEmail) {
+    throw new Error("userEmail is required");
+  }
+
+  if (!newStatus) {
+    throw new Error("newStatus is required");
+  }
+
+  if (!reason || reason.trim() === "") {
+    throw new Error("Reason is required for user status change");
+  }
+
+  const txTimestamp = ctx.stub.getTxTimestamp();
+  const timestamp = new Date(
+    txTimestamp.seconds * 1000 + Math.floor(txTimestamp.nanos / 1000000)
+  ).toISOString();
+
+  const txId = ctx.stub.getTxID();
+
+  const logId = `user_status_${txId}`;
+
+  const log = {
+    id: logId,
+    type: "user_status_change",
+    entity: "user",
+    userEmail,
+    previousStatus: previousStatus || "",
+    newStatus,
+    reason,
+    performedBy: ctx.clientIdentity.getID(),
+    performedByMSP: ctx.clientIdentity.getMSPID(),
+    txId,
+    timestamp,
+    version: 1
+  };
+
+  await ctx.stub.putState(logId, Buffer.from(JSON.stringify(log)));
+
+  await ctx.stub.setEvent("UserStatusChanged", Buffer.from(JSON.stringify(log)));
+
+  return JSON.stringify(log);
+}
+// ==========================================================================================================================================================================
+
+async GetIssuerStatusLogs(ctx, issuerEmail) {
+
+  if (!issuerEmail) {
+    throw new Error("issuerEmail is required");
+  }
+
+  const iterator = await ctx.stub.getStateByRange('', '');
+  const results = [];
+
+  let res = await iterator.next();
+  while (!res.done) {
+    if (res.value && res.value.value) {
+      const parsed = JSON.parse(res.value.value.toString('utf8'));
+
+      if (
+        parsed.type === "issuer_status_change" &&
+        parsed.issuerEmail === issuerEmail
+      ) {
+        results.push(parsed);
+      }
+    }
+    res = await iterator.next();
+  }
+
+  await iterator.close();
+
+  return JSON.stringify(results);
+}
+// ==========================================================================================================================================================================
+
+async GetUserStatusLogs(ctx, userEmail) {
+
+  if (!userEmail) {
+    throw new Error("userEmail is required");
+  }
+
+  const iterator = await ctx.stub.getStateByRange('', '');
+  const results = [];
+
+  let res = await iterator.next();
+  while (!res.done) {
+    if (res.value && res.value.value) {
+      const parsed = JSON.parse(res.value.value.toString('utf8'));
+
+      if (
+        parsed.type === "user_status_change" &&
+        parsed.userEmail === userEmail
+      ) {
+        results.push(parsed);
+      }
+    }
+    res = await iterator.next();
+  }
+
+  await iterator.close();
+
+  return JSON.stringify(results);
+}
+// ==========================================================================================================================================================================
+
+async GetAllStatusLogs(ctx) {
+
+  const iterator = await ctx.stub.getStateByRange('', '');
+  const results = [];
+
+  let res = await iterator.next();
+  while (!res.done) {
+    if (res.value && res.value.value) {
+      const parsed = JSON.parse(res.value.value.toString('utf8'));
+
+      if (
+        parsed.type === "issuer_status_change" ||
+        parsed.type === "user_status_change"
+      ) {
+        results.push(parsed);
+      }
+    }
+    res = await iterator.next();
+  }
+
+  await iterator.close();
+
+  return JSON.stringify(results);
+}
+// ==========================================================================================================================================================================
+
 /*
   Function Name: GetVerificationLogById
 

@@ -52,6 +52,16 @@ const [rejectReason, setRejectReason] = useState("");
 const [rejectIssuerError, setRejectIssuerError] = useState("");
 const [rejectIssuerLoading, setRejectIssuerLoading] = useState(false);
 
+// ADDED 
+const [rejectedIssuers, setRejectedIssuers] = useState([]);
+
+// ✅ NEW: Disable/Enable Issuer modal state (required reason)
+const [showIssuerStatusModal, setShowIssuerStatusModal] = useState(false);
+const [issuerStatusTarget, setIssuerStatusTarget] = useState(null); // issuer row object
+const [issuerStatusAction, setIssuerStatusAction] = useState("disable"); // 'disable' | 'enable'
+const [issuerStatusReason, setIssuerStatusReason] = useState("");
+const [issuerStatusError, setIssuerStatusError] = useState("");
+const [issuerStatusLoading, setIssuerStatusLoading] = useState(false);
   // -------------------------------------------------------------------
   // Helpers
   // -------------------------------------------------------------------
@@ -69,7 +79,7 @@ const [rejectIssuerLoading, setRejectIssuerLoading] = useState(false);
   const getVisibleIssuers = () => {
     if (issuerFilter === "approved") return approvedIssuers;
     if (issuerFilter === "pending") return pendingIssuers;
-    if (issuerFilter === "rejected") return [];
+    if (issuerFilter === "rejected") return rejectedIssuers;    
     return [];
   };
 
@@ -158,6 +168,7 @@ const submitRejectIssuer = async (e) => {
 
     await fetchPendingIssuers();
     await fetchApprovedIssuers();
+    await fetchRejectedIssuers();
   } catch (error) {
     console.error("Error rejecting issuer:", error);
     setRejectIssuerError(
@@ -167,6 +178,70 @@ const submitRejectIssuer = async (e) => {
     setRejectIssuerLoading(false);
   }
 };
+
+const openIssuerStatusModal = (issuer, action) => {
+  setIssuerStatusTarget(issuer);
+  setIssuerStatusAction(action); // 'disable' or 'enable'
+  setIssuerStatusReason("");
+  setIssuerStatusError("");
+  setShowIssuerStatusModal(true);
+};
+
+const closeIssuerStatusModal = () => {
+  if (issuerStatusLoading) return;
+  setShowIssuerStatusModal(false);
+  setIssuerStatusTarget(null);
+  setIssuerStatusAction("disable");
+  setIssuerStatusReason("");
+  setIssuerStatusError("");
+};
+
+const submitIssuerStatusChange = async (e) => {
+  e.preventDefault();
+
+  const trimmed = issuerStatusReason.trim();
+  if (!trimmed) {
+    setIssuerStatusError("Reason is required.");
+    return;
+  }
+
+  const issuerId = issuerStatusTarget?._id || issuerStatusTarget?.id;
+  if (!issuerId) {
+    setIssuerStatusError("Issuer ID not found.");
+    return;
+  }
+
+  try {
+    setIssuerStatusLoading(true);
+    setIssuerStatusError("");
+
+    if (issuerStatusAction === "disable") {
+      await apiService.disableIssuer(issuerId, trimmed);
+      setMessage("✅ Issuer disabled successfully!");
+    } else {
+      await apiService.enableIssuer(issuerId, trimmed);
+      setMessage("✅ Issuer enabled successfully!");
+    }
+
+    closeIssuerStatusModal();
+
+    // refresh lists so status reflects immediately
+    await fetchApprovedIssuers();
+    await fetchPendingIssuers();
+    await fetchRejectedIssuers();
+  } catch (error) {
+    console.error("Error updating issuer status:", error);
+    setIssuerStatusError(
+      error.response?.data?.message ||
+        error.response?.data?.error ||
+        "❌ Failed to update issuer status"
+    );
+  } finally {
+    setIssuerStatusLoading(false);
+  }
+};
+
+
 
   // -------------------------------------------------------------------
   // ISSUERS
@@ -200,6 +275,20 @@ const submitRejectIssuer = async (e) => {
       setLoading(false);
     }
   };
+
+  const fetchRejectedIssuers = async () => {
+  try {
+    setLoading(true);
+    const response = await apiService.getRejectedIssuers();
+    const rejected = Array.isArray(response.data) ? response.data : [];
+    setRejectedIssuers(rejected);
+  } catch (error) {
+    console.error("Error fetching rejected issuers:", error);
+    setRejectedIssuers([]);
+  } finally {
+    setLoading(false);
+  }
+};
 
   const handleApproveIssuer = async (issuerId) => {
     try {
@@ -401,6 +490,8 @@ const submitRejectIssuer = async (e) => {
     if (tab === "issuers") {
       fetchPendingIssuers();
       fetchApprovedIssuers();
+      fetchRejectedIssuers(); // ✅ NEW
+
       setIssuerFilter("approved");
     } else if (tab === "credentials") {
       fetchApprovedIssuers();
@@ -701,7 +792,8 @@ const submitRejectIssuer = async (e) => {
           </div>,
           document.body
         )}
-        {showRejectIssuerModal &&
+        {
+        showRejectIssuerModal &&
             ReactDOM.createPortal(
               <div
                 onClick={closeRejectIssuerModal}
@@ -802,6 +894,139 @@ const submitRejectIssuer = async (e) => {
               </div>,
               document.body
             )}
+
+            {showIssuerStatusModal &&
+  ReactDOM.createPortal(
+    <div
+      onClick={closeIssuerStatusModal}
+      style={{
+        position: "fixed",
+        inset: 0,
+        background: "rgba(0,0,0,0.6)",
+        zIndex: 999999,
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        padding: "20px",
+      }}
+    >
+      <div
+        onClick={(e) => e.stopPropagation()}
+        style={{
+          width: "min(520px, 95vw)",
+          background: "#101018",
+          borderRadius: "12px",
+          border: "1px solid rgba(255,255,255,0.15)",
+          padding: "18px",
+          boxShadow: "0 10px 40px rgba(0,0,0,0.4)",
+          color: "#fff",
+        }}
+      >
+        <h3 style={{ marginTop: 0, marginBottom: 10 }}>
+          {issuerStatusAction === "disable" ? "Disable Issuer" : "Enable Issuer"}
+        </h3>
+
+        <div style={{ fontSize: 13, opacity: 0.85, marginBottom: 12 }}>
+          <div>
+            <strong>Organization:</strong> {issuerStatusTarget?.orgName || "N/A"}
+          </div>
+          <div>
+            <strong>Email:</strong> {issuerStatusTarget?.email || "N/A"}
+          </div>
+        </div>
+
+        <form onSubmit={submitIssuerStatusChange}>
+          <div style={{ marginBottom: 12 }}>
+            <label
+              style={{
+                display: "block",
+                fontSize: 13,
+                opacity: 0.9,
+                marginBottom: 6,
+              }}
+            >
+              Reason: <span style={{ color: "#ff6b6b" }}>*</span>
+            </label>
+
+            <textarea
+              value={issuerStatusReason}
+              onChange={(e) => setIssuerStatusReason(e.target.value)}
+              placeholder={
+                issuerStatusAction === "disable"
+                  ? "State the reason for disabling this issuer..."
+                  : "State the reason for re-enabling this issuer..."
+              }
+              rows={4}
+              style={{
+                width: "100%",
+                resize: "vertical",
+                background: "rgba(255,255,255,0.06)",
+                border: "1px solid rgba(255,255,255,0.15)",
+                borderRadius: 10,
+                padding: 12,
+                color: "#fff",
+                outline: "none",
+              }}
+            />
+          </div>
+
+          {issuerStatusError ? (
+            <div style={{ color: "#ff6b6b", fontSize: 13, marginBottom: 10 }}>
+              ⚠️ {issuerStatusError}
+            </div>
+          ) : null}
+
+          <div style={{ display: "flex", gap: 10, marginTop: 10 }}>
+            <button
+              type="submit"
+              disabled={issuerStatusLoading}
+              style={{
+                flex: 1,
+                padding: "10px 14px",
+                borderRadius: 10,
+                border: "none",
+                cursor: "pointer",
+                fontWeight: 700,
+                background:
+                  issuerStatusAction === "disable"
+                    ? "linear-gradient(180deg, #ff4d4d, #cc2b2b)"
+                    : "linear-gradient(180deg, #4ade80, #1f9d55)",
+                color: "#fff",
+                opacity: issuerStatusLoading ? 0.7 : 1,
+              }}
+            >
+              {issuerStatusLoading
+                ? issuerStatusAction === "disable"
+                  ? "Disabling..."
+                  : "Enabling..."
+                : issuerStatusAction === "disable"
+                ? "Disable"
+                : "Enable"}
+            </button>
+
+            <button
+              type="button"
+              onClick={closeIssuerStatusModal}
+              disabled={issuerStatusLoading}
+              style={{
+                flex: 1,
+                padding: "10px 14px",
+                borderRadius: 10,
+                border: "1px solid rgba(255,255,255,0.2)",
+                background: "transparent",
+                color: "#fff",
+                cursor: "pointer",
+                opacity: issuerStatusLoading ? 0.7 : 1,
+              }}
+            >
+              Cancel
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>,
+    document.body
+  )}
 
       {/* CREDENTIALS TAB - NOW USING GLOBAL ADMIN VIEW */}
       {tab === "credentials" && (
@@ -979,126 +1204,215 @@ const submitRejectIssuer = async (e) => {
             <div className="tab-placeholder">Loading issuers...</div>
           ) : (
             <>
-              {issuerFilter === "pending" && pendingIssuers.length > 0 && (
-                <div className="issuer-section">
-                  <div className="section-header">
-                    <h3>Pending Issuers</h3>
-                    <span className="section-count">{pendingIssuers.length}</span>
-                  </div>
-                  <div className="table-wrapper">
-                    <table className="admin-table">
-                      <thead>
-                        <tr>
-                          <th>Organization</th>
-                          <th>Contact Name</th>
-                          <th>Email</th>
-                          <th>Status</th>
-                          <th>Created At</th>
-                          <th>Approved At</th>
-                          <th>Approved By</th>
-                          <th>Fabric Identity</th>
-                          <th>CouchDB URL</th>
-                          <th>Wallet ID</th>
-                          <th>Actions</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {pendingIssuers.map((issuer) => (
-                          <tr key={issuer._id}>
-                            <td>{issuer.orgName}</td>
-                            <td>{issuer.contactName}</td>
-                            <td>{issuer.email}</td>
-                            <td className="status-pending">{issuer.status}</td>
-                            <td>{formatTimestamp(issuer.createdAt)}</td>
-                            <td>{formatTimestamp(issuer.approvedAt)}</td>
-                            <td>{issuer.approvedBy || "N/A"}</td>
-                            <td>{issuer.fabricIdentity || "N/A"}</td>
-                            <td>{issuer.couchDBUrl || "N/A"}</td>
-                            <td>{issuer.walletId || issuer.walletID || "N/A"}</td>
-                            <td className="action-cell">
-                              <button
-                                className="btn-approve"
-                                onClick={() => handleApproveIssuer(issuer._id)}
-                              >
-                                ✅ Approve
-                              </button>
-                              <button
-                                className="btn-reject"
-                                onClick={() => handleRejectIssuer(issuer._id)}
-                              >
-                                ❌ Reject
-                              </button>
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
-              )}
+              {issuerFilter === "pending" && (
+                    <div className="issuer-section">
+                      <div className="section-header">
+                        <h3>Pending Issuers</h3>
+                        <span className="section-count">{pendingIssuers.length}</span>
+                      </div>
 
-              {issuerFilter === "approved" && approvedIssuers.length > 0 && (
-                <div className="issuer-section">
-                  <div className="section-header">
-                    <h3>Approved Issuers</h3>
-                    <span className="section-count">{approvedIssuers.length}</span>
-                  </div>
-                  <div className="table-wrapper">
-                    <table className="admin-table">
-                      <thead>
-                        <tr>
-                          <th>Organization</th>
-                          <th>Contact Name</th>
-                          <th>Email</th>
-                          <th>Status</th>
-                          <th>Created At</th>
-                          <th>Approved At</th>
-                          <th>Approved By</th>
-                          <th>Fabric Identity</th>
-                          <th>CouchDB URL</th>
-                          <th>Wallet ID</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {approvedIssuers.map((issuer) => (
-                          <tr key={issuer.id || issuer._id}>
-                            <td>{issuer.orgName}</td>
-                            <td>{issuer.contactName}</td>
-                            <td>{issuer.email}</td>
-                            <td className="status-approved">{issuer.status}</td>
-                            <td>{formatTimestamp(issuer.createdAt)}</td>
-                            <td>{formatTimestamp(issuer.approvedAt)}</td>
-                            <td>{issuer.approvedBy || "N/A"}</td>
-                            <td>{issuer.fabricIdentity || "N/A"}</td>
-                            <td>{issuer.couchDBUrl || "N/A"}</td>
-                            <td>{issuer.walletId || issuer.walletID || "N/A"}</td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
-              )}
+                      {pendingIssuers.length > 0 ? (
+                        <div className="table-wrapper">
+                          <table className="admin-table">
+                            <thead>
+                              <tr>
+                                <th>Organization</th>
+                                <th>Contact Name</th>
+                                <th>Email</th>
+                                <th>Status</th>
+                                <th>Created At</th>
+                                <th>Approved At</th>
+                                <th>Approved By</th>
+                                <th>Fabric Identity</th>
+                                <th>CouchDB URL</th>
+                                <th>Wallet ID</th>
+                                <th>Actions</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {pendingIssuers.map((issuer) => (
+                                <tr key={issuer._id}>
+                                  <td>{issuer.orgName}</td>
+                                  <td>{issuer.contactName}</td>
+                                  <td>{issuer.email}</td>
+                                  <td className="status-pending">{issuer.status}</td>
+                                  <td>{formatTimestamp(issuer.createdAt)}</td>
+                                  <td>{formatTimestamp(issuer.approvedAt)}</td>
+                                  <td>{issuer.approvedBy || "N/A"}</td>
+                                  <td>{issuer.fabricIdentity || "N/A"}</td>
+                                  <td>{issuer.couchDBUrl || "N/A"}</td>
+                                  <td>{issuer.walletId || issuer.walletID || "N/A"}</td>
+                                  <td className="action-cell">
+                                    <button
+                                      className="btn-approve"
+                                      onClick={() => handleApproveIssuer(issuer._id)}
+                                    >
+                                      ✅ Approve
+                                    </button>
+                                    <button
+                                      className="btn-reject"
+                                      onClick={() => handleRejectIssuer(issuer._id)}
+                                    >
+                                      ❌ Reject
+                                    </button>
+                                  </td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      ) : (
+                        <div className="tab-placeholder">
+                          No pending issuer applications found.
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+              {issuerFilter === "approved" && (
+                    <div className="issuer-section">
+                      <div className="section-header">
+                        <h3>Approved Issuers</h3>
+                        <span className="section-count">{approvedIssuers.length}</span>
+                      </div>
+
+                      {approvedIssuers.length > 0 ? (
+                        <div className="table-wrapper">
+                          <table className="admin-table">
+                            <thead>
+                              <tr>
+                                <th>Organization</th>
+                                <th>Contact Name</th>
+                                <th>Email</th>
+                                <th>Status</th>
+                                <th>Created At</th>
+                                <th>Approved At</th>
+                                <th>Approved By</th>
+                                <th>Fabric Identity</th>
+                                <th>CouchDB URL</th>
+                                <th>Wallet ID</th>
+                                <th>Actions</th>
+                              </tr>
+                            </thead>
+                         <tbody>
+                              {approvedIssuers.map((issuer) => {
+                                const rowKey = issuer._id || issuer.id;
+
+                                const statusRaw = String(issuer.status || "").toLowerCase();
+                                const isDisabled = statusRaw === "disabled";
+
+                                return (
+                                  <tr key={rowKey}>
+                                    <td>{issuer.orgName}</td>
+                                    <td>{issuer.contactName}</td>
+                                    <td>{issuer.email}</td>
+
+                                    <td
+                                      style={{
+                                        color: isDisabled ? "#ff6b6b" : "#4ade80",
+                                        fontWeight: 600
+                                      }}
+                                    >
+                                      {isDisabled ? "disabled" : issuer.status}
+                                    </td>
+
+                                    <td>{formatTimestamp(issuer.createdAt)}</td>
+                                    <td>{formatTimestamp(issuer.approvedAt)}</td>
+                                    <td>{issuer.approvedBy || "N/A"}</td>
+                                    <td>{issuer.fabricIdentity || "N/A"}</td>
+                                    <td>{issuer.couchDBUrl || "N/A"}</td>
+                                    <td>{issuer.walletId || issuer.walletID || "N/A"}</td>
+
+                                    {/* ✅ NEW: Actions column */}
+                                    <td>
+                                      <button
+                                        type="button"
+                                        onClick={() =>
+                                          openIssuerStatusModal(issuer, isDisabled ? "enable" : "disable")
+                                        }
+                                        style={{
+                                          padding: "8px 12px",
+                                          borderRadius: 10,
+                                          border: "1px solid rgba(255,255,255,0.18)",
+                                          cursor: "pointer",
+                                          fontWeight: 700,
+                                          background: isDisabled
+                                            ? "rgba(74,222,128,0.12)"
+                                            : "rgba(255,107,107,0.12)",
+                                          color: isDisabled ? "#4ade80" : "#ff6b6b"
+                                        }}
+                                        title={isDisabled ? "Re-enable issuer" : "Disable issuer"}
+                                      >
+                                        {isDisabled ? "Enable" : "Disable"}
+                                      </button>
+                                    </td>
+                                  </tr>
+                                );
+                              })}
+                            </tbody>
+                          </table>
+                        </div>
+                      ) : (
+                        <div className="tab-placeholder">
+                          No approved issuers found.
+                        </div>
+                      )}
+                    </div>
+                  )}
 
               {issuerFilter === "rejected" && (
-                <div className="issuer-section">
-                  <div className="section-header">
-                    <h3>Rejected Issuers</h3>
-                    <span className="section-count">0</span>
-                  </div>
-                  <div className="tab-placeholder">
-                    Rejected issuers view not implemented yet.
-                  </div>
-                </div>
-              )}
+                  <div className="issuer-section">
+                    <div className="section-header">
+                      <h3>Rejected Issuers</h3>
+                      <span className="section-count">{rejectedIssuers.length}</span>
+                    </div>
 
-              {visibleIssuers.length === 0 && (
-                <div className="tab-placeholder">No issuers found.</div>
-              )}
+                    {rejectedIssuers.length > 0 ? (
+                      <div className="table-wrapper">
+                        <table className="admin-table">
+                          <thead>
+                            <tr>
+                              <th>Organization</th>
+                              <th>Contact Name</th>
+                              <th>Email</th>
+                              <th>Status</th>
+                              <th>Created At</th>
+                              <th>Rejected At</th>
+                              <th>Rejected By</th>
+                              <th>Rejection Reason</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {rejectedIssuers.map((issuer) => (
+                              <tr key={issuer.id || issuer._id}>
+                                <td>{issuer.orgName}</td>
+                                <td>{issuer.contactName}</td>
+                                <td>{issuer.email}</td>
+
+                                <td style={{ color: "#ff6b6b", fontWeight: 700 }}>
+                                  {issuer.status}
+                                </td>
+
+                                <td>{formatTimestamp(issuer.createdAt)}</td>
+                                <td>{formatTimestamp(issuer.rejectedAt)}</td>
+                                <td>{issuer.rejectedBy || "N/A"}</td>
+                                <td>{issuer.rejectionReason || "N/A"}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    ) : (
+                      <div className="tab-placeholder">No rejected issuers found.</div>
+                    )}
+                  </div>
+                )}
             </>
           )}
         </div>
       )}
+
+      
 
       {/* USERS TAB */}
       {tab === "users" && (

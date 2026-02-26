@@ -73,6 +73,7 @@ const app = express(); // Initializes the Express application instance
 const issuerCredentialController = require('./controllers/issuerCredentialController');  // UBUNTU DIRECTORY BASED 
 const verifierController = require('./controllers/verifierController');  // UBUNTU DIRECTORY BASED 
 const adminDashboardController = require('./controllers/adminDashboardController'); // UBUNTU DIRECTORY BASED 
+const authController = require('./controllers/authController');
 
 
 
@@ -1123,6 +1124,48 @@ app.get('/api/admin/credentials/all', (req, res) => {
   adminDashboardController.getAllIssuerCredentialsAdminController(req, res);
 });
 // ==========================================================================================================================================================================
+
+/*
+  Endpoint: POST /api/auth/disable-issuer/:issuerId
+
+  Technical:
+  - Admin-only action
+  - Updates issuer status in CouchDB
+  - Logs action to blockchain (LogIssuerStatusChange)
+*/
+app.post('/api/auth/disable-issuer/:issuerId', (req, res) => {
+  authController.disableIssuer(req, res, getContractAndGateway);
+});
+// ==========================================================================================================================================================================
+
+/*
+  Endpoint: POST /api/auth/enable-issuer/:issuerId
+*/
+app.post('/api/auth/enable-issuer/:issuerId', (req, res) => {
+  authController.enableIssuer(req, res, getContractAndGateway);
+});
+// ==========================================================================================================================================================================
+
+/*
+  Endpoint: POST /api/auth/disable-user/:userId
+*/
+app.post('/api/auth/disable-user/:userId', (req, res) => {
+  authController.disableUser(req, res, getContractAndGateway);
+});
+// ==========================================================================================================================================================================
+
+/*
+  Endpoint: POST /api/auth/enable-user/:userId
+*/
+app.post('/api/auth/enable-user/:userId', (req, res) => {
+  authController.enableUser(req, res, getContractAndGateway);
+});
+// ==========================================================================================================================================================================
+
+
+module.exports = {
+  getContractAndGateway
+};
 
 const PORT = 4000;
 app.listen(PORT, () => {

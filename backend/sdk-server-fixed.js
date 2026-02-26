@@ -1133,6 +1133,11 @@ app.get('/api/admin/credentials/all', (req, res) => {
   - Updates issuer status in CouchDB
   - Logs action to blockchain (LogIssuerStatusChange)
 */
+app.get('/api/auth/disabled-issuers', (req, res) => {
+  authController.getDisabledIssuers(req, res);
+});
+// ==========================================================================================================================================================================
+
 app.post('/api/auth/disable-issuer/:issuerId', (req, res) => {
   authController.disableIssuer(req, res, getContractAndGateway);
 });

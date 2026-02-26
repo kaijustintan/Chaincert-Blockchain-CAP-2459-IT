@@ -21,6 +21,7 @@ export default function AdminDashboard() {
 
   const [users, setUsers] = useState([]);
   const [usersLoading, setUsersLoading] = useState(false);
+  const [userFilter, setUserFilter] = useState("active");
 
   const [logCategory, setLogCategory] = useState("verification");
   const [verificationLogs, setVerificationLogs] = useState([]);
@@ -54,6 +55,7 @@ const [rejectIssuerLoading, setRejectIssuerLoading] = useState(false);
 
 // ADDED 
 const [rejectedIssuers, setRejectedIssuers] = useState([]);
+const [disabledIssuers, setDisabledIssuers] = useState([]);
 
 // ✅ NEW: Disable/Enable Issuer modal state (required reason)
 const [showIssuerStatusModal, setShowIssuerStatusModal] = useState(false);
@@ -79,11 +81,28 @@ const [issuerStatusLoading, setIssuerStatusLoading] = useState(false);
   const getVisibleIssuers = () => {
     if (issuerFilter === "approved") return approvedIssuers;
     if (issuerFilter === "pending") return pendingIssuers;
-    if (issuerFilter === "rejected") return rejectedIssuers;    
+    if (issuerFilter === "rejected") return rejectedIssuers;
+    if (issuerFilter === "disabled") return disabledIssuers;
     return [];
   };
 
   const visibleIssuers = getVisibleIssuers();
+
+  const getVisibleUsers = () => {
+    if (userFilter === "disabled") return users.filter((u) => u.isActive === false);
+    if (userFilter === "active") return users.filter((u) => u.isActive !== false);
+    return users;
+  };
+
+  const visibleUsers = getVisibleUsers();
+
+  const credentialIssuerOptions = [
+    ...approvedIssuers,
+    ...disabledIssuers
+  ].filter((issuer, index, arr) => {
+    const id = issuer._id || issuer.id;
+    return id && arr.findIndex((x) => (x._id || x.id) === id) === index;
+  });
 
   const getHistoryActionLabel = (entry, idx) => {
     if (!entry) return "Unknown";
@@ -169,6 +188,7 @@ const submitRejectIssuer = async (e) => {
     await fetchPendingIssuers();
     await fetchApprovedIssuers();
     await fetchRejectedIssuers();
+    await fetchDisabledIssuers();
   } catch (error) {
     console.error("Error rejecting issuer:", error);
     setRejectIssuerError(
@@ -229,6 +249,7 @@ const submitIssuerStatusChange = async (e) => {
     await fetchApprovedIssuers();
     await fetchPendingIssuers();
     await fetchRejectedIssuers();
+    await fetchDisabledIssuers();
   } catch (error) {
     console.error("Error updating issuer status:", error);
     setIssuerStatusError(
@@ -290,6 +311,20 @@ const submitIssuerStatusChange = async (e) => {
   }
 };
 
+  const fetchDisabledIssuers = async () => {
+    try {
+      setLoading(true);
+      const response = await apiService.getDisabledIssuers();
+      const disabled = Array.isArray(response.data) ? response.data : [];
+      setDisabledIssuers(disabled);
+    } catch (error) {
+      console.error("Error fetching disabled issuers:", error);
+      setDisabledIssuers([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const handleApproveIssuer = async (issuerId) => {
     try {
       await apiService.approveIssuer(issuerId);
@@ -323,6 +358,47 @@ const submitIssuerStatusChange = async (e) => {
       setUsers([]);
     } finally {
       setUsersLoading(false);
+    }
+  };
+
+
+  const handleUserStatusChange = async (user, action) => {
+    const userId = user?._id || user?.id;
+    if (!userId) {
+      setMessage('❌ User ID not found.');
+      return;
+    }
+
+    const reasonPrompt = action === 'disable'
+      ? 'Enter reason for disabling this user:'
+      : 'Enter reason for enabling this user:';
+
+    const reason = window.prompt(reasonPrompt, '');
+    if (reason === null) return;
+
+    const trimmed = reason.trim();
+    if (!trimmed) {
+      setMessage('❌ Reason is required.');
+      return;
+    }
+
+    try {
+      if (action === 'disable') {
+        await apiService.disableUser(userId, trimmed);
+        setMessage('✅ User disabled successfully!');
+      } else {
+        await apiService.enableUser(userId, trimmed);
+        setMessage('✅ User enabled successfully!');
+      }
+
+      await fetchUsers();
+    } catch (error) {
+      console.error('Error updating user status:', error);
+      setMessage(
+        error.response?.data?.message ||
+          error.response?.data?.error ||
+          '❌ Failed to update user status'
+      );
     }
   };
 
@@ -491,10 +567,12 @@ const submitIssuerStatusChange = async (e) => {
       fetchPendingIssuers();
       fetchApprovedIssuers();
       fetchRejectedIssuers(); // ✅ NEW
+      fetchDisabledIssuers();
 
       setIssuerFilter("approved");
     } else if (tab === "credentials") {
       fetchApprovedIssuers();
+      fetchDisabledIssuers();
       fetchAdminCredentials();
     } else if (tab === "verifications") {
       fetchVerifications();
@@ -506,6 +584,7 @@ const submitIssuerStatusChange = async (e) => {
       }
     } else if (tab === "users") {
       fetchUsers();
+      setUserFilter("active");
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tab]);
@@ -1044,7 +1123,7 @@ const submitIssuerStatusChange = async (e) => {
                 onChange={(e) => setAdminCredIssuerFilter(e.target.value)}
               >
                 <option value="all">All Issuers</option>
-                {approvedIssuers.map((issuer) => (
+                {credentialIssuerOptions.map((issuer) => (
                   <option
                     key={issuer._id || issuer.id}
                     value={issuer._id || issuer.id}
@@ -1197,6 +1276,7 @@ const submitIssuerStatusChange = async (e) => {
               <option value="approved">Approved Issuers</option>
               <option value="pending">Pending Issuers</option>
               <option value="rejected">Rejected Issuers</option>
+              <option value="disabled">Disabled Issuers</option>
             </select>
           </div>
 
@@ -1298,22 +1378,14 @@ const submitIssuerStatusChange = async (e) => {
                               {approvedIssuers.map((issuer) => {
                                 const rowKey = issuer._id || issuer.id;
 
-                                const statusRaw = String(issuer.status || "").toLowerCase();
-                                const isDisabled = statusRaw === "disabled";
-
                                 return (
                                   <tr key={rowKey}>
                                     <td>{issuer.orgName}</td>
                                     <td>{issuer.contactName}</td>
                                     <td>{issuer.email}</td>
 
-                                    <td
-                                      style={{
-                                        color: isDisabled ? "#ff6b6b" : "#4ade80",
-                                        fontWeight: 600
-                                      }}
-                                    >
-                                      {isDisabled ? "disabled" : issuer.status}
+                                    <td style={{ color: "#4ade80", fontWeight: 600 }}>
+                                      {issuer.status}
                                     </td>
 
                                     <td>{formatTimestamp(issuer.createdAt)}</td>
@@ -1327,23 +1399,19 @@ const submitIssuerStatusChange = async (e) => {
                                     <td>
                                       <button
                                         type="button"
-                                        onClick={() =>
-                                          openIssuerStatusModal(issuer, isDisabled ? "enable" : "disable")
-                                        }
+                                        onClick={() => openIssuerStatusModal(issuer, "disable")}
                                         style={{
                                           padding: "8px 12px",
                                           borderRadius: 10,
                                           border: "1px solid rgba(255,255,255,0.18)",
                                           cursor: "pointer",
                                           fontWeight: 700,
-                                          background: isDisabled
-                                            ? "rgba(74,222,128,0.12)"
-                                            : "rgba(255,107,107,0.12)",
-                                          color: isDisabled ? "#4ade80" : "#ff6b6b"
+                                          background: "rgba(255,107,107,0.12)",
+                                          color: "#ff6b6b"
                                         }}
-                                        title={isDisabled ? "Re-enable issuer" : "Disable issuer"}
+                                        title="Disable issuer"
                                       >
-                                        {isDisabled ? "Enable" : "Disable"}
+                                        Disable
                                       </button>
                                     </td>
                                   </tr>
@@ -1359,6 +1427,69 @@ const submitIssuerStatusChange = async (e) => {
                       )}
                     </div>
                   )}
+
+              {issuerFilter === "disabled" && (
+                  <div className="issuer-section">
+                    <div className="section-header">
+                      <h3>Disabled Issuers</h3>
+                      <span className="section-count">{disabledIssuers.length}</span>
+                    </div>
+
+                    {disabledIssuers.length > 0 ? (
+                      <div className="table-wrapper">
+                        <table className="admin-table">
+                          <thead>
+                            <tr>
+                              <th>Organization</th>
+                              <th>Contact Name</th>
+                              <th>Email</th>
+                              <th>Status</th>
+                              <th>Created At</th>
+                              <th>Disabled At</th>
+                              <th>Disabled By</th>
+                              <th>Disable Reason</th>
+                              <th>Actions</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {disabledIssuers.map((issuer) => (
+                              <tr key={issuer.id || issuer._id}>
+                                <td>{issuer.orgName}</td>
+                                <td>{issuer.contactName}</td>
+                                <td>{issuer.email}</td>
+                                <td style={{ color: "#ff6b6b", fontWeight: 700 }}>{issuer.status}</td>
+                                <td>{formatTimestamp(issuer.createdAt)}</td>
+                                <td>{formatTimestamp(issuer.disabledAt)}</td>
+                                <td>{issuer.disabledBy || "N/A"}</td>
+                                <td>{issuer.disableReason || "N/A"}</td>
+                                <td>
+                                  <button
+                                    type="button"
+                                    onClick={() => openIssuerStatusModal(issuer, "enable")}
+                                    style={{
+                                      padding: "8px 12px",
+                                      borderRadius: 10,
+                                      border: "1px solid rgba(255,255,255,0.18)",
+                                      cursor: "pointer",
+                                      fontWeight: 700,
+                                      background: "rgba(74,222,128,0.12)",
+                                      color: "#4ade80"
+                                    }}
+                                    title="Re-enable issuer"
+                                  >
+                                    Enable
+                                  </button>
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    ) : (
+                      <div className="tab-placeholder">No disabled issuers found.</div>
+                    )}
+                  </div>
+                )}
 
               {issuerFilter === "rejected" && (
                   <div className="issuer-section">
@@ -1421,9 +1552,23 @@ const submitIssuerStatusChange = async (e) => {
           <p className="tab-subtitle">
             View all registered users (holders and admins) in the system.
           </p>
+
+          <div className="issuer-filter-row">
+            <label htmlFor="userFilter">View:</label>
+            <select
+              id="userFilter"
+              value={userFilter}
+              onChange={(e) => setUserFilter(e.target.value)}
+            >
+              <option value="active">Active Users</option>
+              <option value="disabled">Disabled Users</option>
+              <option value="all">All Users</option>
+            </select>
+          </div>
+
           {usersLoading ? (
             <div className="tab-placeholder">Loading users...</div>
-          ) : users.length > 0 ? (
+          ) : visibleUsers.length > 0 ? (
             <div className="table-wrapper">
               <table className="admin-table">
                 <thead>
@@ -1435,31 +1580,57 @@ const submitIssuerStatusChange = async (e) => {
                     <th>Org</th>
                     <th>Created At</th>
                     <th>Active</th>
+                    <th>Actions</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {users.map((user) => (
-                    <tr key={user._id || user.id}>
-                      <td>{user._id || user.id}</td>
-                      <td>{user.email || "N/A"}</td>
-                      <td>{user.username || user.fullName || "N/A"}</td>
-                      <td>{user.role || "user"}</td>
-                      <td>{user.org || "N/A"}</td>
-                      <td>{formatTimestamp(user.createdAt)}</td>
-                      <td>
-                        {user.isActive === false ? (
-                          <span className="badge red">No</span>
-                        ) : (
-                          <span className="badge green">Yes</span>
-                        )}
-                      </td>
-                    </tr>
-                  ))}
+                  {visibleUsers.map((user) => {
+                    const isDisabled = user.isActive === false;
+                    return (
+                      <tr key={user._id || user.id}>
+                        <td>{user._id || user.id}</td>
+                        <td>{user.email || "N/A"}</td>
+                        <td>{user.username || user.fullName || "N/A"}</td>
+                        <td>{user.role || "user"}</td>
+                        <td>{user.org || "N/A"}</td>
+                        <td>{formatTimestamp(user.createdAt)}</td>
+                        <td>
+                          {isDisabled ? (
+                            <span className="badge red">No</span>
+                          ) : (
+                            <span className="badge green">Yes</span>
+                          )}
+                        </td>
+                        <td>
+                          <button
+                            type="button"
+                            onClick={() =>
+                              handleUserStatusChange(user, isDisabled ? "enable" : "disable")
+                            }
+                            style={{
+                              padding: "8px 12px",
+                              borderRadius: 10,
+                              border: "1px solid rgba(255,255,255,0.18)",
+                              cursor: "pointer",
+                              fontWeight: 700,
+                              background: isDisabled
+                                ? "rgba(74,222,128,0.12)"
+                                : "rgba(255,107,107,0.12)",
+                              color: isDisabled ? "#4ade80" : "#ff6b6b"
+                            }}
+                            title={isDisabled ? "Re-enable user" : "Disable user"}
+                          >
+                            {isDisabled ? "Enable" : "Disable"}
+                          </button>
+                        </td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>
           ) : (
-            <div className="tab-placeholder">No users found.</div>
+            <div className="tab-placeholder">No users found for selected view.</div>
           )}
         </div>
       )}

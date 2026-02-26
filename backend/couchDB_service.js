@@ -1650,6 +1650,30 @@ async function getRejectedIssuers() {
     throw error;
   }
 }
+/*
+  Function Name: getDisabledIssuers
+  Technical: Fetches issuer registration documents with status = "disabled".
+*/
+async function getDisabledIssuers() {
+  try {
+    if (!issuersDB) await initializeDatabases();
+
+    const result = await issuersDB.find({
+      selector: {
+        type: 'issuer_registration',
+        status: 'disabled'
+      },
+      sort: ['createdAt']
+    });
+
+    return result.docs;
+  } catch (error) {
+    console.error('[COUCHDB] Error getting disabled issuers:', error.message);
+    throw error;
+  }
+}
+// ==========================================================================================================================================================================
+
 // ==========================================================================================================================================================================
 
 async function getIssuerTemplatesByIssuerId(issuerId) {
@@ -1718,9 +1742,13 @@ async function getAllIssuerCredentialsAdmin(options = {}) {
     const issuerIdFilter = options.issuerId || null; // optional specific issuer
     const typeFilter = options.type || null;         // 'issued' | 'templates' | null
 
-    // Step 1: Get approved issuers
+    // Step 1: Get issuers that should remain visible in admin credentials (approved + disabled)
     const approvedIssuers = await getApprovedIssuers();
-    const issuers = Array.isArray(approvedIssuers) ? approvedIssuers : [];
+    const disabledIssuers = await getDisabledIssuers();
+    const issuers = [
+      ...(Array.isArray(approvedIssuers) ? approvedIssuers : []),
+      ...(Array.isArray(disabledIssuers) ? disabledIssuers : [])
+    ];
 
     const allRows = [];
 
@@ -1948,6 +1976,7 @@ module.exports = {
   createIssuerRegistration,
   getPendingIssuers,
   getRejectedIssuers,
+  getDisabledIssuers,
   getIssuerById,
   getIssuerByEmail,
   checkDuplicateIssuerRegistration,

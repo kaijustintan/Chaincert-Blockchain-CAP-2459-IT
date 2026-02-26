@@ -1185,6 +1185,7 @@ disableIssuer: async (req, res, getContractAndGateway) => {
     await couchDB.disableIssuer(issuerId, 'chaincert-admin', reason);
 
     // 3) Log to blockchain (audit trail)
+    let blockchainLogWarning = null;
     const identityName = 'chaincert-admin';
     const orgName = 'Org1';
 
@@ -1204,11 +1205,15 @@ disableIssuer: async (req, res, getContractAndGateway) => {
 
     return res.status(200).json({
       success: true,
-      message: 'Issuer disabled successfully.'
+      message: blockchainLogWarning
+        ? 'Issuer disabled successfully, but blockchain log failed.'
+        : 'Issuer disabled successfully.',
+      warning: blockchainLogWarning
     });
 
   } catch (error) {
     console.error('disableIssuer error:', error);
+    if (res.headersSent) return;
     return res.status(500).json({ success: false, message: error.message });
   } finally {
     try { if (gateway) await gateway.disconnect(); } catch (_) {}
@@ -1250,6 +1255,7 @@ enableIssuer: async (req, res, getContractAndGateway) => {
     await couchDB.enableIssuer(issuerId, 'chaincert-admin', reason);
 
     // 3) Log to blockchain (audit trail)
+    let blockchainLogWarning = null;
     const identityName = 'chaincert-admin';
     const orgName = 'Org1';
 
@@ -1269,11 +1275,15 @@ enableIssuer: async (req, res, getContractAndGateway) => {
 
     return res.status(200).json({
       success: true,
-      message: 'Issuer re-enabled successfully.'
+      message: blockchainLogWarning
+        ? 'Issuer re-enabled successfully, but blockchain log failed.'
+        : 'Issuer re-enabled successfully.',
+      warning: blockchainLogWarning
     });
 
   } catch (error) {
     console.error('enableIssuer error:', error);
+    if (res.headersSent) return;
     return res.status(500).json({ success: false, message: error.message });
   } finally {
     try { if (gateway) await gateway.disconnect(); } catch (_) {}
@@ -1322,6 +1332,7 @@ disableUser: async (req, res, getContractAndGateway) => {
     await couchDB.disableUser(userId, 'chaincert-admin', reason);
 
     // 3) Blockchain log
+    let blockchainLogWarning = null;
     const identityName = 'chaincert-admin';
     const orgName = 'Org1';
 
@@ -1341,11 +1352,15 @@ disableUser: async (req, res, getContractAndGateway) => {
 
     return res.status(200).json({
       success: true,
-      message: 'User disabled successfully.'
+      message: blockchainLogWarning
+        ? 'User disabled successfully, but blockchain log failed.'
+        : 'User disabled successfully.',
+      warning: blockchainLogWarning
     });
 
   } catch (error) {
     console.error('disableUser error:', error);
+    if (res.headersSent) return;
     return res.status(500).json({
       success: false,
       message: error.message
@@ -1391,6 +1406,7 @@ enableUser: async (req, res, getContractAndGateway) => {
     await couchDB.enableUser(userId, 'chaincert-admin', reason);
 
     // 3) Blockchain log
+    let blockchainLogWarning = null;
     const identityName = 'chaincert-admin';
     const orgName = 'Org1';
 
@@ -1410,11 +1426,15 @@ enableUser: async (req, res, getContractAndGateway) => {
 
     return res.status(200).json({
       success: true,
-      message: 'User re-enabled successfully.'
+      message: blockchainLogWarning
+        ? 'User re-enabled successfully, but blockchain log failed.'
+        : 'User re-enabled successfully.',
+      warning: blockchainLogWarning
     });
 
   } catch (error) {
     console.error('enableUser error:', error);
+    if (res.headersSent) return;
     return res.status(500).json({
       success: false,
       message: error.message

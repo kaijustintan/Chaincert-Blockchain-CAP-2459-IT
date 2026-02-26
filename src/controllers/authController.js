@@ -168,17 +168,18 @@ login: async (req, res) => {
     // Step 2: Fetch all users and find the matching record by email
     const users = await couchDB.getAllUsers();
     const user = users.find(u => u.email === email);
-    if (user.isActive === false) {
-      return res.status(403).json({
-        success: false,
-        message: 'Your account has been disabled. Please contact administrator.'
-      });
-    }
 
     if (!user) {
       return res.status(401).json({
         success: false,
         message: 'User not found'
+      });
+    }
+
+    if (user.isActive === false) {
+      return res.status(403).json({
+        success: false,
+        message: 'Your account has been disabled. Please contact administrator.'
       });
     }
 
@@ -747,6 +748,52 @@ getRejectedIssuers: async (req, res) => {
   }
 },
 
+/*
+  Endpoint: GET /api/auth/disabled-issuers
+  Function Name: getDisabledIssuers
+
+  Technical:
+  Fetches all issuer registration documents where status = "disabled"
+  via couchDB.getDisabledIssuers().
+*/
+getDisabledIssuers: async (req, res) => {
+  try {
+    const disabledIssuers = await couchDB.getDisabledIssuers();
+
+    const safeIssuers = disabledIssuers.map(doc => ({
+      id: doc._id,
+      orgName: doc.orgName,
+      contactName: doc.contactName,
+      email: doc.email,
+      status: doc.status,
+      accredited: doc.accredited,
+      accreditedType: doc.accreditedType,
+      createdAt: doc.createdAt,
+      approvedAt: doc.approvedAt || null,
+      approvedBy: doc.approvedBy || null,
+      disabledAt: doc.disabledAt || null,
+      disabledBy: doc.disabledBy || null,
+      disableReason: doc.disableReason || null,
+      walletId: doc.walletId,
+      fabricIdentity: doc.fabricIdentity,
+      couchDBUrl: doc.couchDBUrl
+    }));
+
+    return res.status(200).json({
+      success: true,
+      message: 'Disabled issuers retrieved successfully',
+      data: safeIssuers,
+      count: safeIssuers.length
+    });
+  } catch (error) {
+    console.error('Error fetching disabled issuers:', error);
+    return res.status(500).json({
+      success: false,
+      message: `Error fetching disabled issuers: ${error.message}`
+    });
+  }
+},
+
   // ========================================================================================================================================================================
 
   /*
@@ -859,14 +906,23 @@ loginIssuer: async (req, res) => {
     }
 
     // Step 2: Only approved issuers can login
-    const issuer = await couchDB.getApprovedIssuer(email);
+    const issuer = await couchDB.getIssuerByEmail(email);
+
+    if (!issuer) {
+      return res.status(401).json({
+        success: false,
+        message: 'Issuer not found or not approved yet'
+      });
+    }
+
     if (issuer.status === 'disabled') {
         return res.status(403).json({
           success: false,
           message: 'Your issuer account has been disabled. Please contact administrator.'
         });
       }
-    if (!issuer) {
+
+    if (issuer.status !== 'approved') {
       return res.status(401).json({
         success: false,
         message: 'Issuer not found or not approved yet'
@@ -1132,17 +1188,19 @@ disableIssuer: async (req, res, getContractAndGateway) => {
     const identityName = 'chaincert-admin';
     const orgName = 'Org1';
 
-    const cg = await getContractAndGateway(identityName, orgName);
-    gateway = cg.gateway;
-    const contract = cg.contract;
+    if (typeof getContractAndGateway === 'function') {
+      const cg = await getContractAndGateway(identityName, orgName);
+      gateway = cg.gateway;
+      const contract = cg.contract;
 
-    await contract.submitTransaction(
-      'LogIssuerStatusChange',
-      issuer.email,
-      previousStatus,
-      'disabled',
-      reason
-    );
+      await contract.submitTransaction(
+        'LogIssuerStatusChange',
+        issuer.email,
+        previousStatus,
+        'disabled',
+        reason
+      );
+    }
 
     return res.status(200).json({
       success: true,
@@ -1195,17 +1253,19 @@ enableIssuer: async (req, res, getContractAndGateway) => {
     const identityName = 'chaincert-admin';
     const orgName = 'Org1';
 
-    const cg = await getContractAndGateway(identityName, orgName);
-    gateway = cg.gateway;
-    const contract = cg.contract;
+    if (typeof getContractAndGateway === 'function') {
+      const cg = await getContractAndGateway(identityName, orgName);
+      gateway = cg.gateway;
+      const contract = cg.contract;
 
-    await contract.submitTransaction(
-      'LogIssuerStatusChange',
-      issuer.email,
-      previousStatus,
-      'approved',
-      reason
-    );
+      await contract.submitTransaction(
+        'LogIssuerStatusChange',
+        issuer.email,
+        previousStatus,
+        'approved',
+        reason
+      );
+    }
 
     return res.status(200).json({
       success: true,
@@ -1265,17 +1325,19 @@ disableUser: async (req, res, getContractAndGateway) => {
     const identityName = 'chaincert-admin';
     const orgName = 'Org1';
 
-    const cg = await getContractAndGateway(identityName, orgName);
-    gateway = cg.gateway;
-    const contract = cg.contract;
+    if (typeof getContractAndGateway === 'function') {
+      const cg = await getContractAndGateway(identityName, orgName);
+      gateway = cg.gateway;
+      const contract = cg.contract;
 
-    await contract.submitTransaction(
-      'LogUserStatusChange',
-      user.email,
-      previousStatus,
-      'disabled',
-      reason
-    );
+      await contract.submitTransaction(
+        'LogUserStatusChange',
+        user.email,
+        previousStatus,
+        'disabled',
+        reason
+      );
+    }
 
     return res.status(200).json({
       success: true,
@@ -1332,17 +1394,19 @@ enableUser: async (req, res, getContractAndGateway) => {
     const identityName = 'chaincert-admin';
     const orgName = 'Org1';
 
-    const cg = await getContractAndGateway(identityName, orgName);
-    gateway = cg.gateway;
-    const contract = cg.contract;
+    if (typeof getContractAndGateway === 'function') {
+      const cg = await getContractAndGateway(identityName, orgName);
+      gateway = cg.gateway;
+      const contract = cg.contract;
 
-    await contract.submitTransaction(
-      'LogUserStatusChange',
-      user.email,
-      previousStatus,
-      'active',
-      reason
-    );
+      await contract.submitTransaction(
+        'LogUserStatusChange',
+        user.email,
+        previousStatus,
+        'active',
+        reason
+      );
+    }
 
     return res.status(200).json({
       success: true,
@@ -1360,6 +1424,55 @@ enableUser: async (req, res, getContractAndGateway) => {
   }
 },
   
+
+
+// ========================================================================================================================================================================
+// ADMIN: STATUS LOGS (ISSUER + USER ENABLE/DISABLE)
+// ========================================================================================================================================================================
+
+getAllStatusLogs: async (req, res, getContractAndGateway) => {
+  let gateway;
+  try {
+    if (typeof getContractAndGateway !== 'function') {
+      return res.status(500).json({
+        success: false,
+        message: 'Blockchain gateway is not available'
+      });
+    }
+
+    const identityName = 'chaincert-admin';
+    const orgName = 'Org1';
+
+    const cg = await getContractAndGateway(identityName, orgName);
+    gateway = cg.gateway;
+    const contract = cg.contract;
+
+    const resultBuffer = await contract.evaluateTransaction('GetAllStatusLogs');
+    const raw = resultBuffer.toString();
+    let logs;
+
+    try {
+      logs = JSON.parse(raw || '[]');
+    } catch (_) {
+      logs = [];
+    }
+
+    return res.status(200).json({
+      success: true,
+      logs: Array.isArray(logs) ? logs : [],
+      count: Array.isArray(logs) ? logs.length : 0
+    });
+  } catch (error) {
+    console.error('getAllStatusLogs error:', error);
+    return res.status(500).json({
+      success: false,
+      message: error.message || 'Failed to fetch status logs'
+    });
+  } finally {
+    try { if (gateway) await gateway.disconnect(); } catch (_) {}
+  }
+},
+
 };
 
 module.exports = authController;

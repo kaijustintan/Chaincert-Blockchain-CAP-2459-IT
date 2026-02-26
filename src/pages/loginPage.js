@@ -33,7 +33,17 @@ function LoginPage() {
         return; // ✅ Exit - no need for fallback
       }
     } catch (issuerError) {
-      // Issuer endpoint might throw 404/401 - that's expected
+      const issuerStatus = issuerError?.response?.status;
+      const issuerMessage = issuerError?.response?.data?.message;
+
+      // Disabled issuer should stop fallback and show explicit UI message
+      if (issuerStatus === 403) {
+        setError(issuerMessage || 'Your issuer account has been disabled. Please contact administrator.');
+        setLoading(false);
+        return;
+      }
+
+      // For 401 (not issuer / not approved), continue to regular user fallback
       console.log('📌 Not an issuer account, checking regular user...');
     }
 
@@ -60,9 +70,10 @@ function LoginPage() {
         return;
       }
       
-      setError(userResponse.error || 'Login failed.');
+      setError(userResponse.message || userResponse.error || 'Login failed.');
     } catch (userError) {
-      setError('Invalid credentials or server error.');
+      const userMessage = userError?.response?.data?.message;
+      setError(userMessage || 'Invalid credentials or server error.');
       console.error('Login error:', userError);
     }
     
@@ -126,7 +137,6 @@ function LoginPage() {
                 disabled={loading}
               />
             </div>
-            {error && <div style={{ color: 'red', marginBottom: '8px' }}>{error}</div>}
             <button 
               type="submit" 
               className="login-btn"

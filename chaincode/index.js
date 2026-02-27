@@ -1523,6 +1523,124 @@ async GetAllVerificationLogs(ctx) {
     */
     return JSON.stringify(results);
   }
+
+      // =========================================================================================================
+    // ADMIN AUDIT: ISSUER APPROVAL
+    // =========================================================================================================
+    async LogIssuerApproval(ctx, issuerId, issuerEmail, orgName, reason) {
+
+      if (!issuerId) throw new Error("issuerId is required");
+      if (!issuerEmail) throw new Error("issuerEmail is required");
+      if (!orgName) throw new Error("orgName is required");
+      if (!reason || reason.trim() === "") {
+        throw new Error("Reason is required for issuer approval");
+      }
+
+      const txTimestamp = ctx.stub.getTxTimestamp();
+      const timestamp = new Date(
+        txTimestamp.seconds * 1000 +
+        Math.floor(txTimestamp.nanos / 1000000)
+      ).toISOString();
+
+      const txId = ctx.stub.getTxID();
+      const logId = `issuer_approval_${txId}`;
+
+      const log = {
+        id: logId,
+        type: "issuer_decision",
+        decision: "approved",
+        entity: "issuer",
+        issuerId,
+        issuerEmail,
+        orgName,
+        reason,
+        performedBy: ctx.clientIdentity.getID(),
+        performedByMSP: ctx.clientIdentity.getMSPID(),
+        txId,
+        timestamp,
+        version: 1
+      };
+
+      await ctx.stub.putState(logId, Buffer.from(JSON.stringify(log)));
+      await ctx.stub.setEvent("IssuerApproved", Buffer.from(JSON.stringify(log)));
+
+      return JSON.stringify(log);
+    }
+
+    // =========================================================================================================
+// ADMIN AUDIT: ISSUER REJECTION
+// =========================================================================================================
+      async LogIssuerRejection(ctx, issuerId, issuerEmail, orgName, reason) {
+
+        if (!issuerId) throw new Error("issuerId is required");
+        if (!issuerEmail) throw new Error("issuerEmail is required");
+        if (!orgName) throw new Error("orgName is required");
+        if (!reason || reason.trim() === "") {
+          throw new Error("Reason is required for issuer rejection");
+        }
+
+        const txTimestamp = ctx.stub.getTxTimestamp();
+        const timestamp = new Date(
+          txTimestamp.seconds * 1000 +
+          Math.floor(txTimestamp.nanos / 1000000)
+        ).toISOString();
+
+        const txId = ctx.stub.getTxID();
+        const logId = `issuer_rejection_${txId}`;
+
+        const log = {
+          id: logId,
+          type: "issuer_decision",
+          decision: "rejected",
+          entity: "issuer",
+          issuerId,
+          issuerEmail,
+          orgName,
+          reason,
+          performedBy: ctx.clientIdentity.getID(),
+          performedByMSP: ctx.clientIdentity.getMSPID(),
+          txId,
+          timestamp,
+          version: 1
+        };
+
+        await ctx.stub.putState(logId, Buffer.from(JSON.stringify(log)));
+        await ctx.stub.setEvent("IssuerRejected", Buffer.from(JSON.stringify(log)));
+
+        return JSON.stringify(log);
+      }
+
+      // =========================================================================================================
+// QUERY: Get issuer approval/rejection logs (filtered by email)
+// =========================================================================================================
+      async GetIssuerDecisionLogs(ctx, issuerEmail) {
+
+        if (!issuerEmail) {
+          throw new Error("issuerEmail is required");
+        }
+
+        const iterator = await ctx.stub.getStateByRange('', '');
+        const results = [];
+
+        let res = await iterator.next();
+        while (!res.done) {
+          if (res.value && res.value.value) {
+
+            const parsed = JSON.parse(res.value.value.toString('utf8'));
+
+            if (
+              parsed.type === "issuer_decision" &&
+              parsed.issuerEmail === issuerEmail
+            ) {
+              results.push(parsed);
+            }
+          }
+          res = await iterator.next();
+        }
+
+        await iterator.close();
+        return JSON.stringify(results);
+      }
 }
 
 module.exports = ChainCertContract;

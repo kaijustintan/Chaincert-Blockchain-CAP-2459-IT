@@ -468,52 +468,61 @@ getDisabledIssuers: async () => {
   // ==========================================================================================================================================================================
 
   /*
-    Function Name: approveIssuer
+  Function Name: approveIssuer
 
+  Technical:
+  Approves an issuer application via SDK endpoint
+  (CouchDB + Blockchain logging).
+*/
+approveIssuer: async (issuerId, approvalReason) => {
+  try {
 
-    Technical: Approves an issuer application.
-    Tropang Ex: “Approve” button ni admin.
-  */
-  approveIssuer: async (issuerId) => {
-    try {
+    const response = await axios.post(
+      `/approve-issuer/${issuerId}`,
+      {
+        approvalReason: approvalReason || ''
+      }
+    );
 
-      /* Step 1: POST approve request */
-      const response = await axios.post(`/auth/approve-issuer/${issuerId}`);
+    return response.data;
 
-      /* Step 2: Return approval result */
-      return response.data;
+  } catch (error) {
+    console.error(
+      'Error approving issuer:',
+      error.response?.data?.message || error.message
+    );
+    throw error;
+  }
+},
+// =============================================================================================================
 
-    } catch (error) {
-      console.error('Error approving issuer:', error.response?.data?.message || error.message);
-      throw error;
-    }
-  },
-// ==========================================================================================================================================================================
+/*
+  Function Name: rejectIssuer
 
+  Technical:
+  Rejects issuer application via SDK endpoint
+  (CouchDB + Blockchain logging).
+*/
+rejectIssuer: async (issuerId, rejectionReason) => {
+  try {
 
-  /*
-    Function Name: rejectIssuer
-
-
-    Technical: Rejects an issuer application with a reason.
-    Tropang Ex: “Reject” button ni admin + reason kung bakit.
-  */
-  rejectIssuer: async (issuerId, rejectionReason) => {
-    try {
-
-      /* Step 1: POST rejection request */
-      const response = await axios.post(`/auth/reject-issuer/${issuerId}`, {
+    const response = await axios.post(
+      `/reject-issuer/${issuerId}`,
+      {
         rejectionReason
-      });
+      }
+    );
 
-      /* Step 2: Return rejection result */
-      return response.data;
+    return response.data;
 
-    } catch (error) {
-      console.error('Error rejecting issuer:', error.response?.data?.message || error.message);
-      throw error;
-    }
-  },
+  } catch (error) {
+    console.error(
+      'Error rejecting issuer:',
+      error.response?.data?.message || error.message
+    );
+    throw error;
+  }
+},
   // ==========================================================================================================================================================================
 // ==========================================================================================================================================================================
 //                                                               ADMIN / STATUS MANAGEMENT (DISABLE / ENABLE)

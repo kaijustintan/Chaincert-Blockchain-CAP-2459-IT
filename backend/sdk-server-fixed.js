@@ -301,6 +301,10 @@ const CONNECTION_CACHE_TTL = 5 * 60 * 1000;
   Tropang Ex: basically cumoconnect sa blockchain using a right identity / if wala to, no acc will be able to commit any transaction to BC 
 */
 async function getContractAndGateway(identityName, orgName) {
+  // ✅ DEBUG (added): prove which file + working dir is being used at runtime
+  console.log('\n[getContractAndGateway][DEBUG] called with:', { identityName, orgName });
+  console.log('[getContractAndGateway][DEBUG] __dirname =', __dirname);
+  console.log('[getContractAndGateway][DEBUG] cwd =', process.cwd());
 
   /* Step 1: Input validation
 
@@ -327,17 +331,37 @@ async function getContractAndGateway(identityName, orgName) {
   let ccpPath;
   if (
     orgName.toLowerCase().includes('delasalleuniversity') ||
-    identityName.trim().toLowerCase().replace(/\s+/g, '').includes('delasalleuniversity') 
+    identityName.trim().toLowerCase().replace(/\s+/g, '').includes('delasalleuniversity')
   ) {
     ccpPath = path.resolve(
-      __dirname,'..','fabric-samples','fabric-samples','test-network','organizations','peerOrganizations','dlsu.example.com','connection-delasalleuniversity.json'
+      __dirname,
+      '..',
+      'fabric-samples',
+      'fabric-samples',
+      'test-network',
+      'organizations',
+      'peerOrganizations',
+      'dlsu.example.com',
+      'connection-delasalleuniversity.json'
     );
   } else {
     // Default to Org1
     ccpPath = path.resolve(
-      __dirname,'..','fabric-samples','fabric-samples','test-network','organizations','peerOrganizations','org1.example.com','connection-org1.json'
+      __dirname,
+      '..',
+      'fabric-samples',
+      'fabric-samples',
+      'test-network',
+      'organizations',
+      'peerOrganizations',
+      'org1.example.com',
+      'connection-org1.json'
     );
   }
+
+  // ✅ DEBUG (added): confirm the exact CCP path chosen
+  console.log('[getContractAndGateway][DEBUG] ccpPath =', ccpPath);
+
   /* Step 3: Check if the connection profile file exists
 
     Technical: Ensures the chosen CCP file actually exists before attempting to read/connect.
@@ -348,7 +372,8 @@ async function getContractAndGateway(identityName, orgName) {
   if (!fs.existsSync(ccpPath)) {
     throw new Error(`Connection profile not found at: ${ccpPath}`);
   }
-   /* Step 4: Read and parse the connection profile (CCP)
+
+  /* Step 4: Read and parse the connection profile (CCP)
     
     Technical: Loads the CCP JSON content and parses it into an object used by Fabric Gateway.
     Tropang Ex: Binabasa dito yung JSON file na nagsasabi kung paano kumausap sa blockchain:
@@ -367,12 +392,14 @@ async function getContractAndGateway(identityName, orgName) {
     Example: identityName = "delasalleuniversity-admin"
       → wallet.get("delasalleuniversity-admin") must exist or it throws Identity not found.
   */
+  // ✅ DEBUG (added): confirm walletPath being used
+  console.log('[getContractAndGateway][DEBUG] walletPath =', walletPath);
+
   const wallet = await Wallets.newFileSystemWallet(walletPath);
   const identity = await wallet.get(identityName);
   if (!identity) throw new Error(`Identity ${identityName} not found`);
 
-
-   /* Step 6: Create Gateway and connect to Fabric as this identity
+  /* Step 6: Create Gateway and connect to Fabric as this identity
 
     Technical: Establishes an authenticated connection to the Fabric network using the CCP + wallet identity.
     Tropang Ex: Ito na yung actual “login” sa blockchain as that org/user identity.
@@ -380,6 +407,10 @@ async function getContractAndGateway(identityName, orgName) {
     Example: After gateway.connect(), you can access channels and chaincode through the gateway.
   */
   const gateway = new Gateway();
+
+  // ✅ DEBUG (added): show we are about to connect
+  console.log('[getContractAndGateway][DEBUG] connecting gateway...');
+
   await gateway.connect(ccp, {
     wallet,
     identity: identityName,
@@ -397,7 +428,6 @@ async function getContractAndGateway(identityName, orgName) {
   */
   const network = await gateway.getNetwork('chaincert-channel');
 
-
   /* Step 8: Get the chaincode/contract handle (chaincert)
 
     Technical: Retrieves the contract object used to invoke/evaluate chaincode functions.
@@ -405,6 +435,11 @@ async function getContractAndGateway(identityName, orgName) {
     Example: contract.submitTransaction("IssueCredential", ...)
   */
   const contract = network.getContract('chaincert');
+
+  // ✅ DEBUG (added): confirm we are returning the expected shape
+  console.log('[getContractAndGateway][DEBUG] ✅ returning { gateway, contract }');
+  console.log('[getContractAndGateway][DEBUG] gateway exists =', !!gateway);
+  console.log('[getContractAndGateway][DEBUG] contract exists =', !!contract, '\n');
 
   /* Step 9: Cache gateway + return gateway and contract (PENDING NOTES)
 
@@ -1178,6 +1213,24 @@ app.post('/api/auth/enable-user/:userId', (req, res) => {
   authController.enableUser(req, res, getContractAndGateway);
 });
 // ==========================================================================================================================================================================
+
+// ✅ SDK routes for issuer decisions (blockchain-aware)
+app.post('/api/approve-issuer/:issuerId', (req, res) => {
+  authController.approveIssuer(req, res, getContractAndGateway);
+});
+
+// ==========================================================================================================================================================================
+
+app.post('/api/reject-issuer/:issuerId', (req, res) => {
+  authController.rejectIssuer(req, res, getContractAndGateway);
+});
+// ==========================================================================================================================================================================
+
+app.get('/api/admin/issuer-decision-logs/:issuerEmail', (req, res) => {
+  authController.getIssuerDecisionLogs(req, res, getContractAndGateway);
+});
+// ==========================================================================================================================================================================
+
 
 
 module.exports = {

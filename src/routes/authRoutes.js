@@ -98,6 +98,11 @@ router.get('/approved-issuers', authController.getApprovedIssuers);
 // GET /api/auth/rejected-issuers - Get all REJECTED issuers (Admin)
 router.get('/rejected-issuers', authController.getRejectedIssuers);
 
+// GET /api/auth/disabled-issuers - Get all DISABLED issuers (Admin)
+router.get('/disabled-issuers', authController.getDisabledIssuers);
+
+
+
 // =========================================================================================================
 // 📄 CREDENTIAL ROUTES (simple pass-through routes)
 // =========================================================================================================

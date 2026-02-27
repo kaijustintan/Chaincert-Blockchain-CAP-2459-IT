@@ -1126,6 +1126,18 @@ app.get('/api/admin/credentials/all', (req, res) => {
 // ==========================================================================================================================================================================
 
 /*
+  Endpoint: GET /api/admin/status-logs
+
+  Technical:
+  Returns blockchain audit logs for issuer/user status changes
+  (disable/enable actions) via chaincode GetAllStatusLogs.
+*/
+app.get('/api/admin/status-logs', (req, res) => {
+  authController.getAllStatusLogs(req, res, getContractAndGateway);
+});
+// ==========================================================================================================================================================================
+
+/*
   Endpoint: POST /api/auth/disable-issuer/:issuerId
 
   Technical:
@@ -1133,6 +1145,11 @@ app.get('/api/admin/credentials/all', (req, res) => {
   - Updates issuer status in CouchDB
   - Logs action to blockchain (LogIssuerStatusChange)
 */
+app.get('/api/auth/disabled-issuers', (req, res) => {
+  authController.getDisabledIssuers(req, res);
+});
+// ==========================================================================================================================================================================
+
 app.post('/api/auth/disable-issuer/:issuerId', (req, res) => {
   authController.disableIssuer(req, res, getContractAndGateway);
 });

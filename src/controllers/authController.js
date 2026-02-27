@@ -1190,21 +1190,17 @@ disableIssuer: async (req, res, getContractAndGateway) => {
     const orgName = 'Org1';
 
     if (typeof getContractAndGateway === 'function') {
-      try {
-        const { gateway: connectedGateway, contract } = await getContractAndGateway(identityName, orgName);
-        gateway = connectedGateway;
+      const cg = await getContractAndGateway(identityName, orgName);
+      gateway = cg.gateway;
+      const contract = cg.contract;
 
-        await contract.submitTransaction(
-          'LogIssuerStatusChange',
-          issuer.email,
-          previousStatus,
-          'disabled',
-          reason
-        );
-      } catch (blockchainError) {
-        console.error('disableIssuer blockchain log warning:', blockchainError.message);
-        blockchainLogWarning = blockchainError.message;
-      }
+      await contract.submitTransaction(
+        'LogIssuerStatusChange',
+        issuer.email,
+        previousStatus,
+        'disabled',
+        reason
+      );
     }
 
     return res.status(200).json({
@@ -1264,21 +1260,17 @@ enableIssuer: async (req, res, getContractAndGateway) => {
     const orgName = 'Org1';
 
     if (typeof getContractAndGateway === 'function') {
-      try {
-        const { gateway: connectedGateway, contract } = await getContractAndGateway(identityName, orgName);
-        gateway = connectedGateway;
+      const cg = await getContractAndGateway(identityName, orgName);
+      gateway = cg.gateway;
+      const contract = cg.contract;
 
-        await contract.submitTransaction(
-          'LogIssuerStatusChange',
-          issuer.email,
-          previousStatus,
-          'approved',
-          reason
-        );
-      } catch (blockchainError) {
-        console.error('enableIssuer blockchain log warning:', blockchainError.message);
-        blockchainLogWarning = blockchainError.message;
-      }
+      await contract.submitTransaction(
+        'LogIssuerStatusChange',
+        issuer.email,
+        previousStatus,
+        'approved',
+        reason
+      );
     }
 
     return res.status(200).json({
@@ -1345,21 +1337,17 @@ disableUser: async (req, res, getContractAndGateway) => {
     const orgName = 'Org1';
 
     if (typeof getContractAndGateway === 'function') {
-      try {
-        const { gateway: connectedGateway, contract } = await getContractAndGateway(identityName, orgName);
-        gateway = connectedGateway;
+      const cg = await getContractAndGateway(identityName, orgName);
+      gateway = cg.gateway;
+      const contract = cg.contract;
 
-        await contract.submitTransaction(
-          'LogUserStatusChange',
-          user.email,
-          previousStatus,
-          'disabled',
-          reason
-        );
-      } catch (blockchainError) {
-        console.error('disableUser blockchain log warning:', blockchainError.message);
-        blockchainLogWarning = blockchainError.message;
-      }
+      await contract.submitTransaction(
+        'LogUserStatusChange',
+        user.email,
+        previousStatus,
+        'disabled',
+        reason
+      );
     }
 
     return res.status(200).json({
@@ -1423,21 +1411,17 @@ enableUser: async (req, res, getContractAndGateway) => {
     const orgName = 'Org1';
 
     if (typeof getContractAndGateway === 'function') {
-      try {
-        const { gateway: connectedGateway, contract } = await getContractAndGateway(identityName, orgName);
-        gateway = connectedGateway;
+      const cg = await getContractAndGateway(identityName, orgName);
+      gateway = cg.gateway;
+      const contract = cg.contract;
 
-        await contract.submitTransaction(
-          'LogUserStatusChange',
-          user.email,
-          previousStatus,
-          'active',
-          reason
-        );
-      } catch (blockchainError) {
-        console.error('enableUser blockchain log warning:', blockchainError.message);
-        blockchainLogWarning = blockchainError.message;
-      }
+      await contract.submitTransaction(
+        'LogUserStatusChange',
+        user.email,
+        previousStatus,
+        'active',
+        reason
+      );
     }
 
     return res.status(200).json({

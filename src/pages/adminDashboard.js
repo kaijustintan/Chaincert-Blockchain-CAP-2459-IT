@@ -85,6 +85,24 @@ const [userStatusLoading, setUserStatusLoading] = useState(false);
     }
   };
 
+  const getVisibleIssuers = () => {
+    if (issuerFilter === "approved") return approvedIssuers;
+    if (issuerFilter === "pending") return pendingIssuers;
+    if (issuerFilter === "rejected") return rejectedIssuers;
+    if (issuerFilter === "disabled") return disabledIssuers;
+    return [];
+  };
+
+  const visibleUsers = getVisibleUsers();
+
+  const credentialIssuerOptions = [
+    ...approvedIssuers,
+    ...disabledIssuers
+  ].filter((issuer, index, arr) => {
+    const id = issuer._id || issuer.id;
+    return id && arr.findIndex((x) => (x._id || x.id) === id) === index;
+  });
+
   const getVisibleUsers = () => {
     if (userFilter === "disabled") return users.filter((u) => u.isActive === false);
     if (userFilter === "active") return users.filter((u) => u.isActive !== false);
@@ -388,9 +406,68 @@ const submitIssuerStatusChange = async (e) => {
     const userId = userStatusTarget?._id || userStatusTarget?.id;
     if (!userId) {
       setUserStatusError("User ID not found.");
+  const handleUserStatusChange = async (user, action) => {
+    const userId = user?._id || user?.id;
+    if (!userId) {
+      setMessage('❌ User ID not found.');
       return;
     }
 
+    const reasonPrompt = action === 'disable'
+      ? 'Enter reason for disabling this user:'
+      : 'Enter reason for enabling this user:';
+
+    const reason = window.prompt(reasonPrompt, '');
+    if (reason === null) return;
+
+    const trimmed = reason.trim();
+    if (!trimmed) {
+      setMessage('❌ Reason is required.');
+      return;
+    }
+
+    try {
+      setUserStatusLoading(true);
+      setUserStatusError("");
+
+      if (userStatusAction === "disable") {
+        await apiService.disableUser(userId, trimmed);
+        setMessage("✅ User disabled successfully!");
+      } else {
+        await apiService.enableUser(userId, trimmed);
+        setMessage("✅ User enabled successfully!");
+      }
+
+      closeUserStatusModal();
+      await fetchUsers();
+    } catch (error) {
+      console.error('Error updating user status:', error);
+      setUserStatusError(
+      if (action === 'disable') {
+        await apiService.disableUser(userId, trimmed);
+        setMessage('✅ User disabled successfully!');
+      } else {
+        await apiService.enableUser(userId, trimmed);
+        setMessage('✅ User enabled successfully!');
+      }
+
+      await fetchUsers();
+    } catch (error) {
+      console.error('Error updating user status:', error);
+      setMessage(
+        error.response?.data?.message ||
+          error.response?.data?.error ||
+          '❌ Failed to update user status'
+      );
+    } finally {
+      setUserStatusLoading(false);
+    }
+  };
+
+  // -------------------------------------------------------------------
+  // CREDENTIALS / VERIFICATIONS (OLD, PER-CREDENTIAL LIST)
+  // -------------------------------------------------------------------
+  const fetchCredentials = async () => {
     try {
       setUserStatusLoading(true);
       setUserStatusError("");
@@ -1742,6 +1819,7 @@ const submitIssuerStatusChange = async (e) => {
                             type="button"
                             onClick={() =>
                               openUserStatusModal(user, isDisabled ? "enable" : "disable")
+                              handleUserStatusChange(user, isDisabled ? "enable" : "disable")
                             }
                             style={{
                               padding: "8px 12px",

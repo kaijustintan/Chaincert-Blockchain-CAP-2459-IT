@@ -8,11 +8,8 @@ export default function AdminDashboard() {
   const [tab, setTab] = useState("credentials");
   const [pendingIssuers, setPendingIssuers] = useState([]);
   const [approvedIssuers, setApprovedIssuers] = useState([]);
-  const [credentials, setCredentials] = useState([]);
   const [verifications, setVerifications] = useState([]);
-  const [logs, setLogs] = useState([]);
   const [loading, setLoading] = useState(false);
-  const [credentialsLoading, setCredentialsLoading] = useState(false);
   const [verificationsLoading, setVerificationsLoading] = useState(false);
   const [logsLoading, setLogsLoading] = useState(false);
   const [message, setMessage] = useState("");
@@ -96,7 +93,15 @@ const [userStatusLoading, setUserStatusLoading] = useState(false);
     return [];
   };
 
-  const visibleIssuers = getVisibleIssuers();
+  const visibleUsers = getVisibleUsers();
+
+  const credentialIssuerOptions = [
+    ...approvedIssuers,
+    ...disabledIssuers
+  ].filter((issuer, index, arr) => {
+    const id = issuer._id || issuer.id;
+    return id && arr.findIndex((x) => (x._id || x.id) === id) === index;
+  });
 
   const getVisibleUsers = () => {
     if (userFilter === "disabled") return users.filter((u) => u.isActive === false);
@@ -464,17 +469,34 @@ const submitIssuerStatusChange = async (e) => {
   // -------------------------------------------------------------------
   const fetchCredentials = async () => {
     try {
-      setCredentialsLoading(true);
-      const data = await apiService.getAllCredentials();
-      setCredentials(Array.isArray(data) ? data : []);
+      setUserStatusLoading(true);
+      setUserStatusError("");
+
+      if (userStatusAction === "disable") {
+        await apiService.disableUser(userId, trimmed);
+        setMessage("✅ User disabled successfully!");
+      } else {
+        await apiService.enableUser(userId, trimmed);
+        setMessage("✅ User enabled successfully!");
+      }
+
+      closeUserStatusModal();
+      await fetchUsers();
     } catch (error) {
-      console.error("Error fetching credentials:", error);
-      setCredentials([]);
+      console.error('Error updating user status:', error);
+      setUserStatusError(
+        error.response?.data?.message ||
+          error.response?.data?.error ||
+          '❌ Failed to update user status'
+      );
     } finally {
-      setCredentialsLoading(false);
+      setUserStatusLoading(false);
     }
   };
 
+  // -------------------------------------------------------------------
+  // CREDENTIALS / VERIFICATIONS (OLD, PER-CREDENTIAL LIST)
+  // -------------------------------------------------------------------
   const fetchVerifications = async () => {
     try {
       setVerificationsLoading(true);

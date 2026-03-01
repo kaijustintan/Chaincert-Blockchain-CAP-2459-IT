@@ -32,7 +32,12 @@ export default function ProfilePreview() {
             const data = await apiService.Get_UserCredentials(userId);
             // Filter to public only — private credentials hidden from public view
             // - polo
-            const publicOnly = Array.isArray(data) ? data.filter(c => c.visibility === 'public' || !c.visibility) : [];
+            // Filter public only, exclude revoked, sort by currentOrder, top 5 - polo
+            const publicOnly = Array.isArray(data)
+              ? data
+                  .filter(c => c.visibility === 'public' && c.status !== 'revoked') // remove && c.status !== 'revoked' - polo
+                  .sort((a, b) => (a.currentOrder ?? 0) - (b.currentOrder ?? 0))
+              : [];
             setCredentials(publicOnly);
           } catch (err) {
             console.error("[PROFILE PREVIEW] Error fetching credentials:", err);
@@ -102,30 +107,32 @@ export default function ProfilePreview() {
         </div>
       </section>
 
-      {/* Badge Wallet */}
+      {/* Badge Wallet — vertical list with order numbers - polo */}
       <section className="badge-wallet">
         <h3>Credentials & Badges</h3>
-        <div className="badge-grid">
+        <div className="badge-list">
           {credLoading && <div>Loading credentials...</div>}
           {!credLoading && credentials.length === 0 && (
             <div>No public credentials yet.</div>
           )}
-          {!credLoading && credentials.map((cred) => (
-            <div key={cred._id} className={`badge-card ${cred.status === 'revoked' ? 'revoked-card' : ''}`}>
-            <div className="badge-img">🎓</div>
-            <h4>{cred.credentialName}</h4>
-            {/* Show revoked status visually on public profile // - polo */}
-            {cred.status === 'revoked' && (
-              <span className="status-pill revoked">Revoked</span>
-            )}
-            {cred.status === 'revoked' && cred.rejectionReason && (
-              <p style={{color: "#ff6b6b", fontSize: "0.75rem", margin: "4px 0"}}>
-                Reason: {cred.rejectionReason}
-              </p>
-            )}
-            <p className="issuer">{cred.issuerName}</p>
-            <p className="date">{cred.savedToUserWalletAt ? new Date(cred.savedToUserWalletAt).toLocaleDateString() : "N/A"}</p>
-          </div>
+          {!credLoading && credentials.map((cred, index) => (
+            <div key={cred._id} className={`badge-list-item ${cred.status === 'revoked' ? 'revoked-card' : ''}`}>
+              <div className="badge-order-num">{index + 1}</div>
+              <div className="badge-img-small">🎓</div>
+              <div className="badge-info">
+                <h4>{cred.credentialName}</h4>
+                <p className="issuer">{cred.issuerName}</p>
+                <p className="date">{cred.savedToUserWalletAt ? new Date(cred.savedToUserWalletAt).toLocaleDateString() : "N/A"}</p>
+                {cred.status === 'revoked' && (
+                  <span className="status-pill revoked">Revoked</span>
+                )}
+                {cred.status === 'revoked' && cred.rejectionReason && (
+                  <p style={{color: "#ff6b6b", fontSize: "0.75rem", margin: "4px 0"}}>
+                    Reason: {cred.rejectionReason}
+                  </p>
+                )}
+              </div>
+            </div>
           ))}
         </div>
       </section>

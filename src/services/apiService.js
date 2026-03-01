@@ -1234,6 +1234,30 @@ Get_VerificationLogById: async (logId) => {
     }
   },
 
+  /*
+    Function Name: Update_CredentialOrder
+    Technical:
+    Updates currentOrder of a credential in CouchDB via:
+      PATCH /api/auth/credentials/:credentialId/order
+    CouchDB only — no blockchain call
+    // - polo
+  */
+  Update_CredentialOrder: async (credentialId, newOrder) => {
+    try {
+      if (!credentialId) throw new Error('credentialId is required');
+      if (typeof newOrder !== 'number') throw new Error('newOrder must be a number');
+
+      const response = await axios.patch(
+        `/auth/credentials/${credentialId}/order`,
+        { newOrder }
+      );
+      return response.data;
+    } catch (error) {
+      console.error('Error updating credential order:', error.response?.data?.message || error.message);
+      throw error;
+    }
+  },
+
   // ==========================================================================================================================================================================
   //                                                               DEBUG / UTIL
   // ==========================================================================================================================================================================

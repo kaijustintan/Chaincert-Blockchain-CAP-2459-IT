@@ -1085,10 +1085,28 @@ async function saveIssuedCredentialToBothDBs(issuerEmail, credentialData) {
       issuerName: issuer.orgName || issuer.contactName,
       blockchainId: blockchainId,
       savedToCouchDBAt: new Date().toISOString(),
-      status: credentialData.status || 'issued'
+      status: credentialData.status || 'issued',
+      visibility: 'private'
     };
     console.log(`[COUCHDB] 1️⃣ Saving to ISSUER DB: ${issuer.couchDBUrl}/issued_credentials`);
     const issuerResult = await issuerWalletDb.insert(credentialDoc);
+
+    /* Step 4.5: Determine display order for this holder - polo */
+    let nextOrder = 1;
+    try {
+      const tempAdminCouch = require('nano')(COUCHDB_URL);
+      const tempWalletDb = tempAdminCouch.use('wallet_user_credentials');
+      const existing = await tempWalletDb.find({
+        selector: { holderID: credentialData.holderID },
+        fields: ['currentOrder']
+      });
+      if (existing.docs.length > 0) {
+        const maxOrder = Math.max(...existing.docs.map(d => d.currentOrder || 0));
+        nextOrder = maxOrder + 1;
+      }
+    } catch (err) {
+      console.warn('[COUCHDB] Could not determine display order, defaulting to 1:', err.message);
+    }
 
     /* Step 5: Save to ADMIN/Main CouchDB (wallet_user_credentials)
        Technical: Connect to COUCHDB_URL (main admin couch), insert user_cred_<blockchainId>.
@@ -1102,7 +1120,9 @@ async function saveIssuedCredentialToBothDBs(issuerEmail, credentialData) {
       _id: `user_cred_${blockchainId}`,
       holderID: credentialData.holderID,
       savedToUserWalletAt: new Date().toISOString(),
-      visibility: 'public'
+      visibility: 'private',
+      originalOrder: nextOrder,  // - polo
+      currentOrder: nextOrder    // - polo
     };
     console.log(`[COUCHDB] 2️⃣ Saving to ADMIN DB: ${COUCHDB_URL}/wallet_user_credentials`);
     const adminResult = await userWalletDb.insert(userCredentialDoc);
@@ -1276,31 +1296,67 @@ async function updateCredentialVisibility(credentialId, newVisibility) {
   try {
     console.log(`[COUCHDB] Updating visibility for: ${credentialId} → ${newVisibility}`);
 
-    /* Step 1: Connect to admin CouchDB + wallet_user_credentials
-       // - polo
-    */
+    // --- 1) Update in ADMIN DB: wallet_user_credentials ---
     const adminCouch = require('nano')(COUCHDB_URL);
     const userWalletDb = adminCouch.use('wallet_user_credentials');
 
-    /* Step 2: Normalize and fetch the credential doc
-       Technical: Need _rev to update in CouchDB
-       // - polo
-    */
-    const docId = `user_cred_${credentialId.replace(/^user_cred_/, '')}`;
-    const doc = await userWalletDb.get(docId);
+    const userDocId = `user_cred_${credentialId.replace(/^user_cred_/, '')}`;
+    const userDoc = await userWalletDb.get(userDocId);
+    userDoc.visibility = newVisibility;
+    const userResult = await userWalletDb.insert(userDoc);
+    console.log(`[COUCHDB] ✅ Visibility updated in wallet_user_credentials: ${userDocId}`);
 
-    /* Step 3: Update visibility field
-       // - polo
-    */
-    doc.visibility = newVisibility;
+    // --- 2) Update in ISSUER DB: issued_credentials ---
+    const issuerEmail = userDoc.issuerEmail;
+    if (issuerEmail) {
+      const issuer = await getIssuerByEmail(issuerEmail);
+      if (issuer && issuer.couchDBUrl) {
+        const issuerCouch = require('nano')(issuer.couchDBUrl);
+        const issuedDb = issuerCouch.use('issued_credentials');
 
-    /* Step 4: Save updated doc back to CouchDB */
-    const result = await userWalletDb.insert(doc);
-    console.log(`[COUCHDB] ✅ Visibility updated for: ${docId}`);
-    return result;
+        const issuerDocId = `issuer_cred_${credentialId.replace(/^user_cred_/, '').replace(/^issuer_cred_/, '')}`;
+        try {
+          const issuerDoc = await issuedDb.get(issuerDocId);
+          issuerDoc.visibility = newVisibility;
+          await issuedDb.insert(issuerDoc);
+          console.log(`[COUCHDB] ✅ Visibility updated in issued_credentials: ${issuerDocId}`);
+        } catch (err) {
+          console.warn(`[COUCHDB] ⚠️ Could not update issuer-side visibility (${issuerDocId}):`, err.message);
+        }
+      }
+    }
+
+    return userResult;
 
   } catch (error) {
     console.error(`[COUCHDB] ❌ Error updating visibility:`, error.message);
+    throw error;
+  }
+}
+
+/*
+  Function Name: updateCredentialOrder
+  Technical: Updates the currentOrder field of a credential in wallet_user_credentials.
+  Called when user drags/reorders credentials on their profile page.
+  CouchDB only — no blockchain call needed. // - polo
+*/
+async function updateCredentialOrder(credentialId, newOrder) {
+  try {
+    console.log(`[COUCHDB] Updating order for: ${credentialId} → ${newOrder}`);
+
+    const adminCouch = require('nano')(COUCHDB_URL);
+    const userWalletDb = adminCouch.use('wallet_user_credentials');
+
+    const docId = `user_cred_${credentialId.replace(/^user_cred_/, '')}`;
+    const doc = await userWalletDb.get(docId);
+    doc.currentOrder = newOrder;
+
+    const result = await userWalletDb.insert(doc);
+    console.log(`[COUCHDB] ✅ Order updated for: ${docId} → ${newOrder}`);
+    return result;
+
+  } catch (error) {
+    console.error(`[COUCHDB] ❌ Error updating order:`, error.message);
     throw error;
   }
 }
@@ -1964,7 +2020,7 @@ module.exports = {
   updateProfilePicture,
   getAllUsers,
   updateCredentialVisibility, // - Newly added - olops
-
+  updateCredentialOrder,     // - polo
 
   // Accreditation
   checkIfOrgAccredited,

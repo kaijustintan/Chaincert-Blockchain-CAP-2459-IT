@@ -817,3 +817,54 @@
     padding: 20px;
   }
 }
+
+/* Drag-to-reorder styles - polo */
+.badge-card.draggable {
+  cursor: grab;
+}
+.badge-card.dragging {
+  opacity: 0.5;
+  border: 2px dashed rgba(147, 51, 234, 0.7);
+}
+.drag-handle {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  color: rgba(255, 255, 255, 0.4);
+  font-size: 14px;
+  cursor: grab;
+  user-select: none;
+}
+.order-saving-msg {
+  text-align: center;
+  color: rgba(147, 51, 234, 0.8);
+  font-size: 13px;
+  margin-bottom: 8px;
+}
+
+/* See All button - polo */
+.see-all-btn {
+  display: block;
+  margin: 12px auto 0;
+  padding: 8px 24px;
+  background: transparent;
+  border: 1px solid rgba(147, 51, 234, 0.5);
+  border-radius: 20px;
+  color: rgba(147, 51, 234, 0.9);
+  font-size: 0.85rem;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.see-all-btn:hover {
+  background: rgba(147, 51, 234, 0.1);
+  border-color: rgba(147, 51, 234, 0.8);
+}
+
+/* Public profile indicator on credential cards - polo */
+.public-indicator {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  font-size: 13px;
+  opacity: 0.8;
+}

@@ -42,6 +42,7 @@
   CATEGORY: USER CREDENTIALS (STUDENT WALLET)
   - getUserCredentials(req, res)
   - updateCredentialVisibility(req, res)  // - polo
+  - updateCredentialOrder(req, res)       // - polo
 */
 
 const couchDB = require('../couchDB_service');
@@ -1289,6 +1290,41 @@ loginIssuer: async (req, res) => {
     } catch (error) {
       console.error('[AUTH CONTROLLER] Error updating credential visibility:', error);
       return res.status(500).json({ success: false, message: `Error updating visibility: ${error.message}` });
+    }
+  },
+
+  /*
+    Endpoint: PATCH /api/auth/credentials/:credentialId/order
+    Function Name: updateCredentialOrder
+    Technical: Updates currentOrder field of a credential in wallet_user_credentials (CouchDB only)
+    No blockchain call needed — display order is UI preference only
+    // - polo
+  */
+  updateCredentialOrder: async (req, res) => {
+    try {
+      const { credentialId } = req.params;
+      const { newOrder } = req.body;
+
+      if (!credentialId) {
+        return res.status(400).json({ success: false, message: 'credentialId is required' });
+      }
+      if (newOrder === undefined || newOrder === null || typeof newOrder !== 'number') {
+        return res.status(400).json({ success: false, message: 'newOrder must be a number' });
+      }
+
+      await couchDB.updateCredentialOrder(credentialId, newOrder);
+
+      return res.status(200).json({
+        success: true,
+        message: `Credential order updated to ${newOrder}`,
+        credentialId,
+        newOrder,
+        timestamp: new Date().toISOString()
+      });
+
+    } catch (error) {
+      console.error('[AUTH CONTROLLER] Error updating credential order:', error);
+      return res.status(500).json({ success: false, message: `Error updating order: ${error.message}` });
     }
   },
 

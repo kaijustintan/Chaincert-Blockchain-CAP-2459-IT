@@ -30,6 +30,7 @@
   - GET   /issuer/:issuerId/credentials        → authController.getIssuerCredentials
   - GET   /credentials/user/:holderID          → authController.getUserCredentials
   - PATCH /credentials/:credentialId/visibility → authController.updateCredentialVisibility  // - polo
+  - PATCH /credentials/:credentialId/order      → authController.updateCredentialOrder       // - polo
 
   CATEGORY: VERIFICATION ROUTES
   - GET  /verify/:credentialID         → verifierController.verifyCredentialByID
@@ -106,6 +107,10 @@ router.get('/credentials/user/:holderID', authController.getUserCredentials);
 // PATCH /api/auth/credentials/:credentialId/visibility - Update credential visibility (CouchDB only)
 // - polo
 router.patch('/credentials/:credentialId/visibility', authController.updateCredentialVisibility);
+
+// PATCH /api/auth/credentials/:credentialId/order - Update credential display order (CouchDB only)
+// - polo
+router.patch('/credentials/:credentialId/order', authController.updateCredentialOrder);
 
 // =========================================================================================================
 // ✅ VERIFICATION ROUTES (Verifier Module) - detailed routes with inline logic

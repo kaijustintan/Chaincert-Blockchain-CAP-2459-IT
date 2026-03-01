@@ -20,6 +20,13 @@ export default function ProfilePage() {
   const [credError, setCredError] = useState(null);
   const [selectedCred, setSelectedCred] = useState(null);
 
+  // Show all toggle for credential wallet - polo
+  const [showAll, setShowAll] = useState(false);
+
+  // Drag-to-reorder state - polo
+  const [draggedIndex, setDraggedIndex] = useState(null);
+  const [isSavingOrder, setIsSavingOrder] = useState(false);
+
   // See History state (same as studentDashboard)
   // - polo
   const [historyData, setHistoryData] = useState(null);
@@ -71,7 +78,11 @@ export default function ProfilePage() {
         setCredLoading(true);
         setCredError(null);
         const data = await apiService.Get_UserCredentials(userId);
-        setCredentials(Array.isArray(data) ? data : []);
+        // Sort by currentOrder so user's custom order is preserved - polo
+        const sorted = Array.isArray(data)
+          ? [...data].sort((a, b) => (a.currentOrder ?? 0) - (b.currentOrder ?? 0))
+          : [];
+        setCredentials(sorted);
       } catch (err) {
         console.error("[PROFILE PAGE] Error fetching credentials:", err);
         setCredError("Failed to load credentials.");
@@ -141,6 +152,45 @@ export default function ProfilePage() {
   // Derive skills from credentials (same source, no extra fetch)
   // - polo
   const derivedSkills = [...new Set(credentials.map(c => c.credentialType).filter(Boolean))];
+
+  // Drag-to-reorder handlers - polo
+  const handleDragStart = (index) => {
+    setDraggedIndex(index);
+  };
+
+  const handleDragOver = (e, index) => {
+    e.preventDefault();
+    if (draggedIndex === null || draggedIndex === index) return;
+
+    // Reorder credentials array locally
+    const updated = [...credentials];
+    const dragged = updated.splice(draggedIndex, 1)[0];
+    updated.splice(index, 0, dragged);
+    setDraggedIndex(index);
+    setCredentials(updated);
+  };
+
+  const handleDragEnd = async () => {
+    setDraggedIndex(null);
+    // Save new order to CouchDB - polo
+    setIsSavingOrder(true);
+    try {
+      await Promise.all(
+        credentials.map((cred, index) =>
+          apiService.Update_CredentialOrder(cred.blockchainId, index + 1)
+        )
+      );
+      // Update local currentOrder values to match saved order - polo
+      setCredentials(prev =>
+        prev.map((cred, index) => ({ ...cred, currentOrder: index + 1 }))
+      );
+    } catch (err) {
+      console.error('[PROFILE PAGE] Error saving credential order:', err);
+      alert('Failed to save order. Please try again.');
+    } finally {
+      setIsSavingOrder(false);
+    }
+  };
 
   const handleSaveProfile = async () => {
     setIsSaving(true);
@@ -364,20 +414,40 @@ export default function ProfilePage() {
         )}
 
         {!credLoading && !credError && credentials.length > 0 && (
-          <div className="badges-grid">
-            {credentials.map((cred) => (
-              <div
-                key={cred._id}
-                className="badge-card"
-                onClick={() => { setSelectedCred(cred); setHistoryOpen(false); setHistoryData(null); }}
-              >
-                <div className="badge-image">🎓</div>
-                <h4>{cred.credentialName}</h4>
-                <StatusPill status={cred.status} />
-                <p className="badge-issuer">Issued by {cred.issuerName}</p>
+          <>
+            {isSavingOrder && <div className="order-saving-msg">Saving order...</div>}
+            <div className="badges-grid">
+              {(showAll ? credentials : credentials.slice(0, 5)).map((cred, index) => (
+                <div
+                  key={cred._id}
+                  className={`badge-card draggable${draggedIndex === index ? ' dragging' : ''}`}
+                  draggable
+                  onDragStart={() => handleDragStart(index)}
+                  onDragOver={(e) => handleDragOver(e, index)}
+                  onDragEnd={handleDragEnd}
+                  onClick={() => { setSelectedCred(cred); setHistoryOpen(false); setHistoryData(null); }}
+                >
+                  <div className="drag-handle" title="Drag to reorder">⠿</div>
+                  {/* Public indicator — shows which credentials appear on public profile - polo */}
+                  {cred.visibility === 'public' && (
+                    <div className="public-indicator" title="Visible on your public profile">🌐</div>
+                  )}
+                  <div className="badge-image">🎓</div>
+                  <h4>{cred.credentialName}</h4>
+                  <StatusPill status={cred.status} />
+                  <p className="badge-issuer">Issued by {cred.issuerName}</p>
               </div>
-            ))}
-          </div>
+              ))}
+            </div>
+            {credentials.length > 5 && (
+              <button
+                className="see-all-btn"
+                onClick={() => setShowAll(prev => !prev)}
+              >
+                {showAll ? '▲ Show Less' : `▼ See All (${credentials.length})`}
+              </button>
+            )}
+          </>
         )}
       </section>
 

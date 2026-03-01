@@ -65,7 +65,7 @@ exports.Create_CredentialTemplate = async (req, res, getContractAndGateway) => {
       Tropang Ex: Kukunin natin yung fields na galing sa form/UI.
     */
     // ✅ Extract from request body
-    const { credentialType, credentialName, description, metadata } = req.body;
+    const { credentialType, credentialName, description, metadata, skills, badgeImage } = req.body; // - polo
 
     /* Step 2: Validate required fields
 
@@ -179,7 +179,8 @@ exports.Create_CredentialTemplate = async (req, res, getContractAndGateway) => {
         credentialType,
         credentialName,
         description || '',
-        metadata ? JSON.stringify(metadata) : ''
+        metadata ? JSON.stringify(metadata) : '',
+        skills && skills.length > 0 ? JSON.stringify(skills) : '[]'  // - polo
       );
 
       blockchainCredential = JSON.parse(result.toString());
@@ -228,17 +229,18 @@ exports.Create_CredentialTemplate = async (req, res, getContractAndGateway) => {
         throw new Error('Issuer CouchDB URL not configured');
       }
 
-      // CHANGES: Build credentialDoc here, but actual insert delegated to couchDB_service
       const credentialDoc = {
-        _id: credentialId, // ✅ CRITICAL: Match blockchain ID
+        _id: credentialId,
         id: credentialId,
         issuerId: issuerId,
         credentialType: credentialType,
         credentialName: credentialName,
         description: description || '',
         metadata: metadata || {},
+        skills: skills || [],           // - polo
+        badgeImage: badgeImage || '',   // - polo (base64, CouchDB only)
         status: 'active',
-        isTemplate: true, // ← This is a template, not yet issued
+        isTemplate: true,
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
         blockchain: {
@@ -452,10 +454,29 @@ exports.issue_CredentialToUser = async (req, res, getContractAndGateway) => {
     try {
       console.log(`[ISSUE] Saving issued credential to BOTH CouchDB databases...`);
 
+      // Fetch template from issuer CouchDB to get badgeImage + skills (not on blockchain) - polo
+      let templateBadgeImage = '';
+      let templateSkills = [];
+      try {
+        const nano = require('nano');
+        const issuerDoc = await couchdbService.getApprovedIssuer(user.email);
+        if (issuerDoc && issuerDoc.couchDBUrl) {
+          const issuerCouch = nano(issuerDoc.couchDBUrl);
+          const issuerWalletDb = issuerCouch.use('wallet_issuer_credentials');
+          const templateDoc = await issuerWalletDb.get(credentialId);
+          templateBadgeImage = templateDoc.badgeImage || '';
+          templateSkills = templateDoc.skills || [];
+        }
+      } catch (tErr) {
+        console.warn('[ISSUE] Could not fetch template for badgeImage/skills:', tErr.message);
+      }
+
       const couchResult = await couchdbService.saveIssuedCredentialToBothDBs(user.email, {
         ...credentialData,
         holderID: holderID,
-        expiryDate: expiryDate || null
+        expiryDate: expiryDate || null,
+        badgeImage: templateBadgeImage,  // - polo
+        skills: credentialData.skills?.length > 0 ? credentialData.skills : templateSkills  // - polo
       });
 
       console.log(`[ISSUE] ✅ CouchDB save successful:`, couchResult.message);

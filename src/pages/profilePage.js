@@ -149,9 +149,14 @@ export default function ProfilePage() {
     setHistoryError(null);
   };
 
-  // Derive skills from credentials (same source, no extra fetch)
-  // - polo
-  const derivedSkills = [...new Set(credentials.map(c => c.credentialType).filter(Boolean))];
+  // Derive skills from credentials — reads skills array first, falls back to credentialType - polo
+  const derivedSkills = [...new Set(
+    credentials.flatMap(c =>
+      Array.isArray(c.skills) && c.skills.length > 0
+        ? c.skills
+        : (c.credentialType ? [c.credentialType] : [])
+    )
+  )];
 
   // Drag-to-reorder handlers - polo
   const handleDragStart = (index) => {
@@ -432,7 +437,11 @@ export default function ProfilePage() {
                   {cred.visibility === 'public' && (
                     <div className="public-indicator" title="Visible on your public profile">🌐</div>
                   )}
-                  <div className="badge-image">🎓</div>
+                  <div className="badge-image">
+                    {cred.badgeImage ? (
+                      <img src={cred.badgeImage} alt="badge" style={{width: 60, height: 60, objectFit: 'cover', borderRadius: 8}} />
+                    ) : '🎓'}
+                  </div>
                   <h4>{cred.credentialName}</h4>
                   <StatusPill status={cred.status} />
                   <p className="badge-issuer">Issued by {cred.issuerName}</p>
@@ -451,10 +460,7 @@ export default function ProfilePage() {
         )}
       </section>
 
-      {/* Skills Wallet — derived from credentials (no separate fetch)
-          Technical: Extracts unique credentialTypes from fetched credentials
-          // - polo
-      */}
+      {/* Skills Wallet — reads skills array from credentials, falls back to credentialType - polo */}
       <section className="profile-section">
         <div className="section-header">
           <h3>Skills Wallet</h3>
@@ -462,16 +468,23 @@ export default function ProfilePage() {
         {derivedSkills.length === 0 ? (
           <div className="empty-card">No skills derived yet. Skills are based on your issued credentials.</div>
         ) : (
-          <div className="skills-grid">
-            {derivedSkills.map((skill, idx) => (
-              <div key={idx} className="skill-card">
-                <div className="skill-info">
-                  <h4>{skill}</h4>
-                  <p>Derived from your issued credentials</p>
+          <>
+            <div className="skills-grid">
+              {derivedSkills.map((skill, idx) => (
+                <div key={idx} className="skill-card">
+                  <div className="skill-info">
+                    <h4>{skill}</h4>
+                    <p>Derived from your issued credentials</p>
+                  </div>
                 </div>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+            <div className="skills-count">
+              {derivedSkills.length} {derivedSkills.length !== 1 ? 'skills' : 'skill'} from{' '}
+              {credentials.filter(c => Array.isArray(c.skills) && c.skills.length > 0).length}{' '}
+              {credentials.filter(c => Array.isArray(c.skills) && c.skills.length > 0).length !== 1 ? 'credentials' : 'credential'}
+            </div>
+          </>
         )}
       </section>
 

@@ -68,9 +68,14 @@ export default function ProfilePreview() {
     );
   }
 
-  // Derive skills from credentials (same as profilePage)
-  // - polo
-  const derivedSkills = [...new Set(credentials.map(c => c.credentialType).filter(Boolean))];
+  // Derive skills from credentials — reads skills array first, falls back to credentialType - polo
+  const derivedSkills = [...new Set(
+    credentials.flatMap(c =>
+      Array.isArray(c.skills) && c.skills.length > 0
+        ? c.skills
+        : (c.credentialType ? [c.credentialType] : [])
+    )
+  )];
 
   return (
     <div className="profile-preview">
@@ -118,7 +123,11 @@ export default function ProfilePreview() {
           {!credLoading && credentials.map((cred, index) => (
             <div key={cred._id} className={`badge-list-item ${cred.status === 'revoked' ? 'revoked-card' : ''}`}>
               <div className="badge-order-num">{index + 1}</div>
-              <div className="badge-img-small">🎓</div>
+              <div className="badge-img-small">
+                {cred.badgeImage ? (
+                  <img src={cred.badgeImage} alt="badge" style={{width: 40, height: 40, objectFit: 'cover', borderRadius: 6}} />
+                ) : '🎓'}
+              </div>
               <div className="badge-info">
                 <h4>{cred.credentialName}</h4>
                 <p className="issuer">{cred.issuerName}</p>
@@ -137,7 +146,7 @@ export default function ProfilePreview() {
         </div>
       </section>
 
-      {/* Skills Section */}
+      {/* Skills Section — reads skills array from credentials, falls back to credentialType - polo */}
       <section className="skills-section">
         <h3>Skills</h3>
         <div className="skills-grid">
@@ -149,6 +158,11 @@ export default function ProfilePreview() {
             ))
           )}
         </div>
+        {derivedSkills.length > 0 && (
+          <p className="skills-count-preview">
+            {derivedSkills.length} {derivedSkills.length !== 1 ? 'skills' : 'skill'} verified via blockchain
+          </p>
+        )}
       </section>
 
       {/* Footer */}

@@ -647,7 +647,9 @@ enableUser: async (userId, reason) => {
         credentialType: credentialData.credentialType,
         credentialName: credentialData.credentialName,
         description: credentialData.description,
-        metadata: credentialData.metadata
+        metadata: credentialData.metadata,
+        skills: credentialData.skills || [],          // - polo
+        badgeImage: credentialData.badgeImage || ''   // - polo
       });
 
       /* Step 2: Return backend response

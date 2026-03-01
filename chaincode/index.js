@@ -13,8 +13,7 @@
   - InitLedger(ctx)
 
   CATEGORY: CREDENTIAL TEMPLATE LIFECYCLE
-  - CreateCredentialTemplate(ctx, id, issuerID, credentialType, credentialName, description, metadata)
-
+  - CreateCredentialTemplate(ctx, id, issuerID, credentialType, credentialName, description, metadata, skillsJson) 
   CATEGORY: ISSUED CREDENTIAL INSTANCES
   - IssueCredential(ctx, templateId, holderID, expiryDate)
 
@@ -94,7 +93,7 @@ class ChainCertContract extends Contract {
     Tropang Ex:
     issuer makes template and is added to its list of credentials na pwede iisue sa mga users/holders
   */
-  async CreateCredentialTemplate(ctx, id, issuerID, credentialType, credentialName, description, metadata) {
+  async CreateCredentialTemplate(ctx, id, issuerID, credentialType, credentialName, description, metadata, skillsJson) {
     
     /* Step 1: Check if a credential template with the same ID already exists
 
@@ -131,6 +130,16 @@ class ChainCertContract extends Contract {
       txTimestamp.seconds * 1000 + Math.floor(txTimestamp.nanos / 1000000)
     ).toISOString();
 
+    /* Step 2.5: Parse skills JSON - polo */
+    let skills = [];
+    try {
+      if (skillsJson && skillsJson !== '[]' && skillsJson !== '') {
+        skills = JSON.parse(skillsJson);
+      }
+    } catch (err) {
+      console.warn('[CHAINCODE] Could not parse skillsJson, defaulting to []:', err.message);
+    }
+
     /* Step 3: Build the credential template object
 
        Technical:
@@ -145,16 +154,17 @@ class ChainCertContract extends Contract {
     */
     const credential = {
       id: id,
-      holderID: "",        // ✅ EMPTY - This is a template
+      holderID: "",
       issuerID: issuerID,
       credentialType: credentialType,
-      credentialName: credentialName,      // ✅ NEW
-      description: description,            // ✅ NEW
+      credentialName: credentialName,
+      description: description,
       issuedDate: issuedDate,
       status: 'active',
       metadata: metadata,
+      skills: skills,      // - polo
       version: 1,
-      isTemplate: true     // ✅ Flag to indicate this is a template
+      isTemplate: true
     };
 
     /* Step 4: Write the template to the ledger
@@ -281,6 +291,7 @@ class ChainCertContract extends Contract {
 
       // 5. Metadata & versioning
       metadata: template.metadata,
+      skills: template.skills || [],  // - polo: carry over skills from template
       version: template.version,
       isTemplate: false,
 

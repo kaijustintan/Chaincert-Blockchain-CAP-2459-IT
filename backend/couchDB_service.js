@@ -1086,7 +1086,9 @@ async function saveIssuedCredentialToBothDBs(issuerEmail, credentialData) {
       blockchainId: blockchainId,
       savedToCouchDBAt: new Date().toISOString(),
       status: credentialData.status || 'issued',
-      visibility: 'private'
+      visibility: 'private',
+      skills: credentialData.skills || [],          // - polo
+      badgeImage: credentialData.badgeImage || ''   // - polo
     };
     console.log(`[COUCHDB] 1️⃣ Saving to ISSUER DB: ${issuer.couchDBUrl}/issued_credentials`);
     const issuerResult = await issuerWalletDb.insert(credentialDoc);

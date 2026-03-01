@@ -20,6 +20,14 @@ export default function IssuerDashboard() {
   const [createError, setCreateError] = useState("");
   const [createLoading, setCreateLoading] = useState(false);
 
+  // Skills state for create form - polo
+  const [skillInput, setSkillInput] = useState("");
+  const [skillsList, setSkillsList] = useState([]);
+
+  // Badge image state for create form - polo
+  const [badgeImageBase64, setBadgeImageBase64] = useState("");
+  const [badgeImagePreview, setBadgeImagePreview] = useState("");
+
   // Issue Credential Modal State
   const [showIssueModal, setShowIssueModal] = useState(false);
   const [issueForm, setIssueForm] = useState({
@@ -220,7 +228,34 @@ export default function IssuerDashboard() {
     }
   };
 
-  // Create Modal handlers
+  // Skills handlers - polo
+  const handleAddSkill = () => {
+    const trimmed = skillInput.trim();
+    if (!trimmed) return;
+    if (skillsList.includes(trimmed)) {
+      alert('Skill already added.');
+      return;
+    }
+    setSkillsList(prev => [...prev, trimmed]);
+    setSkillInput("");
+  };
+
+  const handleRemoveSkill = (skillToRemove) => {
+    setSkillsList(prev => prev.filter(s => s !== skillToRemove));
+  };
+
+  // Badge image handler - polo
+  const handleBadgeImageChange = (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      setBadgeImageBase64(reader.result);
+      setBadgeImagePreview(reader.result);
+    };
+    reader.readAsDataURL(file);
+  };
+
   const openCreateModal = () => {
     setShowCreateModal(true);
     setCreateError("");
@@ -230,12 +265,20 @@ export default function IssuerDashboard() {
       description: "",
       metadata: "",
     });
+    setSkillsList([]);       // - polo
+    setSkillInput("");       // - polo
+    setBadgeImageBase64(""); // - polo
+    setBadgeImagePreview(""); // - polo
   };
 
   const closeCreateModal = () => {
     setShowCreateModal(false);
     setCreateError("");
     setCreateLoading(false);
+    setSkillsList([]);        // - polo
+    setSkillInput("");        // - polo
+    setBadgeImageBase64("");  // - polo
+    setBadgeImagePreview(""); // - polo
   };
 
   const handleCreateFormChange = (e) => {
@@ -267,6 +310,8 @@ export default function IssuerDashboard() {
         credentialName: createForm.credentialName,
         description: createForm.description,
         metadata: createForm.metadata,
+        skills: skillsList,           // - polo
+        badgeImage: badgeImageBase64, // - polo
       });
 
       alert("Credential created successfully!");
@@ -431,6 +476,51 @@ export default function IssuerDashboard() {
                   onChange={handleCreateFormChange}
                   placeholder="e.g. Level: Manager"
                 />
+              </div>
+
+              {/* Skills field - polo */}
+              <div className="form-group">
+                <label>Skills (optional):</label>
+                <div className="skills-input-row">
+                  <input
+                    type="text"
+                    value={skillInput}
+                    onChange={(e) => setSkillInput(e.target.value)}
+                    onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleAddSkill(); }}}
+                    placeholder="e.g. Python, Project Management"
+                  />
+                  <button type="button" className="add-skill-btn" onClick={handleAddSkill}>
+                    + Add Skill
+                  </button>
+                </div>
+                {skillsList.length > 0 && (
+                  <div className="skills-tags">
+                    {skillsList.map((skill, idx) => (
+                      <span key={idx} className="skill-tag">
+                        {skill}
+                        <button type="button" onClick={() => handleRemoveSkill(skill)}>×</button>
+                      </span>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* Badge image upload - polo */}
+              <div className="form-group">
+                <label>Badge Image (optional):</label>
+                <input
+                  type="file"
+                  accept="image/png, image/jpeg, image/gif"
+                  onChange={handleBadgeImageChange}
+                />
+                {badgeImagePreview && (
+                  <div className="badge-preview">
+                    <img src={badgeImagePreview} alt="Badge preview" style={{width: 80, height: 80, objectFit: 'cover', borderRadius: 8, marginTop: 8}} />
+                    <button type="button" onClick={() => { setBadgeImageBase64(""); setBadgeImagePreview(""); }} style={{marginLeft: 8, fontSize: '0.8rem'}}>
+                      Remove
+                    </button>
+                  </div>
+                )}
               </div>
 
               {createError && (

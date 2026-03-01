@@ -56,6 +56,7 @@
 */
 
 const express = require('express');          // Express framework for building REST APIs
+const cron = require('node-cron');           // For expiry of credentials
 const cors = require('cors');                // Enables Cross-Origin Resource Sharing (CORS)
 const { Gateway, Wallets } = require('fabric-network'); // Hyperledger Fabric SDK (connect to blockchain + manage identities)
 const path = require('path');                // Node utility for handling file and directory paths
@@ -1231,7 +1232,99 @@ app.get('/api/admin/issuer-decision-logs/:issuerEmail', (req, res) => {
 });
 // ==========================================================================================================================================================================
 
+// ==========================================================================================================================================================================
+//                                                         AUTO EXPIRY LOGIC - polo
+// ==========================================================================================================================================================================
 
+/*
+  Function Name: runExpiryCheck
+
+  Technical:
+  Calls checkAndExpireCredentials() from CouchDB service to find and mark expired credentials.
+  For each expired credential, submits ExpireCredential transaction to blockchain
+  so it appears in credential history.
+  Called by: midnight cron job + manual trigger endpoint // - polo
+*/
+async function runExpiryCheck() {
+  console.log('[EXPIRY] Running expiry check...');
+  let gateway = null;
+
+  try {
+    /* Step 1: Update CouchDB first - polo */
+    const expiredList = await couchdb.checkAndExpireCredentials();
+
+    if (expiredList.length === 0) {
+      console.log('[EXPIRY] No credentials to expire.');
+      return { expired: 0, results: [] };
+    }
+
+    /* Step 2: Log each expired credential to blockchain - polo */
+    const results = [];
+
+    for (const item of expiredList) {
+      try {
+        const { gateway: gw, contract } = await getContractAndGateway(
+          'chaincert-admin',
+          'Org1'
+        );
+        gateway = gw;
+
+        await contract.submitTransaction('ExpireCredential', item.blockchainId);
+        console.log(`[EXPIRY] ✅ Blockchain logged: ${item.blockchainId}`);
+        results.push({ blockchainId: item.blockchainId, success: true });
+
+      } catch (bcErr) {
+        console.warn(`[EXPIRY] ⚠️ Blockchain log failed for ${item.blockchainId}:`, bcErr.message);
+        results.push({ blockchainId: item.blockchainId, success: false, error: bcErr.message });
+      } finally {
+        try { if (gateway) await gateway.disconnect(); } catch (_) {}
+        gateway = null;
+      }
+    }
+
+    console.log(`[EXPIRY] ✅ Expiry check complete. ${results.length} processed.`);
+    return { expired: results.length, results };
+
+  } catch (error) {
+    console.error('[EXPIRY] ❌ Expiry check failed:', error.message);
+    throw error;
+  }
+}
+
+/* Midnight cron job — runs every day at 12:00 AM - polo */
+cron.schedule('0 0 * * *', async () => {
+  console.log('[CRON] Midnight expiry check triggered...');
+  try {
+    await runExpiryCheck();
+  } catch (err) {
+    console.error('[CRON] ❌ Expiry cron failed:', err.message);
+  }
+});
+console.log('✅ [CRON] Midnight expiry cron job scheduled');
+
+/*
+  Endpoint: POST /api/admin/trigger-expiry-check
+  Technical: Manually triggers the expiry check — for demo/testing purposes
+  Same logic as midnight cron job but on-demand // - polo
+*/
+app.post('/api/admin/trigger-expiry-check', async (req, res) => {
+  try {
+    console.log('[EXPIRY] Manual trigger by admin...');
+    const result = await runExpiryCheck();
+    return res.status(200).json({
+      success: true,
+      message: `Expiry check complete. ${result.expired} credential(s) expired.`,
+      results: result.results,
+      timestamp: new Date().toISOString()
+    });
+  } catch (error) {
+    console.error('[EXPIRY] ❌ Manual trigger failed:', error.message);
+    return res.status(500).json({
+      success: false,
+      message: error.message
+    });
+  }
+});
 
 module.exports = {
   getContractAndGateway

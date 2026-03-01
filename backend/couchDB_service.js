@@ -2003,6 +2003,95 @@ async function enableUser(userId, adminId, reason) {
 }
 
 // ==========================================================================================================================================================================
+/*
+  Function Name: checkAndExpireCredentials
+
+  Technical:
+  Scans ALL credentials in wallet_user_credentials and issued_credentials.
+  For each credential where:
+    - status is 'issued' or 'active'
+    - expiryDate exists AND current date has passed it
+  → Updates CouchDB status to 'expired' in both DBs
+  → Returns list of expired credential IDs for blockchain logging by caller
+
+  Called by: midnight cron job in sdk-server-fixed.js
+  CouchDB update only — blockchain log handled separately by caller // - polo
+*/
+async function checkAndExpireCredentials() {
+  try {
+    console.log('[EXPIRY] Starting credential expiry check...');
+
+    const now = new Date();
+    const adminCouch = require('nano')(COUCHDB_URL);
+    const userWalletDb = adminCouch.use('wallet_user_credentials');
+
+    /* Step 1: Fetch all credentials from wallet_user_credentials - polo */
+    const result = await userWalletDb.find({
+      selector: {
+        $or: [
+          { status: 'issued' },
+          { status: 'active' }
+        ]
+      }
+    });
+
+    const expiredIds = [];
+
+    /* Step 2: Check each credential's expiryDate - polo */
+    for (const doc of result.docs) {
+      if (!doc.expiryDate) continue;
+
+      const expiry = new Date(doc.expiryDate);
+      if (now <= expiry) continue;
+
+      /* Step 3: Update wallet_user_credentials - polo */
+      doc.status = 'expired';
+      doc.expiredAt = now.toISOString();
+      await userWalletDb.insert(doc);
+      console.log(`[EXPIRY] ✅ Expired in wallet_user_credentials: ${doc._id}`);
+
+      /* Step 4: Update issued_credentials on issuer side - polo */
+      if (doc.issuerEmail) {
+        try {
+          const issuer = await getIssuerByEmail(doc.issuerEmail);
+          if (issuer && issuer.couchDBUrl) {
+            const issuerCouch = require('nano')(issuer.couchDBUrl);
+            const issuedDb = issuerCouch.use('issued_credentials');
+            const issuerDocId = `issuer_cred_${doc.blockchainId}`;
+            try {
+              const issuerDoc = await issuedDb.get(issuerDocId);
+              issuerDoc.status = 'expired';
+              issuerDoc.expiredAt = now.toISOString();
+              await issuedDb.insert(issuerDoc);
+              console.log(`[EXPIRY] ✅ Expired in issued_credentials: ${issuerDocId}`);
+            } catch (err) {
+              console.warn(`[EXPIRY] ⚠️ Could not update issuer-side doc (${issuerDocId}):`, err.message);
+            }
+          }
+        } catch (err) {
+          console.warn(`[EXPIRY] ⚠️ Could not resolve issuer for ${doc._id}:`, err.message);
+        }
+      }
+
+      /* Step 5: Collect blockchainId for blockchain logging by caller - polo */
+      if (doc.blockchainId) {
+        expiredIds.push({
+          blockchainId: doc.blockchainId,
+          holderID: doc.holderID
+        });
+      }
+    }
+
+    console.log(`[EXPIRY] ✅ Done. ${expiredIds.length} credential(s) expired.`);
+    return expiredIds;
+
+  } catch (error) {
+    console.error('[EXPIRY] ❌ Error during expiry check:', error.message);
+    throw error;
+  }
+}
+
+// ==========================================================================================================================================================================
 
 module.exports = {
   // Core initialization
@@ -2056,6 +2145,7 @@ module.exports = {
   deleteIssuerCredentialTemplate,
   revokeCredential,
   verifyCredentialFromCouchDB, // ✅ UPDATED: Now properly cleans credential IDs
+  checkAndExpireCredentials,  // - polo
 
   // ADMIN DASHBOARD
   getApprovedIssuers,

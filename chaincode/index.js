@@ -21,6 +21,7 @@
   CATEGORY: VERIFICATION & REVOCATION
   - VerifyCredentialByID(ctx, credentialId)
   - RevokeCredential(ctx, id)
+  - ExpireCredential(ctx, id)  // - polo
 
   CATEGORY: UTILITY CHECKS
   - Check_CredentialExists(ctx, id)
@@ -976,6 +977,72 @@ async GetAllVerificationLogs(ctx) {
   return JSON.stringify(updatedCredential);
 }
 
+// ==========================================================================================================================================================================
+
+  /*
+    Function Name: ExpireCredential
+
+    Technical:
+    Marks a credential as expired on the blockchain ledger.
+    Called by the backend cron job when current date exceeds expiryDate.
+    Same canonical field order as RevokeCredential for deterministic endorsement.
+    Logs to blockchain so it appears in credential history. // - polo
+
+    Tropang Ex:
+    Kapag lumagpas na sa expiry date yung credential, dito papasok yung cron job
+    para ma-update yung status sa blockchain to 'expired'.
+    Makikita sa history ng credential kung kailan nag-expire.
+  */
+  async ExpireCredential(ctx, id) {
+
+    /* Step 1: Load credential from ledger - polo */
+    const credentialJSON = await ctx.stub.getState(id);
+    if (!credentialJSON || credentialJSON.length === 0) {
+      throw new Error(`Credential ${id} does not exist`);
+    }
+
+    /* Step 2: Parse credential - polo */
+    const credential = JSON.parse(credentialJSON.toString());
+
+    /* Step 3: Guard — only expire if currently issued/active - polo */
+    if (credential.status === 'revoked' || credential.status === 'expired') {
+      throw new Error(`Credential ${id} is already ${credential.status}, cannot expire`);
+    }
+
+    /* Step 4: Get deterministic blockchain timestamp - polo */
+    const txTimestamp = ctx.stub.getTxTimestamp();
+    const expiredAt = new Date(
+      txTimestamp.seconds * 1000 + Math.floor(txTimestamp.nanos / 1000000)
+    ).toISOString();
+
+    /* Step 5: Build updated credential with canonical field order
+       (same pattern as RevokeCredential for deterministic endorsement) - polo
+    */
+    const updatedCredential = {
+      id: credential.id,
+      holderID: credential.holderID,
+      issuerID: credential.issuerID,
+      credentialType: credential.credentialType,
+      credentialName: credential.credentialName,
+      description: credential.description,
+      issuedDate: credential.issuedDate,
+      status: 'expired',
+      expiryDate: credential.expiryDate || '',
+      assignedDate: credential.assignedDate,
+      metadata: credential.metadata,
+      version: credential.version,
+      isTemplate: credential.isTemplate,
+      txId: credential.txId,
+      expiredAt: expiredAt  // - polo
+    };
+
+    /* Step 6: Write updated credential back to ledger - polo */
+    await ctx.stub.putState(id, Buffer.from(JSON.stringify(updatedCredential)));
+    console.log('✅ Credential expired on ledger:', id);
+
+    /* Step 7: Return updated credential - polo */
+    return JSON.stringify(updatedCredential);
+  }
 
 // ==========================================================================================================================================================================
 

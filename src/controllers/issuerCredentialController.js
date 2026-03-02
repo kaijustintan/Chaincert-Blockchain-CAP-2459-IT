@@ -1291,11 +1291,7 @@ exports.revoke_Credential = async (req, res, getContractAndGateway) => {
 exports.getEligibleUsersForTemplate = async (req, res) => {
   try {
 
-    /* Step 1: Extract templateId from params
-
-      Tropang Ex:
-      Ito yung template na napili sa dropdown (basis ng filtering).
-    */
+    /* Step 1: Extract templateId from params */
     const { templateId } = req.params;
 
     if (!templateId) {
@@ -1305,11 +1301,7 @@ exports.getEligibleUsersForTemplate = async (req, res) => {
       });
     }
 
-    /* Step 2: Ensure requester is authenticated
-
-      Tropang Ex:
-      Dapat naka-login bago makapag-load ng eligible users list.
-    */
+    /* Step 2: Ensure requester is authenticated */
     const user = req.user;
     if (!user) {
       return res.status(401).json({
@@ -1318,11 +1310,7 @@ exports.getEligibleUsersForTemplate = async (req, res) => {
       });
     }
 
-    /* Step 3: Restrict access to ISSUER (and optionally admin if you want)
-
-      Tropang Ex:
-      Issuer lang dapat may access dito kasi sila yung nag-iissue.
-    */
+    /* Step 3: Restrict access */
     if (user.role !== 'issuer' && user.role !== 'admin') {
       return res.status(403).json({
         success: false,
@@ -1330,51 +1318,31 @@ exports.getEligibleUsersForTemplate = async (req, res) => {
       });
     }
 
-    /* Step 4: Fetch ALL users from users DB (raw)
-
-      Tropang Ex:
-      Ito yung raw list ng possible recipients (students/regular users).
-      Note: Versatile si getAllUsers(), so dito na natin i-aapply yung "exclude admins".
-    */
+    /* Step 4: Fetch all users (raw) */
     const allUsersRaw = await couchdbService.getAllUsers();
 
-    /* Step 5: Fetch BLOCKED holderIDs for this templateId
-
-      Technical:
-      These are users who already have a STILL-VALID instance of this template.
-
-      Tropang Ex:
-      Ito yung listahan ng "bawal muna" bigyan ulit ng same template.
-    */
+    /* Step 5: Get blocked holderIDs (duplicate prevention logic) */
     const blockedHolderIDs = await couchdbService.getBlockedHolderIDsByTemplate(templateId);
     const blockedSet = new Set(blockedHolderIDs);
 
-    /* Step 6: Filter eligible users
-      Filters applied:
-        - exclude design docs (if any)
-        - exclude admin roles
-        - exclude blocked holderIDs (active credentials for same template)
+    /* Step 6: Apply ALL eligibility filters
 
-      Tropang Ex:
-      Tatanggalin natin sa dropdown:
-        - admins
-        - design docs
-        - users na meron pang active copy ng same template
+       Filters:
+       - exclude design docs
+       - exclude admin role
+       - exclude disabled users (isActive === false)
+       - exclude blocked users (duplicate active credential)
     */
     const eligibleUsers = (allUsersRaw || [])
       .filter(u => u && !String(u._id || '').startsWith('_design'))
-      .filter(u => String(u.role || '').toLowerCase() !== 'admin') // ✅ FINAL FIX
+      .filter(u => String(u.role || '').toLowerCase() !== 'admin')
+      .filter(u => u.isActive !== false) // ✅ NEW: prevent issuing to disabled users
       .filter(u => {
         const uid = u._id || u.id;
         return uid && !blockedSet.has(uid);
       });
 
-    /* Step 7: Optional: Sanitize output (recommended)
-      Technical:
-      Avoid sending sensitive fields (password hashes, etc.)
-      Tropang Ex:
-      Pang-dropdown lang — wag isama yung confidential data.
-    */
+    /* Step 7: Sanitize output */
     const safeEligibleUsers = eligibleUsers.map(u => ({
       _id: u._id,
       email: u.email,
@@ -1382,14 +1350,11 @@ exports.getEligibleUsersForTemplate = async (req, res) => {
       lastName: u.lastName,
       name: u.name || `${u.firstName || ''} ${u.lastName || ''}`.trim(),
       role: u.role,
-      status: u.status
+      status: u.status,
+      isActive: u.isActive
     }));
 
-    /* Step 8: Return success response
-
-      Tropang Ex:
-      Ito yung gagamitin ng frontend para i-populate ang users dropdown.
-    */
+    /* Step 8: Return response */
     return res.status(200).json({
       success: true,
       templateId: templateId,

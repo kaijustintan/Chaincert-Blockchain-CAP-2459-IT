@@ -675,61 +675,98 @@ async LogUserStatusChange(ctx, userEmail, previousStatus, newStatus, reason) {
 }
 // ==========================================================================================================================================================================
 
+// ==========================================================================================================================================================================
+// Get ALL status-change logs of a particular ISSUER email
+// ==========================================================================================================================================================================
+// ==========================================================================================================================================================================
+// Get ALL status-change logs of a particular ISSUER email
+// ==========================================================================================================================================================================
 async GetIssuerStatusLogs(ctx, issuerEmail) {
 
   if (!issuerEmail) {
     throw new Error("issuerEmail is required");
   }
 
+  const normalizedEmail = issuerEmail.toLowerCase();
   const iterator = await ctx.stub.getStateByRange('', '');
   const results = [];
 
   let res = await iterator.next();
   while (!res.done) {
     if (res.value && res.value.value) {
-      const parsed = JSON.parse(res.value.value.toString('utf8'));
+      try {
+        const parsed = JSON.parse(res.value.value.toString('utf8'));
 
-      if (
-        parsed.type === "issuer_status_change" &&
-        parsed.issuerEmail === issuerEmail
-      ) {
-        results.push(parsed);
+        if (
+          parsed.type === "issuer_status_change" &&
+          parsed.issuerEmail &&
+          parsed.issuerEmail.toLowerCase() === normalizedEmail
+        ) {
+          results.push(parsed);
+        }
+
+      } catch (err) {
+        console.warn(
+          "⚠️ GetIssuerStatusLogs: failed to parse record, skipping.",
+          err.message
+        );
       }
     }
+
     res = await iterator.next();
   }
 
   await iterator.close();
 
+  // Sort most recent first
+  results.sort((a, b) => new Date(b.timestamp || 0) - new Date(a.timestamp || 0));
+
   return JSON.stringify(results);
 }
 // ==========================================================================================================================================================================
 
+// ==========================================================================================================================================================================
+// Get ALL status-change logs of a particular USER email
+// ==========================================================================================================================================================================
 async GetUserStatusLogs(ctx, userEmail) {
 
   if (!userEmail) {
     throw new Error("userEmail is required");
   }
 
+  const normalizedEmail = userEmail.toLowerCase();
   const iterator = await ctx.stub.getStateByRange('', '');
   const results = [];
 
   let res = await iterator.next();
   while (!res.done) {
     if (res.value && res.value.value) {
-      const parsed = JSON.parse(res.value.value.toString('utf8'));
+      try {
+        const parsed = JSON.parse(res.value.value.toString('utf8'));
 
-      if (
-        parsed.type === "user_status_change" &&
-        parsed.userEmail === userEmail
-      ) {
-        results.push(parsed);
+        if (
+          parsed.type === "user_status_change" &&
+          parsed.userEmail &&
+          parsed.userEmail.toLowerCase() === normalizedEmail
+        ) {
+          results.push(parsed);
+        }
+
+      } catch (err) {
+        console.warn(
+          "⚠️ GetUserStatusLogs: failed to parse record, skipping.",
+          err.message
+        );
       }
     }
+
     res = await iterator.next();
   }
 
   await iterator.close();
+
+  // Sort most recent first
+  results.sort((a, b) => new Date(b.timestamp || 0) - new Date(a.timestamp || 0));
 
   return JSON.stringify(results);
 }
@@ -1691,34 +1728,49 @@ async GetAllVerificationLogs(ctx) {
       // =========================================================================================================
 // QUERY: Get issuer approval/rejection logs (filtered by email)
 // =========================================================================================================
-      async GetIssuerDecisionLogs(ctx, issuerEmail) {
+      // ==========================================================================================================================================================================
+// Get ALL issuer decision logs for a specific issuer email
+// ==========================================================================================================================================================================
+    async GetIssuerDecisionLogs(ctx, issuerEmail) {
 
-        if (!issuerEmail) {
-          throw new Error("issuerEmail is required");
-        }
+      if (!issuerEmail) {
+        throw new Error("issuerEmail is required");
+      }
 
-        const iterator = await ctx.stub.getStateByRange('', '');
-        const results = [];
+      const normalizedEmail = issuerEmail.toLowerCase();
+      const iterator = await ctx.stub.getStateByRange('', '');
+      const results = [];
 
-        let res = await iterator.next();
-        while (!res.done) {
-          if (res.value && res.value.value) {
+      let res = await iterator.next();
 
+      while (!res.done) {
+        if (res.value && res.value.value) {
+          try {
             const parsed = JSON.parse(res.value.value.toString('utf8'));
 
             if (
               parsed.type === "issuer_decision" &&
-              parsed.issuerEmail === issuerEmail
+              parsed.issuerEmail &&
+              parsed.issuerEmail.toLowerCase() === normalizedEmail
             ) {
               results.push(parsed);
             }
+
+          } catch (err) {
+            console.warn(
+              "⚠️ GetIssuerDecisionLogs: failed to parse record, skipping.",
+              err.message
+            );
           }
-          res = await iterator.next();
         }
 
-        await iterator.close();
-        return JSON.stringify(results);
+        res = await iterator.next();
       }
+
+      await iterator.close();
+
+      return JSON.stringify(results);
+    }
 }
 
 module.exports = ChainCertContract;

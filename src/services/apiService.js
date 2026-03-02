@@ -1029,6 +1029,59 @@ Get_AllStatusLogs: async () => {
     throw error;
   }
 },
+// ==========================================================================================================================================================================
+//                                       ADMIN / ISSUER DECISION LOGS (APPROVE / REJECT)
+// ==========================================================================================================================================================================
+
+/*
+  Function Name: Get_IssuerDecisionLogs_ByEmail
+
+  Technical:
+  Fetches blockchain issuer decision logs (approve/reject) for a specific issuer email via:
+    GET /api/admin/issuer-decision-logs/:issuerEmail
+
+  Tropang Ex:
+  Kapag gusto ni admin makita history ng approvals/rejections ng isang issuer (by email),
+  dito niya kukunin yung logs galing blockchain.
+*/
+Get_IssuerDecisionLogs_ByEmail: async (issuerEmail) => {
+  try {
+
+    /* Step 1: Validate input
+       Tropang Ex: Bawal empty email — wala tayong hahanapin sa blockchain.
+    */
+    if (!issuerEmail) {
+      throw new Error('issuerEmail is required');
+    }
+
+    /* Step 2: Send GET request to backend
+       Technical: backend calls chaincode GetIssuerDecisionLogs(issuerEmail)
+       Tropang Ex: Hihingi tayo kay backend ng decision logs ng issuer na 'to.
+    */
+    const response = await axios.get(
+      `/admin/issuer-decision-logs/${encodeURIComponent(issuerEmail)}`
+    );
+
+    /* Step 3: Return backend payload
+       Expected:
+       {
+         success: true,
+         logs: [...],
+         count: number
+       }
+    */
+    return response.data;
+
+  } catch (error) {
+
+    /* Step 4: Handle request errors */
+    console.error(
+      'Error fetching issuer decision logs by email:',
+      error.response?.data?.message || error.message
+    );
+    throw error;
+  }
+},
 
 // Get single verification log by ID
 Get_VerificationLogById: async (logId) => {

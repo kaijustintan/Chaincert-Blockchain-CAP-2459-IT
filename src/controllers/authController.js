@@ -967,6 +967,9 @@ getDisabledIssuers: async (req, res) => {
   }
 },
 
+// ========================================================================================================================================================================
+// ADMIN: ISSUER DECISION LOGS (SPECIFIC EMAIL)
+// ========================================================================================================================================================================
 getIssuerDecisionLogs: async (req, res, getContractAndGateway) => {
   let gateway = null;
 
@@ -981,36 +984,49 @@ getIssuerDecisionLogs: async (req, res, getContractAndGateway) => {
     }
 
     if (typeof getContractAndGateway !== 'function') {
-      throw new Error('getContractAndGateway not provided');
+      return res.status(500).json({
+        success: false,
+        message: 'Blockchain gateway is not available'
+      });
     }
 
     const identityName = 'chaincert-admin';
     const orgName = 'Org1';
 
-    const { gateway: gw, contract } =
-      await getContractAndGateway(identityName, orgName);
+    const cg = await getContractAndGateway(identityName, orgName);
+    gateway = cg.gateway;
+    const contract = cg.contract;
 
-    gateway = gw;
-
-    const result = await contract.evaluateTransaction(
+    const resultBuffer = await contract.evaluateTransaction(
       'GetIssuerDecisionLogs',
       issuerEmail
     );
 
-    const parsed = JSON.parse(result.toString());
+    const raw = resultBuffer.toString();
+
+    let logs;
+    try {
+      logs = JSON.parse(raw || '[]');
+    } catch (_) {
+      logs = [];
+    }
+
+    // Ensure array response
+    if (!Array.isArray(logs)) logs = [];
 
     return res.status(200).json({
       success: true,
-      logs: parsed,
-      count: parsed.length
+      logs,
+      count: logs.length
     });
 
   } catch (error) {
-    console.error('Error fetching issuer decision logs:', error);
+    console.error('getIssuerDecisionLogs error:', error);
     if (res.headersSent) return;
+
     return res.status(500).json({
       success: false,
-      message: error.message
+      message: error.message || 'Failed to fetch issuer decision logs'
     });
   } finally {
     try { if (gateway) await gateway.disconnect(); } catch (_) {}
@@ -1728,6 +1744,8 @@ getAllStatusLogs: async (req, res, getContractAndGateway) => {
     try { if (gateway) await gateway.disconnect(); } catch (_) {}
   }
 },
+
+
 
 };
 

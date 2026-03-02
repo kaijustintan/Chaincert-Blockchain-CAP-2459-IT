@@ -2064,6 +2064,147 @@ getUserStatusLogs: async (req, res, getContractAndGateway) => {
   }
 },
 
+// ========================================================================================================================================================================
+// ADMIN: ALL ISSUER DECISION LOGS (APPROVE + REJECT, ALL ISSUERS)
+// ========================================================================================================================================================================
+getAllIssuerDecisionLogs: async (req, res, getContractAndGateway) => {
+  let gateway;
+
+  try {
+    if (typeof getContractAndGateway !== 'function') {
+      return res.status(500).json({
+        success: false,
+        message: 'Blockchain gateway is not available'
+      });
+    }
+
+    const identityName = 'chaincert-admin';
+    const orgName = 'Org1';
+
+    const cg = await getContractAndGateway(identityName, orgName);
+    gateway = cg.gateway;
+    const contract = cg.contract;
+
+    const resultBuffer = await contract.evaluateTransaction('GetAllIssuerDecisionLogs');
+    const raw = resultBuffer.toString();
+
+    let logs;
+    try { logs = JSON.parse(raw || '[]'); } catch (_) { logs = []; }
+    if (!Array.isArray(logs)) logs = [];
+
+    return res.status(200).json({
+      success: true,
+      logs,
+      count: logs.length
+    });
+
+  } catch (error) {
+    console.error('getAllIssuerDecisionLogs error:', error);
+    if (res.headersSent) return;
+
+    return res.status(500).json({
+      success: false,
+      message: error.message || 'Failed to fetch issuer decision logs'
+    });
+  } finally {
+    try { if (gateway) await gateway.disconnect(); } catch (_) {}
+  }
+},
+
+// ========================================================================================================================================================================
+// ADMIN: ALL ISSUER APPROVAL LOGS (ALL ISSUERS)
+// ========================================================================================================================================================================
+getAllIssuerApprovalLogs: async (req, res, getContractAndGateway) => {
+  let gateway;
+
+  try {
+    if (typeof getContractAndGateway !== 'function') {
+      return res.status(500).json({
+        success: false,
+        message: 'Blockchain gateway is not available'
+      });
+    }
+
+    const identityName = 'chaincert-admin';
+    const orgName = 'Org1';
+
+    const cg = await getContractAndGateway(identityName, orgName);
+    gateway = cg.gateway;
+    const contract = cg.contract;
+
+    const resultBuffer = await contract.evaluateTransaction('GetAllIssuerApprovalLogs');
+    const raw = resultBuffer.toString();
+
+    let logs;
+    try { logs = JSON.parse(raw || '[]'); } catch (_) { logs = []; }
+    if (!Array.isArray(logs)) logs = [];
+
+    return res.status(200).json({
+      success: true,
+      logs,
+      count: logs.length
+    });
+
+  } catch (error) {
+    console.error('getAllIssuerApprovalLogs error:', error);
+    if (res.headersSent) return;
+
+    return res.status(500).json({
+      success: false,
+      message: error.message || 'Failed to fetch issuer approval logs'
+    });
+  } finally {
+    try { if (gateway) await gateway.disconnect(); } catch (_) {}
+  }
+},
+
+// ========================================================================================================================================================================
+// ADMIN: ALL ISSUER REJECTION LOGS (ALL ISSUERS)
+// ========================================================================================================================================================================
+getAllIssuerRejectionLogs: async (req, res, getContractAndGateway) => {
+  let gateway;
+
+  try {
+    if (typeof getContractAndGateway !== 'function') {
+      return res.status(500).json({
+        success: false,
+        message: 'Blockchain gateway is not available'
+      });
+    }
+
+    const identityName = 'chaincert-admin';
+    const orgName = 'Org1';
+
+    const cg = await getContractAndGateway(identityName, orgName);
+    gateway = cg.gateway;
+    const contract = cg.contract;
+
+    const resultBuffer = await contract.evaluateTransaction('GetAllIssuerRejectionLogs');
+    const raw = resultBuffer.toString();
+
+    let logs;
+    try { logs = JSON.parse(raw || '[]'); } catch (_) { logs = []; }
+    if (!Array.isArray(logs)) logs = [];
+
+    return res.status(200).json({
+      success: true,
+      logs,
+      count: logs.length
+    });
+
+  } catch (error) {
+    console.error('getAllIssuerRejectionLogs error:', error);
+    if (res.headersSent) return;
+
+    return res.status(500).json({
+      success: false,
+      message: error.message || 'Failed to fetch issuer rejection logs'
+    });
+  } finally {
+    try { if (gateway) await gateway.disconnect(); } catch (_) {}
+  }
+},
+
 
 };
 

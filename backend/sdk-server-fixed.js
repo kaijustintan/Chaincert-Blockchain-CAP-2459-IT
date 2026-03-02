@@ -1227,6 +1227,41 @@ app.post('/api/reject-issuer/:issuerId', (req, res) => {
 });
 // ==========================================================================================================================================================================
 
+/*
+  Endpoint: GET /api/admin/issuer-decision-logs
+
+  Technical:
+  Returns ALL onboarding actions (approvals + rejections) across ALL issuers
+  via chaincode GetAllIssuerDecisionLogs.
+*/
+app.get('/api/admin/issuer-decision-logs', (req, res) => {
+  authController.getAllIssuerDecisionLogs(req, res, getContractAndGateway);
+});
+
+/*
+  Endpoint: GET /api/admin/issuer-decision-logs/approved
+
+  Technical:
+  Returns ALL approval logs across ALL issuers
+  via chaincode GetAllIssuerApprovalLogs.
+*/
+app.get('/api/admin/issuer-decision-logs/approved', (req, res) => {
+  authController.getAllIssuerApprovalLogs(req, res, getContractAndGateway);
+});
+
+/*
+  Endpoint: GET /api/admin/issuer-decision-logs/rejected
+
+  Technical:
+  Returns ALL rejection logs across ALL issuers
+  via chaincode GetAllIssuerRejectionLogs.
+*/
+app.get('/api/admin/issuer-decision-logs/rejected', (req, res) => {
+  authController.getAllIssuerRejectionLogs(req, res, getContractAndGateway);
+});
+
+// ==========================================================================================================================================================================
+
 app.get('/api/admin/issuer-decision-logs/:issuerEmail', (req, res) => {
   authController.getIssuerDecisionLogs(req, res, getContractAndGateway);
 });

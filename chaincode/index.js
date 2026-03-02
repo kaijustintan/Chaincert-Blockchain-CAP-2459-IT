@@ -1908,6 +1908,126 @@ async GetAllUserStatusLogs(ctx) {
   return JSON.stringify(results);
 }
 
+// ==========================================================================================================================================================================
+// NEW: Get ALL issuer decision logs (ALL issuers) - approvals + rejections
+// ==========================================================================================================================================================================
+async GetAllIssuerDecisionLogs(ctx) {
+
+  const iterator = await ctx.stub.getStateByRange('', '');
+  const results = [];
+
+  let res = await iterator.next();
+
+  while (!res.done) {
+    if (res.value && res.value.value) {
+      try {
+        const parsed = JSON.parse(res.value.value.toString('utf8'));
+
+        if (parsed.type === "issuer_decision") {
+          results.push(parsed);
+        }
+
+      } catch (err) {
+        console.warn(
+          "⚠️ GetAllIssuerDecisionLogs: failed to parse record, skipping.",
+          err.message
+        );
+      }
+    }
+
+    res = await iterator.next();
+  }
+
+  await iterator.close();
+
+  // Most recent first (safe even if timestamp missing)
+  results.sort((a, b) => new Date(b.timestamp || 0) - new Date(a.timestamp || 0));
+
+  return JSON.stringify(results);
+}
+
+// ==========================================================================================================================================================================
+// NEW: Get ALL issuer APPROVAL logs (ALL issuers)
+// ==========================================================================================================================================================================
+async GetAllIssuerApprovalLogs(ctx) {
+
+  const iterator = await ctx.stub.getStateByRange('', '');
+  const results = [];
+
+  let res = await iterator.next();
+
+  while (!res.done) {
+    if (res.value && res.value.value) {
+      try {
+        const parsed = JSON.parse(res.value.value.toString('utf8'));
+
+        if (
+          parsed.type === "issuer_decision" &&
+          parsed.decision &&
+          parsed.decision.toLowerCase() === "approved"
+        ) {
+          results.push(parsed);
+        }
+
+      } catch (err) {
+        console.warn(
+          "⚠️ GetAllIssuerApprovalLogs: failed to parse record, skipping.",
+          err.message
+        );
+      }
+    }
+
+    res = await iterator.next();
+  }
+
+  await iterator.close();
+
+  results.sort((a, b) => new Date(b.timestamp || 0) - new Date(a.timestamp || 0));
+
+  return JSON.stringify(results);
+}
+
+// ==========================================================================================================================================================================
+// NEW: Get ALL issuer REJECTION logs (ALL issuers)
+// ==========================================================================================================================================================================
+async GetAllIssuerRejectionLogs(ctx) {
+
+  const iterator = await ctx.stub.getStateByRange('', '');
+  const results = [];
+
+  let res = await iterator.next();
+
+  while (!res.done) {
+    if (res.value && res.value.value) {
+      try {
+        const parsed = JSON.parse(res.value.value.toString('utf8'));
+
+        if (
+          parsed.type === "issuer_decision" &&
+          parsed.decision &&
+          parsed.decision.toLowerCase() === "rejected"
+        ) {
+          results.push(parsed);
+        }
+
+      } catch (err) {
+        console.warn(
+          "⚠️ GetAllIssuerRejectionLogs: failed to parse record, skipping.",
+          err.message
+        );
+      }
+    }
+
+    res = await iterator.next();
+  }
+
+  await iterator.close();
+
+  results.sort((a, b) => new Date(b.timestamp || 0) - new Date(a.timestamp || 0));
+
+  return JSON.stringify(results);
+}
+
 
 }
 

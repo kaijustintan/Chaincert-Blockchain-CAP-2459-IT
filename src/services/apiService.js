@@ -1406,6 +1406,70 @@ Get_UserStatusLogs_ByEmail: async (email) => {
   }
 },
 
+// ==========================================================================================================================================================================
+//                                       ADMIN / ISSUER DECISION LOGS (APPROVE / REJECT)
+// ==========================================================================================================================================================================
+
+/*
+  Function Name: Get_AllIssuerDecisionLogs
+
+  Technical:
+  Fetches ALL onboarding decision logs (approvals + rejections) across ALL issuers via:
+    GET /api/admin/issuer-decision-logs
+*/
+Get_AllIssuerDecisionLogs: async () => {
+  try {
+    const response = await axios.get('/admin/issuer-decision-logs');
+    return response.data; // { success, logs, count }
+  } catch (error) {
+    console.error(
+      'Error fetching ALL issuer decision logs:',
+      error.response?.data?.message || error.message
+    );
+    throw error;
+  }
+},
+
+/*
+  Function Name: Get_AllIssuerApprovalLogs
+
+  Technical:
+  Fetches ALL approval logs across ALL issuers via:
+    GET /api/admin/issuer-decision-logs/approved
+*/
+Get_AllIssuerApprovalLogs: async () => {
+  try {
+    const response = await axios.get('/admin/issuer-decision-logs/approved');
+    return response.data; // { success, logs, count }
+  } catch (error) {
+    console.error(
+      'Error fetching ALL issuer approval logs:',
+      error.response?.data?.message || error.message
+    );
+    throw error;
+  }
+},
+
+/*
+  Function Name: Get_AllIssuerRejectionLogs
+
+  Technical:
+  Fetches ALL rejection logs across ALL issuers via:
+    GET /api/admin/issuer-decision-logs/rejected
+*/
+Get_AllIssuerRejectionLogs: async () => {
+  try {
+    const response = await axios.get('/admin/issuer-decision-logs/rejected');
+    return response.data; // { success, logs, count }
+  } catch (error) {
+    console.error(
+      'Error fetching ALL issuer rejection logs:',
+      error.response?.data?.message || error.message
+    );
+    throw error;
+  }
+},
+
 
   // ==========================================================================================================================================================================
   //                                                               DEBUG / UTIL

@@ -719,6 +719,47 @@ enableUser: async (userId, reason) => {
   },
   // ==========================================================================================================================================================================
 
+  /*
+  Function Name: Check_IssuerHasTemplates
+
+  Technical:
+  Calls backend endpoint:
+    GET /api/auth/issuer/templates/exists
+
+  Returns:
+    {
+      success: true,
+      hasTemplates: boolean,
+      count: number
+    }
+
+  Tropang Ex:
+  Tatawagin bago mag-open ng "Issue Credential" form.
+  Kapag zero templates, mag-eerror muna.
+*/
+Check_IssuerHasTemplates: async () => {
+  try {
+
+    // Step 1: Send GET request to backend
+    const response = await axios.get('/auth/issuer/templates/exists');
+
+    // Step 2: Return full response payload
+    return response.data;
+
+  } catch (error) {
+
+    console.error(
+      'Error checking issuer templates:',
+      error.response?.data?.message || error.message
+    );
+
+    throw error;
+  }
+},
+
+  // ==========================================================================================================================================================================
+
+
     // ==========================================================================================================================================================================
 
   /*

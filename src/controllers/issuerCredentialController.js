@@ -621,6 +621,56 @@ exports.get_CredentialTemplatesByIssuerID = async (req, res) => {
 // ==========================================================================================================================================================================
 
 // ==========================================================================================================================================================================
+//                                                  CHECK TEMPLATE EXISTENCE (COUCHDB ONLY)
+// ==========================================================================================================================================================================
+
+/*
+  Function Name: check_IssuerHasTemplates
+
+  Technical:
+  Checks if the logged-in issuer has at least one credential template
+  inside their own CouchDB (wallet_issuer_credentials).
+
+  Uses:
+    couchDB_service.checkIssuerHasCredentialTemplates(issuerId)
+
+  Tropang Ex:
+  Pang-check bago payagan mag “+ Issue Credential”.
+  Kapag zero templates, bawal muna mag-issue.
+*/
+exports.check_IssuerHasTemplates = async (req, res) => {
+  try {
+
+    // Step 0: Authentication check
+    if (!req.user || !req.user.id) {
+      return res.status(401).json({
+        success: false,
+        message: 'Unauthorized'
+      });
+    }
+
+    const issuerId = req.user.id;
+
+    // Step 1: Call CouchDB service
+    const result = await couchdbService.checkIssuerHasCredentialTemplates(issuerId);
+
+    return res.status(200).json({
+      success: true,
+      hasTemplates: result.hasTemplates,
+      count: result.count
+    });
+
+  } catch (error) {
+    console.error('Error checking issuer template existence:', error.message);
+    return res.status(500).json({
+      success: false,
+      message: error.message
+    });
+  }
+};
+// ==========================================================================================================================================================================
+
+// ==========================================================================================================================================================================
 //                                                             GET ISSUER CREDENTIALS HISTORY (BLOCKCHAIN AUDIT TRAIL)
 // ==========================================================================================================================================================================
 

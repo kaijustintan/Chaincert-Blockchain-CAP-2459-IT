@@ -1765,6 +1765,63 @@ async function getIssuerTemplatesByIssuerId(issuerId) {
   }
 }
 // ==========================================================================================================================================================================
+/*
+  Function Name: checkIssuerHasCredentialTemplates
+
+  Technical:
+  Checks the issuer's OWN CouchDB (ex: DLSU port 9084 via issuer.couchDBUrl),
+  database: wallet_issuer_credentials
+  to determine whether the issuer has at least one credential template.
+
+  Returns:
+    { hasTemplates: boolean, count: number }
+
+  Tropang Ex:
+  Pang-check bago payagan mag “+ Issue Credential”.
+  Kapag wala pang template si issuer, bawal muna mag-issue.
+*/
+async function checkIssuerHasCredentialTemplates(issuerId) {
+  try {
+    if (!issuerId) {
+      throw new Error('issuerId is required');
+    }
+
+    if (!issuersDB) await initializeDatabases();
+    const issuer = await getIssuerById(issuerId);
+
+    if (!issuer || !issuer.couchDBUrl) {
+      throw new Error(`Issuer ${issuerId} has no CouchDB URL configured`);
+    }
+
+    // Connect to issuer CouchDB (ex: DLSU = :9084)
+    const issuerCouch = require('nano')(issuer.couchDBUrl);
+    const db = issuerCouch.use('wallet_issuer_credentials');
+
+    // Templates are marked with isTemplate: true (plus optional fallback type)
+    const result = await db.find({
+      selector: {
+        $or: [
+          { isTemplate: true },
+          { type: 'credential_template' }
+        ]
+      }
+    });
+
+    const count = Array.isArray(result?.docs) ? result.docs.length : 0;
+
+    console.log(`[COUCHDB] Template existence check for issuer ${issuerId}: ${count} template(s)`);
+
+    return {
+      hasTemplates: count > 0,
+      count
+    };
+
+  } catch (error) {
+    console.error(`❌ Error checking templates for issuer ${issuerId}:`, error.message);
+    throw error;
+  }
+}
+// ==========================================================================================================================================================================
 
 async function getIssuerIssuedByIssuerId(issuerId) {
   try {
@@ -2293,6 +2350,7 @@ module.exports = {
   // ADMIN DASHBOARD
   getApprovedIssuers,
   getIssuerTemplatesByIssuerId,
+  checkIssuerHasCredentialTemplates,
   getIssuerIssuedByIssuerId,
   getAllIssuerCredentialsAdmin,
 

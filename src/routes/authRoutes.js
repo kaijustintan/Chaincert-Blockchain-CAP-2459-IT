@@ -45,7 +45,7 @@ const express = require('express');
 const router = express.Router();
 const authController = require('../controllers/authController');
 const verifierController = require('../controllers/verifierController');
-const couchDB = require('../couchDB_service'); // NOTE: currently not used inside this routes file, but kept for compatibility / future use
+const issuerCredentialController = require('../controllers/issuerCredentialController');
 const multer = require('multer');
 const upload = multer({ storage: multer.memoryStorage() });
 
@@ -92,6 +92,9 @@ router.get('/approved-issuers', authController.getApprovedIssuers);
 
 // GET /api/auth/rejected-issuers - Get all REJECTED issuers (Admin)
 router.get('/rejected-issuers', authController.getRejectedIssuers);
+
+// GET /api/auth/issuer/templates/exists
+router.get('/issuer/templates/exists', issuerCredentialController.check_IssuerHasTemplates);
 
 // =========================================================================================================
 // 📄 CREDENTIAL ROUTES (simple pass-through routes)

@@ -326,15 +326,31 @@ export default function IssuerDashboard() {
   };
 
   // Issue Modal handlers
-  const openIssueModal = () => {
-    setShowIssueModal(true);
+  const openIssueModal = async () => {
+  try {
     setIssueError("");
+
+    // ✅ Check if issuer has templates first
+    const result = await apiService.Check_IssuerHasTemplates();
+
+    if (!result?.hasTemplates) {
+      alert("No Credential Template Yet To Issue");
+      return;
+    }
+
+    // If templates exist → open modal
+    setShowIssueModal(true);
     setIssueForm({
       credentialId: "",
       recipientId: "",
       expiryDate: "",
     });
-  };
+
+  } catch (err) {
+    console.error("Template validation failed:", err);
+    alert("Failed to validate credential templates.");
+  }
+};
 
   const closeIssueModal = () => {
     setShowIssueModal(false);

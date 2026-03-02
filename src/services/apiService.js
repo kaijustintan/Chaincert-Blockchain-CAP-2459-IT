@@ -1470,6 +1470,63 @@ Get_AllIssuerRejectionLogs: async () => {
   }
 },
 
+// ==========================================================================================================================================================================
+//                                       ADMIN / STATUS LOGS (SEE HISTORY BY EMAIL)
+// ==========================================================================================================================================================================
+
+/*
+ Function Name: Get_IssuerStatusLogs_ByEmail
+
+ Technical:
+ Fetches blockchain issuer status-change logs (disable/enable) for a specific issuer email via:
+   GET /api/admin/status-logs/issuers/:issuerEmail
+*/
+Get_IssuerStatusLogs_ByEmail: async (issuerEmail) => {
+  try {
+    if (!issuerEmail) throw new Error('issuerEmail is required');
+
+    const response = await axios.get(
+      `/admin/status-logs/issuers/${encodeURIComponent(issuerEmail)}`
+    );
+
+    return response.data; // { success, logs, count }
+
+  } catch (error) {
+    console.error(
+      'Error fetching issuer status logs by email:',
+      error.response?.data?.message || error.message
+    );
+    throw error;
+  }
+},
+
+/*
+ Function Name: Get_UserStatusLogs_ByEmail
+
+ Technical:
+ Fetches blockchain user status-change logs (disable/enable) for a specific user email via:
+   GET /api/admin/status-logs/users/:userEmail
+*/
+Get_UserStatusLogs_ByEmail: async (userEmail) => {
+  try {
+    if (!userEmail) throw new Error('userEmail is required');
+
+    const response = await axios.get(
+      `/admin/status-logs/users/${encodeURIComponent(userEmail)}`
+    );
+
+    return response.data; // { success, logs, count }
+
+  } catch (error) {
+    console.error(
+      'Error fetching user status logs by email:',
+      error.response?.data?.message || error.message
+    );
+    throw error;
+  }
+},
+
+
 
   // ==========================================================================================================================================================================
   //                                                               DEBUG / UTIL

@@ -1319,6 +1319,28 @@ app.get('/api/admin/status-logs/user/:email', (req, res) => {
   authController.getUserStatusLogs(req, res, getContractAndGateway);
 });
 
+/*
+ Endpoint: GET /api/admin/status-logs/issuers/:issuerEmail
+
+ Technical:
+ Returns blockchain audit logs for a SPECIFIC issuer email
+ (disable/enable actions) via chaincode GetIssuerStatusLogs(issuerEmail).
+*/
+app.get('/api/admin/status-logs/issuers/:issuerEmail', (req, res) => {
+  authController.getIssuerStatusLogs(req, res, getContractAndGateway);
+});
+
+/*
+ Endpoint: GET /api/admin/status-logs/users/:userEmail
+
+ Technical:
+ Returns blockchain audit logs for a SPECIFIC user email
+ (disable/enable actions) via chaincode GetUserStatusLogs(userEmail).
+*/
+app.get('/api/admin/status-logs/users/:userEmail', (req, res) => {
+  authController.getUserStatusLogs(req, res, getContractAndGateway);
+});
+
 
 // ==========================================================================================================================================================================
 //                                                         AUTO EXPIRY LOGIC - polo

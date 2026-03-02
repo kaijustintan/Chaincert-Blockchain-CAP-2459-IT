@@ -1350,6 +1350,63 @@ Admin_ChangePassword: async ({ currentPassword, newPassword }) => {
   }
 },
 
+// Get all ISSUER status-change logs only (blockchain)
+Get_AllIssuerStatusLogs: async () => {
+  try {
+    const response = await axios.get('/admin/status-logs/issuers');
+    return response.data; // { success, logs, count }
+  } catch (error) {
+    console.error(
+      'Error fetching issuer status logs:',
+      error.response?.data?.message || error.message
+    );
+    throw error;
+  }
+},
+
+// Get all USER status-change logs only (blockchain)
+Get_AllUserStatusLogs: async () => {
+  try {
+    const response = await axios.get('/admin/status-logs/users');
+    return response.data; // { success, logs, count }
+  } catch (error) {
+    console.error(
+      'Error fetching user status logs:',
+      error.response?.data?.message || error.message
+    );
+    throw error;
+  }
+},
+
+// Get status-change logs for a specific ISSUER email
+Get_IssuerStatusLogs_ByEmail: async (email) => {
+  try {
+    const response = await axios.get(`/admin/status-logs/issuer/${encodeURIComponent(email)}`);
+    return response.data;
+  } catch (error) {
+    console.error(
+      'Error fetching issuer status logs by email:',
+      error.response?.data?.message || error.message
+    );
+    throw error;
+  }
+},
+
+// Get status-change logs for a specific USER email
+Get_UserStatusLogs_ByEmail: async (email) => {
+  try {
+    const response = await axios.get(`/admin/status-logs/user/${encodeURIComponent(email)}`);
+    return response.data;
+  } catch (error) {
+    console.error(
+      'Error fetching user status logs by email:',
+      error.response?.data?.message || error.message
+    );
+    throw error;
+  }
+},
+
+
   // ==========================================================================================================================================================================
   //                                                               DEBUG / UTIL
   // ==========================================================================================================================================================================

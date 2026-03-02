@@ -1848,6 +1848,67 @@ async GetAdminPasswordChangeLogs(ctx, adminEmail) {
   return JSON.stringify(results);
 }
 
+// ==========================================================================================================================================================================
+// NEW: Get ALL ISSUER status change logs (no email filter)
+// ==========================================================================================================================================================================
+async GetAllIssuerStatusLogs(ctx) {
+
+  const iterator = await ctx.stub.getStateByRange('', '');
+  const results = [];
+
+  let res = await iterator.next();
+  while (!res.done) {
+    if (res.value && res.value.value) {
+      try {
+        const parsed = JSON.parse(res.value.value.toString('utf8'));
+
+        if (parsed.type === "issuer_status_change") {
+          results.push(parsed);
+        }
+      } catch (err) {
+        // skip non-json records safely
+        console.warn("⚠️ GetAllIssuerStatusLogs: failed to parse record, skipping.", err.message);
+      }
+    }
+    res = await iterator.next();
+  }
+
+  await iterator.close();
+
+  return JSON.stringify(results);
+}
+
+// ==========================================================================================================================================================================
+// NEW: Get ALL USER status change logs (no email filter)
+// ==========================================================================================================================================================================
+async GetAllUserStatusLogs(ctx) {
+
+  const iterator = await ctx.stub.getStateByRange('', '');
+  const results = [];
+
+  let res = await iterator.next();
+  while (!res.done) {
+    if (res.value && res.value.value) {
+      try {
+        const parsed = JSON.parse(res.value.value.toString('utf8'));
+
+        if (parsed.type === "user_status_change") {
+          results.push(parsed);
+        }
+      } catch (err) {
+        // skip non-json records safely
+        console.warn("⚠️ GetAllUserStatusLogs: failed to parse record, skipping.", err.message);
+      }
+    }
+    res = await iterator.next();
+  }
+
+  await iterator.close();
+
+  return JSON.stringify(results);
+}
+
+
 }
 
 module.exports = ChainCertContract;

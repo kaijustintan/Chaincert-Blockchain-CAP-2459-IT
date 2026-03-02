@@ -1846,6 +1846,225 @@ changeAdminPasswordSecure: async (req, res, getContractAndGateway) => {
   }
 },
 
+// ========================================================================================================================================================================
+// ADMIN: ISSUER-ONLY STATUS LOGS (ALL ISSUERS)
+// ========================================================================================================================================================================
+getAllIssuerStatusLogs: async (req, res, getContractAndGateway) => {
+  let gateway;
+
+  try {
+    if (typeof getContractAndGateway !== 'function') {
+      return res.status(500).json({
+        success: false,
+        message: 'Blockchain gateway is not available'
+      });
+    }
+
+    const identityName = 'chaincert-admin';
+    const orgName = 'Org1';
+
+    const cg = await getContractAndGateway(identityName, orgName);
+    gateway = cg.gateway;
+    const contract = cg.contract;
+
+    const resultBuffer = await contract.evaluateTransaction('GetAllIssuerStatusLogs');
+    const raw = resultBuffer.toString();
+
+    let logs;
+    try {
+      logs = JSON.parse(raw || '[]');
+    } catch (_) {
+      logs = [];
+    }
+
+    return res.status(200).json({
+      success: true,
+      logs: Array.isArray(logs) ? logs : [],
+      count: Array.isArray(logs) ? logs.length : 0
+    });
+
+  } catch (error) {
+    console.error('getAllIssuerStatusLogs error:', error);
+    return res.status(500).json({
+      success: false,
+      message: error.message || 'Failed to fetch issuer status logs'
+    });
+  } finally {
+    try { if (gateway) await gateway.disconnect(); } catch (_) {}
+  }
+},
+
+// ========================================================================================================================================================================
+// ADMIN: USER-ONLY STATUS LOGS (ALL USERS)
+// ========================================================================================================================================================================
+getAllUserStatusLogs: async (req, res, getContractAndGateway) => {
+  let gateway;
+
+  try {
+    if (typeof getContractAndGateway !== 'function') {
+      return res.status(500).json({
+        success: false,
+        message: 'Blockchain gateway is not available'
+      });
+    }
+
+    const identityName = 'chaincert-admin';
+    const orgName = 'Org1';
+
+    const cg = await getContractAndGateway(identityName, orgName);
+    gateway = cg.gateway;
+    const contract = cg.contract;
+
+    const resultBuffer = await contract.evaluateTransaction('GetAllUserStatusLogs');
+    const raw = resultBuffer.toString();
+
+    let logs;
+    try {
+      logs = JSON.parse(raw || '[]');
+    } catch (_) {
+      logs = [];
+    }
+
+    return res.status(200).json({
+      success: true,
+      logs: Array.isArray(logs) ? logs : [],
+      count: Array.isArray(logs) ? logs.length : 0
+    });
+
+  } catch (error) {
+    console.error('getAllUserStatusLogs error:', error);
+    return res.status(500).json({
+      success: false,
+      message: error.message || 'Failed to fetch user status logs'
+    });
+  } finally {
+    try { if (gateway) await gateway.disconnect(); } catch (_) {}
+  }
+},
+
+// ========================================================================================================================================================================
+// ADMIN: ISSUER STATUS LOGS (SPECIFIC EMAIL)
+// ========================================================================================================================================================================
+getIssuerStatusLogs: async (req, res, getContractAndGateway) => {
+  let gateway;
+
+  try {
+    const { email } = req.params;
+
+    if (!email) {
+      return res.status(400).json({
+        success: false,
+        message: 'Issuer email is required'
+      });
+    }
+
+    if (typeof getContractAndGateway !== 'function') {
+      return res.status(500).json({
+        success: false,
+        message: 'Blockchain gateway is not available'
+      });
+    }
+
+    const identityName = 'chaincert-admin';
+    const orgName = 'Org1';
+
+    const cg = await getContractAndGateway(identityName, orgName);
+    gateway = cg.gateway;
+    const contract = cg.contract;
+
+    const resultBuffer = await contract.evaluateTransaction(
+      'GetIssuerStatusLogs',
+      email
+    );
+
+    const raw = resultBuffer.toString();
+
+    let logs;
+    try {
+      logs = JSON.parse(raw || '[]');
+    } catch (_) {
+      logs = [];
+    }
+
+    return res.status(200).json({
+      success: true,
+      logs: Array.isArray(logs) ? logs : [],
+      count: Array.isArray(logs) ? logs.length : 0
+    });
+
+  } catch (error) {
+    console.error('getIssuerStatusLogs error:', error);
+    return res.status(500).json({
+      success: false,
+      message: error.message || 'Failed to fetch issuer status logs'
+    });
+  } finally {
+    try { if (gateway) await gateway.disconnect(); } catch (_) {}
+  }
+},
+
+// ========================================================================================================================================================================
+// ADMIN: USER STATUS LOGS (SPECIFIC EMAIL)
+// ========================================================================================================================================================================
+getUserStatusLogs: async (req, res, getContractAndGateway) => {
+  let gateway;
+
+  try {
+    const { email } = req.params;
+
+    if (!email) {
+      return res.status(400).json({
+        success: false,
+        message: 'User email is required'
+      });
+    }
+
+    if (typeof getContractAndGateway !== 'function') {
+      return res.status(500).json({
+        success: false,
+        message: 'Blockchain gateway is not available'
+      });
+    }
+
+    const identityName = 'chaincert-admin';
+    const orgName = 'Org1';
+
+    const cg = await getContractAndGateway(identityName, orgName);
+    gateway = cg.gateway;
+    const contract = cg.contract;
+
+    const resultBuffer = await contract.evaluateTransaction(
+      'GetUserStatusLogs',
+      email
+    );
+
+    const raw = resultBuffer.toString();
+
+    let logs;
+    try {
+      logs = JSON.parse(raw || '[]');
+    } catch (_) {
+      logs = [];
+    }
+
+    return res.status(200).json({
+      success: true,
+      logs: Array.isArray(logs) ? logs : [],
+      count: Array.isArray(logs) ? logs.length : 0
+    });
+
+  } catch (error) {
+    console.error('getUserStatusLogs error:', error);
+    return res.status(500).json({
+      success: false,
+      message: error.message || 'Failed to fetch user status logs'
+    });
+  } finally {
+    try { if (gateway) await gateway.disconnect(); } catch (_) {}
+  }
+},
+
+
 };
 
 module.exports = authController;

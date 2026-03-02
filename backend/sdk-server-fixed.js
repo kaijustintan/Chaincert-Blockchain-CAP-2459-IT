@@ -1240,6 +1240,51 @@ app.post('/api/admin/change-password', (req, res) => {
   authController.changeAdminPasswordSecure(req, res, getContractAndGateway);
 });
 
+/*
+  Endpoint: GET /api/admin/status-logs/issuers
+
+  Technical:
+  Returns blockchain audit logs for ISSUER status changes only
+  (disable/enable actions) via chaincode GetAllIssuerStatusLogs.
+*/
+app.get('/api/admin/status-logs/issuers', (req, res) => {
+  authController.getAllIssuerStatusLogs(req, res, getContractAndGateway);
+});
+
+/*
+  Endpoint: GET /api/admin/status-logs/users
+
+  Technical:
+  Returns blockchain audit logs for USER status changes only
+  (disable/enable actions) via chaincode GetAllUserStatusLogs.
+*/
+app.get('/api/admin/status-logs/users', (req, res) => {
+  authController.getAllUserStatusLogs(req, res, getContractAndGateway);
+});
+
+/*
+  Endpoint: GET /api/admin/status-logs/issuer/:email
+
+  Technical:
+  Returns blockchain audit logs for a specific ISSUER email
+  via chaincode GetIssuerStatusLogs.
+*/
+app.get('/api/admin/status-logs/issuer/:email', (req, res) => {
+  authController.getIssuerStatusLogs(req, res, getContractAndGateway);
+});
+
+/*
+  Endpoint: GET /api/admin/status-logs/user/:email
+
+  Technical:
+  Returns blockchain audit logs for a specific USER email
+  via chaincode GetUserStatusLogs.
+*/
+app.get('/api/admin/status-logs/user/:email', (req, res) => {
+  authController.getUserStatusLogs(req, res, getContractAndGateway);
+});
+
+
 // ==========================================================================================================================================================================
 //                                                         AUTO EXPIRY LOGIC - polo
 // ==========================================================================================================================================================================

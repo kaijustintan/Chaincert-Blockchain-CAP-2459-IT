@@ -1771,6 +1771,83 @@ async GetAllVerificationLogs(ctx) {
 
       return JSON.stringify(results);
     }
+
+    // =========================================================================================================
+// ADMIN AUDIT: ADMIN PASSWORD CHANGE
+// =========================================================================================================
+async LogAdminChangePassword(ctx, adminEmail, changeType, reason) {
+
+ if (!adminEmail) {
+   throw new Error("adminEmail is required");
+ }
+
+ if (!changeType) {
+   throw new Error("changeType is required");
+ }
+
+ // reason is OPTIONAL for this log (unlike disable/enable); keep it best-effort reason = reason || "";
+
+ const txTimestamp = ctx.stub.getTxTimestamp();
+ const timestamp = new Date(
+   txTimestamp.seconds * 1000 + Math.floor(txTimestamp.nanos / 1000000)
+ ).toISOString();
+
+ const txId = ctx.stub.getTxID();
+ const logId = `admin\_pwdchg\_${txId}`;
+
+ const log = {
+   id: logId,
+   type: "admin_password_change",
+   entity: "admin",
+   adminEmail,
+    changeType,          // e.g. "self_change" | "reset_by_admin" | "forced_reset"
+    reason,              // optional
+    performedBy: ctx.clientIdentity.getID(),
+    performedByMSP: ctx.clientIdentity.getMSPID(),
+    txId,
+    timestamp,
+    version: 1
+  };
+
+  await ctx.stub.putState(logId, Buffer.from(JSON.stringify(log)));
+  await ctx.stub.setEvent("AdminPasswordChanged", Buffer.from(JSON.stringify(log)));
+
+  return JSON.stringify(log);
+}
+
+
+
+// =========================================================================================================
+// QUERY: Get admin password change logs (filtered by adminEmail)
+// =========================================================================================================
+async GetAdminPasswordChangeLogs(ctx, adminEmail) {
+
+  if (!adminEmail) {
+    throw new Error("adminEmail is required");
+  }
+
+  const iterator = await ctx.stub.getStateByRange('', '');
+  const results = [];
+
+  let res = await iterator.next();
+  while (!res.done) {
+    if (res.value && res.value.value) {
+      const parsed = JSON.parse(res.value.value.toString('utf8'));
+
+      if (
+        parsed.type === "admin_password_change" &&
+        parsed.adminEmail === adminEmail
+      ) {
+        results.push(parsed);
+      }
+    }
+    res = await iterator.next();
+  }
+
+  await iterator.close();
+  return JSON.stringify(results);
+}
+
 }
 
 module.exports = ChainCertContract;

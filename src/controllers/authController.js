@@ -1745,7 +1745,106 @@ getAllStatusLogs: async (req, res, getContractAndGateway) => {
   }
 },
 
+// =========================================================================================================
+// ADMIN: CHANGE PASSWORD (WITH BLOCKCHAIN AUDIT LOG)
+// =========================================================================================================
 
+changeAdminPasswordSecure: async (req, res, getContractAndGateway) => {
+  let gateway = null;
+
+  try {
+    const { currentPassword, newPassword } = req.body;
+
+    // ✅ Admin-only
+    if (!req.user || req.user.role !== 'admin') {
+      return res.status(403).json({
+        success: false,
+        message: 'Admin access required.'
+      });
+    }
+
+    // ✅ Required inputs
+    if (!currentPassword || !newPassword) {
+      return res.status(400).json({
+        success: false,
+        message: 'currentPassword and newPassword are required.'
+      });
+    }
+
+    const adminEmail = req.user.email;
+
+    // 1️⃣ Change password in CouchDB (with built-in verification + audit log)
+    await couchDB.changeAdminPassword(
+      adminEmail,
+      currentPassword,
+      newPassword,
+      adminEmail,
+      {
+        via: 'ui',
+        ip: req.ip,
+        userAgent: req.headers['user-agent']
+      }
+    );
+
+    // 2️⃣ Blockchain log (BEST-EFFORT ONLY)
+    let blockchainWarning = null;
+
+    // ✅ Align with chaincode signature:
+    // LogAdminPasswordChange(ctx, adminEmail, changeType, reason)
+    const changeType = 'self_change'; // since the admin is changing their own password via settings
+    const reason = ''; // optional; do NOT store sensitive details
+
+    try {
+      if (typeof getContractAndGateway !== 'function') {
+        throw new Error('getContractAndGateway not provided');
+      }
+
+      const identityName = 'chaincert-admin';
+      const orgName = 'Org1';
+
+      const cg = await getContractAndGateway(identityName, orgName);
+
+      // ✅ validate returned object (prevents "invalid connection object" issues)
+      if (!cg || !cg.gateway || !cg.contract) {
+        throw new Error('getContractAndGateway returned an invalid connection object');
+      }
+
+      gateway = cg.gateway;
+      const contract = cg.contract;
+
+      await contract.submitTransaction(
+        'LogAdminPasswordChange', // ✅ MATCHES chaincode function name
+        adminEmail,
+        changeType,
+        reason
+      );
+
+    } catch (bcErr) {
+      blockchainWarning = bcErr?.message || String(bcErr);
+      console.error('[changeAdminPasswordSecure] Blockchain log failed:', blockchainWarning);
+    } finally {
+      try { if (gateway) await gateway.disconnect(); } catch (_) {}
+      gateway = null;
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: blockchainWarning
+        ? 'Password changed, but blockchain log failed.'
+        : 'Password changed successfully.',
+      warning: blockchainWarning
+    });
+
+  } catch (error) {
+    console.error('changeAdminPasswordSecure error:', error);
+    if (res.headersSent) return;
+
+    return res.status(500).json({
+      success: false,
+      message: error.message
+    });
+  }
+},
 
 };
 

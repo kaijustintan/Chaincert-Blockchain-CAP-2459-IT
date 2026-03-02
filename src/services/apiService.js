@@ -1313,6 +1313,43 @@ Get_VerificationLogById: async (logId) => {
     }
   },
 
+  // =============================================================================================================
+// ADMIN / SETTINGS - CHANGE PASSWORD
+// =============================================================================================================
+
+/*
+  Function Name: Admin_ChangePassword
+
+  Technical:
+  Calls SDK endpoint:
+    POST /api/admin/change-password
+
+  Requires:
+    - currentPassword
+    - newPassword
+
+  Tropang Ex:
+  Admin nagpapalit ng password.
+  Backend automatically knows who the admin is via JWT.
+*/
+Admin_ChangePassword: async ({ currentPassword, newPassword }) => {
+  try {
+    const response = await axios.post('/admin/change-password', {
+      currentPassword,
+      newPassword
+    });
+
+    return response.data;
+
+  } catch (error) {
+    console.error(
+      'Error changing admin password:',
+      error.response?.data?.message || error.message
+    );
+    throw error;
+  }
+},
+
   // ==========================================================================================================================================================================
   //                                                               DEBUG / UTIL
   // ==========================================================================================================================================================================

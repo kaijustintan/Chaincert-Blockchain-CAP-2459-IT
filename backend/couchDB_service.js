@@ -2093,6 +2093,147 @@ async function checkAndExpireCredentials() {
   }
 }
 
+// =========================================================================================================
+// ADMIN: CHANGE PASSWORD (WITH CURRENT PASSWORD CHECK + AUDIT LOG)
+// =========================================================================================================
+
+/*
+  Helper: fetch admin user doc by email
+  - Admins are stored in users DB with role === 'admin'
+*/
+async function getAdminByEmail(adminEmail) {
+  if (!usersDB) await initializeDatabases();
+
+  const result = await usersDB.find({
+    selector: {
+      type: 'user',
+      role: 'admin',
+      email: adminEmail
+    },
+    limit: 1
+  });
+
+  return (result.docs && result.docs.length > 0) ? result.docs[0] : null;
+}
+
+/*
+  Function Name: verifyAdminCurrentPassword
+
+  Technical:
+  - Finds admin account by email (role: admin)
+  - bcrypt compares currentPassword with stored hash
+  - Returns { valid: boolean, reason?: string }
+
+  Tropang Ex:
+  - Pang-check kung tama yung current password bago payagan magpalit.
+*/
+async function verifyAdminCurrentPassword(adminEmail, currentPassword) {
+  try {
+    if (!adminEmail || !currentPassword) {
+      return { valid: false, reason: 'adminEmail and currentPassword are required' };
+    }
+
+    const adminDoc = await getAdminByEmail(adminEmail);
+    if (!adminDoc) {
+      return { valid: false, reason: 'Admin not found' };
+    }
+
+    const ok = await bcryptjs.compare(currentPassword, adminDoc.password);
+    return ok ? { valid: true } : { valid: false, reason: 'Invalid current password' };
+
+  } catch (error) {
+    return { valid: false, reason: error.message };
+  }
+}
+
+/*
+  Function Name: changeAdminPassword
+
+  Technical:
+  - Requires currentPassword (re-entry) for safety
+  - Verifies currentPassword
+  - Hashes newPassword
+  - Updates admin doc in users DB
+  - Writes an audit record to admin_audit_logs (admin CouchDB on port 5985 via `couch`)
+
+  Parameters:
+  - adminEmail: who is changing password (target)
+  - currentPassword: must match existing password
+  - newPassword: new password (plain; will be hashed)
+  - performedBy: who performed it (usually same as adminEmail; could be superadmin email/id)
+  - meta (optional): extra safe metadata like { ip, userAgent, reason, via }
+
+  Tropang Ex:
+  - Official change password flow na may check + may audit log.
+*/
+async function changeAdminPassword(adminEmail, currentPassword, newPassword, performedBy, meta = {}) {
+  if (!usersDB) await initializeDatabases();
+
+  if (!adminEmail || !currentPassword || !newPassword) {
+    throw new Error('adminEmail, currentPassword, and newPassword are required');
+  }
+
+  // 1) Fetch admin doc
+  const adminDoc = await getAdminByEmail(adminEmail);
+  if (!adminDoc) {
+    throw new Error('Admin not found');
+  }
+
+  // 2) Verify current password
+  const ok = await bcryptjs.compare(currentPassword, adminDoc.password);
+  if (!ok) {
+    throw new Error('Invalid current password');
+  }
+
+  // 3) Hash new password + update doc
+  const hashedNewPassword = await bcryptjs.hash(newPassword, 10);
+  adminDoc.password = hashedNewPassword;
+  adminDoc.updatedAt = new Date().toISOString();
+
+  const updateResult = await usersDB.insert(adminDoc);
+
+  // 4) Best-effort audit log (DO NOT break password change if audit insert fails)
+  try {
+    const auditDb = couch.use('admin_audit_logs');
+
+    const now = new Date().toISOString();
+    const auditId = `admin\_pwchange\_${Date.now()}\_${Math.random().toString(36).slice(2, 10)}`;
+
+    const auditDoc = {
+      _id: auditId,
+      type: 'admin_audit',
+      action: 'admin_password_change',
+      targetAdminEmail: adminEmail,
+      performedBy: performedBy || adminEmail,
+      timestamp: now,
+
+      // Optional metadata (safe only; never store passwords)
+      meta: {
+        via: meta.via || 'ui',
+        ip: meta.ip || null,
+        userAgent: meta.userAgent || null,
+        reason: meta.reason || null
+      },
+
+      version: 1
+    };
+
+    await auditDb.insert(auditDoc);
+
+ } catch (auditErr) {
+   console.warn('[COUCHDB][admin_audit_logs] Failed to write audit log:', auditErr.message);
+ }
+
+ return {
+   ok: true,
+   id: adminDoc._id,
+   rev: updateResult.rev
+ };
+}
+
+
+
+
 // ==========================================================================================================================================================================
 
 module.exports = {
@@ -2158,5 +2299,10 @@ module.exports = {
   disableIssuer,
   enableIssuer,
   disableUser,
-  enableUser
+  enableUser,
+
+  verifyAdminCurrentPassword,
+  changeAdminPassword, 
+  getAdminByEmail
+
 };

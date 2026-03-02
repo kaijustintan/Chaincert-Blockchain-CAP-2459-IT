@@ -60,7 +60,6 @@ export default function IssuerDashboard() {
   useEffect(() => {
     fetchCredentials();
     fetchTemplateOptions();
-    fetchAvailableUsers();
   }, []);
 
   // Filtering logic
@@ -123,7 +122,7 @@ export default function IssuerDashboard() {
 
   const fetchAvailableUsers = async () => {
     try {
-      const users = await apiService.getAllUsers();
+      const users = await apiService.Get_EligibleUsersForTemplate();
       setAvailableUsers(Array.isArray(users) ? users : []);
     } catch (err) {
       console.error("Error fetching users:", err);
@@ -358,10 +357,40 @@ export default function IssuerDashboard() {
     setIssueLoading(false);
   };
 
-  const handleIssueFormChange = (e) => {
-    const { name, value } = e.target;
-    setIssueForm((prev) => ({ ...prev, [name]: value }));
-  };
+  const handleIssueFormChange = async (e) => {
+  const { name, value } = e.target;
+
+  // ✅ Always update state first
+  setIssueForm((prev) => ({ ...prev, [name]: value }));
+
+  // ✅ If template changes → refetch eligible users + reset recipient
+  if (name === "credentialId") {
+    try {
+      setIssueError("");
+
+      // reset recipient immediately
+      setIssueForm((prev) => ({ ...prev, credentialId: value, recipientId: "" }));
+
+      // if no template selected yet, clear users
+      if (!value) {
+        setAvailableUsers([]);
+        return;
+      }
+
+      // fetch eligible users from backend
+      const result = await apiService.Get_EligibleUsersForTemplate(value);
+
+      // backend returns { eligibleUsers: [...] }
+      const list = result?.eligibleUsers || [];
+      setAvailableUsers(Array.isArray(list) ? list : []);
+
+    } catch (err) {
+      console.error("Error fetching eligible users:", err);
+      setAvailableUsers([]);
+      setIssueError("Failed to load eligible users for this template.");
+    }
+  }
+};
 
   const handleIssueCredential = async (e) => {
     e.preventDefault();
@@ -593,13 +622,18 @@ export default function IssuerDashboard() {
 
               <div className="form-group">
                 <label>Select Recipient:</label>
-                <select
+               <select
                   name="recipientId"
                   value={issueForm.recipientId}
                   onChange={handleIssueFormChange}
                   required
+                  disabled={!issueForm.credentialId}
                 >
-                  <option value="">-- Select a recipient --</option>
+                  <option value="">
+                    {issueForm.credentialId
+                      ? "-- Select a recipient --"
+                      : "Select a credential template first"}
+                  </option>
                   {availableUsers.map((user) => (
                     <option key={user._id || user.id} value={user._id || user.id}>
                       {user.name || user.username || user.email}

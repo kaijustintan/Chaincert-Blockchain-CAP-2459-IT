@@ -344,7 +344,7 @@ exports.Create_CredentialTemplate = async (req, res, getContractAndGateway) => {
 // ==========================================================================================================================================================================
 
 /*
-  Function Name: issue_CredentialToUser
+  Function Name: issue_CredentialToUser (UPDATED)
 
   Technical:
   Issues a credential INSTANCE based on an existing template by:
@@ -354,23 +354,39 @@ exports.Create_CredentialTemplate = async (req, res, getContractAndGateway) => {
         * Issuer CouchDB: issued_credentials
         * Admin CouchDB: wallet_user_credentials
 
+  IMPORTANT UPDATE:
+    ✅ Adds templateId into the issued credential payload so we can:
+       - prevent duplicate issuance of same template to same user
+       - filter eligible users dropdown based on templateId
+
   Tropang Ex:
   Ito yung “Issue Credential” flow:
     1) Isusulat muna sa blockchain na na-issue na.
     2) Pag okay, gagawa ng kopya sa CouchDB ni issuer at sa main DB
        para mabilis lumabas sa dashboards.
+    3) Ngayon, kasama na si templateId para madaling ma-check kung na-issue na dati.
 */
 exports.issue_CredentialToUser = async (req, res, getContractAndGateway) => {
   try {
-    /* Step 1: Extract credentialId from req.params and holderID/expiryDate from req.body.
+
+    /* Step 1: Extract template credentialId from params + issuance details from body
+
+      Technical:
+      - credentialId = template ID (blockchain key of template)
+      - holderID = user/student recipient
+      - expiryDate = optional
 
       Tropang Ex:
-      Kinukuha kung anong credential/template ID ang i-iissue at kanino mapupunta.
+      Kinukuha kung anong template ang i-iissue at kanino mapupunta.
     */
     const { credentialId } = req.params;
     const { holderID, expiryDate } = req.body;
 
-    /* Step 2: Validate required field: holderID */
+    /* Step 2: Validate required field: holderID
+
+      Tropang Ex:
+      Di pwedeng mag-issue kung di natin alam kung sino tatanggap.
+    */
     if (!holderID) {
       return res.status(400).json({
         success: false,
@@ -378,7 +394,11 @@ exports.issue_CredentialToUser = async (req, res, getContractAndGateway) => {
       });
     }
 
-    /* Step 3: Check if user is authenticated (JWT/session) */
+    /* Step 3: Check if user is authenticated (JWT middleware attaches req.user)
+
+      Tropang Ex:
+      Dapat naka-login ka bago ka makapag issue.
+    */
     const user = req.user;
     if (!user) {
       return res.status(401).json({
@@ -389,16 +409,28 @@ exports.issue_CredentialToUser = async (req, res, getContractAndGateway) => {
 
     /* Step 4: Get Fabric identityName + orgName based on role (issuer/admin)
 
-      Tropang Ex:
+      Technical:
       Dito natin chine-check kung sino ang pipirma sa blockchain transaction.
+      - issuer: use their Fabric identity + their orgName
+      - admin: use Org1 admin
+
+      Tropang Ex:
+      Parang pipirma ka sa papel:
+      - issuer pipirma as themselves
+      - admin pipirma as admin
     */
     let identityName;
     let orgName;
     let issuerDoc;
 
     if (user.role === 'issuer') {
-      // 4A: Issuer → fetch approved issuerDoc via CouchDB service (by email)
+      /* Step 4A: Issuer → fetch approved issuer doc via CouchDB service (by email)
+
+        Tropang Ex:
+        Chine-check natin kung approved talaga si issuer at meron siyang Fabric identity.
+      */
       issuerDoc = await couchdbService.getApprovedIssuer(user.email);
+
       if (!issuerDoc || !issuerDoc.fabricIdentity || !issuerDoc.orgName) {
         return res.status(403).json({
           success: false,
@@ -410,23 +442,42 @@ exports.issue_CredentialToUser = async (req, res, getContractAndGateway) => {
       orgName = issuerDoc.orgName;
 
     } else if (user.role === 'admin') {
-      // 4B: Admin → use Org1 admin identity
+      /* Step 4B: Admin → use Org1 admin identity
+
+        Tropang Ex:
+        Admin always signs using Org1 admin wallet identity.
+      */
       identityName = 'admin';
       orgName = 'Org1';
 
     } else {
-      // 4C: Block other roles
+      /* Step 4C: Block other roles
+
+        Tropang Ex:
+        Verifier/student/etc bawal mag-issue.
+      */
       return res.status(403).json({
         success: false,
         error: 'Not authorized to issue credentials.'
       });
     }
 
-    /* Step 5: Connect to blockchain as resolved identity/org */
+    /* Step 5: Connect to blockchain as resolved identity/org
+
+      Tropang Ex:
+      Kumokonek tayo sa Fabric gamit yung tamang signer.
+    */
     console.log(`[ISSUE] Issuing credential on blockchain...`);
     const { gateway, contract } = await getContractAndGateway(identityName, orgName);
 
-    /* Step 6: Submit IssueCredential transaction to BLOCKCHAIN */
+    /* Step 6: Submit IssueCredential transaction to BLOCKCHAIN
+
+      Technical:
+      Chaincode: IssueCredential(templateId, holderID, expiryDate)
+
+      Tropang Ex:
+      Ito yung official "issue" sa ledger — once written, permanent record na siya.
+    */
     const result = await contract.submitTransaction(
       'IssueCredential',
       credentialId,
@@ -434,36 +485,51 @@ exports.issue_CredentialToUser = async (req, res, getContractAndGateway) => {
       expiryDate || ''
     );
 
-    /* Step 7: Parse blockchain response into JSON object */
+    /* Step 7: Parse blockchain response into JSON object
+
+      Tropang Ex:
+      Ibinabalik ni chaincode yung issued credential object.
+    */
     const credentialData = JSON.parse(result.toString());
     console.log(`✅ [ISSUE] Blockchain success. Credential ID: ${credentialData.id}`);
 
-    /* Step 8: Disconnect Fabric gateway after blockchain transaction */
+    /* Step 8: Disconnect Fabric gateway after blockchain transaction
+
+      Tropang Ex:
+      After transaction, disconnect na para clean.
+    */
     await gateway.disconnect();
 
     /* Step 9: Save a copy of the issued credential to BOTH CouchDBs
 
       Technical:
-      - Uses couchdbService.saveIssuedCredentialToBothDBs(issuerEmail, credentialDataExtended)
+      saveIssuedCredentialToBothDBs(issuerEmail, credentialDataExtended)
 
       Tropang Ex:
-      After ma-issue sa blockchain, dito siya officially papasok sa:
-        - issuer DB (issued_credentials)
-        - admin DB (wallet_user_credentials)
+      After blockchain, gumawa tayo ng fast-copy sa databases for dashboards + verification.
     */
     try {
       console.log(`[ISSUE] Saving issued credential to BOTH CouchDB databases...`);
 
-      // Fetch template from issuer CouchDB to get badgeImage + skills (not on blockchain) - polo
+      /* Step 9A: Optional enrichment (badgeImage + skills) from issuer template cache
+         Technical:
+         These fields may not exist in blockchain, so we pull from issuer CouchDB template doc.
+
+         Tropang Ex:
+         Kumuha tayo ng extra fields pang display (badge image, skills list).
+      */
       let templateBadgeImage = '';
       let templateSkills = [];
+
       try {
         const nano = require('nano');
-        const issuerDoc = await couchdbService.getApprovedIssuer(user.email);
-        if (issuerDoc && issuerDoc.couchDBUrl) {
-          const issuerCouch = nano(issuerDoc.couchDBUrl);
+        const approvedIssuer = await couchdbService.getApprovedIssuer(user.email);
+
+        if (approvedIssuer && approvedIssuer.couchDBUrl) {
+          const issuerCouch = nano(approvedIssuer.couchDBUrl);
           const issuerWalletDb = issuerCouch.use('wallet_issuer_credentials');
           const templateDoc = await issuerWalletDb.get(credentialId);
+
           templateBadgeImage = templateDoc.badgeImage || '';
           templateSkills = templateDoc.skills || [];
         }
@@ -471,21 +537,38 @@ exports.issue_CredentialToUser = async (req, res, getContractAndGateway) => {
         console.warn('[ISSUE] Could not fetch template for badgeImage/skills:', tErr.message);
       }
 
-      const couchResult = await couchdbService.saveIssuedCredentialToBothDBs(user.email, {
-        ...credentialData,
+      /* Step 9B: Build extended credential payload for CouchDB
+         IMPORTANT UPDATE:
+         ✅ Ensure templateId is included (for duplicate issuance prevention + filtering).
+
+         Tropang Ex:
+         Dinadagdagan natin ng templateId para alam natin kung anong template pinanggalingan.
+      */
+      const credentialDataExtended = {
+        ...credentialData,               // ✅ FIXED: (was ".credentialData")
+        templateId: credentialId,        // ✅ ADD THIS
         holderID: holderID,
         expiryDate: expiryDate || null,
-        badgeImage: templateBadgeImage,  // - polo
-        skills: credentialData.skills?.length > 0 ? credentialData.skills : templateSkills  // - polo
-      });
+        badgeImage: templateBadgeImage,
+        skills: (credentialData.skills?.length > 0) ? credentialData.skills : templateSkills
+      };
+
+      const couchResult = await couchdbService.saveIssuedCredentialToBothDBs(
+        user.email,
+        credentialDataExtended
+      );
 
       console.log(`[ISSUE] ✅ CouchDB save successful:`, couchResult.message);
 
-      /* Step 10: Return COMPLETE success response (blockchain + CouchDB ok) */
+      /* Step 10: Return COMPLETE success response (blockchain + CouchDB ok)
+
+        Tropang Ex:
+        Lahat successful — blockchain + DB copies.
+      */
       return res.status(200).json({
         success: true,
         message: 'Credential issued successfully',
-        credential: credentialData,
+        credential: credentialDataExtended,
         couchDB: couchResult,
         timestamp: new Date().toISOString()
       });
@@ -493,11 +576,21 @@ exports.issue_CredentialToUser = async (req, res, getContractAndGateway) => {
     } catch (couchErr) {
       console.error(`[ISSUE] ⚠️ CouchDB save failed (non-fatal):`, couchErr.message);
 
-      /* Step 10B: Return PARTIAL success (blockchain only, CouchDB sync failed) */
+      /* Step 10B: Return PARTIAL success (blockchain only, CouchDB sync failed)
+
+        Tropang Ex:
+        Na-issue na sa ledger, pero di lang na-save sa databases.
+        (Pwede i-resync later.)
+      */
       return res.status(200).json({
         success: true,
         message: 'Credential issued to blockchain (CouchDB sync pending)',
-        credential: credentialData,
+        credential: {
+          ...credentialData,
+          templateId: credentialId,
+          holderID: holderID,
+          expiryDate: expiryDate || null
+        },
         warning: couchErr.message,
         timestamp: new Date().toISOString()
       });
@@ -1162,6 +1255,281 @@ exports.revoke_Credential = async (req, res, getContractAndGateway) => {
 
   } catch (error) {
     console.error('❌ [REVOKE] Error revoking credential:', error.message);
+    return res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+};
+
+// =========================================================================================================
+// ISSUER: GET ELIGIBLE USERS FOR A TEMPLATE (PREVENT DUPLICATE ISSUANCE)
+// =========================================================================================================
+
+/*
+  Function Name: getEligibleUsersForTemplate
+
+  Technical:
+  Returns a filtered list of NON-ADMIN users that are eligible to receive
+  a credential instance for a given templateId.
+
+  Eligibility rule:
+    ✅ Allowed if user DOES NOT have an active (non-expired, non-revoked) instance of the same template
+    ✅ Allowed if user has an instance but it's EXPIRED
+    ✅ Allowed if user has an instance but it's REVOKED
+    ❌ Blocked if user already has a STILL-VALID instance of that template
+
+  Data sources:
+    - users DB (users list): couchdbService.getAllUsers()
+    - admin wallet DB (issued creds registry): couchdbService.getBlockedHolderIDsByTemplate(templateId)
+
+  Tropang Ex:
+  Pag pumili si issuer ng template sa dropdown,
+  dito natin kukunin yung list of users na pwede bigyan.
+  Yung mga meron pang active copy ng same template, di na lalabas sa dropdown.
+*/
+exports.getEligibleUsersForTemplate = async (req, res) => {
+  try {
+
+    /* Step 1: Extract templateId from params
+
+      Tropang Ex:
+      Ito yung template na napili sa dropdown (basis ng filtering).
+    */
+    const { templateId } = req.params;
+
+    if (!templateId) {
+      return res.status(400).json({
+        success: false,
+        message: 'templateId is required.'
+      });
+    }
+
+    /* Step 2: Ensure requester is authenticated
+
+      Tropang Ex:
+      Dapat naka-login bago makapag-load ng eligible users list.
+    */
+    const user = req.user;
+    if (!user) {
+      return res.status(401).json({
+        success: false,
+        message: 'Unauthorized.'
+      });
+    }
+
+    /* Step 3: Restrict access to ISSUER (and optionally admin if you want)
+
+      Tropang Ex:
+      Issuer lang dapat may access dito kasi sila yung nag-iissue.
+    */
+    if (user.role !== 'issuer' && user.role !== 'admin') {
+      return res.status(403).json({
+        success: false,
+        message: 'Not authorized.'
+      });
+    }
+
+    /* Step 4: Fetch ALL users from users DB (raw)
+
+      Tropang Ex:
+      Ito yung raw list ng possible recipients (students/regular users).
+      Note: Versatile si getAllUsers(), so dito na natin i-aapply yung "exclude admins".
+    */
+    const allUsersRaw = await couchdbService.getAllUsers();
+
+    /* Step 5: Fetch BLOCKED holderIDs for this templateId
+
+      Technical:
+      These are users who already have a STILL-VALID instance of this template.
+
+      Tropang Ex:
+      Ito yung listahan ng "bawal muna" bigyan ulit ng same template.
+    */
+    const blockedHolderIDs = await couchdbService.getBlockedHolderIDsByTemplate(templateId);
+    const blockedSet = new Set(blockedHolderIDs);
+
+    /* Step 6: Filter eligible users
+      Filters applied:
+        - exclude design docs (if any)
+        - exclude admin roles
+        - exclude blocked holderIDs (active credentials for same template)
+
+      Tropang Ex:
+      Tatanggalin natin sa dropdown:
+        - admins
+        - design docs
+        - users na meron pang active copy ng same template
+    */
+    const eligibleUsers = (allUsersRaw || [])
+      .filter(u => u && !String(u._id || '').startsWith('_design'))
+      .filter(u => String(u.role || '').toLowerCase() !== 'admin') // ✅ FINAL FIX
+      .filter(u => {
+        const uid = u._id || u.id;
+        return uid && !blockedSet.has(uid);
+      });
+
+    /* Step 7: Optional: Sanitize output (recommended)
+      Technical:
+      Avoid sending sensitive fields (password hashes, etc.)
+      Tropang Ex:
+      Pang-dropdown lang — wag isama yung confidential data.
+    */
+    const safeEligibleUsers = eligibleUsers.map(u => ({
+      _id: u._id,
+      email: u.email,
+      firstName: u.firstName,
+      lastName: u.lastName,
+      name: u.name || `${u.firstName || ''} ${u.lastName || ''}`.trim(),
+      role: u.role,
+      status: u.status
+    }));
+
+    /* Step 8: Return success response
+
+      Tropang Ex:
+      Ito yung gagamitin ng frontend para i-populate ang users dropdown.
+    */
+    return res.status(200).json({
+      success: true,
+      templateId: templateId,
+      totalUsers: (allUsersRaw || []).length,
+      blockedCount: blockedHolderIDs.length,
+      eligibleCount: safeEligibleUsers.length,
+      eligibleUsers: safeEligibleUsers
+    });
+
+  } catch (error) {
+    console.error('❌ [ELIGIBLE USERS] Error:', error.message);
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to fetch eligible users.',
+      error: error.message
+    });
+  }
+};
+
+// =========================================================================================================
+// ISSUER: GET CREDENTIAL TEMPLATES (FROM BLOCKCHAIN)
+// =========================================================================================================
+
+/*
+  Function Name: getCredentialTemplates
+
+  Technical:
+  Returns all TEMPLATE credentials (isTemplate: true) for the current issuer/admin
+  from the blockchain using the appropriate Fabric identity.
+
+  Tropang Ex:
+  Ito yung list ng “blueprints” ni issuer (diploma/cert designs).
+  Controller na bahala sa identity + chaincode query.
+*/
+exports.getCredentialTemplates = async (req, res, getContractAndGateway) => {
+  let gateway = null;
+
+  try {
+
+    /* Step 1: Check if user is authenticated (JWT middleware attaches req.user)
+
+      Tropang Ex:
+      Kailangan naka-login ka bago ka makakita ng templates.
+    */
+    const user = req.user;
+    if (!user) {
+      return res.status(401).json({
+        success: false,
+        error: 'Unauthorized'
+      });
+    }
+
+    /* Step 2: Determine which Fabric identity to use (issuer vs admin)
+
+      Tropang Ex:
+      Sino pipirma sa blockchain query?
+      - Issuer → sarili niyang identity
+      - Admin → admin identity
+    */
+    let identityName, orgName;
+
+    if (user.role === 'issuer') {
+      /* Step 2A: Fetch approved issuer data from CouchDB via email */
+      const issuerDoc = await couchdbService.getApprovedIssuer(user.email);
+
+      if (!issuerDoc || !issuerDoc.fabricIdentity || !issuerDoc.orgName) {
+        return res.status(403).json({
+          success: false,
+          error: 'Issuer not approved or info missing.'
+        });
+      }
+
+      identityName = issuerDoc.fabricIdentity;
+      orgName = issuerDoc.orgName;
+
+    } else if (user.role === 'admin') {
+      identityName = 'chaincert-admin'; // keep your existing admin identity
+      orgName = 'Org1';
+
+    } else {
+      return res.status(403).json({
+        success: false,
+        error: 'Not authorized to view templates.'
+      });
+    }
+
+    /* Step 3: Connect to blockchain using chosen identity/org
+
+      Tropang Ex:
+      Kumokonek sa Fabric gamit yung tamang signer.
+    */
+    const gwObj = await getContractAndGateway(identityName, orgName);
+    gateway = gwObj.gateway;
+    const contract = gwObj.contract;
+
+    /* Step 4: Determine issuer ID to query
+
+      Tropang Ex:
+      Sino yung issuer na kukunan ng templates?
+      - Issuer: sarili niya (user.id)
+      - Admin: placeholder (depende sa design mo)
+    */
+    const issuerIdToQuery = (user.role === 'issuer')
+      ? user.id
+      : 'ISSUER';
+
+    /* Step 5: Query chaincode for TEMPLATES only
+
+      Tropang Ex:
+      “Get_IssuerCredentialTemplates(issuerID)” → ibalik templates only.
+    */
+    const resultBuffer = await contract.evaluateTransaction(
+      'Get_IssuerCredentialTemplates',
+      issuerIdToQuery
+    );
+
+    const resultArray = JSON.parse(resultBuffer.toString());
+
+    /* Step 6: Disconnect gateway
+
+      Tropang Ex:
+      Clean disconnect after query.
+    */
+    await gateway.disconnect();
+    gateway = null;
+
+    /* Step 7: Return standardized response */
+    return res.status(200).json({
+      success: true,
+      credentials: Array.isArray(resultArray) ? resultArray : [],
+      count: Array.isArray(resultArray) ? resultArray.length : 0,
+      timestamp: new Date().toISOString()
+    });
+
+  } catch (error) {
+    console.error('❌ Error (getCredentialTemplates):', error.message);
+
+    // safety disconnect
+    try { if (gateway) await gateway.disconnect(); } catch (e) {}
+
     return res.status(500).json({
       success: false,
       error: error.message

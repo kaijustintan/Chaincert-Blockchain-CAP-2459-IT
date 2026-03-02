@@ -711,109 +711,17 @@ app.get('/api/credentials/issued', async (req, res) => {
   Endpoint: GET /api/credentials/templates
 
   Technical:
-  Returns all TEMPLATE credentials (isTemplate: true, no holderID) for the current issuer/admin
-  from the blockchain using the appropriate Fabric identity.
+  Delegates to issuerCredentialController.getCredentialTemplates which:
+    - resolves Fabric identity (issuer/admin)
+    - queries chaincode for issuer templates
+    - returns credentials array
 
   Tropang Ex:
-  Dito kinukuha yung list ng credential templates ng issuer (lahat ng diploma/certificate designs).
-  - Kung issuer ka: sarili mong templates lang.
-  - Kung admin ka: gumagamit ng admin identity para mag-query (config pa kung kaninong issuer).
+  Receptionist lang si sdk file:
+  "Boss controller, ikaw na bahala kumuha ng templates."
 */
-app.get('/api/credentials/templates', async (req, res) => {
-  try {
-    /* Step 1: Check if user is authenticated (JWT/session)
-
-       Technical:
-       Same auth check as issued endpoint; requires req.user to exist.
-
-       Tropang Ex:
-       Kailangan naka-login ka rin bago ka makakita ng templates.
-    */
-    const user = req.user;
-    if (!user) {
-      return res.status(401).json({ success: false, error: 'Unauthorized' });
-    }
-
-    /* Step 2: Determine which Fabric identity to use (issuer vs admin)
-
-       Technical:
-       - Issuer: uses issuerDoc.fabricIdentity + issuerDoc.orgName (from CouchDB).
-       - Admin: uses 'admin' / 'Org1'.
-       - Others: forbidden.
-
-       Tropang Ex:
-       Pareho ng logic sa issued endpoint:
-       - Issuer → sariling Fabric identity.
-       - Admin → Org1 admin account.
-    */
-    let identityName, orgName;
-
-    if (user.role === 'issuer') {
-      /* Step 2A: Fetch approved issuer data from CouchDB via email */
-      const issuerDoc = await couchdb.getApprovedIssuer(user.email);
-
-      if (!issuerDoc || !issuerDoc.fabricIdentity || !issuerDoc.orgName) {
-        return res.status(403).json({ success: false, error: 'Issuer not approved or info missing.' });
-      }
-
-      identityName = issuerDoc.fabricIdentity;
-      orgName = issuerDoc.orgName;
-    } else if (user.role === 'admin') {
-      identityName = 'chaincert-admin';
-      orgName = 'Org1';
-    } else {
-      return res.status(403).json({ success: false, error: 'Not authorized to view templates.' });
-    }
-
-    /* Step 3: Connect to blockchain using chosen identity/org */
-    const { gateway, contract } = await getContractAndGateway(identityName, orgName);
-
-    /* Step 4: Determine issuer ID to query
-
-       Technical:
-       Same pattern as issued endpoint: uses user._id or user.email for issuer,
-       and placeholder for admin.
-
-       Tropang Ex:
-       Ito yung “sino ang issuer na gusto nating kunan ng templates?”.
-    */
-    
-    const issuerIdToQuery = user.role === 'issuer' 
-      ? user.id  // ✅ NEW - consistent with creation
-      : 'ISSUER';
-
-    /* Step 5: Query chaincode for TEMPLATES only
-
-       Technical:
-       Calls contract.evaluateTransaction('Get_IssuerCredentialTemplates', issuerIdToQuery)
-       which returns only records with isTemplate === true and no holderID.
-
-       Tropang Ex:
-       Sa step na ’to, humihingi tayo sa chaincode ng:
-       “Get_IssuerCredentialTemplates(issuerID)” → ibalik mo lahat ng template niya (walang holder).
-    */
-    const resultBuffer = await contract.evaluateTransaction('Get_IssuerCredentialTemplates', issuerIdToQuery);
-    const resultArray = JSON.parse(resultBuffer.toString());
-
-    /* Step 6: Return standardized response
-
-       Technical:
-       Sends back success flag, template list, count, timestamp.
-
-       Tropang Ex:
-       Ibinabalik sa frontend yung list ng templates + ilan sila + anong oras kinuha.
-    */
-    return res.json({
-      success: true,
-      credentials: resultArray,
-      count: resultArray.length || 0,
-      timestamp: new Date().toISOString()
-    });
-  } catch (error) {
-    /* Step 7: Handle unexpected errors */
-    console.error(`❌ Error (GET /api/credentials/templates): ${error.message}`);
-    return res.status(500).json({ success: false, error: error.message });
-  }
+app.get('/api/credentials/templates', (req, res) => {
+  issuerCredentialController.getCredentialTemplates(req, res, getContractAndGateway);
 });
 
 // ==========================================================================================================================================================================

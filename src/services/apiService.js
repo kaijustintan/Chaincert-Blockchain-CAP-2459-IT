@@ -1567,6 +1567,73 @@ Get_UserStatusLogs_ByEmail: async (userEmail) => {
   }
 },
 
+/*
+  Function Name: Get_EligibleUsersForTemplate
+
+  Technical:
+  Fetches a filtered list of users eligible to receive a credential instance
+  for a given templateId by calling:
+
+    GET /auth/issuer/templates/:templateId/eligible-users
+
+  Returns:
+    - success flag
+    - templateId
+    - eligibleUsers array (safe fields only)
+    - counts (eligibleCount, blockedCount, etc.)
+
+  Tropang Ex:
+  Kapag pumili ka ng credential template sa dropdown,
+  ito yung tatawagin para makuha yung list ng users na pwede bigyan.
+  Yung mga meron pang active (non-expired) copy ng same template,
+  hindi na isasama sa dropdown.
+*/
+Get_EligibleUsersForTemplate: async (templateId) => {
+  try {
+
+    /* Step 1: Validate input
+
+      Tropang Ex:
+      Kailangan natin ng templateId kasi dito ibabase yung filtering.
+    */
+    if (!templateId) {
+      throw new Error('templateId is required');
+    }
+
+    /* Step 2: Call backend endpoint
+
+      Technical:
+      Calls GET /api/auth/issuer/templates/:templateId/eligible-users
+      (Assuming axios baseURL already points to /api and authRoutes is mounted at /api/auth)
+
+      Tropang Ex:
+      Frontend → "Boss, sino-sino yung pwede bigyan nitong template na ’to?"
+    */
+    const response = await axios.get(
+      `/auth/issuer/templates/${templateId}/eligible-users`
+    );
+
+    /* Step 3: Return backend response
+
+      Tropang Ex:
+      Ibabalik yung list na gagamitin pang populate ng Users dropdown.
+    */
+    return response.data;
+
+  } catch (error) {
+    /* Step 4: Handle errors
+
+      Tropang Ex:
+      Kapag may problem sa backend/CouchDB, dito lalabas.
+    */
+    console.error(
+      'Error fetching eligible users:',
+      error.response?.data?.message || error.message
+    );
+    throw error;
+  }
+},
+
 
 
   // ==========================================================================================================================================================================

@@ -196,127 +196,77 @@ class ChainCertContract extends Contract {
   // =========================================================================================================
 
   /*
-    Function Name: IssueCredential
+  Function Name: IssueCredential (UPDATED)
 
-    Technical:
-    Issues a new credential instance to a specific holder based on an existing template:
-    - Loads template from ledger via templateId.
-    - Uses Fabric transaction timestamp + templateId + holderID to build a deterministic ID.
-    - Copies template fields and overrides:
-      - id (new instance ID)
-      - holderID
-      - expiryDate
-      - isTemplate = false
-      - assignedDate
-      - status = 'issued'
-      - txId (transaction ID for traceability)
+  Technical:
+  Issues a new credential instance to a specific holder based on an existing template.
 
-    Tropang Ex:
-    Ito yung actual “pagbigay ng credential” sa estudyante/holder.
-    Pipili ka ng template, pipili ka ng holder, tapos si chaincode gagawa ng unique 
-    instance ID at magse-save sa ledger bilang issued credential.
-  */
-  async IssueCredential(ctx, templateId, holderID, expiryDate) {
-    
-    /* Step 1: Load the template from the ledger
+  IMPORTANT UPDATE:
+    ✅ Adds templateId field into issued instance.
+    This allows off-chain systems (CouchDB/UI) to query/filter by templateId
+    without doing fragile parsing from "id".
 
-       Technical:
-       Uses getState(templateId) to retrieve the template JSON by key.
-       If not found, throws error.
+  Tropang Ex:
+  Para madaling malaman kung anong template pinanggalingan ng issued credential,
+  may explicit templateId na siya now.
+*/
+async IssueCredential(ctx, templateId, holderID, expiryDate) {
 
-       Tropang Ex:
-       Hinahanap muna niya yung template na gagamitin bilang base.
-       Kung walang template na ganun, error kasi walang pwedeng i-issue.
-    */
-    const templateJSON = await ctx.stub.getState(templateId);
-    if (!templateJSON || templateJSON.length === 0) {
-      throw new Error(`Credential template ${templateId} does not exist`);
-    }
-
-    /* Step 2: Parse the template JSON into an object
-
-       Technical:
-       Converts the stored buffer/string into a JavaScript object.
-
-       Tropang Ex:
-       Ginagawang normal na object yung template para pwedeng i-edit at dagdagan ng holder details.
-    */
-    const template = JSON.parse(templateJSON.toString());
-    
-    /* Step 3: Get blockchain timestamp and transaction ID
-
-       Technical:
-       - ctx.stub.getTxTimestamp() for deterministic timestamp.
-       - ctx.stub.getTxID() to record txId in the instance for traceability.
-
-       Tropang Ex:
-       Kumukuha ulit ng oras sa blockchain + yung ID ng transaction, para unique at traceable yung issued credential instance.
-    */
-    const txTimestamp = ctx.stub.getTxTimestamp();
-    const txId = ctx.stub.getTxID();
-    
-    /* Step 4: Build the issued credential instance object
-
-       Technical:
-       - Spreads template fields (...template)
-       - Overrides id with a deterministic pattern: templateId_holderID_<timestampParts>
-       - Sets holderID, expiryDate, isTemplate, assignedDate, status, txId.
-
-       Tropang Ex:
-       Ito yung moment na nagiging “personalized” na yung credential:
-       - Na-assign na sa specific holderID,
-       - May expiryDate kung meron,
-       - Marked as isTemplate = false (ibig sabihin issued na, hindi na template).
-    */
-      const credentialInstance = {
-      // 1. Identity of this issued instance
-      id: `${templateId}_${holderID}_${txTimestamp.seconds}${txTimestamp.nanos}`,
-
-      // 2. Holder & issuer
-      holderID: holderID,
-      issuerID: template.issuerID,
-
-      // 3. Core template fields
-      credentialType: template.credentialType,
-      credentialName: template.credentialName,
-      description: template.description,
-
-      // 4. Dates & status
-      issuedDate: template.issuedDate,
-      status: 'issued',
-      expiryDate: expiryDate || '',
-      assignedDate: new Date(
-        txTimestamp.seconds * 1000 + Math.floor(txTimestamp.nanos / 1000000)
-      ).toISOString(),
-
-      // 5. Metadata & versioning
-      metadata: template.metadata,
-      skills: template.skills || [],  // - polo: carry over skills from template
-      version: template.version,
-      isTemplate: false,
-
-      // 6. Traceability
-      txId: txId
-    };
-
-    /* Step 5: Write the issued credential instance to the ledger
-       Technical: putState(instance.id, JSON.stringify(instance)) persists the new credential instance.
-    */
-    console.log('🚀 Issuing credential instance to holder:', holderID);
-    console.log('📝 Instance ID:', credentialInstance.id);
-    await ctx.stub.putState(credentialInstance.id, Buffer.from(JSON.stringify(credentialInstance)));
-    console.log('✅ Credential instance issued to ledger:', credentialInstance.id);
-
-    /* Step 6: Return the issued credential instance
-
-       Technical:
-       Returns the full instance JSON (as string) to the client.
-
-       Tropang Ex:
-       Ibinabalik sa backend/UI yung buong detalye ng bagong issued credential para ma-display or ma-save sa CouchDB.
-    */
-    return JSON.stringify(credentialInstance);
+  /* Step 1: Load the template from the ledger */
+  const templateJSON = await ctx.stub.getState(templateId);
+  if (!templateJSON || templateJSON.length === 0) {
+    throw new Error(`Credential template ${templateId} does not exist`);
   }
+
+  /* Step 2: Parse the template JSON */
+  const template = JSON.parse(templateJSON.toString());
+
+  /* Step 3: Get blockchain timestamp and txId */
+  const txTimestamp = ctx.stub.getTxTimestamp();
+  const txId = ctx.stub.getTxID();
+
+  /* Step 4: Build the issued credential instance object */
+  const credentialInstance = {
+    id: `${templateId}_${holderID}_${txTimestamp.seconds}${txTimestamp.nanos}`,
+
+    // ✅ NEW FIELD (critical)
+    templateId: templateId,
+
+    holderID: holderID,
+    issuerID: template.issuerID,
+
+    credentialType: template.credentialType,
+    credentialName: template.credentialName,
+    description: template.description,
+
+    issuedDate: template.issuedDate,
+    status: 'issued',
+    expiryDate: expiryDate || '',
+    assignedDate: new Date(
+      txTimestamp.seconds * 1000 + Math.floor(txTimestamp.nanos / 1000000)
+    ).toISOString(),
+
+    metadata: template.metadata,
+    skills: template.skills || [],
+    version: template.version,
+    isTemplate: false,
+    txId: txId
+  };
+
+  /* Step 5: Write to ledger */
+  console.log('🚀 Issuing credential instance to holder:', holderID);
+  console.log('📝 Instance ID:', credentialInstance.id);
+
+  await ctx.stub.putState(
+    credentialInstance.id,
+    Buffer.from(JSON.stringify(credentialInstance))
+  );
+
+  console.log('✅ Credential instance issued to ledger:', credentialInstance.id);
+
+  /* Step 6: Return issued instance */
+  return JSON.stringify(credentialInstance);
+}
 // ==========================================================================================================================================================================
 
   // =========================================================================================================

@@ -1023,59 +1023,58 @@ async function save_CredentialTemplateToIssuerDB(issuerDoc, credentialDoc) {
 // ==========================================================================================================================================================================
 
 /* 
-  Function Name: saveIssuedCredentialToBothDBs (CURRENT / FIXED) 
+  Function Name: saveIssuedCredentialToBothDBs (UPDATED)
 
-  Technical: Saves an ISSUED credential (AFTER blockchain success) to:
-            (1) Issuer’s CouchDB → issued_credentials
-            (2) Admin/Main CouchDB → wallet_user_credentials (acts like “user wallet” registry)
+  Technical:
+  Saves an ISSUED credential (AFTER blockchain success) to:
+    (1) Issuer’s CouchDB → issued_credentials
+    (2) Admin/Main CouchDB → wallet_user_credentials
 
-            Uses the blockchain ID (credentialData.id / credentialData.blockchainId) as the deterministic base,
-            so stable yung document IDs:
-              - issuer_cred_<blockchainId>
-              - user_cred_<blockchainId>
+  IMPORTANT UPDATE:
+    ✅ Persists templateId in both DB copies so we can:
+       - query by templateId + holderID
+       - prevent duplicate issuance
+       - filter eligible recipients
 
-  Tropang Ex: After ma-issue na sa blockchain, kailangan may “copies” sa databases para:
-            - mabilis i-display sa issuer dashboard (issuer DB)
-            - makita sa user wallet / verify flow (admin DB)
-            Kasi blockchain is source of truth, pero CouchDB is pang mabilis + pang UI.
-
-  Notes (important): 
-    * issued_credentials = credentials issued by the issuer
-    * wallet_user_credentials = list of all wallets/credentials issued to a user 
+  Tropang Ex:
+  After ma-issue na sa blockchain, kailangan may “copies” sa databases para:
+    - mabilis i-display sa issuer dashboard (issuer DB)
+    - makita sa user wallet / verify flow (admin DB)
 */
 async function saveIssuedCredentialToBothDBs(issuerEmail, credentialData) {
   try {
 
     /* Step 1: Ensure issuersDB initialized + resolve issuer record by email
-       Technical: initializeDatabases() ensures issuersDB exists, then getIssuerByEmail().
-       Tropang Ex: Kailangan natin si issuer doc para makuha couchDBUrl + issuer metadata.
+
+      Tropang Ex:
+      Kailangan natin issuer doc para makuha couchDBUrl + issuer metadata.
     */
     if (!issuersDB) await initializeDatabases();
     const issuer = await getIssuerByEmail(issuerEmail);
-    
-    /* Step 2: Validate issuer has couchDBUrl
-       Technical: Blocks if missing, since we can’t save to issuer’s DB.
-    */
+
+    /* Step 2: Validate issuer has couchDBUrl */
     if (!issuer || !issuer.couchDBUrl) {
       throw new Error(`❌ Issuer ${issuerEmail} has no CouchDB URL configured`);
     }
 
-    /* Step 3: Get deterministic blockchain ID
-       Technical: Uses credentialData.id OR credentialData.blockchainId.
-       Tropang Ex: Dapat may ID galing blockchain para consistent yung _id naming.
-    */
+    /* Step 3: Get deterministic blockchain ID */
     const blockchainId = credentialData.id || credentialData.blockchainId;
     if (!blockchainId) {
       throw new Error('❌ No blockchain ID provided in credentialData');
     }
 
-    /* Step 4: Save to ISSUER CouchDB (issued_credentials)
-       Technical: Connect to issuer.couchDBUrl and insert issuer_cred_<blockchainId>.
-       Tropang Ex: Copy ng issued credential para makita sa issuer dashboard/history.
+    /* Step 3.5: Extract templateId (NEW)
+      Technical:
+      Should come from controller/chaincode.
+      Tropang Ex:
+      Para alam natin kung anong template pinanggalingan nitong issued credential.
     */
+    const templateId = credentialData.templateId || credentialData.templateID || null;
+
+    /* Step 4: Save to ISSUER CouchDB (issued_credentials) */
     const issuerCouch = require('nano')(issuer.couchDBUrl);
     const issuerWalletDb = issuerCouch.use('issued_credentials');
-    
+
     const credentialDoc = {
       ...credentialData,
       _id: `issuer_cred_${blockchainId}`,
@@ -1084,12 +1083,17 @@ async function saveIssuedCredentialToBothDBs(issuerEmail, credentialData) {
       issuerID: issuer._id,
       issuerName: issuer.orgName || issuer.contactName,
       blockchainId: blockchainId,
+
+      // ✅ NEW FIELD
+      templateId: templateId,
+
       savedToCouchDBAt: new Date().toISOString(),
       status: credentialData.status || 'issued',
       visibility: 'private',
-      skills: credentialData.skills || [],          // - polo
-      badgeImage: credentialData.badgeImage || ''   // - polo
+      skills: credentialData.skills || [],
+      badgeImage: credentialData.badgeImage || ''
     };
+
     console.log(`[COUCHDB] 1️⃣ Saving to ISSUER DB: ${issuer.couchDBUrl}/issued_credentials`);
     const issuerResult = await issuerWalletDb.insert(credentialDoc);
 
@@ -1098,10 +1102,12 @@ async function saveIssuedCredentialToBothDBs(issuerEmail, credentialData) {
     try {
       const tempAdminCouch = require('nano')(COUCHDB_URL);
       const tempWalletDb = tempAdminCouch.use('wallet_user_credentials');
+
       const existing = await tempWalletDb.find({
         selector: { holderID: credentialData.holderID },
         fields: ['currentOrder']
       });
+
       if (existing.docs.length > 0) {
         const maxOrder = Math.max(...existing.docs.map(d => d.currentOrder || 0));
         nextOrder = maxOrder + 1;
@@ -1110,36 +1116,31 @@ async function saveIssuedCredentialToBothDBs(issuerEmail, credentialData) {
       console.warn('[COUCHDB] Could not determine display order, defaulting to 1:', err.message);
     }
 
-    /* Step 5: Save to ADMIN/Main CouchDB (wallet_user_credentials)
-       Technical: Connect to COUCHDB_URL (main admin couch), insert user_cred_<blockchainId>.
-       Tropang Ex: This becomes the user-wallet side record (pang verify + user dashboard).
-    */
+    /* Step 5: Save to ADMIN/Main CouchDB (wallet_user_credentials) */
     const adminCouch = require('nano')(COUCHDB_URL);
     const userWalletDb = adminCouch.use('wallet_user_credentials');
-    
+
     const userCredentialDoc = {
       ...credentialDoc,
       _id: `user_cred_${blockchainId}`,
       holderID: credentialData.holderID,
       savedToUserWalletAt: new Date().toISOString(),
       visibility: 'private',
-      originalOrder: nextOrder,  // - polo
-      currentOrder: nextOrder    // - polo
+      originalOrder: nextOrder,
+      currentOrder: nextOrder
     };
+
     console.log(`[COUCHDB] 2️⃣ Saving to ADMIN DB: ${COUCHDB_URL}/wallet_user_credentials`);
     const adminResult = await userWalletDb.insert(userCredentialDoc);
 
-    /* Step 6: Return success summary (both inserts)
-       Technical: Returns both CouchDB insert responses so caller can confirm.
-       Tropang Ex: Para alam ng endpoint kung pumasok ba sa both DBs.
-    */
+    /* Step 6: Return success summary */
     return {
       success: true,
       issuerSave: issuerResult,
       adminSave: adminResult,
       message: 'Credential saved to both databases successfully'
     };
-    
+
   } catch (error) {
     console.error(`❌ Error saving credential to both DBs:`, error.message);
     throw error;
@@ -2288,9 +2289,149 @@ async function changeAdminPassword(adminEmail, currentPassword, newPassword, per
  };
 }
 
+// ==========================================================================================================================================================================
 
+/*
+  Function Name: getBlockedHolderIDsByTemplate
 
+  Technical:
+  Fetches all issued credential instances from ADMIN/Main CouchDB (wallet_user_credentials)
+  that match a given templateId, then returns a UNIQUE list of holderIDs that should be BLOCKED
+  from receiving the same template again.
 
+  Blocking rule:
+    - If credential is REVOKED → do NOT block (allowed to re-issue)
+    - If credential is EXPIRED → do NOT block (allowed to re-issue)
+    - If credential has no expiryDate → treat as ACTIVE → block
+    - If expiryDate exists and is in the future → ACTIVE → block
+
+  Tropang Ex:
+  Ito yung “bawal muna” list.
+  Kapag pumili ka ng template sa dropdown, dito natin kukunin yung mga users
+  na meron pang active/non-expired copy ng same template,
+  para hindi sila lumabas sa users dropdown.
+*/
+async function getBlockedHolderIDsByTemplate(templateId) {
+  try {
+
+    /* Step 1: Validate input
+
+      Tropang Ex:
+      Kailangan natin malaman kung anong template ang pinili,
+      kasi yun yung basis ng pag-filter.
+    */
+    if (!templateId) {
+      throw new Error('templateId is required');
+    }
+
+    /* Step 2: Ensure databases are initialized (usersDb needed for admin-role filtering)
+
+      Tropang Ex:
+      Kailangan natin ma-check yung role ng holderIDs (para ma-exclude admins).
+    */
+    if (!usersDb) await initializeDatabases();
+
+    /* Step 3: Connect to ADMIN/Main CouchDB + select wallet_user_credentials
+
+      Tropang Ex:
+      Dito naka-store lahat ng issued credentials ng lahat ng users.
+    */
+    const adminCouch = require('nano')(COUCHDB_URL);
+    const userWalletDb = adminCouch.use('wallet_user_credentials');
+
+    /* Step 4: Query all credentials that match templateId
+
+      Technical:
+      We only pull minimal fields needed for blocking logic:
+        - holderID
+        - expiryDate
+        - status
+
+      Tropang Ex:
+      Kunin lahat ng credentials na galing sa template na ’to.
+    */
+    const result = await userWalletDb.find({
+      selector: { templateId: templateId },
+      fields: ['holderID', 'expiryDate', 'status']
+    });
+
+    /* Step 5: Build blocked set (unique holderIDs)
+
+      Rules recap:
+      - revoked => allowed (not blocked)
+      - expired => allowed (not blocked)
+      - expiryDate missing/empty => active => blocked
+      - expiryDate in future => blocked
+
+      Tropang Ex:
+      Ito yung initial list ng mga "bawal muna" bigyan ulit.
+    */
+    const now = new Date();
+    const blockedSet = new Set();
+
+    for (const doc of (result.docs || [])) {
+      if (!doc || !doc.holderID) continue;
+
+      const status = (doc.status || '').toLowerCase();
+
+      // Step 5A: If revoked, skip (allowed again)
+      if (status === 'revoked') continue;
+
+      // Step 5B: If already marked expired, skip (allowed again)
+      if (status === 'expired') continue;
+
+      // Step 5C: If no expiryDate, treat as active => block
+      if (!doc.expiryDate || String(doc.expiryDate).trim() === '') {
+        blockedSet.add(doc.holderID);
+        continue;
+      }
+
+      // Step 5D: If expiryDate exists, compare to now
+      const expiry = new Date(doc.expiryDate);
+      if (!isNaN(expiry.getTime()) && expiry > now) {
+        blockedSet.add(doc.holderID);
+      }
+    }
+
+    /* Step 6: Remove ADMIN holderIDs from blockedSet (NEW)
+
+      Technical:
+      Some admin accounts may have wallet_user_credentials entries.
+      We don't want admin IDs to affect dropdown filtering, so we remove them.
+
+      Tropang Ex:
+      Kahit may credentials si admin, di siya dapat kasama sa logic ng issuance dropdown.
+    */
+    const blockedIDs = Array.from(blockedSet);
+
+    if (blockedIDs.length > 0) {
+      // fetch user docs in batch; ignore missing docs
+      const userDocs = await usersDb.fetch({ keys: blockedIDs });
+
+      for (const row of (userDocs.rows || [])) {
+        const doc = row.doc;
+        if (!doc) continue;
+
+        const role = String(doc.role || '').toLowerCase();
+        if (role === 'admin') {
+          blockedSet.delete(doc._id);
+        }
+      }
+    }
+
+    /* Step 7: Return list of blocked holderIDs
+
+      Tropang Ex:
+      Ito yung gagamitin ng controller para alisin sila sa dropdown list.
+    */
+    return Array.from(blockedSet);
+
+  } catch (error) {
+    console.error('[COUCHDB] ❌ Error in getBlockedHolderIDsByTemplate:', error.message);
+    throw error;
+  }
+}
+// ==========================================================================================================================================================================
 // ==========================================================================================================================================================================
 
 module.exports = {
@@ -2361,6 +2502,7 @@ module.exports = {
 
   verifyAdminCurrentPassword,
   changeAdminPassword, 
-  getAdminByEmail
+  getAdminByEmail,
+  getBlockedHolderIDsByTemplate
 
 };

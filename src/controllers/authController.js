@@ -277,21 +277,6 @@ login: async (req, res) => {
 
   // ========================================================================================================================================================================
 
-  /*
-  Endpoint: GET /api/auth/users
-  Function Name: getAllUsers
-
-  Technical:
-  Fetches all user documents from CouchDB via couchDB.getAllUsers().
-  Returns list + count as-is (any filtering should be handled in the service layer).
-
-  Tropang Ex:
-  Ginagamit to pang dropdown ni issuer (pipili siya sinong holder/student).
-
-  Note:
-  Comment says "Admin only", but this function itself does not enforce admin auth.
-  (Access control should be in middleware / route protection.)
-*/
 /*
   Endpoint: GET /api/auth/users
   Function Name: getAllUsers

@@ -116,6 +116,12 @@ router.patch('/credentials/:credentialId/visibility', authController.updateCrede
 router.patch('/credentials/:credentialId/order', authController.updateCredentialOrder);
 
 // =========================================================================================================
+// ISSUER: ELIGIBLE USERS FOR A TEMPLATE (PREVENT DUPLICATE ISSUANCE)
+// =========================================================================================================
+router.get(
+  '/issuer/templates/:templateId/eligible-users', issuerCredentialController.getEligibleUsersForTemplate);
+
+// =========================================================================================================
 // ✅ VERIFICATION ROUTES (Verifier Module) - detailed routes with inline logic
 // =========================================================================================================
 

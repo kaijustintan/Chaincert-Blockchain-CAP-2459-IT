@@ -57,6 +57,9 @@ export default function IssuerDashboard() {
   const [filterType, setFilterType] = useState("all");
   const [filterStatus, setFilterStatus] = useState("all");
 
+  // View toggle
+  const [dashboardView, setDashboardView] = useState("issued"); // 'issued' | 'templates'
+
   // Fetch credentials on page load
   useEffect(() => {
     fetchCredentials();
@@ -449,6 +452,34 @@ export default function IssuerDashboard() {
     <div className="issuer-dashboard">
       <h2>Issuer Dashboard</h2>
 
+      {/* View Toggle */}
+      <div style={{ display: "flex", gap: 8, margin: "20px 0 0 0" }}>
+        <button
+          onClick={() => setDashboardView("issued")}
+          className="action-btn"
+          style={{
+            background: dashboardView === "issued" ? "rgba(139,92,246,0.35)" : "rgba(255,255,255,0.06)",
+            border: dashboardView === "issued" ? "1px solid #a78bfa" : "1px solid rgba(255,255,255,0.18)",
+            color: dashboardView === "issued" ? "#a78bfa" : "#fff",
+            fontWeight: 700,
+          }}
+        >
+          📋 Issued Credentials
+        </button>
+        <button
+          onClick={() => setDashboardView("templates")}
+          className="action-btn"
+          style={{
+            background: dashboardView === "templates" ? "rgba(139,92,246,0.35)" : "rgba(255,255,255,0.06)",
+            border: dashboardView === "templates" ? "1px solid #a78bfa" : "1px solid rgba(255,255,255,0.18)",
+            color: dashboardView === "templates" ? "#a78bfa" : "#fff",
+            fontWeight: 700,
+          }}
+        >
+          🏷️ Credential Templates
+        </button>
+      </div>
+
       {/* Create Credential Button */}
       <div style={{ margin: "20px 0" }}>
         <button onClick={openCreateModal} className="action-btn create-btn">
@@ -475,16 +506,6 @@ export default function IssuerDashboard() {
             ⚠️ {noTemplateError}
           </div>
         )}
-      </div>
-
-      {/* Revoke Credential Button */}
-      <div style={{ margin: "20px 0" }}>
-        <button
-          onClick={openRevokeModal}
-          className="action-btn revoke-btn"
-        >
-          Revoke Credential
-        </button>
       </div>
 
       {/* Create Credential Modal */}
@@ -706,34 +727,47 @@ export default function IssuerDashboard() {
             <h3>Revoke Credential</h3>
             <form onSubmit={handleRevokeSubmit}>
               <div className="form-group">
-                <label>Select Issued Credential:</label>
-                <select
-                  name="credentialId"
-                  value={revokeForm.credentialId}
-                  onChange={handleRevokeFormChange}
-                  required
-                >
-                  <option value="">-- Select issued credential --</option>
-                  {credentials
-                    .filter(
-                      (c) =>
-                        c.status === "issued" ||
-                        !c.status ||
-                        c.status === "active"
-                    )
-                    .map((cred) => {
-                      const blockchainId = cred.blockchainId || cred.id;
-                      const shortId = blockchainId?.slice(0, 16) || "";
-                      return (
-                        <option key={blockchainId} value={blockchainId}>
-                          {cred.credentialName || "Untitled"} (
-                          {cred.credentialType || "N/A"})
-                          {cred.holderID ? ` – ${cred.holderID}` : ""}
-                          {shortId ? ` – ${shortId}…` : ""}
-                        </option>
-                      );
-                    })}
-                </select>
+                <label>Credential:</label>
+                {revokeForm.credentialId ? (
+                  <div style={{
+                    padding: "10px 12px",
+                    borderRadius: "10px",
+                    background: "rgba(255,255,255,0.06)",
+                    border: "1px solid rgba(255,255,255,0.12)",
+                    color: "#fff",
+                    fontFamily: "monospace",
+                    fontSize: "13px",
+                  }}>
+                    {(() => {
+                      const found = credentials.find(c => (c.blockchainId || c.id) === revokeForm.credentialId);
+                      return found
+                        ? `${found.credentialName || "Untitled"} (${found.credentialType || "N/A"}) – ${revokeForm.credentialId.slice(0, 20)}…`
+                        : revokeForm.credentialId;
+                    })()}
+                  </div>
+                ) : (
+                  <select
+                    name="credentialId"
+                    value={revokeForm.credentialId}
+                    onChange={handleRevokeFormChange}
+                    required
+                  >
+                    <option value="">-- Select issued credential --</option>
+                    {credentials
+                      .filter((c) => c.status === "issued" || !c.status || c.status === "active")
+                      .map((cred) => {
+                        const blockchainId = cred.blockchainId || cred.id;
+                        const shortId = blockchainId?.slice(0, 16) || "";
+                        return (
+                          <option key={blockchainId} value={blockchainId}>
+                            {cred.credentialName || "Untitled"} ({cred.credentialType || "N/A"})
+                            {cred.holderID ? ` – ${cred.holderID}` : ""}
+                            {shortId ? ` – ${shortId}…` : ""}
+                          </option>
+                        );
+                      })}
+                  </select>
+                )}
               </div>
 
               {/* Rejection Reason — required before revoke pushes through // - polo */}
@@ -787,139 +821,205 @@ export default function IssuerDashboard() {
         </div>
       </div>
 
-      {/* FILTER SECTION */}
-      <div className="filter-section">
-        <h3>🔍 Filter & Sort Credentials</h3>
-        <div className="filter-row">
-          <div className="filter-group">
-            <label htmlFor="sortBy">Sort By:</label>
-            <select
-              id="sortBy"
-              value={sortBy}
-              onChange={(e) => setSortBy(e.target.value)}
-              className="filter-select"
-            >
-              <option value="issuedDate-desc">📅 Most Recent (Created)</option>
-              <option value="issuedDate-asc">📅 Oldest (Created)</option>
-              <option value="expiryDate-desc">⏰ Latest Expiry Date</option>
-              <option value="expiryDate-asc">⏰ Expiring Soonest</option>
-              <option value="credentialType-asc">
-                🏆 Credential Type (A-Z)
-              </option>
-            </select>
+      {/* TEMPLATES VIEW */}
+      {dashboardView === "templates" && (
+        <div className="table-container" style={{ marginTop: 24 }}>
+          <h3 style={{ marginBottom: 12 }}>Credential Templates</h3>
+          {templateOptions.length === 0 ? (
+            <div className="no-results">
+              <p>📭 No credential templates found. Create your first template!</p>
+            </div>
+          ) : (
+            <table className="template-table">
+              <thead>
+                <tr>
+                  <th>Template ID</th>
+                  <th>Type</th>
+                  <th>Name</th>
+                  <th>Description</th>
+                  <th>Skills</th>
+                  <th>Created Date</th>
+                </tr>
+              </thead>
+              <tbody>
+                {templateOptions.map((template) => {
+                  const id = template.id || template._id;
+                  return (
+                    <tr key={id}>
+                      <td style={{ fontFamily: "monospace", fontSize: 12 }}>{id || "N/A"}</td>
+                      <td>{template.credentialType || "N/A"}</td>
+                      <td>{template.credentialName || "N/A"}</td>
+                      <td>{template.description || "—"}</td>
+                      <td>
+                        {Array.isArray(template.skills) && template.skills.length > 0
+                          ? template.skills.join(", ")
+                          : "—"}
+                      </td>
+                      <td>
+                        {template.createdAt
+                          ? new Date(template.createdAt).toLocaleDateString()
+                          : "N/A"}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          )}
+        </div>
+      )}
+
+      {/* ISSUED CREDENTIALS VIEW */}
+      {dashboardView === "issued" && (
+        <>
+          {/* FILTER SECTION */}
+          <div className="filter-section">
+            <h3>🔍 Filter & Sort Credentials</h3>
+            <div className="filter-row">
+              <div className="filter-group">
+                <label htmlFor="sortBy">Sort By:</label>
+                <select
+                  id="sortBy"
+                  value={sortBy}
+                  onChange={(e) => setSortBy(e.target.value)}
+                  className="filter-select"
+                >
+                  <option value="issuedDate-desc">📅 Most Recent (Created)</option>
+                  <option value="issuedDate-asc">📅 Oldest (Created)</option>
+                  <option value="expiryDate-desc">⏰ Latest Expiry Date</option>
+                  <option value="expiryDate-asc">⏰ Expiring Soonest</option>
+                  <option value="credentialType-asc">🏆 Credential Type (A-Z)</option>
+                </select>
+              </div>
+
+              <div className="filter-group">
+                <label htmlFor="filterType">Credential Type:</label>
+                <select
+                  id="filterType"
+                  value={filterType}
+                  onChange={(e) => setFilterType(e.target.value)}
+                  className="filter-select"
+                >
+                  <option value="all">All Types</option>
+                  {getUniqueCredentialTypes().map((type) => (
+                    <option key={type} value={type}>
+                      {type}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="filter-group">
+                <label htmlFor="filterStatus">Status:</label>
+                <select
+                  id="filterStatus"
+                  value={filterStatus}
+                  onChange={(e) => setFilterStatus(e.target.value)}
+                  className="filter-select"
+                >
+                  <option value="all">All Status</option>
+                  <option value="active">✅ Active</option>
+                  <option value="revoked">❌ Revoked</option>
+                  <option value="expired">⚠️ Expired</option>
+                </select>
+              </div>
+            </div>
+
+            <div className="results-info">
+              Showing <strong>{filteredCredentials.length}</strong> of{" "}
+              <strong>{credentials.length}</strong> credentials
+            </div>
           </div>
 
-          <div className="filter-group">
-            <label htmlFor="filterType">Credential Type:</label>
-            <select
-              id="filterType"
-              value={filterType}
-              onChange={(e) => setFilterType(e.target.value)}
-              className="filter-select"
-            >
-              <option value="all">All Types</option>
-              {getUniqueCredentialTypes().map((type) => (
-                <option key={type} value={type}>
-                  {type}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          <div className="filter-group">
-            <label htmlFor="filterStatus">Status:</label>
-            <select
-              id="filterStatus"
-              value={filterStatus}
-              onChange={(e) => setFilterStatus(e.target.value)}
-              className="filter-select"
-            >
-              <option value="all">All Status</option>
-              <option value="active">✅ Active</option>
-              <option value="revoked">❌ Revoked</option>
-              <option value="expired">⚠️ Expired</option>
-            </select>
-          </div>
-        </div>
-
-        <div className="results-info">
-          Showing <strong>{filteredCredentials.length}</strong> of{" "}
-          <strong>{credentials.length}</strong> credentials
-        </div>
-      </div>
-
-      {/* CREDENTIALS TABLE */}
-      {filteredCredentials.length === 0 ? (
-        <div className="no-results">
-          <p>
-            {credentials.length === 0
-              ? "📭 No credentials found. Issue your first credential!"
-              : "❌ No credentials match your filters."}
-          </p>
-        </div>
-      ) : (
-        <div className="table-container">
-          <table className="template-table">
-            <thead>
-              <tr>
-                <th>Credential ID</th>
-                <th>Type</th>
-                <th>Name</th>
-                <th>Holder Name</th>   
-                <th>Description</th>
-                <th>Created Date</th>
-                <th>Status</th>
-                <th>Expiry Date</th>
-                <th>Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {filteredCredentials.map((credential) => {
-                const blockchainId = credential.blockchainId || credential.id;
-
-                return (
-                  <tr key={blockchainId}>
-                    <td>{blockchainId || "N/A"}</td>
-                    <td>{credential.credentialType || "N/A"}</td>
-                    <td>{credential.credentialName || "N/A"}</td>
-                    <td>{credential.holderName || credential.holderID || "N/A"}</td>  
-                    <td>{credential.description || "N/A"}</td>
-                    <td>
-                      {credential.issuedDate
-                        ? new Date(credential.issuedDate).toLocaleDateString()
-                        : "N/A"}
-                    </td>
-                    <td>
-                      <span
-                        className={`status-badge status-${
-                          credential.status || "active"
-                        }`}
-                      >
-                        {credential.status || "active"}
-                      </span>
-                    </td>
-                    <td>
-                      {credential.expiryDate
-                        ? new Date(credential.expiryDate).toLocaleDateString()
-                        : "N/A"}
-                    </td>
-                    <td>
-                      {credential.status &&
-                        credential.status !== "issued" &&
-                        credential.status !== "active" && (
-                          <span className="action-text">
-                            {credential.status === "revoked"
-                              ? "Revoked"
-                              : "Expired"}
-                          </span>
-                        )}
-                    </td>
+          {/* CREDENTIALS TABLE */}
+          {filteredCredentials.length === 0 ? (
+            <div className="no-results">
+              <p>
+                {credentials.length === 0
+                  ? "📭 No credentials found. Issue your first credential!"
+                  : "❌ No credentials match your filters."}
+              </p>
+            </div>
+          ) : (
+            <div className="table-container">
+              <table className="template-table">
+                <thead>
+                  <tr>
+                    <th>Credential ID</th>
+                    <th>Type</th>
+                    <th>Name</th>
+                    <th>Holder Name</th>
+                    <th>Description</th>
+                    <th>Created Date</th>
+                    <th>Status</th>
+                    <th>Expiry Date</th>
+                    <th>Actions</th>
                   </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
+                </thead>
+                <tbody>
+                  {filteredCredentials.map((credential) => {
+                    const blockchainId = credential.blockchainId || credential.id;
+                    const isRevokable =
+                      credential.status === "issued" ||
+                      credential.status === "active" ||
+                      !credential.status;
+
+                    return (
+                      <tr key={blockchainId}>
+                        <td>{blockchainId || "N/A"}</td>
+                        <td>{credential.credentialType || "N/A"}</td>
+                        <td>{credential.credentialName || "N/A"}</td>
+                        <td>{credential.holderName || credential.holderID || "N/A"}</td>
+                        <td>{credential.description || "N/A"}</td>
+                        <td>
+                          {credential.issuedDate
+                            ? new Date(credential.issuedDate).toLocaleDateString()
+                            : "N/A"}
+                        </td>
+                        <td>
+                          <span className={`status-badge status-${credential.status || "active"}`}>
+                            {credential.status || "active"}
+                          </span>
+                        </td>
+                        <td>
+                          {credential.expiryDate
+                            ? new Date(credential.expiryDate).toLocaleDateString()
+                            : "N/A"}
+                        </td>
+                        <td>
+                          {isRevokable ? (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setRevokeForm({
+                                  credentialId: blockchainId,
+                                  rejectionReason: "",
+                                });
+                                setRevokeError("");
+                                setShowRevokeModal(true);
+                              }}
+                              className="action-btn revoke-btn"
+                              style={{
+                                padding: "6px 10px",
+                                fontSize: "12px",
+                              }}
+                            >
+                              Revoke
+                            </button>
+                          ) : (
+                            <span className="action-text">
+                              {credential.status === "revoked" ? "Revoked" : "Expired"}
+                            </span>
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </>
       )}
     </div>
   );

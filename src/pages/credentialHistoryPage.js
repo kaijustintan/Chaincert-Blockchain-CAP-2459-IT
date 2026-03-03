@@ -432,65 +432,73 @@ export default function CredentialHistoryPage() {
             <small>Filtered and sorted by selected criteria</small>
           </div>
 
-          <table className="template-table">
-            <thead>
-              <tr>
-                <th>Timestamp</th>
-                <th>Action</th>
-                <th>Credential Name</th>
-                <th>Credential Type</th>
-                <th>Status</th>
-                <th>Holder</th>
-                <th>Credential ID</th>
-                <th>Transaction ID</th>
-              </tr>
-            </thead>
-            <tbody>
-              {filteredHistory.map((record, index) => {
-                const action = getActionType(record);
-                const statusInfo = getStatusInfo(record); /* CSS-CHANGE: use helper */
+         <table className="template-table">
+  <thead>
+    <tr>
+      <th>Timestamp</th>
+      <th>Action</th>
+      <th>Credential Name</th>
+      <th>Credential Type</th>
+      <th>Status</th>
+      <th>Holder Name</th> 
+      <th>Holder ID</th>   
+      <th>Credential ID</th>
+      <th>Transaction ID</th>
+    </tr>
+  </thead>
 
-                return (
-                  <tr key={`${record.credentialId}-${record.txId}-${index}`}>
-                    <td>{formatDate(record.timestamp)}</td>
-                    <td>
-                      {/* CSS-CHANGE: replaced inline style with className using helper */}
-                      <span className={getActionBadgeClass(action)}>
-                        {getActionDisplayText(action)}
-                      </span>
-                    </td>
-                    <td>
-                      <strong>{record.credentialName || "N/A"}</strong>
-                    </td>
-                    <td>{record.credentialType || "N/A"}</td>
-                    <td>
-                      {/* CSS-CHANGE: replaced inline styles with className using helper */}
-                      <span className={statusInfo.className}>
-                        {statusInfo.text}
-                      </span>
-                    </td>
-                    <td>
-                      {/* CSS-CHANGE: replaced inline styles with classNames */}
-                      <div className="history-holder-name">
-                        {record.holderName || "N/A"}
-                      </div>
-                      <div className="history-holder-id">
-                        {record.value?.holderID || "N/A"}
-                      </div>
-                    </td>
-                    {/* CSS-CHANGE: replaced inline style with className */}
-                    <td className="history-mono-cell">
-                      {record.credentialId.substring(0, 20)}...
-                    </td>
-                    {/* CSS-CHANGE: replaced inline style with className */}
-                    <td className="history-mono-cell">
-                      {record.txId.substring(0, 12)}...
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
+  <tbody>
+    {filteredHistory.map((record, index) => {
+      const action = getActionType(record);
+      const statusInfo = getStatusInfo(record);
+
+      return (
+        <tr key={`${record.credentialId}-${record.txId}-${index}`}>
+          <td>{formatDate(record.timestamp)}</td>
+
+          <td>
+            <span className={getActionBadgeClass(action)}>
+              {getActionDisplayText(action)}
+            </span>
+          </td>
+
+          <td>
+            <strong>{record.credentialName || "N/A"}</strong>
+          </td>
+
+          <td>{record.credentialType || "N/A"}</td>
+
+          <td>
+            <span className={statusInfo.className}>
+              {statusInfo.text}
+            </span>
+          </td>
+
+          {/* ✅ NEW: Holder Name (snapshot from CouchDB / history API) */}
+          <td>{record.holderName || "N/A"}</td>
+
+          {/* ✅ NEW: Holder ID (always from value.holderID) */}
+          <td className="history-mono-cell">
+            {(record.value?.holderID || "N/A").substring(0, 20)}
+            {(record.value?.holderID && record.value.holderID.length > 20) ? "..." : ""}
+          </td>
+
+          {/* Credential ID */}
+          <td className="history-mono-cell">
+            {(record.credentialId || "N/A").substring(0, 20)}
+            {(record.credentialId && record.credentialId.length > 20) ? "..." : ""}
+          </td>
+
+          {/* Tx ID */}
+          <td className="history-mono-cell">
+            {(record.txId || "N/A").substring(0, 12)}
+            {(record.txId && record.txId.length > 12) ? "..." : ""}
+          </td>
+        </tr>
+      );
+    })}
+  </tbody>
+</table>
         </>
       )}
 

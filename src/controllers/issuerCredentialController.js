@@ -537,17 +537,53 @@ exports.issue_CredentialToUser = async (req, res, getContractAndGateway) => {
         console.warn('[ISSUE] Could not fetch template for badgeImage/skills:', tErr.message);
       }
 
-      /* Step 9B: Build extended credential payload for CouchDB
-         IMPORTANT UPDATE:
-         ✅ Ensure templateId is included (for duplicate issuance prevention + filtering).
+      /* Step 9A.5: Fetch holder info snapshot for CouchDB display (NEW)
+         Technical:
+         Pulls holder name/email from users DB so dashboards can display the name easily.
+         NOTE: This is stored in CouchDB only; blockchain stays holderID-only.
 
          Tropang Ex:
-         Dinadagdagan natin ng templateId para alam natin kung anong template pinanggalingan.
+         Para hindi puro holderID lang makikita sa dashboards, kukunin natin name/email ni holder.
+      */
+      let holderName = '';
+      let holderEmail = '';
+
+      try {
+        const holderDoc = await couchdbService.getUser(holderID);
+
+        if (holderDoc) {
+          holderEmail = holderDoc.email || '';
+
+          const fullName = `${holderDoc.firstName || ''} ${holderDoc.lastName || ''}`.trim();
+          holderName =
+            holderDoc.name ||
+            fullName ||
+            holderDoc.username ||
+            holderDoc.email ||
+            holderID;
+        } else {
+          holderName = holderID;
+        }
+      } catch (hErr) {
+        console.warn('[ISSUE] Could not fetch holder info for holderName snapshot:', hErr.message);
+        holderName = holderID;
+      }
+
+      /* Step 9B: Build extended credential payload for CouchDB
+
+         Updates:
+         ✅ Ensure templateId is included (duplicate prevention)
+         ✅ Add holderName + holderEmail snapshot (CouchDB display)
+
+         Tropang Ex:
+         Dinadagdagan natin ng templateId + holderName para mas madali sa UI.
       */
       const credentialDataExtended = {
-        ...credentialData,               // ✅ FIXED: (was ".credentialData")
-        templateId: credentialId,        // ✅ ADD THIS
+        ...credentialData,
+        templateId: credentialId,
         holderID: holderID,
+        holderName: holderName,     // ✅ NEW
+        holderEmail: holderEmail,   // ✅ OPTIONAL
         expiryDate: expiryDate || null,
         badgeImage: templateBadgeImage,
         skills: (credentialData.skills?.length > 0) ? credentialData.skills : templateSkills
@@ -560,11 +596,7 @@ exports.issue_CredentialToUser = async (req, res, getContractAndGateway) => {
 
       console.log(`[ISSUE] ✅ CouchDB save successful:`, couchResult.message);
 
-      /* Step 10: Return COMPLETE success response (blockchain + CouchDB ok)
-
-        Tropang Ex:
-        Lahat successful — blockchain + DB copies.
-      */
+      /* Step 10: Return COMPLETE success response (blockchain + CouchDB ok) */
       return res.status(200).json({
         success: true,
         message: 'Credential issued successfully',
@@ -576,12 +608,7 @@ exports.issue_CredentialToUser = async (req, res, getContractAndGateway) => {
     } catch (couchErr) {
       console.error(`[ISSUE] ⚠️ CouchDB save failed (non-fatal):`, couchErr.message);
 
-      /* Step 10B: Return PARTIAL success (blockchain only, CouchDB sync failed)
-
-        Tropang Ex:
-        Na-issue na sa ledger, pero di lang na-save sa databases.
-        (Pwede i-resync later.)
-      */
+      /* Step 10B: Return PARTIAL success (blockchain only, CouchDB sync failed) */
       return res.status(200).json({
         success: true,
         message: 'Credential issued to blockchain (CouchDB sync pending)',
@@ -711,6 +738,82 @@ exports.get_CredentialTemplatesByIssuerID = async (req, res) => {
     });
   }
 };
+
+/*
+  Function Name: get_IssuerIssuedCredentials
+
+  Technical:
+  Fetches ISSUED credentials for the logged-in issuer directly from the issuer's CouchDB
+  database: issued_credentials.
+
+  Tropang Ex:
+  Para sa Issuer Dashboard — mabilis, kumpleto (may holderName/holderEmail/badgeImage),
+  at hindi na kailangan mag-query sa blockchain.
+*/
+exports.get_IssuerIssuedCredentials = async (req, res) => {
+  try {
+
+    /* Step 0: Auth check (JWT middleware) */
+    if (!req.user || !req.user.id || !req.user.email) {
+      return res.status(401).json({
+        success: false,
+        message: 'Unauthorized.'
+      });
+    }
+
+    /* Step 1: Role restriction */
+    if (req.user.role !== 'issuer' && req.user.role !== 'admin') {
+      return res.status(403).json({
+        success: false,
+        message: 'Not authorized.'
+      });
+    }
+
+    /* Step 2: Resolve issuer CouchDB URL
+       Technical:
+       - Issuer: uses their own email to fetch approved issuer doc.
+       - Admin: (optional) you can later pass issuerId in query to target a specific issuer.
+         For now: admin will also resolve using their email if they are in issuers DB.
+    */
+    const issuerDoc = await couchdbService.getApprovedIssuer(req.user.email);
+
+    if (!issuerDoc || !issuerDoc.couchDBUrl) {
+      return res.status(403).json({
+        success: false,
+        message: 'Issuer not approved or CouchDB URL missing.'
+      });
+    }
+
+    /* Step 3: Connect to issuer CouchDB and query issued_credentials */
+    const nano = require('nano');
+    const issuerNano = nano(issuerDoc.couchDBUrl);
+    const issuedDb = issuerNano.use('issued_credentials');
+
+    /* Step 4: Fetch all docs (include_docs) */
+    const result = await issuedDb.list({ include_docs: true });
+
+    /* Step 5: Extract + safety filter */
+    const credentials = (result.rows || [])
+      .map(r => r.doc)
+      .filter(doc => doc && doc.type === 'credential_instance');
+
+    /* Step 6: Return */
+    return res.status(200).json({
+      success: true,
+      credentials,
+      count: credentials.length,
+      timestamp: new Date().toISOString()
+    });
+
+  } catch (error) {
+    console.error('❌ [ISSUED COUCHDB] Error fetching issued credentials:', error.message);
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to fetch issued credentials.',
+      error: error.message
+    });
+  }
+};
 // ==========================================================================================================================================================================
 
 // ==========================================================================================================================================================================
@@ -770,27 +873,24 @@ exports.check_IssuerHasTemplates = async (req, res) => {
 /*
   Function Name: get_IssuerCredentialsHistory
 
-
   Technical:
   Retrieves the complete audit trail of ALL credentials for the logged-in issuer:
     1. Resolves issuer's Fabric identity + org from CouchDB
     2. Calls blockchain chaincode: Get_IssuerCredentialsHistory
     3. Flattens all history entries into a single array
     4. Sorts by timestamp (most recent first)
-    5. Optionally filters by credentialId (if search query provided)
-    6. Returns formatted history for audit dashboard
-
+    5. Enriches history entries with holderName (prefers wallet_user_credentials snapshot, fallback to users DB)
+    6. Optionally filters by credentialId (if search query provided)
+    7. Returns formatted history for audit dashboard
 
   Tropang Ex:
   Ito yung "buong timeline ng lahat ng nangyari sa credentials ng issuer" —
   whether template creation, credential issuance, revocation, etc.
   Perfect for compliance audit at blockchain transparency.
 
-
   Inputs / Parameters:
   - req.user.id → issuerId
   - req.query.credentialId (optional) → filter by specific credential ID
-
 
   Output:
   - 200 success with sorted/filtered history array
@@ -802,10 +902,7 @@ exports.check_IssuerHasTemplates = async (req, res) => {
 exports.get_IssuerCredentialsHistory = async (req, res, getContractAndGateway) => {
   try {
 
-
     /* Step 0: Check authentication
-
-
        Technical: Requires JWT middleware to populate req.user.
        Tropang Ex: Bawal kumuha ng history kung di ka logged in as issuer.
     */
@@ -816,25 +913,19 @@ exports.get_IssuerCredentialsHistory = async (req, res, getContractAndGateway) =
       });
     }
 
-
     const issuerId = req.user.id;
     const { credentialId } = req.query; // Optional search filter
-
 
     console.log(`\n📊 [HISTORY] Fetching credential history for issuer: ${issuerId}`);
     if (credentialId) {
       console.log(`🔍 [HISTORY] Search filter applied: ${credentialId}`);
     }
 
-
     // =====================================================
     // STEP 1: RESOLVE ISSUER IDENTITY (for blockchain)
     // =====================================================
 
-
     /* Step 1: Resolve issuer identity + org info
-
-
        Tropang Ex:
        Kukunin natin yung issuer profile para malaman:
          - fabricIdentity (pang sign ng blockchain query)
@@ -843,7 +934,6 @@ exports.get_IssuerCredentialsHistory = async (req, res, getContractAndGateway) =
     let identityName, orgName, issuerDoc;
     const adminNano = nano('http://admin:adminpw@localhost:5985');
     const issuersDB = adminNano.use('issuers');
-
 
     // Fetch issuerDoc using issuerId
     try {
@@ -858,7 +948,6 @@ exports.get_IssuerCredentialsHistory = async (req, res, getContractAndGateway) =
       throw err;
     }
 
-
     // Validate issuer is approved: must have fabricIdentity + orgName
     if (!issuerDoc || !issuerDoc.fabricIdentity || !issuerDoc.orgName) {
       return res.status(403).json({
@@ -867,28 +956,22 @@ exports.get_IssuerCredentialsHistory = async (req, res, getContractAndGateway) =
       });
     }
 
-
     identityName = issuerDoc.fabricIdentity;
-    
+
     // 🔥 CRITICAL: Normalize orgName to lowercase with no spaces
     orgName = issuerDoc.orgName.toLowerCase().replace(/\s+/g, '');
-    
-    console.log(`✅ [HISTORY] Identity: ${identityName}, Org: ${orgName}`);
 
+    console.log(`✅ [HISTORY] Identity: ${identityName}, Org: ${orgName}`);
 
     // =====================================================
     // STEP 2: QUERY BLOCKCHAIN FOR HISTORY
     // =====================================================
 
-
     /* Step 2: Query blockchain for complete history
-
-
        Technical:
        - Calls Get_IssuerCredentialsHistory chaincode function
        - Returns array of credentials with their full history
        - Uses evaluateTransaction (read-only, no state change)
-
 
        Tropang Ex:
        Ito yung pag-kuha ng raw data galing sa blockchain.
@@ -897,30 +980,21 @@ exports.get_IssuerCredentialsHistory = async (req, res, getContractAndGateway) =
     try {
       console.log(`📡 [HISTORY] Querying blockchain...`);
 
-
-      // Get contract connection
       if (!getContractAndGateway) {
         throw new Error('getContractAndGateway function not provided');
       }
 
-
       const { gateway, contract } = await getContractAndGateway(identityName, orgName);
 
-
-      // Call blockchain chaincode - Get_IssuerCredentialsHistory
       const result = await contract.evaluateTransaction(
         'Get_IssuerCredentialsHistory',
         issuerId
       );
 
-
       rawHistory = JSON.parse(result.toString());
       console.log(`✅ [HISTORY] Blockchain query successful. Found ${rawHistory.length} credentials.`);
 
-
-      // Disconnect gateway
       await gateway.disconnect();
-
 
     } catch (blockchainError) {
       console.error(`❌ [HISTORY] Blockchain error:`, blockchainError.message);
@@ -931,21 +1005,16 @@ exports.get_IssuerCredentialsHistory = async (req, res, getContractAndGateway) =
       });
     }
 
-
     // =====================================================
     // STEP 3: FLATTEN & SORT HISTORY ENTRIES
     // =====================================================
 
-
     /* Step 3: Flatten all history entries into single array
-
-
        Technical:
        - Each credential has a history array
        - We want ALL history entries in ONE flat array
        - Attach credential metadata to each entry
        - Sort by timestamp (most recent first)
-
 
        Tropang Ex:
        Imbes na grouped by credential, gusto natin isang timeline
@@ -953,11 +1022,10 @@ exports.get_IssuerCredentialsHistory = async (req, res, getContractAndGateway) =
     */
     console.log(`🔄 [HISTORY] Flattening and sorting history entries...`);
 
-
     const allHistoryEntries = [];
-    
-    rawHistory.forEach(credential => {
-      credential.history.forEach(historyEntry => {
+
+    (rawHistory || []).forEach(credential => {
+      (credential.history || []).forEach(historyEntry => {
         allHistoryEntries.push({
           // Credential metadata
           credentialId: credential.credentialId,
@@ -965,7 +1033,7 @@ exports.get_IssuerCredentialsHistory = async (req, res, getContractAndGateway) =
           credentialType: credential.credentialType,
           isTemplate: credential.isTemplate,
           currentStatus: credential.currentStatus,
-          
+
           // History entry details
           txId: historyEntry.txId,
           timestamp: historyEntry.timestamp,
@@ -975,32 +1043,35 @@ exports.get_IssuerCredentialsHistory = async (req, res, getContractAndGateway) =
       });
     });
 
-
     // Sort by timestamp (most recent first)
-    allHistoryEntries.sort((a, b) => 
+    allHistoryEntries.sort((a, b) =>
       new Date(b.timestamp) - new Date(a.timestamp)
     );
 
-
     console.log(`✅ [HISTORY] Flattened ${allHistoryEntries.length} total history entries.`);
 
-
     // =====================================================
-    // STEP 3.5: ENRICH WITH HOLDER NAME (from CouchDB)
+    // STEP 3.5: ENRICH WITH HOLDER NAME (Prefer wallet_user_credentials snapshot)
     // =====================================================
 
     /*
-      NEW Step: Resolve holderName for each distinct holderID
-      using couchDB_service.getUser(), then attach holderName
-      to every history entry.
+      NEW Step: Resolve holderName for each distinct holderID.
+
+      Priority:
+      1) wallet_user_credentials (snapshot holderName from issuance) ✅ most consistent
+      2) users DB via couchdbService.getUser(hid) (fallback)
+      3) fallback to holderID
 
       Tropang Ex:
-      Para makapag-search ka sa frontend by holder name
-      (hindi lang holder ID) gamit yung same history endpoint.
+      Para consistent yung "Holder Name" sa history:
+      - Kung may snapshot sa wallet DB, yun ang gamitin.
+      - Kung wala (old records), fallback sa users DB.
     */
     try {
-      const couchdbService = require('../couchDB_service'); // same service used elsewhere
+      const adminNano2 = nano('http://admin:adminpw@localhost:5985');
+      const walletDb = adminNano2.use('wallet_user_credentials');
 
+      // Collect unique holderIDs
       const holderIdSet = new Set();
       allHistoryEntries.forEach((entry) => {
         const hid = entry?.value?.holderID;
@@ -1012,75 +1083,97 @@ exports.get_IssuerCredentialsHistory = async (req, res, getContractAndGateway) =
 
       for (const hid of holderIdArray) {
         try {
+          // 1) Prefer wallet snapshot (any doc for this holder with holderName)
+          let snapshotName = null;
+
+          try {
+            const snap = await walletDb.find({
+              selector: {
+                holderID: hid,
+                holderName: { "$exists": true }
+              },
+              fields: ["holderName", "holderEmail"],
+              limit: 1
+            });
+
+            if (snap?.docs?.length > 0) {
+              snapshotName = snap.docs[0].holderName || null;
+            }
+          } catch (snapErr) {
+            // Non-fatal; fallback to users DB
+            console.warn('[HISTORY] Wallet snapshot lookup failed for', hid, snapErr.message);
+          }
+
+          if (snapshotName) {
+            holderNameCache[hid] = snapshotName;
+            continue;
+          }
+
+          // 2) Fallback: users DB lookup
           const userDoc = await couchdbService.getUser(hid);
 
           const name =
-            userDoc.fullName ||
-            userDoc.name ||
-            [userDoc.firstName, userDoc.lastName].filter(Boolean).join(' ') ||
+            userDoc?.fullName ||
+            userDoc?.name ||
+            [userDoc?.firstName, userDoc?.lastName].filter(Boolean).join(' ') ||
+            userDoc?.username ||
+            userDoc?.email ||
             hid;
 
           holderNameCache[hid] = name;
+
         } catch (e) {
           console.error('[HISTORY] Failed to resolve holder name for', hid, e.message);
-          holderNameCache[hid] = hid; // fallback: just ID
+          holderNameCache[hid] = hid; // final fallback
         }
       }
 
+      // Attach holderName to each history entry
       allHistoryEntries.forEach((entry) => {
         const hid = entry?.value?.holderID;
-        entry.holderName = hid ? holderNameCache[hid] || null : null;
+        entry.holderName = hid ? (holderNameCache[hid] || null) : null;
       });
 
       console.log(
         `✅ [HISTORY] Enriched history entries with holderName for ${holderIdArray.length} unique holders.`
       );
+
     } catch (enrichErr) {
       console.error('⚠️ [HISTORY] Error enriching holder names:', enrichErr.message);
       // Non-fatal: continue without holderName if something fails
     }
 
-
     // =====================================================
     // STEP 4: OPTIONAL FILTER BY CREDENTIAL ID
     // =====================================================
 
-
     /* Step 4: Filter by credentialId if search query provided
-
-
        Technical:
        - If req.query.credentialId exists, filter entries
        - Uses .includes() to support partial matches
-
 
        Tropang Ex:
        Kung nag-search yung user ng specific credential ID,
        ipapakita lang yung history ng credential na yun.
     */
     let filteredHistory = allHistoryEntries;
-    
+
     if (credentialId) {
       filteredHistory = allHistoryEntries.filter(
-        entry => entry.credentialId.includes(credentialId)
+        entry => (entry.credentialId || '').includes(credentialId)
       );
       console.log(`🔍 [HISTORY] Filtered to ${filteredHistory.length} entries matching: ${credentialId}`);
     }
-
 
     // =====================================================
     // ✅ SUCCESS: Return sorted (and optionally filtered) history
     // =====================================================
 
-
     /* Step 5: Return final response
-
-
        Tropang Ex:
        Ibinabalik na yung sorted history, ready for display sa UI.
     */
     console.log(`✅ [HISTORY] Returning ${filteredHistory.length} history entries.\n`);
-
 
     return res.status(200).json({
       success: true,
@@ -1091,17 +1184,14 @@ exports.get_IssuerCredentialsHistory = async (req, res, getContractAndGateway) =
       timestamp: new Date().toISOString()
     });
 
-
   } catch (error) {
 
-
     /* Step 6: Catch-all error handler
-
-
        Tropang Ex: Safety net para sa unexpected errors.
     */
     console.error('\n❌ [HISTORY] Error fetching credential history:', error.message);
     console.error('Stack:', error.stack);
+
     return res.status(500).json({
       success: false,
       error: error.message,

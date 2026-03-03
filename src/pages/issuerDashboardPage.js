@@ -849,6 +849,7 @@ export default function IssuerDashboard() {
                 <th>Credential ID</th>
                 <th>Type</th>
                 <th>Name</th>
+                <th>Holder Name</th>   
                 <th>Description</th>
                 <th>Created Date</th>
                 <th>Status</th>
@@ -865,6 +866,7 @@ export default function IssuerDashboard() {
                     <td>{blockchainId || "N/A"}</td>
                     <td>{credential.credentialType || "N/A"}</td>
                     <td>{credential.credentialName || "N/A"}</td>
+                    <td>{credential.holderName || credential.holderID || "N/A"}</td>  
                     <td>{credential.description || "N/A"}</td>
                     <td>
                       {credential.issuedDate

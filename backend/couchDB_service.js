@@ -112,14 +112,33 @@ async function saveUser(user) {
   Kapag hindi, automatic sa users DB.
   Isang function lang, pero gumagana sa dalawang klase ng account.
 */
+/*
+  Function Name: getUser (SAFE)
+
+  Technical:
+  Retrieves a user document by ID.
+  - If ID starts with issuer_ → fetch from issuersDB
+  - else → fetch from usersDb
+
+  Tropang Ex:
+  Pang lookup ng holder info (name/email) or issuer info depending sa ID prefix.
+*/
 async function getUser(userId) {
   try {
+    if (!userId) throw new Error('userId is required');
+    if (!usersDb || !issuersDB) await initializeDatabases();
+
     // ✅ Smart DB logic: Check the ID prefix
     const db = userId.startsWith('issuer_') ? issuersDB : usersDb;
-    const user = await db.get(userId); // Use the correct DB
+
+    const user = await db.get(userId);
     return user;
+
   } catch (error) {
-    console.error('Error getting user:', error);
+    // Optional: if you want "not found" to return null instead of throwing
+    if (error.statusCode === 404) return null;
+
+    console.error('Error getting user:', error.message || error);
     throw error;
   }
 }
@@ -1148,47 +1167,6 @@ async function saveIssuedCredentialToBothDBs(issuerEmail, credentialData) {
 }
 // ==========================================================================================================================================================================
 
-/* 
-  Function Name: getIssuerCredentialsByIssuerId
-
-  Technical: Fetches credential_instance docs from issuer’s CouchDB by issuerId (uses issuer doc directly).
-  Tropang Ex: Same idea as above, pero issuerId ang input, hindi email.
-
-  ⚠️ Note: Currently returns ALL credential_instance in wallet_issuer_credentials (no issuerId filter),
-            so this assumes that DB is “owned” per issuer anyway (single-tenant). PENDING - BADINGif so, why need via email and issuerId? why not sa isa nalang?
-*/
-async function getIssuerCredentialsByIssuerId(issuerId) {
-  try {
-    if (!issuersDB) await initializeDatabases();
-    const issuer = await getIssuerById(issuerId);
-    
-    if (!issuer || !issuer.couchDBUrl) {
-      throw new Error(`❌ Issuer ${issuerId} has no CouchDB URL configured`);
-    }
-
-    /* Step 1: Connect to issuer CouchDB
-       Tropang Ex: Diretsong connect sa DB ni issuer using couchDBUrl.
-    */
-    const issuerCouch = require('nano')(issuer.couchDBUrl);
-    const walletDb = issuerCouch.use('wallet_issuer_credentials');
-    
-    /* Step 2: Fetch all credential_instance docs
-       Tropang Ex: Kasi sarili naman niyang DB yan, lahat ng credential_instance ay kanya.
-    */
-    const result = await walletDb.find({
-      selector: {
-        type: 'credential_instance'
-      }
-    });
-    
-    console.log(`[COUCHDB] Found ${result.docs.length} credentials for issuer ${issuerId}`);
-    return result.docs;
-    
-  } catch (error) {
-    console.error(`❌ Error fetching credentials:`, error.message);
-    return [];
-  }
-}
 // ==========================================================================================================================================================================
 
 /* 
@@ -2479,7 +2457,6 @@ module.exports = {
 
   // Credentials (Star Feature!)
   saveIssuedCredentialToBothDBs,         // ✅ NEW - Use this!
-  getIssuerCredentialsByIssuerId,
   getUserCredentialsByHolderId,
   getIssuerCredentials,
   save_CredentialTemplateToIssuerDB,

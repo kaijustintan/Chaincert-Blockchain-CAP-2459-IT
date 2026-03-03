@@ -659,12 +659,23 @@ export default function AdminDashboard() {
         >
           Logs
         </button>
-        <button
-          onClick={() => setTab("settings")}
-          className={tab === "settings" ? "active" : ""}
-        >
-          Settings
-        </button>
+        {/* SETTINGS TAB */}
+      {tab === "settings" && (
+        <div className="tab-card">
+          <h2>System Settings</h2>
+          <p className="tab-subtitle">
+            Configure administrative controls for institutions, infrastructure,
+            and integrations.
+          </p>
+          <div className="settings-grid">
+            <button>+ Add Institution</button>
+            <button>Configure Blockchain</button>
+            <button>Manage API Keys</button>
+            <button>Security Policies</button>
+            <button>User Roles</button>
+          </div>
+        </div>
+      )}
       </div>
 
       {message && <div className="admin-message">{message}</div>}

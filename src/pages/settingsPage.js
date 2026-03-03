@@ -91,11 +91,16 @@ export default function SettingsPage() {
 
 
     try {
-      const response = await apiService.changePassword({
-        email: userEmail,
-        currentPassword: passwordData.currentPassword,
-        newPassword: passwordData.newPassword
-      });
+      const response = userRole === 'admin'
+        ? await apiService.Admin_ChangePassword({
+            currentPassword: passwordData.currentPassword,
+            newPassword: passwordData.newPassword
+          })
+        : await apiService.changePassword({
+            email: userEmail,
+            currentPassword: passwordData.currentPassword,
+            newPassword: passwordData.newPassword
+          });
 
 
       console.log('✅ Success response:', response);

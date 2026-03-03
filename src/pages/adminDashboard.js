@@ -33,6 +33,13 @@ export default function AdminDashboard() {
   const [issuerDecisionLogsError, setIssuerDecisionLogsError] = useState(null);
   const [issuerDecisionFilter, setIssuerDecisionFilter] = useState("all"); // 'all' | 'approved' | 'rejected'
 
+  // See History Modal
+  const [showHistoryStatusModal, setShowHistoryStatusModal] = useState(false);
+  const [historyStatusTarget, setHistoryStatusTarget] = useState(null); // { email, type: 'issuer' | 'user' }
+  const [historyStatusLogs, setHistoryStatusLogs] = useState([]);
+  const [historyStatusLoading, setHistoryStatusLoading] = useState(false);
+  const [historyStatusError, setHistoryStatusError] = useState(null);
+
   // NEW: Admin credentials view filters + data (global across issuers)
   const [adminCredIssuerFilter, setAdminCredIssuerFilter] = useState("all"); // 'all' or issuerId
   const [adminCredTypeFilter, setAdminCredTypeFilter] = useState("all"); // 'all' | 'issued' | 'templates'
@@ -637,6 +644,45 @@ export default function AdminDashboard() {
     } finally {
       setLogsLoading(false);
     }
+  };
+
+  const openHistoryStatusModal = async (email, type) => {
+    setHistoryStatusTarget({ email, type });
+    setHistoryStatusLogs([]);
+    setHistoryStatusError(null);
+    setHistoryStatusLoading(true);
+    setShowHistoryStatusModal(true);
+
+    try {
+      let data;
+      if (type === "issuer") {
+        data = await apiService.Get_IssuerStatusLogs_ByEmail(email);
+      } else {
+        data = await apiService.Get_UserStatusLogs_ByEmail(email);
+      }
+
+      const rows = Array.isArray(data.logs) ? data.logs : [];
+      const sorted = [...rows].sort((a, b) =>
+        new Date(b.timestamp || 0) - new Date(a.timestamp || 0)
+      );
+      setHistoryStatusLogs(sorted);
+    } catch (error) {
+      setHistoryStatusError(
+        error?.response?.data?.message ||
+        error?.message ||
+        "Failed to load history"
+      );
+    } finally {
+      setHistoryStatusLoading(false);
+    }
+  };
+
+  const closeHistoryStatusModal = () => {
+    setShowHistoryStatusModal(false);
+    setHistoryStatusTarget(null);
+    setHistoryStatusLogs([]);
+    setHistoryStatusError(null);
+    setHistoryStatusLoading(false);
   };
 
   // -------------------------------------------------------------------
@@ -1320,6 +1366,113 @@ export default function AdminDashboard() {
           document.body
         )}
 
+      {showHistoryStatusModal &&
+        ReactDOM.createPortal(
+          <div
+            onClick={closeHistoryStatusModal}
+            style={{
+              position: "fixed",
+              inset: 0,
+              background: "rgba(0,0,0,0.6)",
+              zIndex: 999999,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              padding: "20px",
+            }}
+          >
+            <div
+              onClick={(e) => e.stopPropagation()}
+              style={{
+                width: "min(900px, 95vw)",
+                maxHeight: "85vh",
+                overflow: "auto",
+                background: "#101018",
+                borderRadius: "12px",
+                border: "1px solid rgba(255,255,255,0.15)",
+                padding: "18px",
+                boxShadow: "0 10px 40px rgba(0,0,0,0.4)",
+                color: "#fff",
+              }}
+            >
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "12px" }}>
+                <div>
+                  <h3 style={{ margin: 0 }}>Status Change History</h3>
+                  <div style={{ fontSize: "13px", opacity: 0.85, marginTop: "6px" }}>
+                    <div><strong>Email:</strong> {historyStatusTarget?.email || "N/A"}</div>
+                    <div><strong>Type:</strong> {historyStatusTarget?.type === "issuer" ? "Issuer" : "User"}</div>
+                  </div>
+                </div>
+                <button
+                  onClick={closeHistoryStatusModal}
+                  type="button"
+                  style={{
+                    background: "transparent",
+                    border: "1px solid rgba(255,255,255,0.25)",
+                    color: "#fff",
+                    borderRadius: "8px",
+                    padding: "8px 10px",
+                    cursor: "pointer",
+                  }}
+                >
+                  ✕ Close
+                </button>
+              </div>
+
+              {historyStatusLoading ? (
+                <div style={{ padding: "16px", opacity: 0.9 }}>Loading history...</div>
+              ) : historyStatusError ? (
+                <div style={{ padding: "12px", background: "rgba(255,0,0,0.12)", border: "1px solid rgba(255,0,0,0.25)", borderRadius: "10px", color: "#ffd2d2" }}>
+                  ❌ {historyStatusError}
+                </div>
+              ) : historyStatusLogs.length > 0 ? (
+                <div className="table-wrapper">
+                  <table className="admin-table">
+                    <thead>
+                      <tr>
+                        <th>Previous Status</th>
+                        <th>New Status</th>
+                        <th>Reason</th>
+                        <th>Performed By</th>
+                        <th>Tx ID</th>
+                        <th>Timestamp</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {historyStatusLogs.map((log, idx) => (
+                        <tr key={log.txId || idx}>
+                          <td>{log.previousStatus || "N/A"}</td>
+                          <td>
+                            <span style={{
+                              fontWeight: 700,
+                              color: (log.newStatus || "").toLowerCase() === "disabled"
+                                ? "#ff6b6b"
+                                : "#4ade80",
+                            }}>
+                              {log.newStatus || "N/A"}
+                            </span>
+                          </td>
+                          <td>{log.reason || "—"}</td>
+                          <td style={{ fontFamily: "monospace", fontSize: "12px" }}>
+                            {log.performedByMSP || log.performedBy || "N/A"}
+                          </td>
+                          <td style={{ fontFamily: "monospace", fontSize: "12px" }}>
+                            {log.txId ? `${String(log.txId).slice(0, 18)}...` : "N/A"}
+                          </td>
+                          <td>{formatTimestamp(log.timestamp)}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              ) : (
+                <div style={{ padding: "16px", opacity: 0.9 }}>No status change history found.</div>
+              )}
+            </div>
+          </div>,
+          document.body
+        )}
+
       {/* CREDENTIALS TAB */}
       {tab === "credentials" && (
         <div className="tab-card">
@@ -1560,26 +1713,44 @@ export default function AdminDashboard() {
                               </button>
                             </>
                           ) : (
-                            <button
-                              type="button"
-                              onClick={() =>
-                                openIssuerStatusModal(issuer, isDisabled ? "enable" : "disable")
-                              }
-                              style={{
-                                padding: "8px 12px",
-                                borderRadius: 10,
-                                border: "1px solid rgba(255,255,255,0.18)",
-                                cursor: "pointer",
-                                fontWeight: 700,
-                                background: isDisabled
-                                  ? "rgba(74,222,128,0.12)"
-                                  : "rgba(255,107,107,0.12)",
-                                color: isDisabled ? "#4ade80" : "#ff6b6b",
-                              }}
-                              title={isDisabled ? "Re-enable issuer" : "Disable issuer"}
-                            >
-                              {isDisabled ? "Enable" : "Disable"}
-                            </button>
+                            <>
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  openIssuerStatusModal(issuer, isDisabled ? "enable" : "disable")
+                                }
+                                style={{
+                                  padding: "8px 12px",
+                                  borderRadius: 10,
+                                  border: "1px solid rgba(255,255,255,0.18)",
+                                  cursor: "pointer",
+                                  fontWeight: 700,
+                                  background: isDisabled
+                                    ? "rgba(74,222,128,0.12)"
+                                    : "rgba(255,107,107,0.12)",
+                                  color: isDisabled ? "#4ade80" : "#ff6b6b",
+                                }}
+                                title={isDisabled ? "Re-enable issuer" : "Disable issuer"}
+                              >
+                                {isDisabled ? "Enable" : "Disable"}
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => openHistoryStatusModal(issuer.email, "issuer")}
+                                style={{
+                                  padding: "8px 12px",
+                                  borderRadius: 10,
+                                  border: "1px solid rgba(255,255,255,0.18)",
+                                  cursor: "pointer",
+                                  fontWeight: 700,
+                                  background: "rgba(139,92,246,0.15)",
+                                  color: "#a78bfa",
+                                }}
+                                title="View status change history"
+                              >
+                                See History
+                              </button>
+                            </>
                           )}
                         </td>
                       </tr>
@@ -1650,7 +1821,7 @@ export default function AdminDashboard() {
                             <span className="badge green">Yes</span>
                           )}
                         </td>
-                        <td>
+                        <td style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
                           <button
                             type="button"
                             onClick={() =>
@@ -1670,6 +1841,22 @@ export default function AdminDashboard() {
                             title={isDisabled ? "Re-enable user" : "Disable user"}
                           >
                             {isDisabled ? "Enable" : "Disable"}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => openHistoryStatusModal(user.email, "user")}
+                            style={{
+                              padding: "8px 12px",
+                              borderRadius: 10,
+                              border: "1px solid rgba(255,255,255,0.18)",
+                              cursor: "pointer",
+                              fontWeight: 700,
+                              background: "rgba(139,92,246,0.15)",
+                              color: "#a78bfa",
+                            }}
+                            title="View status change history"
+                          >
+                            See History
                           </button>
                         </td>
                       </tr>

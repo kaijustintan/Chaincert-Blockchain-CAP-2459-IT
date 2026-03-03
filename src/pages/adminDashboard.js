@@ -28,6 +28,11 @@ export default function AdminDashboard() {
   const [statusLogFilter, setStatusLogFilter] = useState("all"); // 'all' | 'issuers' | 'users'
   const [statusLogEmailSearch, setStatusLogEmailSearch] = useState("");
 
+  // Issuer Decision Logs
+  const [issuerDecisionLogs, setIssuerDecisionLogs] = useState([]);
+  const [issuerDecisionLogsError, setIssuerDecisionLogsError] = useState(null);
+  const [issuerDecisionFilter, setIssuerDecisionFilter] = useState("all"); // 'all' | 'approved' | 'rejected'
+
   // NEW: Admin credentials view filters + data (global across issuers)
   const [adminCredIssuerFilter, setAdminCredIssuerFilter] = useState("all"); // 'all' or issuerId
   const [adminCredTypeFilter, setAdminCredTypeFilter] = useState("all"); // 'all' | 'issued' | 'templates'
@@ -605,6 +610,35 @@ export default function AdminDashboard() {
     }
   };
 
+  const fetchIssuerDecisionLogs = async () => {
+    try {
+      setLogsLoading(true);
+      setIssuerDecisionLogsError(null);
+
+      const data = await apiService.Get_AllIssuerDecisionLogs();
+      const rows = Array.isArray(data.logs) ? data.logs : [];
+
+      const sortedRows = [...rows].sort((a, b) => {
+        const ta = new Date(a.timestamp || 0).getTime();
+        const tb = new Date(b.timestamp || 0).getTime();
+        return tb - ta;
+      });
+
+      setIssuerDecisionLogs(sortedRows);
+    } catch (error) {
+      console.error("Error fetching issuer decision logs:", error);
+      setIssuerDecisionLogs([]);
+      setIssuerDecisionLogsError(
+        error?.response?.data?.message ||
+          error?.response?.data?.error ||
+          error?.message ||
+          "Failed to load issuer decision logs"
+      );
+    } finally {
+      setLogsLoading(false);
+    }
+  };
+
   // -------------------------------------------------------------------
   // EFFECTS
   // -------------------------------------------------------------------
@@ -639,8 +673,10 @@ export default function AdminDashboard() {
     if (tab !== "logs") return;
     if (logCategory === "verification") {
       fetchVerificationLogs();
-    } else {
+    } else if (logCategory === "status") {
       fetchStatusLogs(statusLogFilter, statusLogEmailSearch);
+    } else if (logCategory === "decision") {
+      fetchIssuerDecisionLogs();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [logCategory]);
@@ -1705,6 +1741,7 @@ export default function AdminDashboard() {
             >
               <option value="verification">Verification Logs</option>
               <option value="status">Status Change Logs</option>
+              <option value="decision">Issuer Decision Logs</option>
             </select>
 
             {logCategory === "status" && (
@@ -1755,6 +1792,77 @@ export default function AdminDashboard() {
 
           {logsLoading ? (
             <div className="tab-placeholder">Loading logs...</div>
+          ) : logCategory === "decision" ? (
+            <div>
+              <div className="issuer-filter-row" style={{ gap: 12, marginTop: 12 }}>
+                <label htmlFor="issuerDecisionFilter">Decision:</label>
+                <select
+                  id="issuerDecisionFilter"
+                  value={issuerDecisionFilter}
+                  onChange={(e) => setIssuerDecisionFilter(e.target.value)}
+                >
+                  <option value="all">All</option>
+                  <option value="approved">Approved</option>
+                  <option value="rejected">Rejected</option>
+                </select>
+              </div>
+
+              {issuerDecisionLogsError ? (
+                <div className="tab-placeholder">❌ {issuerDecisionLogsError}</div>
+              ) : (() => {
+                const filtered = issuerDecisionLogs.filter((log) => {
+                  if (issuerDecisionFilter === "all") return true;
+                  return (log.decision || "").toLowerCase() === issuerDecisionFilter;
+                });
+
+                return filtered.length > 0 ? (
+                  <div className="table-wrapper">
+                    <table className="admin-table">
+                      <thead>
+                        <tr>
+                          <th>Issuer Email</th>
+                          <th>Org Name</th>
+                          <th>Decision</th>
+                          <th>Reason</th>
+                          <th>Performed By</th>
+                          <th>Tx ID</th>
+                          <th>Timestamp</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {filtered.map((log) => {
+                          const isApproved = (log.decision || "").toLowerCase() === "approved";
+                          return (
+                            <tr key={log.txId || log.id}>
+                              <td>{log.issuerEmail || "N/A"}</td>
+                              <td>{log.orgName || "N/A"}</td>
+                              <td>
+                                <span style={{
+                                  fontWeight: 700,
+                                  color: isApproved ? "#4ade80" : "#ff6b6b",
+                                }}>
+                                  {log.decision || "N/A"}
+                                </span>
+                              </td>
+                              <td>{log.reason || "—"}</td>
+                              <td style={{ fontFamily: "monospace", fontSize: "12px" }}>
+                                {log.performedByMSP || "N/A"}
+                              </td>
+                              <td style={{ fontFamily: "monospace", fontSize: "12px" }}>
+                                {log.txId ? `${String(log.txId).slice(0, 18)}...` : "N/A"}
+                              </td>
+                              <td>{formatTimestamp(log.timestamp)}</td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                ) : (
+                  <div className="tab-placeholder">No issuer decision logs found.</div>
+                );
+              })()}
+            </div>
           ) : logCategory === "verification" ? (
             <>
               {verificationLogsError ? (

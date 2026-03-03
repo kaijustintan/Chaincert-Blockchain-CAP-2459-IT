@@ -145,6 +145,53 @@ async function getUser(userId) {
 // ==========================================================================================================================================================================
 
 /*
+  Function Name: isEmailAlreadyUsed
+
+  Technical:
+  Checks if an email is already used by:
+   - any user doc (type: 'user') in users DB
+   - any issuer doc in issuers DB (issuer_registration / approved issuer docs)
+
+  Tropang Ex:
+  Pang iwas duplicate emails sa buong system (user man o issuer).
+*/
+async function isEmailAlreadyUsed(email) {
+  if (!email) return { exists: false, where: null };
+
+  if (!usersDb || !issuersDB) await initializeDatabases();
+
+  const normalizedEmail = String(email).trim().toLowerCase();
+
+  // 1) Check users DB
+  const userRes = await usersDb.find({
+    selector: {
+      type: 'user',
+      email: normalizedEmail
+    },
+    limit: 1
+  });
+
+  if (userRes.docs && userRes.docs.length > 0) {
+    return { exists: true, where: 'users', doc: userRes.docs[0] };
+  }
+
+  // 2) Check issuers DB (issuer_registration + approved issuer docs also have email)
+  const issuerRes = await issuersDB.find({
+    selector: {
+      email: normalizedEmail
+    },
+    limit: 1
+  });
+
+  if (issuerRes.docs && issuerRes.docs.length > 0) {
+    return { exists: true, where: 'issuers', doc: issuerRes.docs[0] };
+  }
+
+  return { exists: false, where: null };
+}
+// ==========================================================================================================================================================================
+
+/*
   Function Name: getAllUsers
 
   Technical:
@@ -2138,9 +2185,9 @@ async function checkAndExpireCredentials() {
   - Admins are stored in users DB with role === 'admin'
 */
 async function getAdminByEmail(adminEmail) {
-  if (!usersDB) await initializeDatabases();
+  if (!usersDb) await initializeDatabases();
 
-  const result = await usersDB.find({
+  const result = await usersDb.find({
     selector: {
       type: 'user',
       role: 'admin',
@@ -2203,7 +2250,7 @@ async function verifyAdminCurrentPassword(adminEmail, currentPassword) {
   - Official change password flow na may check + may audit log.
 */
 async function changeAdminPassword(adminEmail, currentPassword, newPassword, performedBy, meta = {}) {
-  if (!usersDB) await initializeDatabases();
+  if (!usersDb) await initializeDatabases();
 
   if (!adminEmail || !currentPassword || !newPassword) {
     throw new Error('adminEmail, currentPassword, and newPassword are required');
@@ -2226,7 +2273,7 @@ async function changeAdminPassword(adminEmail, currentPassword, newPassword, per
   adminDoc.password = hashedNewPassword;
   adminDoc.updatedAt = new Date().toISOString();
 
-  const updateResult = await usersDB.insert(adminDoc);
+  const updateResult = await usersDb.insert(adminDoc);
 
   // 4) Best-effort audit log (DO NOT break password change if audit insert fails)
   try {
@@ -2429,6 +2476,8 @@ module.exports = {
   getAllUsers,
   updateCredentialVisibility, // - Newly added - olops
   updateCredentialOrder,     // - polo
+    isEmailAlreadyUsed,
+
 
   // Accreditation
   checkIfOrgAccredited,

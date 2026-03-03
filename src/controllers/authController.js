@@ -73,34 +73,40 @@ const authController = {
   */
   register: async (req, res) => {
   try {
-    // FOR DEBUGGING: log incoming request body
     console.log('🔥 HIT /api/auth/register, body =', req.body);
 
-    /* Step 1: Extract request body fields */
     const { username, email, password, role, org } = req.body;
 
-    // FOR DEBUGGING: confirm extracted fields
     console.log('🧪 Extracted fields:', { username, email, hasPassword: !!password, role, org });
 
-    /* Step 2: Basic validation (required fields) */
     if (!username || !password || !email) {
-      console.log('❌ Missing required fields in register'); // FOR DEBUGGING
+      console.log('❌ Missing required fields in register');
       return res.status(400).json({
         success: false,
         message: 'Username, password, and email are required'
       });
     }
 
-    /* Step 3: Hash password (never store plain text) */
-    console.log('🔐 Hashing password...'); // FOR DEBUGGING
-    const hashedPassword = await bcrypt.hash(password, 10);
-    console.log('🔐 Password hashed'); // FOR DEBUGGING
+    // ✅ NEW: normalize email + prevent duplicates across users + issuers
+    const normalizedEmail = String(email).trim().toLowerCase();
 
-    /* Step 4: Build user document to be stored in CouchDB */
+    const dupCheck = await couchDB.isEmailAlreadyUsed(normalizedEmail);
+    if (dupCheck?.exists) {
+      return res.status(409).json({
+        success: false,
+        message: 'Email is already registered in the system.',
+        where: dupCheck.where // "users" | "issuers"
+      });
+    }
+
+    console.log('🔐 Hashing password...');
+    const hashedPassword = await bcrypt.hash(password, 10);
+    console.log('🔐 Password hashed');
+
     const userData = {
       type: 'user',
       username,
-      email,
+      email: normalizedEmail, // ✅ save normalized
       password: hashedPassword,
       role: role || 'student',
       org: org || 'org1',
@@ -108,15 +114,13 @@ const authController = {
       isActive: true
     };
 
-    console.log('📦 Built userData =', userData); // FOR DEBUGGING
+    console.log('📦 Built userData =', { ...userData, password: '***hidden***' });
 
-    /* Step 5: Save user in CouchDB (via service layer) */
-    console.log('💾 Calling couchDB.saveUser...'); // FOR DEBUGGING
+    console.log('💾 Calling couchDB.saveUser...');
     const result = await couchDB.saveUser(userData);
-    console.log('✅ couchDB.saveUser result =', result); // FOR DEBUGGING
+    console.log('✅ couchDB.saveUser result =', result);
 
-    /* Step 6: Return success response */
-    console.log('✅ Sending 201 response for register'); // FOR DEBUGGING
+    console.log('✅ Sending 201 response for register');
     return res.status(201).json({
       success: true,
       message: 'User registered successfully',
@@ -124,15 +128,13 @@ const authController = {
     });
 
   } catch (error) {
-    /* Step 7: Handle server errors */
-    console.error('🔥 Registration error:', error); // FOR DEBUGGING
+    console.error('🔥 Registration error:', error);
     return res.status(500).json({
       success: false,
       message: `Registration error: ${error.message}`
     });
   }
 },
-
   // ========================================================================================================================================================================
 
   // ========================================================================================================================================================================
@@ -503,68 +505,83 @@ registerIssuer: async (req, res) => {
     /* Step 1: Extract fields from request */
     const { orgName, contactName, email, password, confirmPassword } = req.body;
 
-    /* Step 2: Debug logs (trace registration flow) */
     console.log('=== ISSUER REGISTRATION DEBUG START (authController) ===');
     console.log('[1] Organization Name from request:', orgName);
     console.log('[1b] Contact Name from request:', contactName);
 
-    /* Step 3: Validate required fields */
-    if (!orgName || !contactName || !email || !password) {
-      return res.status(400).json({ success: false, message: 'All fields are required' });
+    /* Step 2: Validate required fields */
+    if (!orgName || !contactName || !email || !password || !confirmPassword) {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'All fields are required' 
+      });
     }
 
-    /* Step 4: Confirm passwords match */
+    /* Step 3: Confirm passwords match */
     if (password !== confirmPassword) {
-      return res.status(400).json({ success: false, message: 'Passwords do not match' });
+      return res.status(400).json({ 
+        success: false, 
+        message: 'Passwords do not match' 
+      });
     }
 
-    /* Step 5: OPTIONAL accreditation check (NON-BLOCKING)
-       Technical: Still checking accreditation for possible tagging / future use,
-       but registration will proceed regardless of result.
-    */
+    // ✅ NEW: Normalize email
+    const normalizedEmail = String(email).trim().toLowerCase();
+
+    // ✅ NEW: Prevent duplicate email across users + issuers
+    const dupCheck = await couchDB.isEmailAlreadyUsed(normalizedEmail);
+    if (dupCheck?.exists) {
+      return res.status(409).json({
+        success: false,
+        message: 'Email is already registered in the system.',
+        where: dupCheck.where // users | issuers
+      });
+    }
+
+    /* Step 4: OPTIONAL accreditation check (NON-BLOCKING) */
     let accreditationCheck = null;
     try {
       console.log(`[2] (Optional) Checking accreditation for "${orgName}"...`);
       accreditationCheck = await couchDB.checkIfOrgAccredited(orgName);
       console.log('[3] Accreditation check result (non-blocking):', accreditationCheck);
     } catch (accErr) {
-      // If accreditation DB/check is unavailable, we still proceed.
       console.warn('[3b] Accreditation check failed (proceeding anyway):', accErr.message);
       accreditationCheck = null;
     }
 
-    /* Step 6: Hash password
-       Tropang Ex: Kahit hindi accredited, tuloy pa rin. Admin approval ang tunay na gate.
-    */
-    console.log('[4] Proceeding with registration (accreditation no longer a gate)...');
+    /* Step 5: Hash password */
+    console.log('[4] Proceeding with registration...');
     const hashedPassword = await bcrypt.hash(password, 10);
 
-    /* Step 7: Build issuerData doc to be stored (pending status will be set by service) */
+    /* Step 6: Build issuerData */
     const issuerData = {
       orgName,
       contactName,
-      email,
+      email: normalizedEmail, // ✅ save normalized
       password: hashedPassword,
       documents: req.file ? [req.file] : []
     };
 
-    /* Step 8: Save issuer registration (pending) into CouchDB */
+    /* Step 7: Save issuer registration (pending) */
     console.log('[5] Saving to CouchDB (pending issuer application)...');
-    // createIssuerRegistration now supports optional accreditationCheck
-      let result;
-      try {
-        result = await couchDB.createIssuerRegistration(issuerData, accreditationCheck);
-      } catch (err) {
-        if (err.statusCode === 409) {
-          return res.status(409).json({
-            success: false,
-            message: 'Issuer registration already exists for this email/org.',
-            existing: err.details || null
-          });
-        }
-        throw err;
+
+    let result;
+    try {
+      result = await couchDB.createIssuerRegistration(
+        issuerData,
+        accreditationCheck
+      );
+    } catch (err) {
+      if (err.statusCode === 409) {
+        return res.status(409).json({
+          success: false,
+          message: 'Issuer registration already exists for this email/org.',
+          existing: err.details || null
+        });
       }
-    /* Step 9: Return success response */
+      throw err;
+    }
+
     console.log('[6] Registration result:', result);
     console.log('=== ISSUER REGISTRATION DEBUG END ===\n');
 
@@ -572,15 +589,16 @@ registerIssuer: async (req, res) => {
       success: true,
       message: 'Issuer registration submitted successfully (pending admin approval)',
       issuerId: result.id,
-      // ✅ no longer forced true; just pass along what we found (or false if unknown)
       accredited: accreditationCheck?.isAccredited ?? false,
       accreditedType: accreditationCheck?.accreditedType ?? null
     });
 
   } catch (error) {
-    /* Step 10: Handle errors */
     console.error('Issuer registration error:', error);
-    return res.status(500).json({ success: false, message: error.message });
+    return res.status(500).json({ 
+      success: false, 
+      message: error.message 
+    });
   }
 },
 

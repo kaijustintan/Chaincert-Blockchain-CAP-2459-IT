@@ -37,7 +37,12 @@ export default function ProfilePage() {
   const [loading, setLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [saveMessage, setSaveMessage] = useState("");
-  const [avatar, setAvatar] = useState("👤"); // ✅ <-- ADD THIS LINE
+  const [avatar, setAvatar] = useState("👤");
+
+  // Editable name state
+  const [editingName, setEditingName] = useState(false);
+  const [nameInput, setNameInput] = useState(userName);
+  const [nameSaving, setNameSaving] = useState(false);
 
   // Ref for the hidden file input
   const fileInputRef = useRef(null);
@@ -197,6 +202,31 @@ export default function ProfilePage() {
     }
   };
 
+  const handleSaveName = async () => {
+    const trimmed = nameInput.trim();
+    if (!trimmed || trimmed === userName) {
+      setEditingName(false);
+      return;
+    }
+    try {
+      setNameSaving(true);
+      await apiService.updateProfile({
+        userId,
+        username: trimmed,
+      });
+      // Update localStorage so navbar reflects change immediately
+      const updatedUser = { ...user, username: trimmed };
+      localStorage.setItem("user", JSON.stringify(updatedUser));
+      window.location.reload(); // reload to reflect new name
+    } catch (err) {
+      console.error("Error saving name:", err);
+      alert("Failed to save name. Please try again.");
+    } finally {
+      setNameSaving(false);
+      setEditingName(false);
+    }
+  };
+
   const handleSaveProfile = async () => {
     setIsSaving(true);
     setSaveMessage("");
@@ -333,32 +363,114 @@ export default function ProfilePage() {
             </div>
           )}
         </div>
-
-        <div className="edit-btn">
-          <button>Edit Profile</button>
-        </div>
       </div>
 
       {/* Account Information */}
       <section className="profile-section">
         <h3>Account Information</h3>
         <div className="info-grid">
+
+          {/* Full Name — editable */}
           <div className="info-item">
             <label>Full Name</label>
-            <span>{userName}</span>
+            {editingName ? (
+              <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                <input
+                  type="text"
+                  value={nameInput}
+                  onChange={(e) => setNameInput(e.target.value)}
+                  onKeyDown={async (e) => {
+                    if (e.key === "Enter") await handleSaveName();
+                    if (e.key === "Escape") { setEditingName(false); setNameInput(userName); }
+                  }}
+                  autoFocus
+                  style={{
+                    background: "rgba(255,255,255,0.08)",
+                    border: "1px solid #a78bfa",
+                    borderRadius: 8,
+                    color: "#fff",
+                    padding: "6px 10px",
+                    fontSize: "14px",
+                    outline: "none",
+                    width: "160px",
+                  }}
+                />
+                <button
+                  onClick={handleSaveName}
+                  disabled={nameSaving}
+                  style={{
+                    background: "rgba(139,92,246,0.3)",
+                    border: "1px solid #a78bfa",
+                    borderRadius: 8,
+                    color: "#a78bfa",
+                    padding: "6px 10px",
+                    cursor: "pointer",
+                    fontWeight: 700,
+                    fontSize: "12px",
+                  }}
+                >
+                  {nameSaving ? "Saving..." : "Save"}
+                </button>
+                <button
+                  onClick={() => { setEditingName(false); setNameInput(userName); }}
+                  style={{
+                    background: "transparent",
+                    border: "1px solid rgba(255,255,255,0.2)",
+                    borderRadius: 8,
+                    color: "#aaa",
+                    padding: "6px 10px",
+                    cursor: "pointer",
+                    fontSize: "12px",
+                  }}
+                >
+                  Cancel
+                </button>
+              </div>
+            ) : (
+              <span
+                title="Click to edit your name"
+                onClick={() => { setEditingName(true); setNameInput(userName); }}
+                style={{ cursor: "pointer", borderBottom: "1px dashed rgba(167,139,250,0.5)", paddingBottom: 2 }}
+              >
+                {userName} 
+              </span>
+            )}
           </div>
+
+          {/* Email — read only with tooltip */}
           <div className="info-item">
             <label>Email Address</label>
-            <span>{userEmail}</span>
+            <span
+              title="Email cannot be changed"
+              style={{ cursor: "not-allowed", opacity: 0.7 }}
+            >
+              {userEmail} 
+            </span>
           </div>
+
+          {/* Account Role — read only with tooltip */}
           <div className="info-item">
             <label>Account Role</label>
-            <span className="role-badge">{userRole}</span>
+            <span
+              title="Role is system-managed and cannot be changed"
+              style={{ cursor: "not-allowed" }}
+            >
+              <span className="role-badge">{userRole}</span> 
+            </span>
           </div>
+
+          {/* User ID — read only with tooltip */}
           <div className="info-item">
             <label>User ID</label>
-            <span className="user-id">{userId || "N/A"}</span>
+            <span
+              title="User ID is system-managed"
+              className="user-id"
+              style={{ cursor: "not-allowed", opacity: 0.7 }}
+            >
+              {userId || "N/A"} 
+            </span>
           </div>
+
         </div>
       </section>
 

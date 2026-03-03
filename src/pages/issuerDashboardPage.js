@@ -38,6 +38,7 @@ export default function IssuerDashboard() {
   const [issueError, setIssueError] = useState("");
   const [issueLoading, setIssueLoading] = useState(false);
   const [availableUsers, setAvailableUsers] = useState([]);
+  const [noTemplateError, setNoTemplateError] = useState("");
 
   // Revoke Credential Modal State
   const [showRevokeModal, setShowRevokeModal] = useState(false);
@@ -328,12 +329,13 @@ export default function IssuerDashboard() {
   const openIssueModal = async () => {
   try {
     setIssueError("");
+    setNoTemplateError("");
 
     // ✅ Check if issuer has templates first
     const result = await apiService.Check_IssuerHasTemplates();
 
     if (!result?.hasTemplates) {
-      alert("No Credential Template Yet To Issue");
+      setNoTemplateError("No Credential Template Yet To Issue. Please create a template first.");
       return;
     }
 
@@ -347,7 +349,7 @@ export default function IssuerDashboard() {
 
   } catch (err) {
     console.error("Template validation failed:", err);
-    alert("Failed to validate credential templates.");
+    setNoTemplateError("Failed to validate credential templates. Please try again.");
   }
 };
 
@@ -459,6 +461,20 @@ export default function IssuerDashboard() {
         <button onClick={openIssueModal} className="action-btn issue-btn">
           + Issue Credential
         </button>
+        {noTemplateError && (
+          <div style={{
+            marginTop: "10px",
+            padding: "12px 16px",
+            borderRadius: "10px",
+            background: "rgba(255,107,107,0.12)",
+            border: "1px solid rgba(255,107,107,0.3)",
+            color: "#ff6b6b",
+            fontWeight: 600,
+            fontSize: "14px",
+          }}>
+            ⚠️ {noTemplateError}
+          </div>
+        )}
       </div>
 
       {/* Revoke Credential Button */}

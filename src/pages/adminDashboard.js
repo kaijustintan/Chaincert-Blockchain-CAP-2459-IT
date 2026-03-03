@@ -1460,6 +1460,21 @@ export default function AdminDashboard() {
                               >
                                 Reject
                               </button>
+                              <button
+                                onClick={() => console.log("See Documents:", issuer.documents)}
+                                style={{
+                                  padding: "8px 12px",
+                                  borderRadius: 10,
+                                  border: "1px solid rgba(255,255,255,0.18)",
+                                  cursor: "pointer",
+                                  fontWeight: 700,
+                                  background: "rgba(139,92,246,0.15)",
+                                  color: "#a78bfa",
+                                }}
+                                title="View submitted documents"
+                              >
+                                See Documents
+                              </button>
                             </>
                           ) : (
                             <button

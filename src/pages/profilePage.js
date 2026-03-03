@@ -403,10 +403,8 @@ export default function ProfilePage() {
         </div>
       </section>
 
-      {/* Credential Wallet — dynamic from CouchDB (replaces static badges)
-          Technical: Same fetch + modal pattern as studentDashboard.js
-          // - polo
-      */}
+      {/* Credential Wallet — hidden for issuers */}
+      {userRole !== "issuer" && (
       <section className="profile-section">
         <div className="section-header">
           <h3>Credential Wallet</h3>
@@ -460,7 +458,10 @@ export default function ProfilePage() {
         )}
       </section>
 
+      )} {/* end Credential Wallet — hidden for issuers */}
+
       {/* Skills Wallet — reads skills array from credentials, falls back to credentialType - polo */}
+      {userRole !== "issuer" && (
       <section className="profile-section">
         <div className="section-header">
           <h3>Skills Wallet</h3>
@@ -487,6 +488,8 @@ export default function ProfilePage() {
           </>
         )}
       </section>
+
+      )} {/* end Skills Wallet — hidden for issuers */}
 
       {/* Credential Detail Modal (same as studentDashboard)
           // - polo

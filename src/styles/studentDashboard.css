@@ -823,3 +823,23 @@
     padding: 16px;
   }
 }
+
+.cred-card-icon {
+  font-size: 2.5rem;
+  line-height: 1;
+}
+
+.cred-card-issuer {
+  font-size: 0.78rem;
+  color: #a78bfa;
+  font-weight: 500;
+  margin: 0;
+  letter-spacing: 0.2px;
+}
+
+.cred-card-date {
+  font-size: 0.72rem;
+  color: #6b6b8d;
+  margin: 0;
+  letter-spacing: 0.2px;
+}

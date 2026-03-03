@@ -269,8 +269,15 @@ export default function StudentDashboard() {
                 className="cred-card clickable"
                 onClick={() => setSelectedCred(cred)}
               >
+                {cred.badgeImage ? (
+                  <img src={cred.badgeImage} alt="badge" style={{width: 64, height: 64, objectFit: 'cover', borderRadius: 8, marginBottom: 8}} />
+                ) : (
+                  <div className="cred-card-icon">🎓</div>
+                )}
                 <div className="cred-card-name">{cred.credentialName}</div>
                 <StatusPill status={cred.status} />
+                {cred.issuerName && <p className="cred-card-issuer">{cred.issuerName}</p>}
+                {cred.savedToUserWalletAt && <p className="cred-card-date">Issued {formatDate(cred.savedToUserWalletAt)}</p>}
               </div>
             ))}
           </div>
@@ -285,6 +292,8 @@ export default function StudentDashboard() {
             <thead>
               <tr>
                 <th>Credential Name</th>
+                <th>Issuer</th>
+                <th>Date Issued</th>
                 <th>Status</th>
               </tr>
             </thead>
@@ -296,6 +305,8 @@ export default function StudentDashboard() {
                   onClick={() => setSelectedCred(cred)}
                 >
                   <td>{cred.credentialName}</td>
+                  <td>{cred.issuerName || 'N/A'}</td>
+                  <td>{formatDate(cred.savedToUserWalletAt)}</td>
                   <td><StatusPill status={cred.status} /></td>
                 </tr>
               ))}

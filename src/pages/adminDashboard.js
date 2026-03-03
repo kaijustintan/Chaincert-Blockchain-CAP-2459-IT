@@ -25,6 +25,8 @@ export default function AdminDashboard() {
   const [verificationLogsError, setVerificationLogsError] = useState(null);
   const [statusLogs, setStatusLogs] = useState([]);
   const [statusLogsError, setStatusLogsError] = useState(null);
+  const [statusLogFilter, setStatusLogFilter] = useState("all"); // 'all' | 'issuers' | 'users'
+  const [statusLogEmailSearch, setStatusLogEmailSearch] = useState("");
 
   // NEW: Admin credentials view filters + data (global across issuers)
   const [adminCredIssuerFilter, setAdminCredIssuerFilter] = useState("all"); // 'all' or issuerId
@@ -546,14 +548,42 @@ export default function AdminDashboard() {
     }
   };
 
-  const fetchStatusLogs = async () => {
+  const fetchStatusLogs = async (filter = "all", email = "") => {
     try {
       setLogsLoading(true);
       setStatusLogsError(null);
 
-      const data = await apiService.Get_AllStatusLogs();
-      const rows = Array.isArray(data.logs) ? data.logs : [];
+      let data;
+      const trimmedEmail = email.trim();
 
+      if (trimmedEmail) {
+        // Search by specific email
+        if (filter === "issuers") {
+          data = await apiService.Get_IssuerStatusLogs_ByEmail(trimmedEmail);
+        } else if (filter === "users") {
+          data = await apiService.Get_UserStatusLogs_ByEmail(trimmedEmail);
+        } else {
+          // For 'all' with email, try both and merge
+          const [issuerData, userData] = await Promise.allSettled([
+            apiService.Get_IssuerStatusLogs_ByEmail(trimmedEmail),
+            apiService.Get_UserStatusLogs_ByEmail(trimmedEmail),
+          ]);
+          const issuerLogs = issuerData.status === "fulfilled" ? (issuerData.value?.logs || []) : [];
+          const userLogs = userData.status === "fulfilled" ? (userData.value?.logs || []) : [];
+          data = { logs: [...issuerLogs, ...userLogs] };
+        }
+      } else {
+        // No email search — fetch by category
+        if (filter === "issuers") {
+          data = await apiService.Get_AllIssuerStatusLogs();
+        } else if (filter === "users") {
+          data = await apiService.Get_AllUserStatusLogs();
+        } else {
+          data = await apiService.Get_AllStatusLogs();
+        }
+      }
+
+      const rows = Array.isArray(data.logs) ? data.logs : [];
       const sortedRows = [...rows].sort((a, b) => {
         const ta = new Date(a.timestamp || 0).getTime();
         const tb = new Date(b.timestamp || 0).getTime();
@@ -610,10 +640,16 @@ export default function AdminDashboard() {
     if (logCategory === "verification") {
       fetchVerificationLogs();
     } else {
-      fetchStatusLogs();
+      fetchStatusLogs(statusLogFilter, statusLogEmailSearch);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [logCategory]);
+
+  useEffect(() => {
+    if (tab !== "logs" || logCategory !== "status") return;
+    fetchStatusLogs(statusLogFilter, statusLogEmailSearch);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [statusLogFilter]);
 
   useEffect(() => {
     if (tab !== "credentials") return;
@@ -1660,7 +1696,7 @@ export default function AdminDashboard() {
             Blockchain audit logs for verification events and issuer/user status changes.
           </p>
 
-          <div className="issuer-filter-row" style={{ gap: 12 }}>
+          <div className="issuer-filter-row" style={{ gap: 12, flexWrap: "wrap" }}>
             <label htmlFor="logCategory">Category:</label>
             <select
               id="logCategory"
@@ -1670,6 +1706,51 @@ export default function AdminDashboard() {
               <option value="verification">Verification Logs</option>
               <option value="status">Status Change Logs</option>
             </select>
+
+            {logCategory === "status" && (
+              <>
+                <label htmlFor="statusLogFilter">Filter:</label>
+                <select
+                  id="statusLogFilter"
+                  value={statusLogFilter}
+                  onChange={(e) => setStatusLogFilter(e.target.value)}
+                >
+                  <option value="all">All</option>
+                  <option value="issuers">Issuers</option>
+                  <option value="users">Users</option>
+                </select>
+
+                <input
+                  type="text"
+                  value={statusLogEmailSearch}
+                  onChange={(e) => setStatusLogEmailSearch(e.target.value)}
+                  placeholder="Search by email..."
+                  style={{
+                    padding: "8px 10px",
+                    borderRadius: 10,
+                    border: "1px solid rgba(255,255,255,0.18)",
+                    background: "rgba(255,255,255,0.06)",
+                    color: "#fff",
+                    outline: "none",
+                    minWidth: 220,
+                  }}
+                />
+                <button
+                  onClick={() => fetchStatusLogs(statusLogFilter, statusLogEmailSearch)}
+                  style={{
+                    padding: "8px 14px",
+                    borderRadius: 10,
+                    border: "1px solid rgba(255,255,255,0.18)",
+                    background: "rgba(139,92,246,0.15)",
+                    color: "#a78bfa",
+                    cursor: "pointer",
+                    fontWeight: 700,
+                  }}
+                >
+                  Search
+                </button>
+              </>
+            )}
           </div>
 
           {logsLoading ? (

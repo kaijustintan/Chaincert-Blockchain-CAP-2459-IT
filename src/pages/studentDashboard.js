@@ -88,6 +88,10 @@ export default function StudentDashboard() {
   const [historyError, setHistoryError] = useState(null);
   const [historyOpen, setHistoryOpen] = useState(false);
 
+  /* CSS-CHANGE: Read username from localStorage for greeting display - polo */
+  const user = JSON.parse(localStorage.getItem("user") || "{}");
+  const displayName = user.fullName || user.username || user.email || "Student";
+
   // ── Fetch credentials on mount ─────────────────────────────────────────────
 
   /*
@@ -153,6 +157,14 @@ export default function StudentDashboard() {
       return matchesQ && matchesS;
     });
   }, [credentials, query, statusFilter]);
+
+  /* CSS-CHANGE: Compute stats from credentials for the stats bar - polo */
+  const stats = useMemo(() => {
+    const active = credentials.filter(c => c.status === "issued" || c.status === "active").length;
+    const revoked = credentials.filter(c => c.status === "revoked").length;
+    const expired = credentials.filter(c => c.status === "expired").length;
+    return { total: credentials.length, active, revoked, expired };
+  }, [credentials]);
 
   // ── See History handler ────────────────────────────────────────────────────
 
@@ -231,9 +243,43 @@ export default function StudentDashboard() {
   return (
     <div className="dashboard-container">
 
-      {/* Header */}
-      <div className="dashboard-header">
-        <h1>My Credentials</h1>
+      {/* CSS-CHANGE: Greeting section - polo */}
+      <div className="greeting-section">
+        <div className="greeting-text">
+          <h1>Welcome back, {displayName}</h1>
+          <p>Your credential wallet at a glance</p>
+        </div>
+      </div>
+
+      {/* CSS-CHANGE: Stats bar - polo */}
+      {!loading && !error && credentials.length > 0 && (
+        <div className="stats-bar">
+          <div className="stat-item">
+            <span className="stat-number">{stats.total}</span>
+            <span className="stat-label">Total</span>
+          </div>
+          <div className="stat-item stat-active">
+            <span className="stat-number">{stats.active}</span>
+            <span className="stat-label">Active</span>
+          </div>
+          {stats.revoked > 0 && (
+            <div className="stat-item stat-revoked">
+              <span className="stat-number">{stats.revoked}</span>
+              <span className="stat-label">Revoked</span>
+            </div>
+          )}
+          {stats.expired > 0 && (
+            <div className="stat-item stat-expired">
+              <span className="stat-number">{stats.expired}</span>
+              <span className="stat-label">Expired</span>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* CSS-CHANGE: Section title + controls row - polo */}
+      <div className="section-title-row">
+        <h2>My Credentials</h2>
         <div className="view-toggle">
           <button className={view === "cards" ? "active" : ""} onClick={() => setView("cards")}>
             Cards
@@ -296,7 +342,7 @@ export default function StudentDashboard() {
                 onClick={() => handleCardClick(cred)}
               >
                 {cred.badgeImage ? (
-                  <img src={cred.badgeImage} alt="badge" style={{width: 64, height: 64, objectFit: 'cover', borderRadius: 8, marginBottom: 8}} />
+                  <img src={cred.badgeImage} alt="badge" className="cred-card-badge-img" />
                 ) : (
                   <div className="cred-card-icon">🎓</div>
                 )}

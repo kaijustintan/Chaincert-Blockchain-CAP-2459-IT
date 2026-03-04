@@ -1793,7 +1793,7 @@ changeAdminPasswordSecure: async (req, res, getContractAndGateway) => {
     let blockchainWarning = null;
 
     // ✅ Align with chaincode signature:
-    // LogAdminPasswordChange(ctx, adminEmail, changeType, reason)
+    // LogAdminChangePassword(ctx, adminEmail, changeType, reason)
     const changeType = 'self_change'; // since the admin is changing their own password via settings
     const reason = ''; // optional; do NOT store sensitive details
 
@@ -1816,7 +1816,7 @@ changeAdminPasswordSecure: async (req, res, getContractAndGateway) => {
       const contract = cg.contract;
 
       await contract.submitTransaction(
-        'LogAdminPasswordChange', // ✅ MATCHES chaincode function name
+        'LogAdminChangePassword', // ✅ MATCHES chaincode function name
         adminEmail,
         changeType,
         reason

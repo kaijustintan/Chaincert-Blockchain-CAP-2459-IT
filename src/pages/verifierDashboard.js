@@ -337,7 +337,8 @@ export default function VerifierDashboard() {
         )}
 
         {!logsLoading && !logsError && logs.length > 0 && (
-          <table>
+          <div style={{ overflowX: "auto", width: "100%" }}>
+          <table style={{ minWidth: "900px" }}>
             <thead>
               <tr>
                 <th>Verification Log ID</th>
@@ -384,6 +385,7 @@ export default function VerifierDashboard() {
               ))}
             </tbody>
           </table>
+          </div>
         )}
       </div>
     </div>

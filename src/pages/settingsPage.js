@@ -91,15 +91,20 @@ export default function SettingsPage() {
             <h3>Settings</h3>
           </div>
           <ul>
-            {["account", "notifications", "security"].map((tab) => (
-              <li
-                key={tab}
-                className={activeTab === tab ? "active" : ""}
-                onClick={() => setActiveTab(tab)}
-              >
-                {tab.charAt(0).toUpperCase() + tab.slice(1)}
-              </li>
-            ))}
+            {["account", "notifications", "security"]
+              .filter((tab) => {
+                if (tab === "notifications") return userRole !== "admin" && userRole !== "verifier";
+                return true;
+              })
+              .map((tab) => (
+                <li
+                  key={tab}
+                  className={activeTab === tab ? "active" : ""}
+                  onClick={() => setActiveTab(tab)}
+                >
+                  {tab.charAt(0).toUpperCase() + tab.slice(1)}
+                </li>
+              ))}
           </ul>
         </aside>
 
@@ -121,6 +126,12 @@ export default function SettingsPage() {
                   <span className="label">Full Name:</span>
                   <span className="value">{userName}</span>
                 </div>
+                {userRole === "issuer" && (
+                  <div className="info-row">
+                    <span className="label">Organization:</span>
+                    <span className="value">{user.orgName || user.org || 'N/A'}</span>
+                  </div>
+                )}
                 <div className="info-row">
                   <span className="label">User ID:</span>
                   <span className="value">{userId || 'N/A'}</span>
@@ -183,11 +194,13 @@ export default function SettingsPage() {
                 </button>
               </div>
 
-              <div className="settings-section">
-                <h4>Two-Factor Authentication</h4>
-                <p className="status-badge disabled">Not enabled</p>
-                <button className="secondary-btn" disabled title="Coming soon">Enable 2FA</button>
-              </div>
+              {userRole !== "admin" && (
+                <div className="settings-section">
+                  <h4>Two-Factor Authentication</h4>
+                  <p className="status-badge disabled">Not enabled</p>
+                  <button className="secondary-btn" disabled title="Coming soon">Enable 2FA</button>
+                </div>
+              )}
             </section>
           )}
 

@@ -617,14 +617,23 @@ export default function AdminDashboard() {
     }
   };
 
-  const fetchIssuerDecisionLogs = async () => {
+  // - polo: fetch decision logs using filter-specific backend functions per Kyle's instruction
+  // "all" → Get_AllIssuerDecisionLogs, "approved" → Get_AllIssuerApprovalLogs, "rejected" → Get_AllIssuerRejectionLogs
+  const fetchIssuerDecisionLogs = async (filter = issuerDecisionFilter) => {
     try {
       setLogsLoading(true);
       setIssuerDecisionLogsError(null);
 
-      const data = await apiService.Get_AllIssuerDecisionLogs();
-      const rows = Array.isArray(data.logs) ? data.logs : [];
+      let data;
+      if (filter === "approved") {
+        data = await apiService.Get_AllIssuerApprovalLogs();
+      } else if (filter === "rejected") {
+        data = await apiService.Get_AllIssuerRejectionLogs();
+      } else {
+        data = await apiService.Get_AllIssuerDecisionLogs();
+      }
 
+      const rows = Array.isArray(data.logs) ? data.logs : [];
       const sortedRows = [...rows].sort((a, b) => {
         const ta = new Date(a.timestamp || 0).getTime();
         const tb = new Date(b.timestamp || 0).getTime();
@@ -1986,7 +1995,10 @@ export default function AdminDashboard() {
                 <select
                   id="issuerDecisionFilter"
                   value={issuerDecisionFilter}
-                  onChange={(e) => setIssuerDecisionFilter(e.target.value)}
+                  onChange={(e) => {
+                    setIssuerDecisionFilter(e.target.value);
+                    fetchIssuerDecisionLogs(e.target.value); // - polo: fetch from backend with correct filter
+                  }}
                 >
                   <option value="all">All</option>
                   <option value="approved">Approved</option>
@@ -1997,10 +2009,7 @@ export default function AdminDashboard() {
               {issuerDecisionLogsError ? (
                 <div className="tab-placeholder">❌ {issuerDecisionLogsError}</div>
               ) : (() => {
-                const filtered = issuerDecisionLogs.filter((log) => {
-                  if (issuerDecisionFilter === "all") return true;
-                  return (log.decision || "").toLowerCase() === issuerDecisionFilter;
-                });
+                const filtered = issuerDecisionLogs; // - polo: filtering now done at backend level
 
                 return filtered.length > 0 ? (
                   <div className="table-wrapper">

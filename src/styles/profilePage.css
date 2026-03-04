@@ -378,9 +378,29 @@
   gap: 16px;
 }
 
+/* Horizontal credential wallet grid - polo */
+.badges-grid {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 12px;
+  overflow-x: auto;
+}
+
+@media (max-width: 900px) {
+  .badges-grid {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+@media (max-width: 600px) {
+  .badges-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
 .badge-card {
   background: rgba(12, 8, 32, 0.9);
-  padding: 24px;
+  padding: 16px 12px;
   border-radius: 16px;
   text-align: center;
   cursor: pointer;
@@ -388,6 +408,7 @@
   transition: all 0.35s cubic-bezier(0.16, 1, 0.3, 1);
   position: relative;
   overflow: hidden;
+  min-width: 0;
 }
 
 /* Top glow on hover */
@@ -420,9 +441,14 @@
 
 .badge-card h4 {
   margin: 0 0 8px 0;
-  font-size: 15px;
+  font-size: 13px;
   font-weight: 600;
   color: #f5f3ff;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
 }
 
 .badge-date {

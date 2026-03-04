@@ -35,7 +35,13 @@ export default function ProfilePreview() {
             // Filter public only, exclude revoked, sort by currentOrder, top 5 - polo
             const publicOnly = Array.isArray(data)
               ? data
-                  .filter(c => c.visibility === 'public' && c.status !== 'revoked') // remove && c.status !== 'revoked' - polo
+                  .filter(c =>
+                    c.visibility === 'public' &&
+                    c.status !== 'revoked' &&
+                    c.status !== 'expired' &&
+                    c.status !== 'REVOKED' &&
+                    c.status !== 'EXPIRED'
+                  ) // - polo: hide revoked + expired from public preview per Kyle
                   .sort((a, b) => (a.currentOrder ?? 0) - (b.currentOrder ?? 0))
               : [];
             setCredentials(publicOnly);

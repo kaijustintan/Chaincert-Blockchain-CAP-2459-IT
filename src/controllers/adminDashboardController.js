@@ -1,6 +1,7 @@
 // controllers/adminDashboardController.js
 
 const couchdbService = require('../couchDB_service');
+const cron = require('node-cron'); // - polo: expiry cron
 
 /*
   Function Name: getAllIssuerCredentialsAdminController
@@ -99,6 +100,103 @@ async function getAllIssuerCredentialsAdminController(req, res) {
   }
 }
 
+// ==========================================================================================================================================================================
+// AUTO EXPIRY LOGIC - polo
+// ==========================================================================================================================================================================
+
+/*
+  Function Name: runExpiryCheck
+  Technical:
+  Calls checkAndExpireCredentials() from CouchDB service to find and mark expired credentials.
+  For each expired credential, submits ExpireCredential transaction to blockchain
+  so it appears in credential history.
+  Called by: midnight cron job + manual trigger endpoint via sdk-server-fixed.js
+  // - polo
+*/
+async function runExpiryCheck(getContractAndGateway) {
+  console.log('[EXPIRY] Running expiry check...');
+  let gateway = null;
+  try {
+    /* Step 1: Update CouchDB first - polo */
+    const expiredList = await couchdbService.checkAndExpireCredentials();
+    if (expiredList.length === 0) {
+      console.log('[EXPIRY] No credentials to expire.');
+      return { expired: 0, results: [] };
+    }
+
+    /* Step 2: Log each expired credential to blockchain - polo */
+    const results = [];
+    for (const item of expiredList) {
+      try {
+        const { gateway: gw, contract } = await getContractAndGateway('chaincert-admin', 'Org1');
+        gateway = gw;
+        await contract.submitTransaction('ExpireCredential', item.blockchainId);
+        console.log(`[EXPIRY] ✅ Blockchain logged: ${item.blockchainId}`);
+        results.push({ blockchainId: item.blockchainId, success: true });
+      } catch (bcErr) {
+        console.warn(`[EXPIRY] ⚠️ Blockchain log failed for ${item.blockchainId}:`, bcErr.message);
+        results.push({ blockchainId: item.blockchainId, success: false, error: bcErr.message });
+      } finally {
+        try { if (gateway) await gateway.disconnect(); } catch (_) {}
+        gateway = null;
+      }
+    }
+
+    console.log(`[EXPIRY] ✅ Expiry check complete. ${results.length} processed.`);
+    return { expired: results.length, results };
+
+  } catch (error) {
+    console.error('[EXPIRY] ❌ Expiry check failed:', error.message);
+    throw error;
+  }
+}
+
+/*
+  Function Name: triggerExpiryCheck
+  Technical: Express handler for POST /api/admin/trigger-expiry-check
+  Manual on-demand trigger for demo/testing purposes
+  // - polo
+*/
+async function triggerExpiryCheck(req, res, getContractAndGateway) {
+  try {
+    console.log('[EXPIRY] Manual trigger by admin...');
+    const result = await runExpiryCheck(getContractAndGateway);
+    return res.status(200).json({
+      success: true,
+      message: `Expiry check complete. ${result.expired} credential(s) expired.`,
+      results: result.results,
+      timestamp: new Date().toISOString()
+    });
+  } catch (error) {
+    console.error('[EXPIRY] ❌ Manual trigger failed:', error.message);
+    return res.status(500).json({
+      success: false,
+      message: error.message
+    });
+  }
+}
+
+/*
+  Function Name: initExpiryCron
+  Technical: Schedules midnight cron job for automatic expiry check
+  Called once on server startup from sdk-server-fixed.js
+  // - polo
+*/
+function initExpiryCron(getContractAndGateway) {
+  cron.schedule('0 0 * * *', async () => {
+    console.log('[CRON] Midnight expiry check triggered...');
+    try {
+      await runExpiryCheck(getContractAndGateway);
+    } catch (err) {
+      console.error('[CRON] ❌ Expiry cron failed:', err.message);
+    }
+  });
+  console.log('✅ [CRON] Midnight expiry cron job scheduled');
+}
+
 module.exports = {
-  getAllIssuerCredentialsAdminController
+  getAllIssuerCredentialsAdminController,
+  runExpiryCheck,
+  triggerExpiryCheck,
+  initExpiryCron
 };

@@ -21,7 +21,9 @@ export default function ProfilePage() {
   const [selectedCred, setSelectedCred] = useState(null);
 
   // Show all toggle for credential wallet - polo
-  const [showAll, setShowAll] = useState(false);
+const [showAll, setShowAll] = useState(false);
+  // - polo: 13C skill click → show source credential
+  const [selectedSkill, setSelectedSkill] = useState(null);
 
   // Drag-to-reorder state - polo
   const [draggedIndex, setDraggedIndex] = useState(null);
@@ -583,14 +585,68 @@ export default function ProfilePage() {
         ) : (
           <>
             <div className="skills-grid">
-              {derivedSkills.map((skill, idx) => (
-                <div key={idx} className="skill-card">
-                  <div className="skill-info">
-                    <h4>{skill}</h4>
-                    <p>Derived from your issued credentials</p>
+              {derivedSkills.map((skill, idx) => {
+                // find all credentials that contain this skill - polo
+                const sourceCreds = credentials.filter(c =>
+                  Array.isArray(c.skills) && c.skills.includes(skill)
+                );
+                const isSelected = selectedSkill === skill;
+                return (
+                  <div
+                    key={idx}
+                    className="skill-card"
+                    onClick={() => setSelectedSkill(isSelected ? null : skill)}
+                    style={{ cursor: 'pointer', position: 'relative' }}
+                  >
+                    <div className="skill-info">
+                      <h4>{skill}</h4>
+                      <p>Derived from your issued credentials</p>
+                    </div>
+                    {/* Source credential popup - polo */}
+                    {isSelected && (
+                      <div style={{
+                        position: 'absolute',
+                        bottom: 'calc(100% + 8px)',
+                        left: '50%',
+                        transform: 'translateX(-50%)',
+                        background: 'rgba(20,10,40,0.97)',
+                        border: '1px solid rgba(139,92,246,0.5)',
+                        borderRadius: 10,
+                        padding: '10px 14px',
+                        zIndex: 999,
+                        minWidth: 200,
+                        boxShadow: '0 4px 20px rgba(0,0,0,0.5)',
+                        whiteSpace: 'nowrap'
+                      }}>
+                        <p style={{ color: '#a78bfa', fontSize: '0.75rem', marginBottom: 6, fontWeight: 700 }}>
+                          FROM CREDENTIAL:
+                        </p>
+                        {sourceCreds.length === 0 ? (
+                          <p style={{ color: '#ccc', fontSize: '0.8rem' }}>Unknown</p>
+                        ) : (
+                          sourceCreds.map((c, i) => (
+                            <p key={i} style={{ color: '#fff', fontSize: '0.82rem', margin: '2px 0' }}>
+                              {c.credentialName}
+                            </p>
+                          ))
+                        )}
+                        {/* small arrow */}
+                        <div style={{
+                          position: 'absolute',
+                          bottom: -7,
+                          left: '50%',
+                          transform: 'translateX(-50%)',
+                          width: 0,
+                          height: 0,
+                          borderLeft: '7px solid transparent',
+                          borderRight: '7px solid transparent',
+                          borderTop: '7px solid rgba(139,92,246,0.5)'
+                        }} />
+                      </div>
+                    )}
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
             <div className="skills-count">
               {derivedSkills.length} {derivedSkills.length !== 1 ? 'skills' : 'skill'} from{' '}

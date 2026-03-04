@@ -717,6 +717,18 @@ enableUser: async (userId, reason) => {
       throw error;
     }
   },
+
+  // - polo: fetch templates from a specific issuer's CouchDB by issuerID
+  // used by student dashboard to get skills + badgeImage for a credential
+  Get_IssuerTemplatesByID: async (issuerID) => {
+    try {
+      const response = await axios.get(`/credentials/issuer/${issuerID}`);
+      return response.data.credentials || [];
+    } catch (error) {
+      console.error('Error fetching issuer templates by ID:', error.response?.data?.message || error.message);
+      throw error;
+    }
+  },
   // ==========================================================================================================================================================================
 
   /*

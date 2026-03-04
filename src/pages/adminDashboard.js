@@ -2106,8 +2106,8 @@ export default function AdminDashboard() {
                       <tr>
                         <th>Log ID</th>
                         <th>Target Type</th>
-                        <th>Target ID</th>
-                        <th>Old Status</th>
+                        <th>Email</th>
+                        <th>Previous Status</th>
                         <th>New Status</th>
                         <th>Reason</th>
                         <th>Changed By</th>
@@ -2117,18 +2117,28 @@ export default function AdminDashboard() {
                     </thead>
                     <tbody>
                       {statusLogs.map((log) => (
-                        <tr key={log.logId || log.txId}>
+                        <tr key={log.id || log.txId}>
                           <td style={{ fontFamily: "monospace", fontSize: "12px" }}>
-                            {log.logId || "N/A"}
+                            {log.id ? `${String(log.id).slice(0, 18)}...` : "N/A"}
                           </td>
-                          <td>{log.targetType || "N/A"}</td>
+                          <td>{log.entity || "N/A"}</td>
                           <td style={{ fontFamily: "monospace", fontSize: "12px" }}>
-                            {log.targetId || "N/A"}
+                            {log.issuerEmail || log.userEmail || log.targetEmail || "N/A"}
                           </td>
-                          <td>{log.oldStatus || "N/A"}</td>
-                          <td>{log.newStatus || "N/A"}</td>
+                          <td>{log.previousStatus || "N/A"}</td>
+                          <td>
+                            <span style={{
+                              fontWeight: 700,
+                              color: (log.newStatus || "").toLowerCase() === "disabled"
+                                ? "#ff6b6b" : "#4ade80"
+                            }}>
+                              {log.newStatus || "N/A"}
+                            </span>
+                          </td>
                           <td>{log.reason || "N/A"}</td>
-                          <td>{log.changedBy || "N/A"}</td>
+                          <td style={{ fontFamily: "monospace", fontSize: "12px" }}>
+                            {log.performedByMSP || log.performedBy || "N/A"}
+                          </td>
                           <td style={{ fontFamily: "monospace", fontSize: "12px" }}>
                             {log.txId ? `${String(log.txId).slice(0, 18)}...` : "N/A"}
                           </td>

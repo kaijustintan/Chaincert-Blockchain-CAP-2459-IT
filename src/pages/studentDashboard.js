@@ -75,6 +75,9 @@ export default function StudentDashboard() {
      // - polo
   */
   const [selectedCred, setSelectedCred] = useState(null);
+  // - polo: stores skills + badgeImage fetched from issuer's template
+  const [templateDetails, setTemplateDetails] = useState(null);
+  const [templateLoading, setTemplateLoading] = useState(false);
 
   /* See History modal (inside detail modal)
      Technical: Same pattern as admin dashboard See History
@@ -187,8 +190,31 @@ export default function StudentDashboard() {
     }
   };
 
+  // - polo: on card click, fetch template details (skills + badgeImage) from issuer's CouchDB
+  const handleCardClick = async (cred) => {
+    setSelectedCred(cred);
+    setTemplateDetails(null);
+    setTemplateLoading(true);
+    try {
+      if (cred.issuerID) {
+        const templates = await apiService.Get_IssuerTemplatesByID(cred.issuerID);
+        // extract templateId: first 2 underscore-separated parts of blockchainId
+        // e.g. cred_1772386809672_bjmh2b0hs_holderID_timestamp → cred_1772386809672_bjmh2b0hs
+        const parts = (cred.blockchainId || '').split('_');
+        const templateId = parts.slice(0, 3).join('_'); // cred_TIMESTAMP_RANDOMID
+        const match = templates.find(t => t._id === templateId || t.id === templateId);
+        if (match) setTemplateDetails(match);
+      }
+    } catch (err) {
+      console.error('[STUDENT DASHBOARD] Failed to fetch template details:', err);
+    } finally {
+      setTemplateLoading(false);
+    }
+  };
+
   const closeDetailModal = () => {
     setSelectedCred(null);
+    setTemplateDetails(null);
     setHistoryOpen(false);
     setHistoryData(null);
     setHistoryError(null);
@@ -267,7 +293,7 @@ export default function StudentDashboard() {
               <div
                 key={cred._id}
                 className="cred-card clickable"
-                onClick={() => setSelectedCred(cred)}
+                onClick={() => handleCardClick(cred)}
               >
                 {cred.badgeImage ? (
                   <img src={cred.badgeImage} alt="badge" style={{width: 64, height: 64, objectFit: 'cover', borderRadius: 8, marginBottom: 8}} />
@@ -302,7 +328,7 @@ export default function StudentDashboard() {
                 <tr
                   key={cred._id}
                   className="clickable-row"
-                  onClick={() => setSelectedCred(cred)}
+                  onClick={() => handleCardClick(cred)}
                 >
                   <td>{cred.credentialName}</td>
                   <td>{cred.issuerName || 'N/A'}</td>
@@ -330,6 +356,17 @@ export default function StudentDashboard() {
             </div>
 
             <div className="modal-body">
+              {/* Badge image from template - polo */}
+              {templateLoading && <p style={{textAlign:'center', opacity:0.7}}>Loading details...</p>}
+              {!templateLoading && templateDetails?.badgeImage && (
+                <div style={{textAlign:'center', marginBottom:16}}>
+                  <img
+                    src={templateDetails.badgeImage}
+                    alt="badge"
+                    style={{width:96, height:96, objectFit:'cover', borderRadius:12}}
+                  />
+                </div>
+              )}
               <div className="detail-row">
                 <span className="detail-label">Type</span>
                 <span className="detail-value">{selectedCred.credentialType || "N/A"}</span>
@@ -360,6 +397,26 @@ export default function StudentDashboard() {
                 <span className="detail-label">Blockchain ID</span>
                 <span className="detail-value mono">{selectedCred.blockchainId || "N/A"}</span>
               </div>
+            {/* Skills from template - polo */}
+              {!templateLoading && templateDetails?.skills && templateDetails.skills.length > 0 && (
+                <div className="detail-row" style={{flexDirection:'column', alignItems:'flex-start', gap:8}}>
+                  <span className="detail-label">Skills</span>
+                  <div style={{display:'flex', flexWrap:'wrap', gap:6, marginTop:4}}>
+                    {templateDetails.skills.map((skill, i) => (
+                      <span key={i} style={{
+                        background:'rgba(139,92,246,0.2)',
+                        border:'1px solid rgba(139,92,246,0.4)',
+                        borderRadius:20,
+                        padding:'3px 12px',
+                        fontSize:'0.8rem',
+                        color:'#c4b5fd'
+                      }}>
+                        {skill}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* See History button — same as admin dashboard

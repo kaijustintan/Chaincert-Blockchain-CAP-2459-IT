@@ -6,9 +6,11 @@ export default function ProfilePage() {
   // Get user data from localStorage (set during login)
   const user = JSON.parse(localStorage.getItem("user") || "{}");
   const userEmail = user.email || localStorage.getItem("email") || "";
-  const userName = user.username || user.name || user.fullName || "User";
   const userRole = user.role || localStorage.getItem("role") || "student";
   const userId = user._id || user.id || "";
+  // - polo: displayName as state so it updates without full reload
+  const [displayName, setDisplayName] = useState(user.username || user.name || user.fullName || "User");
+  const userName = displayName;
 
   const [summary, setSummary] = useState("");
   const [isPublic, setIsPublic] = useState(true);
@@ -41,10 +43,11 @@ const [showAll, setShowAll] = useState(false);
   const [saveMessage, setSaveMessage] = useState("");
   const [avatar, setAvatar] = useState("👤");
 
-  // Editable name state
-  const [editingName, setEditingName] = useState(false);
-  const [nameInput, setNameInput] = useState(userName);
-  const [nameSaving, setNameSaving] = useState(false);
+  // - polo: unified edit profile mode 
+  const [isEditingProfile, setIsEditingProfile] = useState(false);
+  const [editNameInput, setEditNameInput] = useState(userName);
+  const [editSummaryInput, setEditSummaryInput] = useState(summary);
+  const [editIsPublic, setEditIsPublic] = useState(isPublic);
 
   // Ref for the hidden file input
   const fileInputRef = useRef(null);
@@ -204,51 +207,43 @@ const [showAll, setShowAll] = useState(false);
     }
   };
 
-  const handleSaveName = async () => {
-    const trimmed = nameInput.trim();
-    if (!trimmed || trimmed === userName) {
-      setEditingName(false);
-      return;
-    }
-    try {
-      setNameSaving(true);
-      await apiService.updateProfile({
-        userId,
-        username: trimmed,
-      });
-      // Update localStorage so navbar reflects change immediately
-      const updatedUser = { ...user, username: trimmed };
-      localStorage.setItem("user", JSON.stringify(updatedUser));
-      window.location.reload(); // reload to reflect new name
-    } catch (err) {
-      console.error("Error saving name:", err);
-      alert("Failed to save name. Please try again.");
-    } finally {
-      setNameSaving(false);
-      setEditingName(false);
-    }
+  // unified edit profile save handler 
+  const handleOpenEditProfile = () => {
+    setEditNameInput(userName);
+    setEditSummaryInput(summary);
+    setEditIsPublic(isPublic);
+    setIsEditingProfile(true);
   };
 
-  const handleSaveProfile = async () => {
+  const handleCancelEditProfile = () => {
+    setIsEditingProfile(false);
+  };
+
+  const handleSaveEditProfile = async () => {
     setIsSaving(true);
     setSaveMessage("");
-
     try {
-      const response = await apiService.updateProfile({
-        userId: userId,
-        summary: summary,
-        isPublic: isPublic,
+      const trimmedName = editNameInput.trim();
+      console.log("[DEBUG] Saving profile with name:", trimmedName);
+      await apiService.updateProfile({
+        userId,
+        username: trimmedName || userName,
+        summary: editSummaryInput,
+        isPublic: editIsPublic,
       });
-
-      if (response.success) {
-        setSaveMessage("✅ Profile saved successfully!");
-        setTimeout(() => setSaveMessage(""), 3000);
-      } else {
-        setSaveMessage("❌ Failed to save profile");
-        setTimeout(() => setSaveMessage(""), 3000);
-      }
-    } catch (error) {
-      console.error("Error saving profile:", error);
+      // Update localStorage and state immediately - no reload needed - polo
+      const finalName = trimmedName || userName;
+      const updatedUser = { ...user, name: finalName, username: finalName };
+      localStorage.setItem("user", JSON.stringify(updatedUser));
+      setDisplayName(finalName); // - polo: update display immediately without reload
+      setSummary(editSummaryInput);
+      setIsPublic(editIsPublic);
+      setEditNameInput(finalName);
+      setIsEditingProfile(false);
+      setSaveMessage("✅ Profile saved successfully!");
+      setTimeout(() => setSaveMessage(""), 3000);
+    } catch (err) {
+      console.error("Error saving profile:", err);
       setSaveMessage("❌ Failed to save profile");
       setTimeout(() => setSaveMessage(""), 3000);
     } finally {
@@ -325,13 +320,17 @@ const [showAll, setShowAll] = useState(false);
           )}
         </div>
 
-        <button
-          className="avatar-edit-btn"
-          onClick={handleAvatarClick}
-          title="Change profile picture"
-        >
+        {/* Avatar edit button — only clickable/visible in edit mode - polo */}
+        {isEditingProfile && (
+          <button
+            className="avatar-edit-btn"
+            onClick={handleAvatarClick}
+            title="Change profile picture"
+            style={{ opacity: 1, transform: "scale(1)" }}
+          >
             ✏️
           </button>
+        )}
           <input
             type="file"
             ref={fileInputRef}
@@ -359,9 +358,37 @@ const [showAll, setShowAll] = useState(false);
             </button>
           </div>
 
-          {summary && (
+          {summary && !isEditingProfile && (
             <div className="profile-summary-display">
               <p>{summary}</p>
+            </div>
+          )}
+        </div>
+        {/* Edit Profile / Save / Cancel buttons - polo */}
+        <div className="edit-btn">
+          {!isEditingProfile ? (
+            <button type="button" onClick={handleOpenEditProfile}>Edit Profile</button>
+          ) : (
+            <div style={{ display: "flex", gap: 8 }}>
+              <button
+                type="button"
+                onClick={handleSaveEditProfile}
+                disabled={isSaving}
+              >
+                {isSaving ? "Saving..." : "Save Changes"}
+              </button>
+              <button
+                type="button"
+                onClick={handleCancelEditProfile}
+                disabled={isSaving}
+                style={{
+                  background: "transparent",
+                  border: "1px solid rgba(255,255,255,0.2)",
+                  color: "#aaa",
+                }}
+              >
+                Cancel
+              </button>
             </div>
           )}
         </div>
@@ -372,149 +399,101 @@ const [showAll, setShowAll] = useState(false);
         <h3>Account Information</h3>
         <div className="info-grid">
 
-          {/* Full Name — editable */}
+          {/* Full Name — editable in edit mode, read-only otherwise - polo */}
           <div className="info-item">
             <label>Full Name</label>
-            {editingName ? (
-              <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-                <input
-                  type="text"
-                  value={nameInput}
-                  onChange={(e) => setNameInput(e.target.value)}
-                  onKeyDown={async (e) => {
-                    if (e.key === "Enter") await handleSaveName();
-                    if (e.key === "Escape") { setEditingName(false); setNameInput(userName); }
-                  }}
-                  autoFocus
-                  style={{
-                    background: "rgba(255,255,255,0.08)",
-                    border: "1px solid #a78bfa",
-                    borderRadius: 8,
-                    color: "#fff",
-                    padding: "6px 10px",
-                    fontSize: "14px",
-                    outline: "none",
-                    width: "160px",
-                  }}
-                />
-                <button
-                  onClick={handleSaveName}
-                  disabled={nameSaving}
-                  style={{
-                    background: "rgba(139,92,246,0.3)",
-                    border: "1px solid #a78bfa",
-                    borderRadius: 8,
-                    color: "#a78bfa",
-                    padding: "6px 10px",
-                    cursor: "pointer",
-                    fontWeight: 700,
-                    fontSize: "12px",
-                  }}
-                >
-                  {nameSaving ? "Saving..." : "Save"}
-                </button>
-                <button
-                  onClick={() => { setEditingName(false); setNameInput(userName); }}
-                  style={{
-                    background: "transparent",
-                    border: "1px solid rgba(255,255,255,0.2)",
-                    borderRadius: 8,
-                    color: "#aaa",
-                    padding: "6px 10px",
-                    cursor: "pointer",
-                    fontSize: "12px",
-                  }}
-                >
-                  Cancel
-                </button>
-              </div>
+            {isEditingProfile ? (
+              <input
+                type="text"
+                value={editNameInput}
+                onChange={(e) => setEditNameInput(e.target.value)}
+                style={{
+                  background: "rgba(255,255,255,0.08)",
+                  border: "1px solid #a78bfa",
+                  borderRadius: 8,
+                  color: "#fff",
+                  padding: "6px 10px",
+                  fontSize: "14px",
+                  outline: "none",
+                  width: "100%",
+                }}
+              />
             ) : (
-              <span
-                title="Click to edit your name"
-                onClick={() => { setEditingName(true); setNameInput(userName); }}
-                style={{ cursor: "pointer", borderBottom: "1px dashed rgba(167,139,250,0.5)", paddingBottom: 2 }}
-              >
-                {userName} 
-              </span>
+              <span>{userName}</span>
             )}
           </div>
 
-          {/* Email — read only with tooltip */}
+          {/* Email — always read only */}
           <div className="info-item">
             <label>Email Address</label>
-            <span
-              title="Email cannot be changed"
-              style={{ cursor: "not-allowed", opacity: 0.7 }}
-            >
-              {userEmail} 
+            <span title="Email cannot be changed" style={{ cursor: "not-allowed", opacity: 0.7 }}>
+              {userEmail}
             </span>
           </div>
 
-          {/* Account Role — read only with tooltip */}
+          {/* Account Role — always read only */}
           <div className="info-item">
             <label>Account Role</label>
-            <span
-              title="Role is system-managed and cannot be changed"
-              style={{ cursor: "not-allowed" }}
-            >
-              <span className="role-badge">{userRole}</span> 
+            <span title="Role is system-managed and cannot be changed" style={{ cursor: "not-allowed" }}>
+              <span className="role-badge">{userRole}</span>
             </span>
           </div>
 
-          {/* User ID — read only with tooltip */}
+          {/* User ID — always read only */}
           <div className="info-item">
             <label>User ID</label>
-            <span
-              title="User ID is system-managed"
-              className="user-id"
-              style={{ cursor: "not-allowed", opacity: 0.7 }}
-            >
-              {userId || "N/A"} 
+            <span title="User ID is system-managed" className="user-id" style={{ cursor: "not-allowed", opacity: 0.7 }}>
+              {userId || "N/A"}
             </span>
           </div>
 
         </div>
       </section>
 
-      {/* Profile Summary */}
+      {/* Personal Summary — only shown in edit mode or when summary exists - polo */}
       <section className="profile-section">
         <h3>Personal Summary</h3>
-        <div className="summary-box">
-          <textarea
-            value={summary}
-            onChange={(e) => setSummary(e.target.value)}
-            placeholder="Share your professional story, achievements, and career goals. This will appear on your public profile and help others understand your expertise."
-            maxLength={600}
-            className="summary-textarea"
-          />
-          <div className="summary-footer">
-            <span className="char-count">{summary.length} / 600 characters</span>
-            <div className="visibility-toggle">
-              <label>Public Profile</label>
-              <input
-                type="checkbox"
-                checked={isPublic}
-                onChange={() => setIsPublic(!isPublic)}
-              />
+        {isEditingProfile ? (
+          <div className="summary-box">
+            <textarea
+              value={editSummaryInput}
+              onChange={(e) => setEditSummaryInput(e.target.value)}
+              placeholder="Share your professional story, achievements, and career goals."
+              maxLength={600}
+              className="summary-textarea"
+            />
+            <div className="summary-footer">
+              <span className="char-count">{editSummaryInput.length} / 600 characters</span>
+              <div className="visibility-toggle">
+                <label>Public Profile</label>
+                <input
+                  type="checkbox"
+                  checked={editIsPublic}
+                  onChange={() => setEditIsPublic(prev => !prev)}
+                />
+              </div>
             </div>
+            {/* Save/Cancel now in profile header - polo */}
+            {saveMessage && (
+              <div className={`save-message ${saveMessage.includes("✅") ? "success" : "error"}`}>
+                {saveMessage}
+              </div>
+            )}
           </div>
-          <button
-            className="save-btn"
-            onClick={handleSaveProfile}
-            disabled={isSaving}
-          >
-            {isSaving ? "Saving..." : "Save Changes"}
-          </button>
-          {saveMessage && (
-            <div
-              className={`save-message ${
-                saveMessage.includes("✅") ? "success" : "error"
-              }`}
-            >
-              {saveMessage}
-            </div>
-          )}
-        </div>
+        ) : (
+          <div>
+            {summary ? (
+              <p style={{ color: "#d4d4d8", fontSize: 14, lineHeight: 1.6 }}>{summary}</p>
+            ) : (
+              <p style={{ color: "#666", fontSize: 14 }}>No summary yet. Click Edit Profile to add one.</p>
+            )}
+            {saveMessage && (
+              <div className={`save-message ${saveMessage.includes("✅") ? "success" : "error"}`}>
+                {saveMessage}
+              </div>
+            )}
+          </div>
+        )}
       </section>
 
       {/* Credential Wallet — hidden for issuers */}

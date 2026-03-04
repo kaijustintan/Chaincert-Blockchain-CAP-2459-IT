@@ -288,7 +288,8 @@ const apiService = {
       const response = await axios.post('/auth/update-profile', {
         userId: profileData.userId,
         summary: profileData.summary,
-        isPublic: profileData.isPublic
+        isPublic: profileData.isPublic,
+        username: profileData.username // - polo: include username for edit profile
       });
 
       /* Step 2: Return updated profile result */

@@ -205,13 +205,13 @@ login: async (req, res) => {
     );
 
     const { password: pw, ...userData } = user;
-
     return res.status(200).json({
       success: true,
       message: 'Login successful',
       token,
       user: {
         ...userData,
+        name: user.username, // - polo: ensure 'name' field is always set for frontend
         role: user.role || 'student'
       }
     });
@@ -331,10 +331,9 @@ getAllUsers: async (req, res) => {
   updateProfile: async (req, res) => {
     try {
       /* Step 1: Extract payload */
-      const { userId, summary, isPublic } = req.body;
-
-      /* Step 2: Update profile fields in DB */
-      const result = await couchDB.updateProfile(userId, { summary, isPublic });
+      const { userId, summary, isPublic, username } = req.body;
+      /* Step 2: Update profile fields in DB - polo: added username */
+      const result = await couchDB.updateProfile(userId, { summary, isPublic, username });
 
       /* Step 3: Return update response */
       return res.status(200).json({

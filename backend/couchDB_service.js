@@ -270,8 +270,10 @@ async function updateProfile(userId, profileData) {
     // Update profile fields
     const updatedDoc = {
       ...currentDoc,
-      summary: profileData.summary || currentDoc.summary || '',
+      summary: profileData.summary !== undefined ? profileData.summary : (currentDoc.summary || ''),
       isPublic: profileData.isPublic !== undefined ? profileData.isPublic : currentDoc.isPublic,
+      // - polo: allow username update from edit profile
+      ...(profileData.username ? { username: profileData.username } : {}),
       profileUpdatedAt: new Date(),
       _id: currentDoc._id,
       _rev: currentDoc._rev

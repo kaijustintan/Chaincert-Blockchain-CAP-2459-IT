@@ -830,6 +830,35 @@ async function getIssuerById(issuerId) {
 }
 // ==========================================================================================================================================================================
 
+async function getIssuerDocuments(issuerId) {
+  try {
+    if (!issuersDB) await initializeDatabases();
+
+    const issuer = await issuersDB.get(issuerId);
+
+    return issuer.documents || [];
+
+  } catch (error) {
+    console.error('Error getting issuer documents:', error.message);
+    throw error;
+  }
+}
+// ==========================================================================================================================================================================
+
+async function getIssuerDocumentStream(issuerId, attachmentName) {
+  try {
+    if (!issuersDB) await initializeDatabases();
+
+    return await issuersDB.attachment.get(issuerId, attachmentName);
+
+  } catch (error) {
+    console.error('Error getting issuer document attachment:', error.message);
+    throw error;
+  }
+}
+// ==========================================================================================================================================================================
+
+
 /*
   Function Name: getIssuerByEmail
 
@@ -2927,6 +2956,8 @@ module.exports = {
   getRejectedIssuers,
   getDisabledIssuers,
   getIssuerById,
+  getIssuerDocuments,
+  getIssuerDocumentStream,
   getIssuerByEmail,
   checkDuplicateIssuerRegistration,
   approveIssuer,

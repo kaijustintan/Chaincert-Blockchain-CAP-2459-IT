@@ -1889,6 +1889,79 @@ Get_EligibleUsersForTemplate: async (templateId) => {
   }
 },
 
+/*
+  Function Name: getIssuerDocuments
+
+  Technical:
+  Fetches uploaded issuer document metadata for a specific issuer application.
+*/
+getIssuerDocuments: async (issuerId) => {
+  try {
+    if (!issuerId) throw new Error('issuerId is required');
+
+    const response = await axios.get(`/auth/issuer/${issuerId}/documents`);
+    return response.data;
+  } catch (error) {
+    console.error(
+      'Error fetching issuer documents:',
+      error.response?.data?.message || error.message
+    );
+    throw error;
+  }
+},
+
+/*
+  Function Name: viewIssuerDocumentBlob
+
+  Technical:
+  Fetches an issuer attachment as a Blob for inline viewing in the browser.
+*/
+viewIssuerDocumentBlob: async (issuerId, attachmentName) => {
+  try {
+    if (!issuerId) throw new Error('issuerId is required');
+    if (!attachmentName) throw new Error('attachmentName is required');
+
+    const response = await axios.get(
+      `/auth/issuer/${issuerId}/documents/${encodeURIComponent(attachmentName)}`,
+      { responseType: 'blob' }
+    );
+
+    return response.data;
+  } catch (error) {
+    console.error(
+      'Error viewing issuer document:',
+      error.response?.data?.message || error.message
+    );
+    throw error;
+  }
+},
+
+/*
+  Function Name: downloadIssuerDocumentBlob
+
+  Technical:
+  Fetches an issuer attachment as a Blob for download.
+*/
+downloadIssuerDocumentBlob: async (issuerId, attachmentName) => {
+  try {
+    if (!issuerId) throw new Error('issuerId is required');
+    if (!attachmentName) throw new Error('attachmentName is required');
+
+    const response = await axios.get(
+      `/auth/issuer/${issuerId}/documents/${encodeURIComponent(attachmentName)}?download=1`,
+      { responseType: 'blob' }
+    );
+
+    return response.data;
+  } catch (error) {
+    console.error(
+      'Error downloading issuer document:',
+      error.response?.data?.message || error.message
+    );
+    throw error;
+  }
+},
+
 
 
   // ==========================================================================================================================================================================

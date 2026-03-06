@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from "react";
+import ReactDOM from "react-dom";
 import { useNavigate } from "react-router-dom";
 import apiService from "../services/apiService";
 import "../styles/issuerDashboardPage.css";
@@ -60,10 +61,30 @@ export default function IssuerDashboard() {
   // View toggle
   const [dashboardView, setDashboardView] = useState("issued"); // 'issued' | 'templates'
 
+    // Root Authority → Pending Subordinate Approval Queue
+  const [pendingSubordinates, setPendingSubordinates] = useState([]);
+  const [pendingSubordinatesLoading, setPendingSubordinatesLoading] = useState(false);
+  const [pendingSubordinatesError, setPendingSubordinatesError] = useState("");
+
+  // Root Authority → Reject subordinate modal
+  const [showRejectSubordinateModal, setShowRejectSubordinateModal] = useState(false);
+  const [rejectSubordinateTarget, setRejectSubordinateTarget] = useState(null);
+  const [rejectSubordinateReason, setRejectSubordinateReason] = useState("");
+  const [rejectSubordinateError, setRejectSubordinateError] = useState("");
+  const [rejectSubordinateLoading, setRejectSubordinateLoading] = useState(false);
+
+  // Submitted documents modal (reuse issuer document endpoints)
+  const [showIssuerDocumentsModal, setShowIssuerDocumentsModal] = useState(false);
+  const [selectedIssuerForDocuments, setSelectedIssuerForDocuments] = useState(null);
+  const [issuerDocuments, setIssuerDocuments] = useState([]);
+  const [issuerDocumentsLoading, setIssuerDocumentsLoading] = useState(false);
+  const [issuerDocumentsError, setIssuerDocumentsError] = useState("");
+
   // Fetch credentials on page load
-  useEffect(() => {
+    useEffect(() => {
     fetchCredentials();
     fetchTemplateOptions();
+    fetchPendingSubordinatesForRoot();
   }, []);
 
   // Filtering logic
@@ -121,6 +142,185 @@ export default function IssuerDashboard() {
       console.log("Fetched credential TEMPLATES:", data);
     } catch (err) {
       console.error("Error fetching credential templates:", err);
+    }
+  };
+
+    const fetchPendingSubordinatesForRoot = async () => {
+    try {
+      setPendingSubordinatesLoading(true);
+      setPendingSubordinatesError("");
+
+      const response = await apiService.getPendingSubordinatesForRoot();
+      const list = Array.isArray(response?.data)
+        ? response.data
+        : Array.isArray(response)
+        ? response
+        : Array.isArray(response?.subordinates)
+        ? response.subordinates
+        : [];
+
+      setPendingSubordinates(list);
+    } catch (err) {
+      console.error("Error fetching pending subordinates for root:", err);
+      setPendingSubordinates([]);
+      setPendingSubordinatesError(
+        err.response?.data?.message || "Failed to load subordinate approval queue."
+      );
+    } finally {
+      setPendingSubordinatesLoading(false);
+    }
+  };
+
+  const handleRootApproveSubordinate = async (issuerId) => {
+    try {
+      await apiService.rootApproveSubordinateIssuer(issuerId, "");
+      alert("Subordinate issuer approved successfully!");
+      fetchPendingSubordinatesForRoot();
+    } catch (err) {
+      console.error("Error approving subordinate issuer:", err);
+      alert(
+        err.response?.data?.message || "Failed to approve subordinate issuer."
+      );
+    }
+  };
+
+  const openRejectSubordinateModal = (issuer) => {
+    setRejectSubordinateTarget(issuer);
+    setRejectSubordinateReason("");
+    setRejectSubordinateError("");
+    setShowRejectSubordinateModal(true);
+  };
+
+  const closeRejectSubordinateModal = () => {
+    if (rejectSubordinateLoading) return;
+    setShowRejectSubordinateModal(false);
+    setRejectSubordinateTarget(null);
+    setRejectSubordinateReason("");
+    setRejectSubordinateError("");
+  };
+
+  const submitRejectSubordinate = async (e) => {
+    e.preventDefault();
+
+    const trimmed = rejectSubordinateReason.trim();
+    if (!trimmed) {
+      setRejectSubordinateError("Rejection reason is required.");
+      return;
+    }
+
+    const issuerId = rejectSubordinateTarget?._id || rejectSubordinateTarget?.id;
+    if (!issuerId) {
+      setRejectSubordinateError("Subordinate issuer ID not found.");
+      return;
+    }
+
+    try {
+      setRejectSubordinateLoading(true);
+      setRejectSubordinateError("");
+
+      await apiService.rootRejectSubordinateIssuer(issuerId, trimmed);
+
+      alert("Subordinate issuer rejected successfully!");
+      closeRejectSubordinateModal();
+      fetchPendingSubordinatesForRoot();
+    } catch (err) {
+      console.error("Error rejecting subordinate issuer:", err);
+      setRejectSubordinateError(
+        err.response?.data?.message || "Failed to reject subordinate issuer."
+      );
+    } finally {
+      setRejectSubordinateLoading(false);
+    }
+  };
+
+  const openIssuerDocumentsModal = async (issuer) => {
+    try {
+      const issuerId = issuer?._id || issuer?.id;
+      if (!issuerId) return;
+
+      setSelectedIssuerForDocuments(issuer);
+      setShowIssuerDocumentsModal(true);
+      setIssuerDocuments([]);
+      setIssuerDocumentsError("");
+      setIssuerDocumentsLoading(true);
+
+      const resp = await apiService.getIssuerDocuments(issuerId);
+      const docs = Array.isArray(resp.documents) ? resp.documents : [];
+      setIssuerDocuments(docs);
+    } catch (error) {
+      const msg =
+        error.response?.data?.message ||
+        error.message ||
+        "Failed to load issuer documents";
+      setIssuerDocumentsError(msg);
+      setIssuerDocuments([]);
+    } finally {
+      setIssuerDocumentsLoading(false);
+    }
+  };
+
+  const closeIssuerDocumentsModal = () => {
+    setShowIssuerDocumentsModal(false);
+    setSelectedIssuerForDocuments(null);
+    setIssuerDocuments([]);
+    setIssuerDocumentsError("");
+    setIssuerDocumentsLoading(false);
+  };
+
+  const handleViewIssuerDocument = async (doc) => {
+    try {
+      const issuerId =
+        selectedIssuerForDocuments?._id || selectedIssuerForDocuments?.id;
+      if (!issuerId || !doc?.attachmentName) return;
+
+      const blob = await apiService.viewIssuerDocumentBlob(
+        issuerId,
+        doc.attachmentName
+      );
+
+      const blobUrl = window.URL.createObjectURL(blob);
+      window.open(blobUrl, "_blank", "noopener,noreferrer");
+
+      setTimeout(() => {
+        window.URL.revokeObjectURL(blobUrl);
+      }, 60000);
+    } catch (error) {
+      alert(
+        error.response?.data?.message ||
+          error.message ||
+          "Failed to open document"
+      );
+    }
+  };
+
+  const handleDownloadIssuerDocument = async (doc) => {
+    try {
+      const issuerId =
+        selectedIssuerForDocuments?._id || selectedIssuerForDocuments?.id;
+      if (!issuerId || !doc?.attachmentName) return;
+
+      const blob = await apiService.downloadIssuerDocumentBlob(
+        issuerId,
+        doc.attachmentName
+      );
+
+      const blobUrl = window.URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = blobUrl;
+      a.download = doc.originalname || doc.attachmentName || "document";
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+
+      setTimeout(() => {
+        window.URL.revokeObjectURL(blobUrl);
+      }, 60000);
+    } catch (error) {
+      alert(
+        error.response?.data?.message ||
+          error.message ||
+          "Failed to download document"
+      );
     }
   };
 
@@ -821,6 +1021,106 @@ export default function IssuerDashboard() {
         </div>
       </div>
 
+            {/* ROOT AUTHORITY → SUBORDINATE APPROVAL QUEUE */}
+      {(pendingSubordinatesLoading ||
+        pendingSubordinatesError ||
+        pendingSubordinates.length > 0) && (
+        <div className="table-container" style={{ marginTop: 24 }}>
+          <h3 style={{ marginBottom: 12 }}>Pending Subordinate Approval Queue</h3>
+
+          {pendingSubordinatesLoading ? (
+            <div className="no-results">
+              <p>Loading pending subordinate applications...</p>
+            </div>
+          ) : pendingSubordinatesError ? (
+            <div className="no-results">
+              <p style={{ color: "#ff6b6b" }}>{pendingSubordinatesError}</p>
+            </div>
+          ) : pendingSubordinates.length === 0 ? null : (
+            <table className="template-table">
+              <thead>
+                <tr>
+                  <th>Issuer ID</th>
+                  <th>Org Name</th>
+                  <th>Email</th>
+                  <th>Category</th>
+                  <th>Created At</th>
+                  <th>Documents</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {pendingSubordinates.map((issuer) => {
+                  const issuerId = issuer._id || issuer.id;
+                  return (
+                    <tr key={issuerId}>
+                      <td style={{ fontFamily: "monospace", fontSize: 12 }}>
+                        {issuerId}
+                      </td>
+                      <td>{issuer.orgName || "N/A"}</td>
+                      <td>{issuer.email || "N/A"}</td>
+                      <td>{issuer.category || "N/A"}</td>
+                      <td>
+                        {issuer.createdAt
+                          ? new Date(issuer.createdAt).toLocaleString()
+                          : "N/A"}
+                      </td>
+                      <td>
+                        <button
+                          type="button"
+                          onClick={() => openIssuerDocumentsModal(issuer)}
+                          className="action-btn"
+                          style={{
+                            padding: "6px 10px",
+                            fontSize: "12px",
+                            background: "rgba(139,92,246,0.15)",
+                            color: "#a78bfa",
+                            border: "1px solid rgba(255,255,255,0.18)",
+                          }}
+                        >
+                          See Documents
+                        </button>
+                      </td>
+                      <td style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                        <button
+                          type="button"
+                          onClick={() => handleRootApproveSubordinate(issuerId)}
+                          className="action-btn"
+                          style={{
+                            padding: "6px 10px",
+                            fontSize: "12px",
+                            background: "rgba(74,222,128,0.12)",
+                            color: "#4ade80",
+                            border: "1px solid rgba(255,255,255,0.18)",
+                          }}
+                        >
+                          Approve
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => openRejectSubordinateModal(issuer)}
+                          className="action-btn"
+                          style={{
+                            padding: "6px 10px",
+                            fontSize: "12px",
+                            background: "rgba(255,107,107,0.12)",
+                            color: "#ff6b6b",
+                            border: "1px solid rgba(255,255,255,0.18)",
+                          }}
+                        >
+                          Reject
+                        </button>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          )}
+        </div>
+      )}
+
       {/* TEMPLATES VIEW */}
       {dashboardView === "templates" && (
         <div className="table-container" style={{ marginTop: 24 }}>
@@ -1021,6 +1321,266 @@ export default function IssuerDashboard() {
           )}
         </>
       )}
+
+            {/* SUBMITTED DOCUMENTS MODAL */}
+      {showIssuerDocumentsModal &&
+        ReactDOM.createPortal(
+          <div
+            onClick={closeIssuerDocumentsModal}
+            style={{
+              position: "fixed",
+              inset: 0,
+              background: "rgba(0,0,0,0.6)",
+              zIndex: 999999,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              padding: "20px",
+            }}
+          >
+            <div
+              onClick={(e) => e.stopPropagation()}
+              style={{
+                width: "min(900px, 95vw)",
+                maxHeight: "85vh",
+                overflow: "auto",
+                background: "#101018",
+                borderRadius: "12px",
+                border: "1px solid rgba(255,255,255,0.15)",
+                padding: "18px",
+                boxShadow: "0 10px 40px rgba(0,0,0,0.4)",
+                color: "#fff",
+              }}
+            >
+              <div
+                style={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "flex-start",
+                  marginBottom: "12px",
+                }}
+              >
+                <div>
+                  <h3 style={{ margin: 0 }}>Submitted Documents</h3>
+                  <div style={{ fontSize: "13px", opacity: 0.85, marginTop: "6px" }}>
+                    <div>
+                      <strong>Issuer:</strong>{" "}
+                      {selectedIssuerForDocuments?.orgName || "N/A"}
+                    </div>
+                    <div>
+                      <strong>Email:</strong>{" "}
+                      {selectedIssuerForDocuments?.email || "N/A"}
+                    </div>
+                  </div>
+                </div>
+
+                <button
+                  onClick={closeIssuerDocumentsModal}
+                  type="button"
+                  style={{
+                    background: "transparent",
+                    border: "1px solid rgba(255,255,255,0.25)",
+                    color: "#fff",
+                    borderRadius: "8px",
+                    padding: "8px 10px",
+                    cursor: "pointer",
+                  }}
+                >
+                  ✕ Close
+                </button>
+              </div>
+
+              {issuerDocumentsLoading ? (
+                <div style={{ padding: "16px", opacity: 0.9 }}>
+                  Loading submitted documents...
+                </div>
+              ) : issuerDocumentsError ? (
+                <div
+                  style={{
+                    padding: "12px",
+                    background: "rgba(255,0,0,0.12)",
+                    border: "1px solid rgba(255,0,0,0.25)",
+                    borderRadius: "10px",
+                    color: "#ffd2d2",
+                  }}
+                >
+                  ❌ {issuerDocumentsError}
+                </div>
+              ) : issuerDocuments.length > 0 ? (
+                <div className="table-wrapper">
+                  <table className="template-table">
+                    <thead>
+                      <tr>
+                        <th>Doc Type</th>
+                        <th>File Name</th>
+                        <th>MIME Type</th>
+                        <th>Size</th>
+                        <th>Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {issuerDocuments.map((doc, idx) => (
+                        <tr key={doc.attachmentName || idx}>
+                          <td>{doc.docType || "N/A"}</td>
+                          <td>{doc.originalname || "N/A"}</td>
+                          <td>{doc.mimetype || "N/A"}</td>
+                          <td>
+                            {typeof doc.size === "number"
+                              ? `${(doc.size / 1024).toFixed(1)} KB`
+                              : "N/A"}
+                          </td>
+                          <td style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                            <button
+                              type="button"
+                              onClick={() => handleViewIssuerDocument(doc)}
+                              className="action-btn"
+                              style={{
+                                padding: "6px 10px",
+                                fontSize: "12px",
+                                background: "rgba(139,92,246,0.15)",
+                                color: "#a78bfa",
+                                border: "1px solid rgba(255,255,255,0.18)",
+                              }}
+                            >
+                              View
+                            </button>
+
+                            <button
+                              type="button"
+                              onClick={() => handleDownloadIssuerDocument(doc)}
+                              className="action-btn"
+                              style={{
+                                padding: "6px 10px",
+                                fontSize: "12px",
+                                background: "rgba(74,222,128,0.12)",
+                                color: "#4ade80",
+                                border: "1px solid rgba(255,255,255,0.18)",
+                              }}
+                            >
+                              Download
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              ) : (
+                <div style={{ padding: "16px", opacity: 0.9 }}>
+                  No submitted documents found.
+                </div>
+              )}
+            </div>
+          </div>,
+          document.body
+        )}
+
+              {/* REJECT SUBORDINATE MODAL */}
+      {showRejectSubordinateModal &&
+        ReactDOM.createPortal(
+          <div
+            onClick={closeRejectSubordinateModal}
+            style={{
+              position: "fixed",
+              inset: 0,
+              background: "rgba(0,0,0,0.6)",
+              zIndex: 999999,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              padding: "20px",
+            }}
+          >
+            <div
+              onClick={(e) => e.stopPropagation()}
+              style={{
+                width: "min(520px, 95vw)",
+                background: "#101018",
+                borderRadius: "12px",
+                border: "1px solid rgba(255,255,255,0.15)",
+                padding: "18px",
+                boxShadow: "0 10px 40px rgba(0,0,0,0.4)",
+                color: "#fff",
+              }}
+            >
+              <h3 style={{ marginTop: 0 }}>Reject Subordinate Issuer</h3>
+              <p style={{ opacity: 0.85, marginTop: "6px" }}>
+                Please provide a rejection reason. This will be recorded for the subordinate application.
+              </p>
+
+              <form onSubmit={submitRejectSubordinate}>
+                <textarea
+                  value={rejectSubordinateReason}
+                  onChange={(e) => setRejectSubordinateReason(e.target.value)}
+                  placeholder="Enter rejection reason..."
+                  rows={4}
+                  style={{
+                    width: "100%",
+                    borderRadius: "10px",
+                    padding: "10px",
+                    marginTop: "10px",
+                    background: "rgba(255,255,255,0.06)",
+                    border: "1px solid rgba(255,255,255,0.12)",
+                    color: "#fff",
+                    outline: "none",
+                    resize: "vertical",
+                  }}
+                />
+
+                {rejectSubordinateError ? (
+                  <div style={{ color: "#ff6b6b", marginTop: "10px" }}>
+                    ❌ {rejectSubordinateError}
+                  </div>
+                ) : null}
+
+                <div
+                  style={{
+                    display: "flex",
+                    gap: "10px",
+                    justifyContent: "flex-end",
+                    marginTop: "14px",
+                  }}
+                >
+                  <button
+                    type="button"
+                    onClick={closeRejectSubordinateModal}
+                    disabled={rejectSubordinateLoading}
+                    style={{
+                      padding: "10px 14px",
+                      borderRadius: "10px",
+                      border: "1px solid rgba(255,255,255,0.18)",
+                      background: "transparent",
+                      color: "#fff",
+                      cursor: rejectSubordinateLoading ? "not-allowed" : "pointer",
+                      opacity: rejectSubordinateLoading ? 0.65 : 1,
+                      fontWeight: 700,
+                    }}
+                  >
+                    Cancel
+                  </button>
+
+                  <button
+                    type="submit"
+                    disabled={rejectSubordinateLoading}
+                    style={{
+                      padding: "10px 14px",
+                      borderRadius: "10px",
+                      border: "1px solid rgba(255,255,255,0.18)",
+                      background: "rgba(255,107,107,0.12)",
+                      color: "#ff6b6b",
+                      cursor: rejectSubordinateLoading ? "not-allowed" : "pointer",
+                      opacity: rejectSubordinateLoading ? 0.65 : 1,
+                      fontWeight: 800,
+                    }}
+                  >
+                    {rejectSubordinateLoading ? "Rejecting..." : "Confirm Reject"}
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>,
+          document.body
+        )}
     </div>
   );
 }

@@ -2896,6 +2896,194 @@ getIssuerStatusLogs: async (req, res, getContractAndGateway) => {
   }
 },
 
+/*
+  Endpoint: GET /api/auth/issuer/:issuerId/documents
+  Function Name: getIssuerDocuments
+
+  Technical:
+  Returns the uploaded document metadata for a specific issuer application.
+  Supports access by:
+    - admin (all issuer applications)
+    - applicant issuer itself
+    - assigned root authority issuer (for subordinate applications)
+
+  Tropang Ex:
+  Kapag pinindot ni admin/root/applicant yung "See Documents",
+  ito yung magbabalik ng listahan ng uploaded files.
+*/
+getIssuerDocuments: async (req, res) => {
+  try {
+    const { issuerId } = req.params;
+
+    if (!issuerId) {
+      return res.status(400).json({
+        success: false,
+        message: 'issuerId is required'
+      });
+    }
+
+    const issuerDoc = await couchDB.getIssuerById(issuerId);
+    if (!issuerDoc) {
+      return res.status(404).json({
+        success: false,
+        message: 'Issuer not found'
+      });
+    }
+
+    const requester = req.user;
+
+    if (!requester) {
+      return res.status(401).json({
+        success: false,
+        message: 'Unauthorized'
+      });
+    }
+
+    const isAdmin = requester.role === 'admin';
+    const isApplicantIssuer =
+      requester.role === 'issuer' &&
+      (requester.id === issuerDoc._id || requester.email === issuerDoc.email);
+
+    const isAssignedRootAuthority =
+      requester.role === 'issuer' &&
+      String(issuerDoc.issuerType || '').toLowerCase() === 'subordinate' &&
+      issuerDoc.rootAuthorityId &&
+      requester.id === issuerDoc.rootAuthorityId;
+
+    if (!isAdmin && !isApplicantIssuer && !isAssignedRootAuthority) {
+      return res.status(403).json({
+        success: false,
+        message: 'Forbidden: you do not have access to these documents.'
+      });
+    }
+
+    const documents = await couchDB.getIssuerDocuments(issuerId);
+
+    return res.status(200).json({
+      success: true,
+      issuerId: issuerDoc._id,
+      orgName: issuerDoc.orgName,
+      issuerType: issuerDoc.issuerType || 'root',
+      rootAuthorityId: issuerDoc.rootAuthorityId || null,
+      rootAuthorityName: issuerDoc.rootAuthorityName || null,
+      documents: documents || [],
+      count: Array.isArray(documents) ? documents.length : 0
+    });
+
+  } catch (error) {
+    console.error('Error fetching issuer documents:', error);
+    return res.status(500).json({
+      success: false,
+      message: error.message
+    });
+  }
+},
+
+/*
+  Endpoint: GET /api/auth/issuer/:issuerId/documents/:attachmentName
+  Function Name: viewIssuerDocument
+
+  Technical:
+  Streams or downloads a specific uploaded issuer document attachment from CouchDB.
+  Supports access by:
+    - admin
+    - applicant issuer itself
+    - assigned root authority issuer (for subordinate applications)
+
+  Query param:
+    ?download=1   → force file download
+    otherwise     → inline view in browser when supported
+
+  Tropang Ex:
+  Kapag pinindot yung mismong file name / View / Download button,
+  ito yung magbubukas ng actual PDF/image/doc file.
+*/
+viewIssuerDocument: async (req, res) => {
+  try {
+    const { issuerId, attachmentName } = req.params;
+
+    if (!issuerId || !attachmentName) {
+      return res.status(400).json({
+        success: false,
+        message: 'issuerId and attachmentName are required'
+      });
+    }
+
+    const decodedAttachmentName = decodeURIComponent(attachmentName);
+
+    const issuerDoc = await couchDB.getIssuerById(issuerId);
+    if (!issuerDoc) {
+      return res.status(404).json({
+        success: false,
+        message: 'Issuer not found'
+      });
+    }
+
+    const requester = req.user;
+
+    if (!requester) {
+      return res.status(401).json({
+        success: false,
+        message: 'Unauthorized'
+      });
+    }
+
+    const isAdmin = requester.role === 'admin';
+    const isApplicantIssuer =
+      requester.role === 'issuer' &&
+      (requester.id === issuerDoc._id || requester.email === issuerDoc.email);
+
+    const isAssignedRootAuthority =
+      requester.role === 'issuer' &&
+      String(issuerDoc.issuerType || '').toLowerCase() === 'subordinate' &&
+      issuerDoc.rootAuthorityId &&
+      requester.id === issuerDoc.rootAuthorityId;
+
+    if (!isAdmin && !isApplicantIssuer && !isAssignedRootAuthority) {
+      return res.status(403).json({
+        success: false,
+        message: 'Forbidden: you do not have access to this document.'
+      });
+    }
+
+    const documents = issuerDoc.documents || [];
+    const targetDoc = documents.find(
+      d => d && d.attachmentName === decodedAttachmentName
+    );
+
+    if (!targetDoc) {
+      return res.status(404).json({
+        success: false,
+        message: 'Document attachment not found in issuer record.'
+      });
+    }
+
+    const fileBuffer = await couchDB.getIssuerDocumentStream(
+      issuerId,
+      decodedAttachmentName
+    );
+
+    const contentType = targetDoc.mimetype || 'application/octet-stream';
+    const originalname = targetDoc.originalname || decodedAttachmentName;
+    const forceDownload = String(req.query.download || '0') === '1';
+
+    res.setHeader('Content-Type', contentType);
+    res.setHeader(
+      'Content-Disposition',
+      `${forceDownload ? 'attachment' : 'inline'}; filename="${encodeURIComponent(originalname)}"`
+    );
+
+    return res.status(200).send(fileBuffer);
+
+  } catch (error) {
+    console.error('Error viewing issuer document:', error);
+    return res.status(500).json({
+      success: false,
+      message: error.message
+    });
+  }
+},
+
 // ========================================================================================================================================================================
 // ADMIN: USER STATUS LOGS (SPECIFIC USER EMAIL)
 // ========================================================================================================================================================================

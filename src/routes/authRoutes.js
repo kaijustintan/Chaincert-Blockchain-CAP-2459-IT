@@ -109,6 +109,12 @@ router.get('/approved-issuers', authController.getApprovedIssuers);
 // GET /api/auth/rejected-issuers - Get all REJECTED issuers (Admin)
 router.get('/rejected-issuers', authController.getRejectedIssuers);
 
+// GET /api/auth/issuer/:issuerId/documents - Get uploaded issuer document metadata
+router.get('/issuer/:issuerId/documents', authController.getIssuerDocuments);
+
+// GET /api/auth/issuer/:issuerId/documents/:attachmentName - View/download a specific issuer document
+router.get('/issuer/:issuerId/documents/:attachmentName', authController.viewIssuerDocument);
+
 // GET /api/auth/issuer/templates/exists
 router.get('/issuer/templates/exists', issuerCredentialController.check_IssuerHasTemplates);
 

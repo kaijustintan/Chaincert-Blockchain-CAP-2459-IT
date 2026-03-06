@@ -89,6 +89,13 @@ export default function AdminDashboard() {
   const [userStatusError, setUserStatusError] = useState("");
   const [userStatusLoading, setUserStatusLoading] = useState(false);
 
+  // ✅ NEW: issuer documents modal state
+const [showIssuerDocumentsModal, setShowIssuerDocumentsModal] = useState(false);
+const [selectedIssuerForDocuments, setSelectedIssuerForDocuments] = useState(null);
+const [issuerDocuments, setIssuerDocuments] = useState([]);
+const [issuerDocumentsLoading, setIssuerDocumentsLoading] = useState(false);
+const [issuerDocumentsError, setIssuerDocumentsError] = useState(null);
+
   // -------------------------------------------------------------------
   // Helpers
   // -------------------------------------------------------------------
@@ -108,6 +115,97 @@ export default function AdminDashboard() {
     if (typeof v === "object") return JSON.stringify(v);
     return String(v);
   };
+
+  const openIssuerDocumentsModal = async (issuer) => {
+  try {
+    const issuerId = issuer?._id || issuer?.id;
+    if (!issuerId) return;
+
+    setSelectedIssuerForDocuments(issuer);
+    setShowIssuerDocumentsModal(true);
+    setIssuerDocuments([]);
+    setIssuerDocumentsError(null);
+    setIssuerDocumentsLoading(true);
+
+    const resp = await apiService.getIssuerDocuments(issuerId);
+    const docs = Array.isArray(resp.documents) ? resp.documents : [];
+    setIssuerDocuments(docs);
+  } catch (error) {
+    const msg =
+      error.response?.data?.message ||
+      error.message ||
+      "Failed to load issuer documents";
+    setIssuerDocumentsError(msg);
+    setIssuerDocuments([]);
+  } finally {
+    setIssuerDocumentsLoading(false);
+  }
+};
+
+const closeIssuerDocumentsModal = () => {
+  setShowIssuerDocumentsModal(false);
+  setSelectedIssuerForDocuments(null);
+  setIssuerDocuments([]);
+  setIssuerDocumentsError(null);
+  setIssuerDocumentsLoading(false);
+};
+
+const handleViewIssuerDocument = async (doc) => {
+  try {
+    const issuerId =
+      selectedIssuerForDocuments?._id || selectedIssuerForDocuments?.id;
+    if (!issuerId || !doc?.attachmentName) return;
+
+    const blob = await apiService.viewIssuerDocumentBlob(
+      issuerId,
+      doc.attachmentName
+    );
+
+    const blobUrl = window.URL.createObjectURL(blob);
+    window.open(blobUrl, "_blank", "noopener,noreferrer");
+
+    setTimeout(() => {
+      window.URL.revokeObjectURL(blobUrl);
+    }, 60000);
+  } catch (error) {
+    alert(
+      error.response?.data?.message ||
+        error.message ||
+        "Failed to open document"
+    );
+  }
+};
+
+const handleDownloadIssuerDocument = async (doc) => {
+  try {
+    const issuerId =
+      selectedIssuerForDocuments?._id || selectedIssuerForDocuments?.id;
+    if (!issuerId || !doc?.attachmentName) return;
+
+    const blob = await apiService.downloadIssuerDocumentBlob(
+      issuerId,
+      doc.attachmentName
+    );
+
+    const blobUrl = window.URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = blobUrl;
+    a.download = doc.originalname || doc.attachmentName || "document";
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+
+    setTimeout(() => {
+      window.URL.revokeObjectURL(blobUrl);
+    }, 60000);
+  } catch (error) {
+    alert(
+      error.response?.data?.message ||
+        error.message ||
+        "Failed to download document"
+    );
+  }
+};
 
   const getVisibleIssuers = () => {
     if (issuerFilter === "approved") return approvedIssuers;
@@ -1497,6 +1595,162 @@ export default function AdminDashboard() {
           </div>,
           document.body
         )}
+      
+      {showIssuerDocumentsModal &&
+          ReactDOM.createPortal(
+            <div
+              onClick={closeIssuerDocumentsModal}
+              style={{
+                position: "fixed",
+                inset: 0,
+                background: "rgba(0,0,0,0.6)",
+                zIndex: 999999,
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                padding: "20px",
+              }}
+            >
+              <div
+                onClick={(e) => e.stopPropagation()}
+                style={{
+                  width: "min(900px, 95vw)",
+                  maxHeight: "85vh",
+                  overflow: "auto",
+                  background: "#101018",
+                  borderRadius: "12px",
+                  border: "1px solid rgba(255,255,255,0.15)",
+                  padding: "18px",
+                  boxShadow: "0 10px 40px rgba(0,0,0,0.4)",
+                  color: "#fff",
+                }}
+              >
+                <div
+                  style={{
+                    display: "flex",
+                    justifyContent: "space-between",
+                    alignItems: "flex-start",
+                    marginBottom: "12px",
+                  }}
+                >
+                  <div>
+                    <h3 style={{ margin: 0 }}>Submitted Documents</h3>
+                    <div style={{ fontSize: "13px", opacity: 0.85, marginTop: "6px" }}>
+                      <div>
+                        <strong>Issuer:</strong>{" "}
+                        {selectedIssuerForDocuments?.orgName ||
+                          selectedIssuerForDocuments?.name ||
+                          "N/A"}
+                      </div>
+                      <div>
+                        <strong>Email:</strong>{" "}
+                        {selectedIssuerForDocuments?.email || "N/A"}
+                      </div>
+                    </div>
+                  </div>
+
+                  <button
+                    onClick={closeIssuerDocumentsModal}
+                    type="button"
+                    style={{
+                      background: "transparent",
+                      border: "1px solid rgba(255,255,255,0.25)",
+                      color: "#fff",
+                      borderRadius: "8px",
+                      padding: "8px 10px",
+                      cursor: "pointer",
+                    }}
+                  >
+                    ✕ Close
+                  </button>
+                </div>
+
+                {issuerDocumentsLoading ? (
+                  <div style={{ padding: "16px", opacity: 0.9 }}>
+                    Loading submitted documents...
+                  </div>
+                ) : issuerDocumentsError ? (
+                  <div
+                    style={{
+                      padding: "12px",
+                      background: "rgba(255,0,0,0.12)",
+                      border: "1px solid rgba(255,0,0,0.25)",
+                      borderRadius: "10px",
+                      color: "#ffd2d2",
+                    }}
+                  >
+                    ❌ {issuerDocumentsError}
+                  </div>
+                ) : issuerDocuments.length > 0 ? (
+                  <div className="table-wrapper">
+                    <table className="admin-table">
+                      <thead>
+                        <tr>
+                          <th>Doc Type</th>
+                          <th>File Name</th>
+                          <th>MIME Type</th>
+                          <th>Size</th>
+                          <th>Actions</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {issuerDocuments.map((doc, idx) => (
+                          <tr key={doc.attachmentName || idx}>
+                            <td>{doc.docType || "N/A"}</td>
+                            <td>{doc.originalname || "N/A"}</td>
+                            <td>{doc.mimetype || "N/A"}</td>
+                            <td>
+                              {typeof doc.size === "number"
+                                ? `${(doc.size / 1024).toFixed(1)} KB`
+                                : "N/A"}
+                            </td>
+                            <td style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                              <button
+                                type="button"
+                                onClick={() => handleViewIssuerDocument(doc)}
+                                style={{
+                                  padding: "8px 12px",
+                                  borderRadius: 10,
+                                  border: "1px solid rgba(255,255,255,0.18)",
+                                  cursor: "pointer",
+                                  fontWeight: 700,
+                                  background: "rgba(139,92,246,0.15)",
+                                  color: "#a78bfa",
+                                }}
+                              >
+                                View
+                              </button>
+
+                              <button
+                                type="button"
+                                onClick={() => handleDownloadIssuerDocument(doc)}
+                                style={{
+                                  padding: "8px 12px",
+                                  borderRadius: 10,
+                                  border: "1px solid rgba(255,255,255,0.18)",
+                                  cursor: "pointer",
+                                  fontWeight: 700,
+                                  background: "rgba(74,222,128,0.12)",
+                                  color: "#4ade80",
+                                }}
+                              >
+                                Download
+                              </button>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                ) : (
+                  <div style={{ padding: "16px", opacity: 0.9 }}>
+                    No submitted documents found.
+                  </div>
+                )}
+              </div>
+            </div>,
+            document.body
+          )}
 
       {/* CREDENTIALS TAB */}
       {tab === "credentials" && (
@@ -1694,18 +1948,20 @@ export default function AdminDashboard() {
           ) : visibleIssuers.length > 0 ? (
             <div className="table-wrapper">
               <table className="admin-table">
-                <thead>
-                  <tr>
-                    <th>Issuer ID</th>
-                    <th>Org Name</th>
-                    <th>Email</th>
-                    <th>Issuer Type</th>
-                    <th>Root Authority</th>
-                    <th>Status</th>
-                    <th>Created At</th>
-                    <th>Actions</th>
-                  </tr>
-                </thead>
+              <thead>
+                <tr>
+                  <th>Issuer ID</th>
+                  <th>Org Name</th>
+                  <th>Email</th>
+                  <th>Issuer Type</th>
+                  <th>Root Authority</th>
+                  <th>Root Approval</th>
+                  <th>Root Approved At</th>
+                  <th>Status</th>
+                  <th>Created At</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
                 <tbody>
                   {visibleIssuers.map((issuer) => {
                     const id = issuer._id || issuer.id;
@@ -1725,14 +1981,60 @@ export default function AdminDashboard() {
                           )}
                         </td>
 
+  <td>
+  {issuer.issuerType === "subordinate"
+    ? (issuer.rootAuthorityName || issuer.rootAuthorityId || "N/A")
+    : "—"}
+</td>
+
+<td>
+  {issuer.issuerType === "subordinate" ? (
+    <span
+      className={
+        issuer.rootApprovalStatus === "approved"
+          ? "badge green"
+          : issuer.rootApprovalStatus === "rejected"
+          ? "badge red"
+          : "badge purple"
+      }
+    >
+      {issuer.rootApprovalStatus || "pending"}
+    </span>
+  ) : (
+    "Not Required"
+  )}
+</td>
+
                         <td>
                           {issuer.issuerType === "subordinate"
-                            ? (issuer.rootAuthorityName || issuer.rootAuthorityId || "N/A")
+                            ? (
+                                issuer.rootApprovalStatus === "approved"
+                                  ? formatTimestamp(issuer.rootApprovedAt)
+                                  : issuer.rootApprovalStatus === "rejected"
+                                  ? "Rejected by Root"
+                                  : "Pending"
+                              )
                             : "—"}
                         </td>
 
-                        <td>{issuer.status || (isDisabled ? "disabled" : "approved")}</td>
+                        <td>
+                          <span
+                            className={
+                              issuer.status === "approved"
+                                ? "badge green"
+                                : issuer.status === "rejected"
+                                ? "badge red"
+                                : issuer.status === "disabled"
+                                ? "badge gray"
+                                : "badge purple"
+                            }
+                          >
+                            {issuer.status || (isDisabled ? "disabled" : "approved")}
+                          </span>
+                        </td>
+
                         <td>{formatTimestamp(issuer.createdAt)}</td>
+
                         <td style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
                           {issuerFilter === "pending" ? (
                             <>
@@ -1765,8 +2067,8 @@ export default function AdminDashboard() {
                                 Reject
                               </button>
                               <button
-                                onClick={() => console.log("See Documents:", issuer.documents)}
-                                style={{
+                                  onClick={() => openIssuerDocumentsModal(issuer)}                                
+                                  style={{
                                   padding: "8px 12px",
                                   borderRadius: 10,
                                   border: "1px solid rgba(255,255,255,0.18)",

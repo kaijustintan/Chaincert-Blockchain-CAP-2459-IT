@@ -1354,6 +1354,207 @@ getPendingSubordinatesForRoot: async (req, res) => {
     });
   }
 },
+// ========================================================================================================================================================================
+/*
+  Endpoint: GET /api/auth/root/subordinates/all
+  Function Name: getAllSubordinatesForRoot
+
+  Technical:
+  Returns all subordinate issuer applications under the logged-in root authority.
+
+  Tropang Ex:
+  Ito yung buong listahan ng lahat ng subordinates ni root authority,
+  regardless of status.
+*/
+getAllSubordinatesForRoot: async (req, res) => {
+  try {
+    if (!req.user || req.user.role !== 'issuer') {
+      return res.status(403).json({
+        success: false,
+        message: 'Issuer access required.'
+      });
+    }
+
+    const rootAuthorityId = req.user.id;
+
+    const rows = await couchDB.getAllSubordinatesForRoot(rootAuthorityId);
+
+    return res.status(200).json({
+      success: true,
+      message: 'All subordinates retrieved successfully.',
+      data: rows,
+      count: rows.length
+    });
+
+  } catch (error) {
+    console.error('Error fetching all subordinates for root:', error);
+    return res.status(500).json({
+      success: false,
+      message: error.message
+    });
+  }
+},
+
+/*
+  Endpoint: GET /api/auth/root/subordinates/root-approved
+  Function Name: getRootApprovedSubordinatesForRoot
+
+  Technical:
+  Returns subordinate issuer applications under the logged-in root authority
+  whose rootApprovalStatus = approved.
+
+  Tropang Ex:
+  Ito yung mga subordinate applications na na-approve na ni root authority.
+*/
+getRootApprovedSubordinatesForRoot: async (req, res) => {
+  try {
+    if (!req.user || req.user.role !== 'issuer') {
+      return res.status(403).json({
+        success: false,
+        message: 'Issuer access required.'
+      });
+    }
+
+    const rootAuthorityId = req.user.id;
+
+    const rows = await couchDB.getRootApprovedSubordinatesForRoot(rootAuthorityId);
+
+    return res.status(200).json({
+      success: true,
+      message: 'Root-approved subordinates retrieved successfully.',
+      data: rows,
+      count: rows.length
+    });
+
+  } catch (error) {
+    console.error('Error fetching root-approved subordinates for root:', error);
+    return res.status(500).json({
+      success: false,
+      message: error.message
+    });
+  }
+},
+
+/*
+  Endpoint: GET /api/auth/root/subordinates/root-rejected
+  Function Name: getRootRejectedSubordinatesForRoot
+
+  Technical:
+  Returns subordinate issuer applications under the logged-in root authority
+  whose rootApprovalStatus = rejected.
+
+  Tropang Ex:
+  Ito yung mga subordinate applications na ni-reject ni root authority.
+*/
+getRootRejectedSubordinatesForRoot: async (req, res) => {
+  try {
+    if (!req.user || req.user.role !== 'issuer') {
+      return res.status(403).json({
+        success: false,
+        message: 'Issuer access required.'
+      });
+    }
+
+    const rootAuthorityId = req.user.id;
+
+    const rows = await couchDB.getRootRejectedSubordinatesForRoot(rootAuthorityId);
+
+    return res.status(200).json({
+      success: true,
+      message: 'Root-rejected subordinates retrieved successfully.',
+      data: rows,
+      count: rows.length
+    });
+
+  } catch (error) {
+    console.error('Error fetching root-rejected subordinates for root:', error);
+    return res.status(500).json({
+      success: false,
+      message: error.message
+    });
+  }
+},
+
+/*
+  Endpoint: GET /api/auth/root/subordinates/approved
+  Function Name: getApprovedSubordinatesForRoot
+
+  Technical:
+  Returns subordinate issuer applications under the logged-in root authority
+  whose overall status = approved.
+
+  Tropang Ex:
+  Ito yung mga subordinate issuers na fully approved na sa system.
+*/
+getApprovedSubordinatesForRoot: async (req, res) => {
+  try {
+    if (!req.user || req.user.role !== 'issuer') {
+      return res.status(403).json({
+        success: false,
+        message: 'Issuer access required.'
+      });
+    }
+
+    const rootAuthorityId = req.user.id;
+
+    const rows = await couchDB.getApprovedSubordinatesForRoot(rootAuthorityId);
+
+    return res.status(200).json({
+      success: true,
+      message: 'Approved subordinates retrieved successfully.',
+      data: rows,
+      count: rows.length
+    });
+
+  } catch (error) {
+    console.error('Error fetching approved subordinates for root:', error);
+    return res.status(500).json({
+      success: false,
+      message: error.message
+    });
+  }
+},
+
+/*
+  Endpoint: GET /api/auth/root/subordinates/disabled
+  Function Name: getDisabledSubordinatesForRoot
+
+  Technical:
+  Returns subordinate issuer applications under the logged-in root authority
+  whose overall status = disabled.
+
+  Tropang Ex:
+  Ito yung mga subordinate issuers na na-disable sa system.
+*/
+getDisabledSubordinatesForRoot: async (req, res) => {
+  try {
+    if (!req.user || req.user.role !== 'issuer') {
+      return res.status(403).json({
+        success: false,
+        message: 'Issuer access required.'
+      });
+    }
+
+    const rootAuthorityId = req.user.id;
+
+    const rows = await couchDB.getDisabledSubordinatesForRoot(rootAuthorityId);
+
+    return res.status(200).json({
+      success: true,
+      message: 'Disabled subordinates retrieved successfully.',
+      data: rows,
+      count: rows.length
+    });
+
+  } catch (error) {
+    console.error('Error fetching disabled subordinates for root:', error);
+    return res.status(500).json({
+      success: false,
+      message: error.message
+    });
+  }
+},
+
 
 // ========================================================================================================================================================================
 

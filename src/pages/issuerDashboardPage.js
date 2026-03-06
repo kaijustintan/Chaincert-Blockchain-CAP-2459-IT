@@ -66,6 +66,12 @@ export default function IssuerDashboard() {
   const [pendingSubordinatesLoading, setPendingSubordinatesLoading] = useState(false);
   const [pendingSubordinatesError, setPendingSubordinatesError] = useState("");
 
+    // Root Authority → My Subordinates directory
+  const [subordinateDirectory, setSubordinateDirectory] = useState([]);
+  const [subordinateDirectoryLoading, setSubordinateDirectoryLoading] = useState(false);
+  const [subordinateDirectoryError, setSubordinateDirectoryError] = useState("");
+  const [subordinateDirectoryFilter, setSubordinateDirectoryFilter] = useState("all");
+
   // Root Authority → Reject subordinate modal
   const [showRejectSubordinateModal, setShowRejectSubordinateModal] = useState(false);
   const [rejectSubordinateTarget, setRejectSubordinateTarget] = useState(null);
@@ -85,6 +91,7 @@ export default function IssuerDashboard() {
     fetchCredentials();
     fetchTemplateOptions();
     fetchPendingSubordinatesForRoot();
+    fetchSubordinateDirectory("all");
   }, []);
 
   // Filtering logic
@@ -103,6 +110,11 @@ export default function IssuerDashboard() {
   useEffect(() => {
     applyFilters();
   }, [applyFilters]);
+
+    useEffect(() => {
+    fetchSubordinateDirectory(subordinateDirectoryFilter);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [subordinateDirectoryFilter]);
 
   const fetchCredentials = async () => {
     try {
@@ -171,11 +183,51 @@ export default function IssuerDashboard() {
     }
   };
 
+    const fetchSubordinateDirectory = async (mode = subordinateDirectoryFilter) => {
+    try {
+      setSubordinateDirectoryLoading(true);
+      setSubordinateDirectoryError("");
+
+      let response;
+
+      if (mode === "root_approved") {
+        response = await apiService.getRootApprovedSubordinatesForRoot();
+      } else if (mode === "root_rejected") {
+        response = await apiService.getRootRejectedSubordinatesForRoot();
+      } else if (mode === "approved") {
+        response = await apiService.getApprovedSubordinatesForRoot();
+      } else if (mode === "disabled") {
+        response = await apiService.getDisabledSubordinatesForRoot();
+      } else if (mode === "pending") {
+        response = await apiService.getPendingSubordinatesForRoot();
+      } else {
+        response = await apiService.getAllSubordinatesForRoot();
+      }
+
+      const list = Array.isArray(response?.data)
+        ? response.data
+        : Array.isArray(response)
+        ? response
+        : [];
+
+      setSubordinateDirectory(list);
+    } catch (err) {
+      console.error("Error fetching subordinate directory:", err);
+      setSubordinateDirectory([]);
+      setSubordinateDirectoryError(
+        err.response?.data?.message || "Failed to load subordinate directory."
+      );
+    } finally {
+      setSubordinateDirectoryLoading(false);
+    }
+  };
+
   const handleRootApproveSubordinate = async (issuerId) => {
     try {
       await apiService.rootApproveSubordinateIssuer(issuerId, "");
       alert("Subordinate issuer approved successfully!");
       fetchPendingSubordinatesForRoot();
+      fetchSubordinateDirectory(subordinateDirectoryFilter);
     } catch (err) {
       console.error("Error approving subordinate issuer:", err);
       alert(
@@ -223,6 +275,7 @@ export default function IssuerDashboard() {
       alert("Subordinate issuer rejected successfully!");
       closeRejectSubordinateModal();
       fetchPendingSubordinatesForRoot();
+      fetchSubordinateDirectory(subordinateDirectoryFilter);
     } catch (err) {
       console.error("Error rejecting subordinate issuer:", err);
       setRejectSubordinateError(
@@ -1021,105 +1074,191 @@ export default function IssuerDashboard() {
         </div>
       </div>
 
-            {/* ROOT AUTHORITY → SUBORDINATE APPROVAL QUEUE */}
-      {(pendingSubordinatesLoading ||
-        pendingSubordinatesError ||
-        pendingSubordinates.length > 0) && (
-        <div className="table-container" style={{ marginTop: 24 }}>
-          <h3 style={{ marginBottom: 12 }}>Pending Subordinate Approval Queue</h3>
 
-          {pendingSubordinatesLoading ? (
-            <div className="no-results">
-              <p>Loading pending subordinate applications...</p>
-            </div>
-          ) : pendingSubordinatesError ? (
-            <div className="no-results">
-              <p style={{ color: "#ff6b6b" }}>{pendingSubordinatesError}</p>
-            </div>
-          ) : pendingSubordinates.length === 0 ? null : (
-            <table className="template-table">
-              <thead>
-                <tr>
-                  <th>Issuer ID</th>
-                  <th>Org Name</th>
-                  <th>Email</th>
-                  <th>Category</th>
-                  <th>Created At</th>
-                  <th>Documents</th>
-                  <th>Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {pendingSubordinates.map((issuer) => {
-                  const issuerId = issuer._id || issuer.id;
-                  return (
-                    <tr key={issuerId}>
-                      <td style={{ fontFamily: "monospace", fontSize: 12 }}>
-                        {issuerId}
-                      </td>
-                      <td>{issuer.orgName || "N/A"}</td>
-                      <td>{issuer.email || "N/A"}</td>
-                      <td>{issuer.category || "N/A"}</td>
-                      <td>
-                        {issuer.createdAt
-                          ? new Date(issuer.createdAt).toLocaleString()
-                          : "N/A"}
-                      </td>
-                      <td>
-                        <button
-                          type="button"
-                          onClick={() => openIssuerDocumentsModal(issuer)}
-                          className="action-btn"
-                          style={{
-                            padding: "6px 10px",
-                            fontSize: "12px",
-                            background: "rgba(139,92,246,0.15)",
-                            color: "#a78bfa",
-                            border: "1px solid rgba(255,255,255,0.18)",
-                          }}
-                        >
-                          See Documents
-                        </button>
-                      </td>
-                      <td style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                        <button
-                          type="button"
-                          onClick={() => handleRootApproveSubordinate(issuerId)}
-                          className="action-btn"
-                          style={{
-                            padding: "6px 10px",
-                            fontSize: "12px",
-                            background: "rgba(74,222,128,0.12)",
-                            color: "#4ade80",
-                            border: "1px solid rgba(255,255,255,0.18)",
-                          }}
-                        >
-                          Approve
-                        </button>
+            {/* ROOT AUTHORITY → MY SUBORDINATES */}
+      <div className="table-container" style={{ marginTop: 24 }}>
+        <div
+          style={{
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+            marginBottom: 12,
+            gap: 12,
+            flexWrap: "wrap",
+          }}
+        >
+          <h3 style={{ margin: 0 }}>My Subordinates</h3>
 
-                        <button
-                          type="button"
-                          onClick={() => openRejectSubordinateModal(issuer)}
-                          className="action-btn"
-                          style={{
-                            padding: "6px 10px",
-                            fontSize: "12px",
-                            background: "rgba(255,107,107,0.12)",
-                            color: "#ff6b6b",
-                            border: "1px solid rgba(255,255,255,0.18)",
-                          }}
-                        >
-                          Reject
-                        </button>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          )}
+          <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+            <label htmlFor="subordinateDirectoryFilter">View:</label>
+            <select
+              id="subordinateDirectoryFilter"
+              value={subordinateDirectoryFilter}
+              onChange={(e) => setSubordinateDirectoryFilter(e.target.value)}
+            >
+              <option value="all">All Subordinates</option>
+              <option value="pending">Pending Root Approval</option>
+              <option value="root_approved">Root Approved</option>
+              <option value="root_rejected">Root Rejected</option>
+              <option value="approved">Fully Approved</option>
+              <option value="disabled">Disabled</option>
+            </select>
+          </div>
         </div>
-      )}
+
+        {subordinateDirectoryLoading ? (
+          <div className="no-results">
+            <p>Loading subordinate directory...</p>
+          </div>
+        ) : subordinateDirectoryError ? (
+          <div className="no-results">
+            <p style={{ color: "#ff6b6b" }}>{subordinateDirectoryError}</p>
+          </div>
+        ) : subordinateDirectory.length === 0 ? (
+          <div className="no-results">
+            <p>No subordinate issuers found for this filter.</p>
+          </div>
+        ) : (
+          <table className="template-table">
+            <thead>
+              <tr>
+                <th>Issuer ID</th>
+                <th>Org Name</th>
+                <th>Email</th>
+                <th>Category</th>
+                <th>Root Approval</th>
+                <th>Root Approved At</th>
+                <th>Overall Status</th>
+                <th>Created At</th>
+                <th>Documents</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {subordinateDirectory.map((issuer) => {
+                const issuerId = issuer._id || issuer.id;
+                const isPendingRootApproval =
+                  (issuer.rootApprovalStatus || "pending") === "pending";
+
+                return (
+                  <tr key={issuerId}>
+                    <td style={{ fontFamily: "monospace", fontSize: 12 }}>
+                      {issuerId}
+                    </td>
+                    <td>{issuer.orgName || "N/A"}</td>
+                    <td>{issuer.email || "N/A"}</td>
+                    <td>{issuer.category || "N/A"}</td>
+
+                    <td>
+                      <span
+                        className={
+                          issuer.rootApprovalStatus === "approved"
+                            ? "badge green"
+                            : issuer.rootApprovalStatus === "rejected"
+                            ? "badge red"
+                            : "badge purple"
+                        }
+                      >
+                        {issuer.rootApprovalStatus || "pending"}
+                      </span>
+                    </td>
+
+                    <td>
+                      {issuer.rootApprovalStatus === "approved"
+                        ? (
+                            issuer.rootApprovedAt
+                              ? new Date(issuer.rootApprovedAt).toLocaleString()
+                              : "N/A"
+                          )
+                        : issuer.rootApprovalStatus === "rejected"
+                        ? "Rejected by Root"
+                        : "Pending"}
+                    </td>
+
+                    <td>
+                      <span
+                        className={
+                          issuer.status === "approved"
+                            ? "badge green"
+                            : issuer.status === "disabled"
+                            ? "badge gray"
+                            : issuer.status === "rejected"
+                            ? "badge red"
+                            : "badge purple"
+                        }
+                      >
+                        {issuer.status || "pending"}
+                      </span>
+                    </td>
+
+                    <td>
+                      {issuer.createdAt
+                        ? new Date(issuer.createdAt).toLocaleString()
+                        : "N/A"}
+                    </td>
+
+                    <td>
+                      <button
+                        type="button"
+                        onClick={() => openIssuerDocumentsModal(issuer)}
+                        className="action-btn"
+                        style={{
+                          padding: "6px 10px",
+                          fontSize: "12px",
+                          background: "rgba(139,92,246,0.15)",
+                          color: "#a78bfa",
+                          border: "1px solid rgba(255,255,255,0.18)",
+                        }}
+                      >
+                        See Documents
+                      </button>
+                    </td>
+
+                    <td style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                      {isPendingRootApproval ? (
+                        <>
+                          <button
+                            type="button"
+                            onClick={() => handleRootApproveSubordinate(issuerId)}
+                            className="action-btn"
+                            style={{
+                              padding: "6px 10px",
+                              fontSize: "12px",
+                              background: "rgba(74,222,128,0.12)",
+                              color: "#4ade80",
+                              border: "1px solid rgba(255,255,255,0.18)",
+                            }}
+                          >
+                            Approve
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() => openRejectSubordinateModal(issuer)}
+                            className="action-btn"
+                            style={{
+                              padding: "6px 10px",
+                              fontSize: "12px",
+                              background: "rgba(255,107,107,0.12)",
+                              color: "#ff6b6b",
+                              border: "1px solid rgba(255,255,255,0.18)",
+                            }}
+                          >
+                            Reject
+                          </button>
+                        </>
+                      ) : (
+                        <span style={{ opacity: 0.7 }}>No actions</span>
+                      )}
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        )}
+      </div>
+      
 
       {/* TEMPLATES VIEW */}
       {dashboardView === "templates" && (

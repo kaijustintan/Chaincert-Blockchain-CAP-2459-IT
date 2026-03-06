@@ -103,6 +103,30 @@ router.get('/pending-subordinate-root-approved', authController.getPendingSubord
 // GET /api/auth/pending-issuers-admin-actionable - Get only pending issuers admin can act on now
 router.get('/pending-issuers-admin-actionable', authController.getAdminActionablePendingIssuers);
 
+// =============================================================================================================
+// ROOT AUTHORITY → SUBORDINATE DIRECTORY / FILTERED LISTS
+// =============================================================================================================
+
+// GET /api/auth/root/subordinates/all
+// Returns ALL subordinate issuer applications under the logged-in root authority
+router.get('/root/subordinates/all', authController.getAllSubordinatesForRoot);
+
+// GET /api/auth/root/subordinates/root-approved
+// Returns subordinate issuer applications already approved by the root authority
+router.get('/root/subordinates/root-approved', authController.getRootApprovedSubordinatesForRoot);
+
+// GET /api/auth/root/subordinates/root-rejected
+// Returns subordinate issuer applications rejected by the root authority
+router.get('/root/subordinates/root-rejected', authController.getRootRejectedSubordinatesForRoot);
+
+// GET /api/auth/root/subordinates/approved
+// Returns subordinate issuer applications fully approved by admin
+router.get('/root/subordinates/approved', authController.getApprovedSubordinatesForRoot);
+
+// GET /api/auth/root/subordinates/disabled
+// Returns subordinate issuer applications currently disabled
+router.get('/root/subordinates/disabled', authController.getDisabledSubordinatesForRoot);
+
 // GET /api/auth/approved-issuers - Get all APPROVED issuers (Admin)
 router.get('/approved-issuers', authController.getApprovedIssuers);
 

@@ -535,6 +535,105 @@ getPendingSubordinateIssuersRootApproved: async () => {
 // ==========================================================================================================================================================================
 
 /*
+  Function Name: getAllSubordinatesForRoot
+
+  Technical:
+  Fetches ALL subordinate issuer applications under the logged-in root authority.
+
+  Returns:
+   - backend payload with { success, data, count }
+*/
+getAllSubordinatesForRoot: async () => {
+  try {
+    const response = await axios.get('/auth/root/subordinates/all');
+    return response.data;
+  } catch (error) {
+    console.error(
+      'Error fetching all subordinates for root:',
+      error.response?.data?.message || error.message
+    );
+    throw error;
+  }
+},
+
+/*
+  Function Name: getRootApprovedSubordinatesForRoot
+
+  Technical:
+  Fetches subordinate issuer applications already approved by the root authority.
+*/
+getRootApprovedSubordinatesForRoot: async () => {
+  try {
+    const response = await axios.get('/auth/root/subordinates/root-approved');
+    return response.data;
+  } catch (error) {
+    console.error(
+      'Error fetching root-approved subordinates:',
+      error.response?.data?.message || error.message
+    );
+    throw error;
+  }
+},
+
+/*
+  Function Name: getRootRejectedSubordinatesForRoot
+
+  Technical:
+  Fetches subordinate issuer applications rejected by the root authority.
+*/
+getRootRejectedSubordinatesForRoot: async () => {
+  try {
+    const response = await axios.get('/auth/root/subordinates/root-rejected');
+    return response.data;
+  } catch (error) {
+    console.error(
+      'Error fetching root-rejected subordinates:',
+      error.response?.data?.message || error.message
+    );
+    throw error;
+  }
+},
+
+/*
+  Function Name: getApprovedSubordinatesForRoot
+
+  Technical:
+  Fetches subordinate issuer applications fully approved by admin.
+*/
+getApprovedSubordinatesForRoot: async () => {
+  try {
+    const response = await axios.get('/auth/root/subordinates/approved');
+    return response.data;
+  } catch (error) {
+    console.error(
+      'Error fetching approved subordinates for root:',
+      error.response?.data?.message || error.message
+    );
+    throw error;
+  }
+},
+
+/*
+  Function Name: getDisabledSubordinatesForRoot
+
+  Technical:
+  Fetches subordinate issuer applications currently disabled.
+*/
+getDisabledSubordinatesForRoot: async () => {
+  try {
+    const response = await axios.get('/auth/root/subordinates/disabled');
+    return response.data;
+  } catch (error) {
+    console.error(
+      'Error fetching disabled subordinates for root:',
+      error.response?.data?.message || error.message
+    );
+    throw error;
+  }
+},
+// ==========================================================================================================================================================================
+
+/*
   Function Name: getAdminActionablePendingIssuers
 
   Technical:

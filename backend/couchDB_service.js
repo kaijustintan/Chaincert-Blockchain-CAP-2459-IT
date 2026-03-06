@@ -1162,7 +1162,258 @@ async function getPendingSubordinatesForRoot(rootAuthorityId) {
     throw error;
   }
 }
+// ==========================================================================================================================================================================
+// ==========================================================================================================================================================================
 
+/*
+  Function Name: getAllSubordinatesForRoot
+
+  Technical:
+  Fetches ALL subordinate issuer applications assigned to a specific root authority,
+  regardless of overall status or root-approval status.
+
+  Filters by:
+    - type = issuer_registration
+    - issuerType = subordinate
+    - rootAuthorityId = <logged in root issuer id>
+
+  Tropang Ex:
+  Ito yung buong listahan ng lahat ng subordinates sa ilalim ng root authority na 'to,
+  whether pending, approved, rejected, or disabled.
+*/
+async function getAllSubordinatesForRoot(rootAuthorityId) {
+  try {
+    if (!issuersDB) await initializeDatabases();
+
+    if (!rootAuthorityId) {
+      throw new Error('rootAuthorityId is required');
+    }
+
+    const result = await issuersDB.find({
+      selector: {
+        type: 'issuer_registration',
+        issuerType: 'subordinate',
+        rootAuthorityId: rootAuthorityId
+      }
+    });
+
+    const rows = result.docs || [];
+    rows.sort((a, b) => {
+      const ta = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+      const tb = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+      return tb - ta;
+    });
+
+    return rows;
+
+  } catch (error) {
+    console.error('[COUCHDB] Error getting all subordinates for root:', error.message);
+    throw error;
+  }
+}
+
+// ==========================================================================================================================================================================
+
+/*
+  Function Name: getRootApprovedSubordinatesForRoot
+
+  Technical:
+  Fetches subordinate issuer applications assigned to a specific root authority
+  where rootApprovalStatus = approved.
+
+  Filters by:
+    - type = issuer_registration
+    - issuerType = subordinate
+    - rootAuthorityId = <logged in root issuer id>
+    - rootApprovalStatus = approved
+
+  Tropang Ex:
+  Ito yung mga subordinate applications na na-approve na ni root authority,
+  regardless of whether fully approved na sila ng admin or not.
+*/
+async function getRootApprovedSubordinatesForRoot(rootAuthorityId) {
+  try {
+    if (!issuersDB) await initializeDatabases();
+
+    if (!rootAuthorityId) {
+      throw new Error('rootAuthorityId is required');
+    }
+
+    const result = await issuersDB.find({
+      selector: {
+        type: 'issuer_registration',
+        issuerType: 'subordinate',
+        rootAuthorityId: rootAuthorityId,
+        rootApprovalStatus: 'approved'
+      }
+    });
+
+    const rows = result.docs || [];
+    rows.sort((a, b) => {
+      const ta = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+      const tb = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+      return tb - ta;
+    });
+
+    return rows;
+
+  } catch (error) {
+    console.error('[COUCHDB] Error getting root-approved subordinates for root:', error.message);
+    throw error;
+  }
+}
+
+// ==========================================================================================================================================================================
+
+/*
+  Function Name: getRootRejectedSubordinatesForRoot
+
+  Technical:
+  Fetches subordinate issuer applications assigned to a specific root authority
+  where rootApprovalStatus = rejected.
+
+  Filters by:
+    - type = issuer_registration
+    - issuerType = subordinate
+    - rootAuthorityId = <logged in root issuer id>
+    - rootApprovalStatus = rejected
+
+  Tropang Ex:
+  Ito yung mga subordinate applications na ni-reject ni root authority.
+*/
+async function getRootRejectedSubordinatesForRoot(rootAuthorityId) {
+  try {
+    if (!issuersDB) await initializeDatabases();
+
+    if (!rootAuthorityId) {
+      throw new Error('rootAuthorityId is required');
+    }
+
+    const result = await issuersDB.find({
+      selector: {
+        type: 'issuer_registration',
+        issuerType: 'subordinate',
+        rootAuthorityId: rootAuthorityId,
+        rootApprovalStatus: 'rejected'
+      }
+    });
+
+    const rows = result.docs || [];
+    rows.sort((a, b) => {
+      const ta = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+      const tb = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+      return tb - ta;
+    });
+
+    return rows;
+
+  } catch (error) {
+    console.error('[COUCHDB] Error getting root-rejected subordinates for root:', error.message);
+    throw error;
+  }
+}
+
+// ==========================================================================================================================================================================
+
+/*
+  Function Name: getApprovedSubordinatesForRoot
+
+  Technical:
+  Fetches subordinate issuer applications assigned to a specific root authority
+  that are fully approved by admin.
+
+  Filters by:
+    - type = issuer_registration
+    - issuerType = subordinate
+    - rootAuthorityId = <logged in root issuer id>
+    - status = approved
+
+  Tropang Ex:
+  Ito yung mga subordinate issuers na fully approved na sa system
+  (meaning pasado na sa root authority at admin).
+*/
+async function getApprovedSubordinatesForRoot(rootAuthorityId) {
+  try {
+    if (!issuersDB) await initializeDatabases();
+
+    if (!rootAuthorityId) {
+      throw new Error('rootAuthorityId is required');
+    }
+
+    const result = await issuersDB.find({
+      selector: {
+        type: 'issuer_registration',
+        issuerType: 'subordinate',
+        rootAuthorityId: rootAuthorityId,
+        status: 'approved'
+      }
+    });
+
+    const rows = result.docs || [];
+    rows.sort((a, b) => {
+      const ta = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+      const tb = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+      return tb - ta;
+    });
+
+    return rows;
+
+  } catch (error) {
+    console.error('[COUCHDB] Error getting approved subordinates for root:', error.message);
+    throw error;
+  }
+}
+
+// ==========================================================================================================================================================================
+
+/*
+  Function Name: getDisabledSubordinatesForRoot
+
+  Technical:
+  Fetches subordinate issuer applications assigned to a specific root authority
+  that are currently disabled.
+
+  Filters by:
+    - type = issuer_registration
+    - issuerType = subordinate
+    - rootAuthorityId = <logged in root issuer id>
+    - status = disabled
+
+  Tropang Ex:
+  Ito yung mga subordinate issuers na dati nang approved / existing,
+  pero na-disable na sa system.
+*/
+async function getDisabledSubordinatesForRoot(rootAuthorityId) {
+  try {
+    if (!issuersDB) await initializeDatabases();
+
+    if (!rootAuthorityId) {
+      throw new Error('rootAuthorityId is required');
+    }
+
+    const result = await issuersDB.find({
+      selector: {
+        type: 'issuer_registration',
+        issuerType: 'subordinate',
+        rootAuthorityId: rootAuthorityId,
+        status: 'disabled'
+      }
+    });
+
+    const rows = result.docs || [];
+    rows.sort((a, b) => {
+      const ta = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+      const tb = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+      return tb - ta;
+    });
+
+    return rows;
+
+  } catch (error) {
+    console.error('[COUCHDB] Error getting disabled subordinates for root:', error.message);
+    throw error;
+  }
+}
 // ==========================================================================================================================================================================
 
 /*
@@ -2998,7 +3249,12 @@ module.exports = {
   getAdminByEmail,
   getBlockedHolderIDsByTemplate,
 
-    getPendingSubordinatesForRoot,
+  getPendingSubordinatesForRoot,
+  getAllSubordinatesForRoot,
+  getRootApprovedSubordinatesForRoot,
+  getRootRejectedSubordinatesForRoot,
+  getApprovedSubordinatesForRoot,
+  getDisabledSubordinatesForRoot,
   rootApproveSubordinateIssuer,
   rootRejectSubordinateIssuer
 

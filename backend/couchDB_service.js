@@ -427,13 +427,15 @@ async function checkIfOrgAccredited(orgName) {
 /*
   Function Name: createIssuerRegistration
 
-  Technical: Creates a new issuer registration document in the "issuers" CouchDB database with pending status.
-  Tropang Ex: Pang-register ng school/org bilang issuer (subject for admin approval).
+  Technical:
+  Creates a new issuer registration document in the "issuers" CouchDB database with pending status.
 
   UPDATED:
   - Accreditation gating removed: ANY org can register (pending approval).
   - Duplicate prevention added: blocks if same email + orgName already exists with status pending/approved.
   - Accreditation fields retained for future use (default false/null if not provided).
+  - NEW: Saves uploaded issuer files as REAL CouchDB attachments on the same issuer doc.
+  - NEW: documents[] keeps metadata + attachmentName so files can later be viewed/downloaded.
 */
 async function createIssuerRegistration(issuerData, accreditationCheck = null) {
   try {
@@ -463,7 +465,17 @@ async function createIssuerRegistration(issuerData, accreditationCheck = null) {
     const isSubordinate = issuerType === 'subordinate';
     const rootApprovalStatus = isSubordinate ? 'pending' : 'not_required';
 
-    /* Step 5: Build issuer registration document */
+    /* Step 5: Build issuer registration document
+       NOTE:
+       issuerData.documents is expected to contain metadata objects like:
+       {
+         docType,
+         originalname,
+         mimetype,
+         size,
+         buffer   // NEW: actual file bytes from multer
+       }
+    */
     const issuerDoc = {
       _id: `issuer_${issuerData.email.replace(/@/g, '_').replace(/\./g, '_')}_${Date.now()}`,
       type: 'issuer_registration',
@@ -474,14 +486,14 @@ async function createIssuerRegistration(issuerData, accreditationCheck = null) {
       email: issuerData.email,
       password: issuerData.password,
 
-      // ✅ documents are now structured objects with docType
-      documents: issuerData.documents || [],
+      // ✅ Will be updated below with attachmentName after attachment insert
+      documents: [],
 
       accredited: accreditationInfo.isAccredited,
       accreditedType: accreditationInfo.accreditedType,
 
       issuerType: issuerType,
-      category: issuerData.category, // now required upstream
+      category: issuerData.category,
 
       rootAuthorityId: isSubordinate ? (issuerData.rootAuthorityId || null) : null,
       rootAuthorityName: isSubordinate ? (issuerData.rootAuthorityName || null) : null,
@@ -501,6 +513,8 @@ async function createIssuerRegistration(issuerData, accreditationCheck = null) {
       rejectedBy: null
     };
 
+    const incomingDocs = Array.isArray(issuerData.documents) ? issuerData.documents : [];
+
     console.log('[COUCHDB] Final issuer doc before insert:', {
       _id: issuerDoc._id,
       orgName: issuerDoc.orgName,
@@ -510,11 +524,70 @@ async function createIssuerRegistration(issuerData, accreditationCheck = null) {
       category: issuerDoc.category,
       rootApprovalStatus: issuerDoc.rootApprovalStatus,
       rootAuthorityId: issuerDoc.rootAuthorityId,
-      documentCount: issuerDoc.documents.length
+      documentCount: incomingDocs.length
     });
 
-    /* Step 6: Insert issuer registration into CouchDB */
-    return await issuersDB.insert(issuerDoc);
+    /* Step 6: Insert base issuer registration doc first */
+    let insertResult = await issuersDB.insert(issuerDoc);
+
+    /* Step 7: Save each uploaded file as a CouchDB attachment
+       Then build clean documents[] metadata that includes attachmentName.
+    */
+    const savedDocuments = [];
+
+    for (let i = 0; i < incomingDocs.length; i++) {
+      const file = incomingDocs[i];
+
+      const docType = String(file.docType || `document_${i + 1}`).trim().toLowerCase();
+      const originalname = file.originalname || `file_${i + 1}`;
+      const mimetype = file.mimetype || 'application/octet-stream';
+      const size = file.size || 0;
+      const buffer = file.buffer;
+
+      if (!buffer) {
+        console.warn(`[COUCHDB] Skipping attachment for ${originalname} because buffer is missing.`);
+        savedDocuments.push({
+          docType,
+          originalname,
+          mimetype,
+          size,
+          attachmentName: null
+        });
+        continue;
+      }
+
+      // Safe-ish attachment filename
+      const safeOriginalName = String(originalname).replace(/[^\w.\- ]/g, '_');
+      const attachmentName = `${docType}__${Date.now()}__${safeOriginalName}`;
+
+      const attachResult = await issuersDB.attachment.insert(
+        issuerDoc._id,
+        attachmentName,
+        buffer,
+        mimetype,
+        { rev: insertResult.rev }
+      );
+
+      // Update local latest rev for next attachment insert
+      insertResult.rev = attachResult.rev;
+
+      savedDocuments.push({
+        docType,
+        originalname,
+        mimetype,
+        size,
+        attachmentName
+      });
+    }
+
+    /* Step 8: Update issuer doc.documents with metadata + attachmentName */
+    const insertedIssuerDoc = await issuersDB.get(issuerDoc._id);
+    insertedIssuerDoc.documents = savedDocuments;
+
+    const finalResult = await issuersDB.insert(insertedIssuerDoc);
+
+    /* Step 9: Return final insert result */
+    return finalResult;
 
   } catch (error) {
     console.error('Error creating issuer registration:', error.message);
@@ -566,6 +639,173 @@ async function getPendingIssuers() {
   }
 }
 // ==========================================================================================================================================================================
+
+// ==========================================================================================================================================================================
+
+/*
+  Function Name: getPendingRootIssuers
+
+  Technical:
+  Fetches all PENDING issuer applications where issuerType = "root".
+
+  Tropang Ex:
+  Pending applications na root authority ang ina-applyan.
+*/
+async function getPendingRootIssuers() {
+  try {
+    if (!issuersDB) await initializeDatabases();
+
+    const result = await issuersDB.find({
+      selector: {
+        type: 'issuer_registration',
+        status: 'pending',
+        issuerType: 'root'
+      },
+      sort: ['createdAt']
+    });
+
+    return result.docs;
+  } catch (error) {
+    console.error('Error getting pending root issuers:', error.message);
+    throw error;
+  }
+}
+// ==========================================================================================================================================================================
+
+/*
+  Function Name: getPendingSubordinateIssuers
+
+  Technical:
+  Fetches all PENDING issuer applications where issuerType = "subordinate".
+
+  Tropang Ex:
+  Pending applications na subordinate issuer ang ina-applyan.
+*/
+async function getPendingSubordinateIssuers() {
+  try {
+    if (!issuersDB) await initializeDatabases();
+
+    const result = await issuersDB.find({
+      selector: {
+        type: 'issuer_registration',
+        status: 'pending',
+        issuerType: 'subordinate'
+      },
+      sort: ['createdAt']
+    });
+
+    return result.docs;
+  } catch (error) {
+    console.error('Error getting pending subordinate issuers:', error.message);
+    throw error;
+  }
+}
+// ==========================================================================================================================================================================
+
+/*
+  Function Name: getPendingSubordinateIssuersAwaitingRootApproval
+
+  Technical:
+  Fetches subordinate issuer applications that are still pending overall
+  AND still waiting for root approval.
+
+  Tropang Ex:
+  Ito yung subordinate issuers na hindi pa maa-actionan ng admin kasi
+  hinihintay pa muna root authority approval.
+*/
+async function getPendingSubordinateIssuersAwaitingRootApproval() {
+  try {
+    if (!issuersDB) await initializeDatabases();
+
+    const result = await issuersDB.find({
+      selector: {
+        type: 'issuer_registration',
+        status: 'pending',
+        issuerType: 'subordinate',
+        rootApprovalStatus: 'pending'
+      },
+      sort: ['createdAt']
+    });
+
+    return result.docs;
+  } catch (error) {
+    console.error('Error getting subordinate issuers awaiting root approval:', error.message);
+    throw error;
+  }
+}
+// ==========================================================================================================================================================================
+
+/*
+  Function Name: getPendingSubordinateIssuersRootApproved
+
+  Technical:
+  Fetches subordinate issuer applications that are still pending overall
+  BUT already approved by root authority.
+
+  Tropang Ex:
+  Ito yung subordinate issuers na puwede nang i-review/i-approve ng admin.
+*/
+async function getPendingSubordinateIssuersRootApproved() {
+  try {
+    if (!issuersDB) await initializeDatabases();
+
+    const result = await issuersDB.find({
+      selector: {
+        type: 'issuer_registration',
+        status: 'pending',
+        issuerType: 'subordinate',
+        rootApprovalStatus: 'approved'
+      },
+      sort: ['createdAt']
+    });
+
+    return result.docs;
+  } catch (error) {
+    console.error('Error getting root-approved subordinate issuers:', error.message);
+    throw error;
+  }
+}
+// ==========================================================================================================================================================================
+
+/*
+  Function Name: getAdminActionablePendingIssuers
+
+  Technical:
+  Fetches only pending issuer applications that admin can actually act on right now:
+  - all pending root issuers
+  - pending subordinate issuers whose rootApprovalStatus = "approved"
+
+  Tropang Ex:
+  Ito yung clean admin queue.
+  Walang kasamang subordinate na naghihintay pa lang kay root.
+*/
+async function getAdminActionablePendingIssuers() {
+  try {
+    if (!issuersDB) await initializeDatabases();
+
+    const result = await issuersDB.find({
+      selector: {
+        type: 'issuer_registration',
+        status: 'pending',
+        $or: [
+          { issuerType: 'root' },
+          {
+            issuerType: 'subordinate',
+            rootApprovalStatus: 'approved'
+          }
+        ]
+      },
+      sort: ['createdAt']
+    });
+
+    return result.docs;
+  } catch (error) {
+    console.error('Error getting admin-actionable pending issuers:', error.message);
+    throw error;
+  }
+}
+// ==========================================================================================================================================================================
+
 
 /*
   Function Name: getIssuerById
@@ -2679,6 +2919,11 @@ module.exports = {
   // Issuer lifecycle
   createIssuerRegistration,
   getPendingIssuers,
+  getPendingRootIssuers,
+  getPendingSubordinateIssuers,
+  getPendingSubordinateIssuersAwaitingRootApproval,
+  getPendingSubordinateIssuersRootApproved,
+  getAdminActionablePendingIssuers,
   getRejectedIssuers,
   getDisabledIssuers,
   getIssuerById,

@@ -454,6 +454,107 @@ getIssuerRequirementsByCategory: async (category) => {
   },
   // ==========================================================================================================================================================================
 
+  /*
+  Function Name: getPendingRootIssuers
+
+  Technical:
+  Retrieves pending ROOT issuer applications only.
+*/
+getPendingRootIssuers: async () => {
+  try {
+    const response = await axios.get('/auth/pending-root-issuers');
+    return response.data;
+  } catch (error) {
+    console.error(
+      'Error fetching pending root issuers:',
+      error.response?.data?.message || error.message
+    );
+    throw error;
+  }
+},
+// ==========================================================================================================================================================================
+
+/*
+  Function Name: getPendingSubordinateIssuers
+
+  Technical:
+  Retrieves pending SUBORDINATE issuer applications only.
+*/
+getPendingSubordinateIssuers: async () => {
+  try {
+    const response = await axios.get('/auth/pending-subordinate-issuers');
+    return response.data;
+  } catch (error) {
+    console.error(
+      'Error fetching pending subordinate issuers:',
+      error.response?.data?.message || error.message
+    );
+    throw error;
+  }
+},
+// ==========================================================================================================================================================================
+
+/*
+  Function Name: getPendingSubordinateIssuersAwaitingRootApproval
+
+  Technical:
+  Retrieves pending subordinate issuer applications still awaiting root approval.
+*/
+getPendingSubordinateIssuersAwaitingRootApproval: async () => {
+  try {
+    const response = await axios.get('/auth/pending-subordinate-awaiting-root');
+    return response.data;
+  } catch (error) {
+    console.error(
+      'Error fetching subordinate issuers awaiting root approval:',
+      error.response?.data?.message || error.message
+    );
+    throw error;
+  }
+},
+// ==========================================================================================================================================================================
+
+/*
+  Function Name: getPendingSubordinateIssuersRootApproved
+
+  Technical:
+  Retrieves pending subordinate issuer applications already approved by root authority.
+*/
+getPendingSubordinateIssuersRootApproved: async () => {
+  try {
+    const response = await axios.get('/auth/pending-subordinate-root-approved');
+    return response.data;
+  } catch (error) {
+    console.error(
+      'Error fetching root-approved subordinate issuers:',
+      error.response?.data?.message || error.message
+    );
+    throw error;
+  }
+},
+// ==========================================================================================================================================================================
+
+/*
+  Function Name: getAdminActionablePendingIssuers
+
+  Technical:
+  Retrieves only pending issuer applications that admin can act on now.
+*/
+getAdminActionablePendingIssuers: async () => {
+  try {
+    const response = await axios.get('/auth/pending-issuers-admin-actionable');
+    return response.data;
+  } catch (error) {
+    console.error(
+      'Error fetching admin-actionable pending issuers:',
+      error.response?.data?.message || error.message
+    );
+    throw error;
+  }
+},
+  // ==========================================================================================================================================================================
+
+
     /*
     Function Name: getApprovedIssuers
 

@@ -16,6 +16,9 @@ export default function AdminDashboard() {
 
   const [issuerFilter, setIssuerFilter] = useState("approved");
 
+  // ✅ NEW: secondary filter for pending issuers only
+  const [pendingIssuerFilter, setPendingIssuerFilter] = useState("admin_actionable");
+
   const [users, setUsers] = useState([]);
   const [usersLoading, setUsersLoading] = useState(false);
   const [userFilter, setUserFilter] = useState("active");
@@ -101,10 +104,10 @@ export default function AdminDashboard() {
   };
 
   const renderCell = (v) => {
-  if (v === null || v === undefined) return "N/A";
-  if (typeof v === "object") return JSON.stringify(v);
-  return String(v);
-};
+    if (v === null || v === undefined) return "N/A";
+    if (typeof v === "object") return JSON.stringify(v);
+    return String(v);
+  };
 
   const getVisibleIssuers = () => {
     if (issuerFilter === "approved") return approvedIssuers;
@@ -150,7 +153,6 @@ export default function AdminDashboard() {
     if (!row || typeLower !== "issued") return;
 
     try {
-      // open modal immediately (even before API finishes)
       setSelectedCredentialRow(row);
       setShowHistoryModal(true);
 
@@ -188,7 +190,7 @@ export default function AdminDashboard() {
   };
 
   const closeRejectIssuerModal = () => {
-    if (rejectIssuerLoading) return; // prevent closing while submitting
+    if (rejectIssuerLoading) return;
     setShowRejectIssuerModal(false);
     setRejectIssuerId(null);
     setRejectReason("");
@@ -213,7 +215,7 @@ export default function AdminDashboard() {
       setMessage("✅ Issuer rejected successfully!");
       closeRejectIssuerModal();
 
-      await fetchPendingIssuers();
+      await fetchPendingIssuers(pendingIssuerFilter);
       await fetchApprovedIssuers();
       await fetchRejectedIssuers();
       await fetchDisabledIssuers();
@@ -229,7 +231,7 @@ export default function AdminDashboard() {
 
   const openIssuerStatusModal = (issuer, action) => {
     setIssuerStatusTarget(issuer);
-    setIssuerStatusAction(action); // 'disable' or 'enable'
+    setIssuerStatusAction(action);
     setIssuerStatusReason("");
     setIssuerStatusError("");
     setShowIssuerStatusModal(true);
@@ -273,9 +275,8 @@ export default function AdminDashboard() {
 
       closeIssuerStatusModal();
 
-      // refresh lists so status reflects immediately
       await fetchApprovedIssuers();
-      await fetchPendingIssuers();
+      await fetchPendingIssuers(pendingIssuerFilter);
       await fetchRejectedIssuers();
       await fetchDisabledIssuers();
     } catch (error) {
@@ -293,10 +294,26 @@ export default function AdminDashboard() {
   // -------------------------------------------------------------------
   // ISSUERS
   // -------------------------------------------------------------------
-  const fetchPendingIssuers = async () => {
+  const fetchPendingIssuers = async (mode = pendingIssuerFilter) => {
     try {
       setLoading(true);
-      const response = await apiService.getPendingIssuers();
+
+      let response;
+
+      if (mode === "root_only") {
+        response = await apiService.getPendingRootIssuers();
+      } else if (mode === "subordinate_only") {
+        response = await apiService.getPendingSubordinateIssuers();
+      } else if (mode === "awaiting_root") {
+        response = await apiService.getPendingSubordinateIssuersAwaitingRootApproval();
+      } else if (mode === "root_approved") {
+        response = await apiService.getPendingSubordinateIssuersRootApproved();
+      } else if (mode === "all_pending") {
+        response = await apiService.getPendingIssuers();
+      } else {
+        response = await apiService.getAdminActionablePendingIssuers();
+      }
+
       const pending = Array.isArray(response.data) ? response.data : [];
       setPendingIssuers(pending);
       setMessage("");
@@ -355,7 +372,7 @@ export default function AdminDashboard() {
     try {
       await apiService.approveIssuer(issuerId);
       setMessage("✅ Issuer approved successfully!");
-      await fetchPendingIssuers();
+      await fetchPendingIssuers(pendingIssuerFilter);
       await fetchApprovedIssuers();
     } catch (error) {
       console.error("Error approving issuer:", error);
@@ -404,7 +421,6 @@ export default function AdminDashboard() {
     setUserStatusError("");
   };
 
-  // ✅ FIXED: clean modal-based handler (no pasted/old prompt handler)
   const submitUserStatusChange = async (e) => {
     e.preventDefault();
 
@@ -507,7 +523,6 @@ export default function AdminDashboard() {
     }
   };
 
-  // ✅ Local filter/search for adminCredentials
   useEffect(() => {
     let result = [...adminCredentials];
 
@@ -569,13 +584,11 @@ export default function AdminDashboard() {
       const trimmedEmail = email.trim();
 
       if (trimmedEmail) {
-        // Search by specific email
         if (filter === "issuers") {
           data = await apiService.Get_IssuerStatusLogs_ByEmail(trimmedEmail);
         } else if (filter === "users") {
           data = await apiService.Get_UserStatusLogs_ByEmail(trimmedEmail);
         } else {
-          // For 'all' with email, try both and merge
           const [issuerData, userData] = await Promise.allSettled([
             apiService.Get_IssuerStatusLogs_ByEmail(trimmedEmail),
             apiService.Get_UserStatusLogs_ByEmail(trimmedEmail),
@@ -585,7 +598,6 @@ export default function AdminDashboard() {
           data = { logs: [...issuerLogs, ...userLogs] };
         }
       } else {
-        // No email search — fetch by category
         if (filter === "issuers") {
           data = await apiService.Get_AllIssuerStatusLogs();
         } else if (filter === "users") {
@@ -617,8 +629,6 @@ export default function AdminDashboard() {
     }
   };
 
-  // - polo: fetch decision logs using filter-specific backend functions per Kyle's instruction
-  // "all" → Get_AllIssuerDecisionLogs, "approved" → Get_AllIssuerApprovalLogs, "rejected" → Get_AllIssuerRejectionLogs
   const fetchIssuerDecisionLogs = async (filter = issuerDecisionFilter) => {
     try {
       setLogsLoading(true);
@@ -699,12 +709,12 @@ export default function AdminDashboard() {
   // -------------------------------------------------------------------
   useEffect(() => {
     if (tab === "issuers") {
-      fetchPendingIssuers();
       fetchApprovedIssuers();
-      fetchRejectedIssuers(); // ✅ NEW
+      fetchRejectedIssuers();
       fetchDisabledIssuers();
 
       setIssuerFilter("approved");
+      setPendingIssuerFilter("admin_actionable");
     } else if (tab === "credentials") {
       fetchApprovedIssuers();
       fetchDisabledIssuers();
@@ -723,6 +733,15 @@ export default function AdminDashboard() {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tab]);
+
+  // ✅ NEW: when pending sub-filter changes, refetch only pending list
+  useEffect(() => {
+    if (tab !== "issuers") return;
+    if (issuerFilter !== "pending") return;
+
+    fetchPendingIssuers(pendingIssuerFilter);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pendingIssuerFilter, issuerFilter, tab]);
 
   useEffect(() => {
     if (tab !== "logs") return;
@@ -786,28 +805,27 @@ export default function AdminDashboard() {
         >
           Logs
         </button>
-        {/* SETTINGS TAB */}
-      {tab === "settings" && (
-        <div className="tab-card">
-          <h2>System Settings</h2>
-          <p className="tab-subtitle">
-            Configure administrative controls for institutions, infrastructure,
-            and integrations.
-          </p>
-          <div className="settings-grid">
-            <button>+ Add Institution</button>
-            <button>Configure Blockchain</button>
-            <button>Manage API Keys</button>
-            <button>Security Policies</button>
-            <button>User Roles</button>
+
+        {tab === "settings" && (
+          <div className="tab-card">
+            <h2>System Settings</h2>
+            <p className="tab-subtitle">
+              Configure administrative controls for institutions, infrastructure,
+              and integrations.
+            </p>
+            <div className="settings-grid">
+              <button>+ Add Institution</button>
+              <button>Configure Blockchain</button>
+              <button>Manage API Keys</button>
+              <button>Security Policies</button>
+              <button>User Roles</button>
+            </div>
           </div>
-        </div>
-      )}
+        )}
       </div>
 
       {message && <div className="admin-message">{message}</div>}
 
-      {/* ✅ MODAL VIA PORTAL (fixes "click but nothing shows") */}
       {showHistoryModal &&
         ReactDOM.createPortal(
           <div
@@ -949,7 +967,6 @@ export default function AdminDashboard() {
                           const statusLower = String(status || "").toLowerCase();
                           const isRevoked = statusLower === "revoked";
 
-                          // ✅ NEW: pull rejection reason (supports both shapes)
                           const rejectionReason =
                             entry?.value?.rejectionReason ||
                             entry?.rejectionReason ||
@@ -961,7 +978,6 @@ export default function AdminDashboard() {
 
                               <td>{action}</td>
 
-                              {/* ✅ UPDATED: make revoked status red + show rejection reason */}
                               <td>
                                 <span
                                   style={
@@ -1638,7 +1654,15 @@ export default function AdminDashboard() {
             <select
               id="issuerFilter"
               value={issuerFilter}
-              onChange={(e) => setIssuerFilter(e.target.value)}
+              onChange={async (e) => {
+                const value = e.target.value;
+                setIssuerFilter(value);
+
+                if (value === "pending") {
+                  setPendingIssuerFilter("admin_actionable");
+                  await fetchPendingIssuers("admin_actionable");
+                }
+              }}
             >
               <option value="approved">Approved Issuers</option>
               <option value="pending">Pending Issuers</option>
@@ -1646,6 +1670,24 @@ export default function AdminDashboard() {
               <option value="disabled">Disabled Issuers</option>
             </select>
           </div>
+
+          {issuerFilter === "pending" && (
+            <div className="issuer-filter-row" style={{ marginTop: "10px" }}>
+              <label htmlFor="pendingIssuerFilter">Pending Type:</label>
+              <select
+                id="pendingIssuerFilter"
+                value={pendingIssuerFilter}
+                onChange={(e) => setPendingIssuerFilter(e.target.value)}
+              >
+                <option value="admin_actionable">Admin Actionable Pending</option>
+                <option value="all_pending">All Pending</option>
+                <option value="root_only">Pending Root Issuers</option>
+                <option value="subordinate_only">Pending Subordinate Issuers</option>
+                <option value="awaiting_root">Subordinate Awaiting Root Approval</option>
+                <option value="root_approved">Subordinate Root-Approved</option>
+              </select>
+            </div>
+          )}
 
           {loading ? (
             <div className="tab-placeholder">Loading issuers...</div>
@@ -1657,6 +1699,8 @@ export default function AdminDashboard() {
                     <th>Issuer ID</th>
                     <th>Org Name</th>
                     <th>Email</th>
+                    <th>Issuer Type</th>
+                    <th>Root Authority</th>
                     <th>Status</th>
                     <th>Created At</th>
                     <th>Actions</th>
@@ -1672,6 +1716,21 @@ export default function AdminDashboard() {
                         <td>{id}</td>
                         <td>{issuer.orgName || issuer.name || "N/A"}</td>
                         <td>{issuer.email || "N/A"}</td>
+
+                        <td>
+                          {issuer.issuerType === "subordinate" ? (
+                            <span className="badge purple">Subordinate</span>
+                          ) : (
+                            <span className="badge blue">Root</span>
+                          )}
+                        </td>
+
+                        <td>
+                          {issuer.issuerType === "subordinate"
+                            ? (issuer.rootAuthorityName || issuer.rootAuthorityId || "N/A")
+                            : "—"}
+                        </td>
+
                         <td>{issuer.status || (isDisabled ? "disabled" : "approved")}</td>
                         <td>{formatTimestamp(issuer.createdAt)}</td>
                         <td style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
@@ -1997,7 +2056,7 @@ export default function AdminDashboard() {
                   value={issuerDecisionFilter}
                   onChange={(e) => {
                     setIssuerDecisionFilter(e.target.value);
-                    fetchIssuerDecisionLogs(e.target.value); // - polo: fetch from backend with correct filter
+                    fetchIssuerDecisionLogs(e.target.value);
                   }}
                 >
                   <option value="all">All</option>
@@ -2009,7 +2068,7 @@ export default function AdminDashboard() {
               {issuerDecisionLogsError ? (
                 <div className="tab-placeholder">❌ {issuerDecisionLogsError}</div>
               ) : (() => {
-                const filtered = issuerDecisionLogs; // - polo: filtering now done at backend level
+                const filtered = issuerDecisionLogs;
 
                 return filtered.length > 0 ? (
                   <div className="table-wrapper">

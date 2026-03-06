@@ -481,24 +481,22 @@ getAllUsers: async (req, res) => {
 
   Technical:
   Submits an issuer application (NOT auto-approved).
-  UPDATED FLOW (Accreditation gating removed):
+
+  UPDATED FLOW:
     - validate fields + confirm password
-    - (optional) check accreditation via couchDB.checkIfOrgAccredited(orgName) for tagging ONLY
-    - DO NOT deny if not accredited (anyone can register)
+    - validate issuerType + category
+    - validate required documents
+    - OPTIONAL accreditation check (non-blocking)
     - hash password
-    - prepare issuerData (includes uploaded doc file if any)
-    - create issuer registration doc via couchDB.createIssuerRegistration(issuerData, accreditationCheck?)  // non-blocking
-    - returns issuerId + accreditation tag (optional)
+    - NEW: preserve actual uploaded file buffers
+    - create issuer registration doc via couchDB.createIssuerRegistration()
+      where files are saved as CouchDB attachments
 
   Tropang Ex:
-  Kahit sino pwedeng mag-apply bilang issuer. Lahat mapupunta sa "pending" list for admin approval.
-  Yung accreditation check, pang-label nalang (optional), hindi na pang-block.
-
-  Expected req.body:
-  { orgName, contactName, email, password, confirmPassword }
-
-  Upload:
-  upload.single('documents') gives req.file (single file)
+  Kahit sino pwedeng mag-apply bilang issuer.
+  Lahat mapupunta sa "pending" list for admin approval.
+  At ngayon, hindi lang metadata ang sine-save —
+  pati actual file itself pwede nang ma-view/download later.
 */
 registerIssuer: async (req, res) => {
   try {
@@ -510,9 +508,9 @@ registerIssuer: async (req, res) => {
       password,
       confirmPassword,
 
-      issuerType,        // "root" | "subordinate"
-      rootAuthorityId,   // required if subordinate
-      category           // ✅ NOW REQUIRED
+      issuerType,
+      rootAuthorityId,
+      category
     } = req.body;
 
     console.log('=== ISSUER REGISTRATION DEBUG START (authController) ===');
@@ -561,7 +559,7 @@ registerIssuer: async (req, res) => {
       });
     }
 
-    /* Step 7: ✅ Category is now REQUIRED */
+    /* Step 7: Category is required */
     const normalizedCategory = String(category || '').trim().toLowerCase();
 
     if (!normalizedCategory) {
@@ -602,7 +600,7 @@ registerIssuer: async (req, res) => {
       rootAuthorityName = rootDoc.orgName || rootDoc.contactName || rootDoc.email || null;
     }
 
-    /* Step 9: ✅ Validate required documents based on category */
+    /* Step 9: Validate required documents based on category */
     const uploadedFiles = Array.isArray(req.files) ? req.files : [];
 
     const uploadedFieldNames = new Set(
@@ -611,7 +609,6 @@ registerIssuer: async (req, res) => {
 
     const requiredDocs = [...ISSUER_CATEGORY_REQUIREMENTS[normalizedCategory]];
 
-    // subordinate-specific required doc
     if (normalizedIssuerType === 'subordinate') {
       requiredDocs.push('root_authorization_letter');
     }
@@ -641,13 +638,15 @@ registerIssuer: async (req, res) => {
     console.log('[HASH] Hashing password...');
     const hashedPassword = await bcrypt.hash(password, 10);
 
-    /* Step 12: ✅ Normalize uploaded docs into structured format */
+    /* Step 12: Normalize uploaded docs into structured format
+       NEW: preserve buffer so service can save real CouchDB attachments
+    */
     const docs = uploadedFiles.map(file => ({
       docType: String(file.fieldname || '').trim().toLowerCase(),
       originalname: file.originalname,
       mimetype: file.mimetype,
       size: file.size,
-      buffer: file.buffer
+      buffer: file.buffer // ✅ NEW: actual file bytes
     }));
 
     /* Step 13: Build issuerData */
@@ -776,6 +775,114 @@ getIssuerRequirementsByCategory: async (req, res) => {
   },
   // ========================================================================================================================================================================
 
+  /*
+  Endpoint: GET /api/auth/pending-root-issuers
+  Function Name: getPendingRootIssuers
+*/
+getPendingRootIssuers: async (req, res) => {
+  try {
+    const rows = await couchDB.getPendingRootIssuers();
+    return res.status(200).json({
+      success: true,
+      data: rows,
+      count: rows.length
+    });
+  } catch (error) {
+    console.error('Error fetching pending root issuers:', error);
+    return res.status(500).json({
+      success: false,
+      message: error.message
+    });
+  }
+},
+
+/*
+  Endpoint: GET /api/auth/pending-subordinate-issuers
+  Function Name: getPendingSubordinateIssuers
+*/
+getPendingSubordinateIssuers: async (req, res) => {
+  try {
+    const rows = await couchDB.getPendingSubordinateIssuers();
+    return res.status(200).json({
+      success: true,
+      data: rows,
+      count: rows.length
+    });
+  } catch (error) {
+    console.error('Error fetching pending subordinate issuers:', error);
+    return res.status(500).json({
+      success: false,
+      message: error.message
+    });
+  }
+},
+
+/*
+  Endpoint: GET /api/auth/pending-subordinate-awaiting-root
+  Function Name: getPendingSubordinateIssuersAwaitingRootApproval
+*/
+getPendingSubordinateIssuersAwaitingRootApproval: async (req, res) => {
+  try {
+    const rows = await couchDB.getPendingSubordinateIssuersAwaitingRootApproval();
+    return res.status(200).json({
+      success: true,
+      data: rows,
+      count: rows.length
+    });
+  } catch (error) {
+    console.error('Error fetching subordinate issuers awaiting root approval:', error);
+    return res.status(500).json({
+      success: false,
+      message: error.message
+    });
+  }
+},
+
+/*
+  Endpoint: GET /api/auth/pending-subordinate-root-approved
+  Function Name: getPendingSubordinateIssuersRootApproved
+*/
+getPendingSubordinateIssuersRootApproved: async (req, res) => {
+  try {
+    const rows = await couchDB.getPendingSubordinateIssuersRootApproved();
+    return res.status(200).json({
+      success: true,
+      data: rows,
+      count: rows.length
+    });
+  } catch (error) {
+    console.error('Error fetching root-approved subordinate issuers:', error);
+    return res.status(500).json({
+      success: false,
+      message: error.message
+    });
+  }
+},
+
+/*
+  Endpoint: GET /api/auth/pending-issuers-admin-actionable
+  Function Name: getAdminActionablePendingIssuers
+*/
+getAdminActionablePendingIssuers: async (req, res) => {
+  try {
+    const rows = await couchDB.getAdminActionablePendingIssuers();
+    return res.status(200).json({
+      success: true,
+      data: rows,
+      count: rows.length
+    });
+  } catch (error) {
+    console.error('Error fetching admin-actionable pending issuers:', error);
+    return res.status(500).json({
+      success: false,
+      message: error.message
+    });
+  }
+},
+
+  // ========================================================================================================================================================================
+
+
     /*
     Endpoint: GET /api/auth/approved-issuers
     Function Name: getApprovedIssuers
@@ -799,20 +906,28 @@ getIssuerRequirementsByCategory: async (req, res) => {
 
       // Optionally map to only the fields you want to expose in the UI
       const safeIssuers = approvedIssuers.map(doc => ({
-        id: doc._id,
-        orgName: doc.orgName,
-        contactName: doc.contactName,
-        email: doc.email,
-        status: doc.status,
-        accredited: doc.accredited,
-        accreditedType: doc.accreditedType,
-        createdAt: doc.createdAt,        // CHANGES: add this
-        approvedAt: doc.approvedAt,
-        approvedBy: doc.approvedBy,
-        walletId: doc.walletId,
-        fabricIdentity: doc.fabricIdentity,
-        couchDBUrl: doc.couchDBUrl
-      }));
+          id: doc._id,
+          orgName: doc.orgName,
+          contactName: doc.contactName,
+          email: doc.email,
+          status: doc.status,
+
+          accredited: doc.accredited,
+          accreditedType: doc.accreditedType,
+
+          createdAt: doc.createdAt,
+          approvedAt: doc.approvedAt,
+          approvedBy: doc.approvedBy,
+
+          walletId: doc.walletId,
+          fabricIdentity: doc.fabricIdentity,
+          couchDBUrl: doc.couchDBUrl,
+
+          // ✅ NEW
+          issuerType: doc.issuerType || 'root',
+          rootAuthorityId: doc.rootAuthorityId || null,
+          rootAuthorityName: doc.rootAuthorityName || null
+        }));
 
       return res.status(200).json({
         success: true,
@@ -856,24 +971,26 @@ getRejectedIssuers: async (req, res) => {
       email: doc.email,
       status: doc.status,
 
-      // Keep these if still existing in schema
       accredited: doc.accredited,
       accreditedType: doc.accreditedType,
 
       createdAt: doc.createdAt,
 
-      // ✅ Rejection metadata
       rejectedAt: doc.rejectedAt || null,
       rejectedBy: doc.rejectedBy || null,
       rejectionReason: doc.rejectionReason || null,
 
-      // still present fields (might be null for rejected)
       approvedAt: doc.approvedAt || null,
       approvedBy: doc.approvedBy || null,
 
       walletId: doc.walletId,
       fabricIdentity: doc.fabricIdentity,
-      couchDBUrl: doc.couchDBUrl
+      couchDBUrl: doc.couchDBUrl,
+
+      // ✅ NEW
+      issuerType: doc.issuerType || 'root',
+      rootAuthorityId: doc.rootAuthorityId || null,
+      rootAuthorityName: doc.rootAuthorityName || null
     }));
 
     return res.status(200).json({
@@ -920,7 +1037,12 @@ getDisabledIssuers: async (req, res) => {
       disableReason: doc.disableReason || null,
       walletId: doc.walletId,
       fabricIdentity: doc.fabricIdentity,
-      couchDBUrl: doc.couchDBUrl
+      couchDBUrl: doc.couchDBUrl,
+
+      // ✅ NEW
+      issuerType: doc.issuerType || 'root',
+      rootAuthorityId: doc.rootAuthorityId || null,
+      rootAuthorityName: doc.rootAuthorityName || null
     }));
 
     return res.status(200).json({

@@ -88,6 +88,21 @@ router.post('/login-issuer', authController.loginIssuer);
 // GET /api/auth/pending-issuers - Get pending issuer registrations (Admin)
 router.get('/pending-issuers', authController.getPendingIssuers);
 
+// GET /api/auth/pending-root-issuers - Get pending root issuer applications
+router.get('/pending-root-issuers', authController.getPendingRootIssuers);
+
+// GET /api/auth/pending-subordinate-issuers - Get pending subordinate issuer applications
+router.get('/pending-subordinate-issuers', authController.getPendingSubordinateIssuers);
+
+// GET /api/auth/pending-subordinate-awaiting-root - Get subordinate issuers still waiting for root approval
+router.get('/pending-subordinate-awaiting-root', authController.getPendingSubordinateIssuersAwaitingRootApproval);
+
+// GET /api/auth/pending-subordinate-root-approved - Get subordinate issuers already root-approved
+router.get('/pending-subordinate-root-approved', authController.getPendingSubordinateIssuersRootApproved);
+
+// GET /api/auth/pending-issuers-admin-actionable - Get only pending issuers admin can act on now
+router.get('/pending-issuers-admin-actionable', authController.getAdminActionablePendingIssuers);
+
 // GET /api/auth/approved-issuers - Get all APPROVED issuers (Admin)
 router.get('/approved-issuers', authController.getApprovedIssuers);
 

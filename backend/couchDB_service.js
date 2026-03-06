@@ -436,112 +436,100 @@ async function checkIfOrgAccredited(orgName) {
   - Accreditation fields retained for future use (default false/null if not provided).
 */
 async function createIssuerRegistration(issuerData, accreditationCheck = null) {
-  try {
+  try {
+    /* Step 1: Ensure issuers DB is initialized */
+    if (!issuersDB) await initializeDatabases();
 
-    /* Step 1: Ensure issuers DB is initialized
+    /* Step 2: Duplicate check (email + orgName) */
+    const dup = await checkDuplicateIssuerRegistration(issuerData.email, issuerData.orgName);
+    if (dup.isDuplicate) {
+      const err = new Error(
+        `Issuer registration already exists for ${issuerData.email} (${issuerData.orgName}). ` +
+        `Existing status: ${dup.existing.status}`
+      );
+      err.statusCode = 409;
+      err.details = dup.existing;
+      throw err;
+    }
 
-      Technical: Makes sure issuersDB is ready before inserting data.
-      Tropang Ex: Chine-check muna kung naka-connect na sa issuers database.
-    */
-    if (!issuersDB) await initializeDatabases();
+    /* Step 3: Normalize accreditation info (optional / non-blocking) */
+    const accreditationInfo = {
+      isAccredited: accreditationCheck?.isAccredited ?? false,
+      accreditedType: accreditationCheck?.accreditedType ?? null
+    };
 
-    /* Step 2: Duplicate check (email + orgName)
+    // ✅ ADDED: Normalize issuerType
+    const issuerType = String(issuerData.issuerType || 'root').trim().toLowerCase();
+    const isSubordinate = issuerType === 'subordinate';
 
-      Technical:
-        - Prevent duplicate issuer registrations when there is already an existing record
-          with same email + orgName AND status is pending/approved.
-      Tropang Ex:
-        - Kapag may existing na application/account gamit same email + org, bawal na ulit.
-    */
-    const dup = await checkDuplicateIssuerRegistration(issuerData.email, issuerData.orgName);
-    if (dup.isDuplicate) {
-      const err = new Error(
-        `Issuer registration already exists for ${issuerData.email} (${issuerData.orgName}). ` +
-        `Existing status: ${dup.existing.status}`
-      );
-      err.statusCode = 409; // Conflict
-      err.details = dup.existing;
-      throw err;
-    }
+    // ✅ ADDED: Root approval gating fields
+    // subordinate → needs root approval first
+    // root → no root approval required
+    const rootApprovalStatus = isSubordinate ? 'pending' : 'not_required';
 
-    /* Step 3: Normalize accreditation info (optional / non-blocking)
+    /* Step 4: Build issuer registration document */
+    const issuerDoc = {
+      _id: `issuer\\\_${issuerData.email.replace(/@/g, '\\\_').replace(/\\\\./g, '\\\_')}\\\_${Date.now()}`,
+      type: 'issuer_registration',
+      role: 'issuer',
 
-      Technical: If accreditationCheck is not provided, default values are used.
-      Tropang Ex: Kahit walang accreditation check, tuloy pa rin yung registration.
-    */
-    const accreditationInfo = {
-      isAccredited: accreditationCheck?.isAccredited ?? false,
-      accreditedType: accreditationCheck?.accreditedType ?? null
-    };
+      orgName: issuerData.orgName,
+      contactName: issuerData.contactName,
+      email: issuerData.email,
+      password: issuerData.password,
+      documents: issuerData.documents || [],
 
-    /* Step 4: Log registration info (debugging / trace)
+      // existing accreditation tag (non-blocking)
+      accredited: accreditationInfo.isAccredited,
+      accreditedType: accreditationInfo.accreditedType,
 
-      Technical: Logs org name + accreditation (if any).
-      Tropang Ex: Pang-check lang ng info habang nagre-register.
-    */
-    console.log('[COUCHDB] Creating issuer registration with data:', {
-      orgName: issuerData.orgName,
-      email: issuerData.email,
-      accredited: accreditationInfo.isAccredited,
-      accreditedType: accreditationInfo.accreditedType,
-      note: 'Accreditation gating disabled (non-blocking). Duplicate prevention enabled.'
-    });
+      // ✅ ADDED: governance fields
+      issuerType: issuerType,                 // "root" | "subordinate"
+      category: issuerData.category || null,
 
-    /* Step 5: Build issuer registration document
+      // ✅ ADDED: subordinate linkage
+      rootAuthorityId: isSubordinate ? (issuerData.rootAuthorityId || null) : null,
+      rootAuthorityName: isSubordinate ? (issuerData.rootAuthorityName || null) : null,
 
-      Technical: Constructs the issuer registration object with:
-        - unique issuer_ ID
-        - pending status
-        - (optional) accreditation info kept for future
-      Tropang Ex: Gumagawa ng “application form” document ng issuer.
-    */
-    const issuerDoc = {
-      _id: `issuer_${issuerData.email.replace(/@/g, '_').replace(/\./g, '_')}_${Date.now()}`,
-      type: 'issuer_registration',
-      role: 'issuer',
-      orgName: issuerData.orgName,
-      contactName: issuerData.contactName,
-      email: issuerData.email,
-      password: issuerData.password,
-      documents: issuerData.documents || [],
+      // ✅ ADDED: root approval gate (this is what admin approval will check)
+      rootApprovalStatus: rootApprovalStatus, // pending | approved | rejected | not_required
+      rootApprovedAt: null,
+      rootApprovedBy: null,
+      rootRejectionReason: null,
 
-      // kept for future use, but no longer used to block registration
-      accredited: accreditationInfo.isAccredited,
-      accreditedType: accreditationInfo.accreditedType,
+      // existing admin approval flow
+      status: 'pending',
+      createdAt: new Date().toISOString(),
+      approvedAt: null,
+      approvedBy: null,
 
-      status: 'pending',
-      createdAt: new Date().toISOString(),
-      approvedAt: null,
-      approvedBy: null,
+      // rejection fields (admin)
+      rejectionReason: null,
+      rejectedAt: null,
+      rejectedBy: null
+    };
 
-      // rejection fields (used when admin rejects)
-      rejectionReason: null,
-      rejectedAt: null,
-      rejectedBy: null
-    };
+    console.log('[COUCHDB] Final issuer doc before insert:', {
+      _id: issuerDoc._id,
+      orgName: issuerDoc.orgName,
+      email: issuerDoc.email,
+      status: issuerDoc.status,
 
-    /* Step 6: Final log before insert
-      Tropang Ex: Last check bago i-save sa DB.
-    */
-    console.log('[COUCHDB] Final issuer doc before insert:', {
-      _id: issuerDoc._id,
-      orgName: issuerDoc.orgName,
-      email: issuerDoc.email,
-      status: issuerDoc.status,
-      accredited: issuerDoc.accredited,
-      accreditedType: issuerDoc.accreditedType
-    });
+      // ✅ ADDED: debug for subordinate gating
+      issuerType: issuerDoc.issuerType,
+      rootApprovalStatus: issuerDoc.rootApprovalStatus,
+      rootAuthorityId: issuerDoc.rootAuthorityId
+    });
 
-    /* Step 7: Insert issuer registration into CouchDB
-      Technical: Saves issuer application into issuers DB.
-    */
-    return await issuersDB.insert(issuerDoc);
+    /* Step 5: Insert issuer registration into CouchDB */
+    return await issuersDB.insert(issuerDoc);
 
-  } catch (error) {
-    console.error('Error creating issuer registration:', error.message);
-    throw error;
-  }
+  } catch (error) {
+    console.error('Error creating issuer registration:', error.message);
+    throw error;
+  }
 }
+
 // ==========================================================================================================================================================================
 
 /*

@@ -23,8 +23,7 @@
   - POST /register-issuer        → authController.registerIssuer
   - POST /login-issuer           → authController.loginIssuer
   - GET  /pending-issuers        → authController.getPendingIssuers
-  - POST /approve-issuer/:issuerId → authController.approveIssuer
-  - POST /reject-issuer/:issuerId  → authController.rejectIssuer
+  
 
   CATEGORY: CREDENTIAL ROUTES (COUCHDB DASHBOARD)
   - GET   /issuer/:issuerId/credentials        → authController.getIssuerCredentials
@@ -79,7 +78,7 @@ router.post('/upload-pfp', upload.single('profilePicture'), authController.uploa
 // =========================================================================================================
 
 // POST /api/auth/register-issuer - Register a new issuer (multipart form-data, includes docs)
-router.post('/register-issuer', upload.single('documents'), authController.registerIssuer);
+router.post('/register-issuer', upload.array('documents'), authController.registerIssuer);
 
 // POST /api/auth/login-issuer - Login issuer
 router.post('/login-issuer', authController.loginIssuer);

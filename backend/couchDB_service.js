@@ -436,98 +436,90 @@ async function checkIfOrgAccredited(orgName) {
   - Accreditation fields retained for future use (default false/null if not provided).
 */
 async function createIssuerRegistration(issuerData, accreditationCheck = null) {
-  try {
-    /* Step 1: Ensure issuers DB is initialized */
-    if (!issuersDB) await initializeDatabases();
+  try {
+    /* Step 1: Ensure issuers DB is initialized */
+    if (!issuersDB) await initializeDatabases();
 
-    /* Step 2: Duplicate check (email + orgName) */
-    const dup = await checkDuplicateIssuerRegistration(issuerData.email, issuerData.orgName);
-    if (dup.isDuplicate) {
-      const err = new Error(
-        `Issuer registration already exists for ${issuerData.email} (${issuerData.orgName}). ` +
-        `Existing status: ${dup.existing.status}`
-      );
-      err.statusCode = 409;
-      err.details = dup.existing;
-      throw err;
-    }
+    /* Step 2: Duplicate check (email + orgName) */
+    const dup = await checkDuplicateIssuerRegistration(issuerData.email, issuerData.orgName);
+    if (dup.isDuplicate) {
+      const err = new Error(
+        `Issuer registration already exists for ${issuerData.email} (${issuerData.orgName}). ` +
+        `Existing status: ${dup.existing.status}`
+      );
+      err.statusCode = 409;
+      err.details = dup.existing;
+      throw err;
+    }
 
-    /* Step 3: Normalize accreditation info (optional / non-blocking) */
-    const accreditationInfo = {
-      isAccredited: accreditationCheck?.isAccredited ?? false,
-      accreditedType: accreditationCheck?.accreditedType ?? null
-    };
+    /* Step 3: Normalize accreditation info */
+    const accreditationInfo = {
+      isAccredited: accreditationCheck?.isAccredited ?? false,
+      accreditedType: accreditationCheck?.accreditedType ?? null
+    };
 
-    // ✅ ADDED: Normalize issuerType
-    const issuerType = String(issuerData.issuerType || 'root').trim().toLowerCase();
-    const isSubordinate = issuerType === 'subordinate';
+    /* Step 4: Normalize governance fields */
+    const issuerType = String(issuerData.issuerType || 'root').trim().toLowerCase();
+    const isSubordinate = issuerType === 'subordinate';
+    const rootApprovalStatus = isSubordinate ? 'pending' : 'not_required';
 
-    // ✅ ADDED: Root approval gating fields
-    // subordinate → needs root approval first
-    // root → no root approval required
-    const rootApprovalStatus = isSubordinate ? 'pending' : 'not_required';
+    /* Step 5: Build issuer registration document */
+    const issuerDoc = {
+      _id: `issuer_${issuerData.email.replace(/@/g, '_').replace(/\./g, '_')}_${Date.now()}`,
+      type: 'issuer_registration',
+      role: 'issuer',
 
-    /* Step 4: Build issuer registration document */
-    const issuerDoc = {
-      _id: `issuer\\\_${issuerData.email.replace(/@/g, '\\\_').replace(/\\\\./g, '\\\_')}\\\_${Date.now()}`,
-      type: 'issuer_registration',
-      role: 'issuer',
+      orgName: issuerData.orgName,
+      contactName: issuerData.contactName,
+      email: issuerData.email,
+      password: issuerData.password,
 
-      orgName: issuerData.orgName,
-      contactName: issuerData.contactName,
-      email: issuerData.email,
-      password: issuerData.password,
-      documents: issuerData.documents || [],
+      // ✅ documents are now structured objects with docType
+      documents: issuerData.documents || [],
 
-      // existing accreditation tag (non-blocking)
-      accredited: accreditationInfo.isAccredited,
-      accreditedType: accreditationInfo.accreditedType,
+      accredited: accreditationInfo.isAccredited,
+      accreditedType: accreditationInfo.accreditedType,
 
-      // ✅ ADDED: governance fields
-      issuerType: issuerType,                 // "root" | "subordinate"
-      category: issuerData.category || null,
+      issuerType: issuerType,
+      category: issuerData.category, // now required upstream
 
-      // ✅ ADDED: subordinate linkage
-      rootAuthorityId: isSubordinate ? (issuerData.rootAuthorityId || null) : null,
-      rootAuthorityName: isSubordinate ? (issuerData.rootAuthorityName || null) : null,
+      rootAuthorityId: isSubordinate ? (issuerData.rootAuthorityId || null) : null,
+      rootAuthorityName: isSubordinate ? (issuerData.rootAuthorityName || null) : null,
 
-      // ✅ ADDED: root approval gate (this is what admin approval will check)
-      rootApprovalStatus: rootApprovalStatus, // pending | approved | rejected | not_required
-      rootApprovedAt: null,
-      rootApprovedBy: null,
-      rootRejectionReason: null,
+      rootApprovalStatus: rootApprovalStatus,
+      rootApprovedAt: null,
+      rootApprovedBy: null,
+      rootRejectionReason: null,
 
-      // existing admin approval flow
-      status: 'pending',
-      createdAt: new Date().toISOString(),
-      approvedAt: null,
-      approvedBy: null,
+      status: 'pending',
+      createdAt: new Date().toISOString(),
+      approvedAt: null,
+      approvedBy: null,
 
-      // rejection fields (admin)
-      rejectionReason: null,
-      rejectedAt: null,
-      rejectedBy: null
-    };
+      rejectionReason: null,
+      rejectedAt: null,
+      rejectedBy: null
+    };
 
-    console.log('[COUCHDB] Final issuer doc before insert:', {
-      _id: issuerDoc._id,
-      orgName: issuerDoc.orgName,
-      email: issuerDoc.email,
-      status: issuerDoc.status,
+    console.log('[COUCHDB] Final issuer doc before insert:', {
+      _id: issuerDoc._id,
+      orgName: issuerDoc.orgName,
+      email: issuerDoc.email,
+      status: issuerDoc.status,
+      issuerType: issuerDoc.issuerType,
+      category: issuerDoc.category,
+      rootApprovalStatus: issuerDoc.rootApprovalStatus,
+      rootAuthorityId: issuerDoc.rootAuthorityId,
+      documentCount: issuerDoc.documents.length
+    });
 
-      // ✅ ADDED: debug for subordinate gating
-      issuerType: issuerDoc.issuerType,
-      rootApprovalStatus: issuerDoc.rootApprovalStatus,
-      rootAuthorityId: issuerDoc.rootAuthorityId
-    });
+    /* Step 6: Insert issuer registration into CouchDB */
+    return await issuersDB.insert(issuerDoc);
 
-    /* Step 5: Insert issuer registration into CouchDB */
-    return await issuersDB.insert(issuerDoc);
-
-  } catch (error) {
-    console.error('Error creating issuer registration:', error.message);
-    throw error;
-  }
+  } catch (error) {
+    console.error('Error creating issuer registration:', error.message);
+    throw error;
+  }
 }
 
 // ==========================================================================================================================================================================

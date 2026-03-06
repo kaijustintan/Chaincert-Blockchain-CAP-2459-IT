@@ -46,6 +46,7 @@
 */
 
 const couchDB = require('../couchDB_service');
+const ISSUER_CATEGORY_REQUIREMENTS = require('../config/issuerRequirements');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 // removed wallet 
@@ -500,170 +501,244 @@ getAllUsers: async (req, res) => {
   upload.single('documents') gives req.file (single file)
 */
 registerIssuer: async (req, res) => {
-  try {
-    /* Step 1: Extract fields from request */
-    const {
-      orgName,
-      contactName,
-      email,
-      password,
-      confirmPassword,
+  try {
+    /* Step 1: Extract fields from request */
+    const {
+      orgName,
+      contactName,
+      email,
+      password,
+      confirmPassword,
 
-      // ✅ ADDED: governance fields for final design
-      issuerType,        // "root" | "subordinate"
-      rootAuthorityId,   // required if subordinate
-      category           // optional for now
-    } = req.body;
+      issuerType,        // "root" | "subordinate"
+      rootAuthorityId,   // required if subordinate
+      category           // ✅ NOW REQUIRED
+    } = req.body;
 
-    console.log('=== ISSUER REGISTRATION DEBUG START (authController) ===');
-    console.log('[1] orgName:', orgName);
-    console.log('[2] contactName:', contactName);
-    console.log('[3] email:', email);
-    console.log('[4] issuerType:', issuerType);
-    console.log('[5] rootAuthorityId:', rootAuthorityId);
-    console.log('[6] category:', category);
+    console.log('=== ISSUER REGISTRATION DEBUG START (authController) ===');
+    console.log('[1] orgName:', orgName);
+    console.log('[2] contactName:', contactName);
+    console.log('[3] email:', email);
+    console.log('[4] issuerType:', issuerType);
+    console.log('[5] rootAuthorityId:', rootAuthorityId);
+    console.log('[6] category:', category);
 
-    /* Step 2: Validate required fields */
-    if (!orgName || !contactName || !email || !password || !confirmPassword) {
-      return res.status(400).json({
-        success: false,
-        message: 'All fields are required'
-      });
-    }
+    /* Step 2: Validate required base fields */
+    if (!orgName || !contactName || !email || !password || !confirmPassword) {
+      return res.status(400).json({
+        success: false,
+        message: 'All fields are required'
+      });
+    }
 
-    /* Step 3: Confirm passwords match */
-    if (password !== confirmPassword) {
-      return res.status(400).json({
-        success: false,
-        message: 'Passwords do not match'
-      });
-    }
+    /* Step 3: Confirm passwords match */
+    if (password !== confirmPassword) {
+      return res.status(400).json({
+        success: false,
+        message: 'Passwords do not match'
+      });
+    }
 
-    // ✅ ADDED: Normalize email
-    const normalizedEmail = String(email).trim().toLowerCase();
+    /* Step 4: Normalize email */
+    const normalizedEmail = String(email).trim().toLowerCase();
 
-    // ✅ ADDED: Prevent duplicate email across users + issuers
-    const dupCheck = await couchDB.isEmailAlreadyUsed(normalizedEmail);
-    if (dupCheck?.exists) {
-      return res.status(409).json({
-        success: false,
-        message: 'Email is already registered in the system.',
-        where: dupCheck.where // users | issuers
-      });
-    }
+    /* Step 5: Prevent duplicate email across users + issuers */
+    const dupCheck = await couchDB.isEmailAlreadyUsed(normalizedEmail);
+    if (dupCheck?.exists) {
+      return res.status(409).json({
+        success: false,
+        message: 'Email is already registered in the system.',
+        where: dupCheck.where
+      });
+    }
 
-    // ✅ ADDED: Normalize issuerType (default = root)
-    const normalizedIssuerType = String(issuerType || 'root').trim().toLowerCase();
-    if (!['root', 'subordinate'].includes(normalizedIssuerType)) {
-      return res.status(400).json({
-        success: false,
-        message: "Invalid issuerType. Must be 'root' or 'subordinate'."
-      });
-    }
+    /* Step 6: Normalize issuerType */
+    const normalizedIssuerType = String(issuerType || 'root').trim().toLowerCase();
+    if (!['root', 'subordinate'].includes(normalizedIssuerType)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid issuerType. Must be 'root' or 'subordinate'."
+      });
+    }
 
-    // ✅ ADDED: If subordinate, validate chosen root authority exists + is approved
-    // NOTE: Even if dropdown is backend-driven, we still validate to prevent tampering.
-    let rootAuthorityName = null;
+    /* Step 7: ✅ Category is now REQUIRED */
+    const normalizedCategory = String(category || '').trim().toLowerCase();
 
-    if (normalizedIssuerType === 'subordinate') {
-      if (!rootAuthorityId) {
-        return res.status(400).json({
-          success: false,
-          message: 'rootAuthorityId is required when issuerType is subordinate.'
-        });
-      }
+    if (!normalizedCategory) {
+      return res.status(400).json({
+        success: false,
+        message: 'Category is required.'
+      });
+    }
 
-      // uses your existing function (you said you’ll reuse this) ✅
-      const approved = await couchDB.getApprovedIssuers();
-      const rootDoc = (approved || []).find(r => r?._id === rootAuthorityId);
+    if (!ISSUER_CATEGORY_REQUIREMENTS[normalizedCategory]) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid category selected.'
+      });
+    }
 
-      if (!rootDoc) {
-        return res.status(400).json({
-          success: false,
-          message: 'Invalid rootAuthorityId. Must be an approved root authority issuer.'
-        });
-      }
+    /* Step 8: If subordinate, validate chosen root authority exists + is approved */
+    let rootAuthorityName = null;
 
-      rootAuthorityName = rootDoc.orgName || rootDoc.contactName || rootDoc.email || null;
-    }
+    if (normalizedIssuerType === 'subordinate') {
+      if (!rootAuthorityId) {
+        return res.status(400).json({
+          success: false,
+          message: 'rootAuthorityId is required when issuerType is subordinate.'
+        });
+      }
 
-    /* Step 4: OPTIONAL accreditation check (NON-BLOCKING) */
-    let accreditationCheck = null;
-    try {
-      console.log(`\\\[ACCREDITATION] (Optional) Checking accreditation for "${orgName}"...`);
-      accreditationCheck = await couchDB.checkIfOrgAccredited(orgName);
-      console.log('[ACCREDITATION] Result (non-blocking):', accreditationCheck);
-    } catch (accErr) {
-      console.warn('[ACCREDITATION] Check failed (proceeding anyway):', accErr.message);
-      accreditationCheck = null;
-    }
+      const approved = await couchDB.getApprovedIssuers();
+      const rootDoc = (approved || []).find(r => r?._id === rootAuthorityId);
 
-    /* Step 5: Hash password */
-    console.log('[HASH] Hashing password...');
-    const hashedPassword = await bcrypt.hash(password, 10);
+      if (!rootDoc) {
+        return res.status(400).json({
+          success: false,
+          message: 'Invalid rootAuthorityId. Must be an approved root authority issuer.'
+        });
+      }
 
-    // ✅ CHANGED: Support multiple file uploads
-    // - if you updated authRoutes to upload.array('documents'), use req.files
-    // - fallback kept for safety if still single upload
-    const docs = Array.isArray(req.files) ? req.files : (req.file ? [req.file] : []);
+      rootAuthorityName = rootDoc.orgName || rootDoc.contactName || rootDoc.email || null;
+    }
 
-    /* Step 6: Build issuerData */
-    const issuerData = {
-      orgName: String(orgName).trim(),
-      contactName: String(contactName).trim(),
-      email: normalizedEmail,
-      password: hashedPassword,
-      documents: docs,
+    /* Step 9: ✅ Validate required documents based on category */
+    const uploadedFiles = Array.isArray(req.files) ? req.files : [];
 
-      // ✅ ADDED: store governance fields
-      issuerType: normalizedIssuerType,
-      rootAuthorityId: normalizedIssuerType === 'subordinate' ? rootAuthorityId : null,
-      rootAuthorityName: normalizedIssuerType === 'subordinate' ? rootAuthorityName : null,
-      category: category ? String(category).trim() : null
-    };
+    const uploadedFieldNames = new Set(
+      uploadedFiles.map(file => String(file.fieldname || '').trim().toLowerCase())
+    );
 
-    /* Step 7: Save issuer registration (pending) */
-    console.log('[COUCHDB] Saving issuer registration (pending issuer application)...');
+    const requiredDocs = [...ISSUER_CATEGORY_REQUIREMENTS[normalizedCategory]];
 
-    let result;
-    try {
-      result = await couchDB.createIssuerRegistration(issuerData, accreditationCheck);
-    } catch (err) {
-      if (err.statusCode === 409) {
-        return res.status(409).json({
-          success: false,
-          message: 'Issuer registration already exists for this email/org.',
-          existing: err.details || null
-        });
-      }
-      throw err;
-    }
+    // subordinate-specific required doc
+    if (normalizedIssuerType === 'subordinate') {
+      requiredDocs.push('root_authorization_letter');
+    }
 
-    console.log('[REGISTER ISSUER] ✅ Result:', result);
-    console.log('=== ISSUER REGISTRATION DEBUG END ===\n');
+    const missingDocs = requiredDocs.filter(docKey => !uploadedFieldNames.has(docKey));
 
-    return res.status(201).json({
-      success: true,
-      message: 'Issuer registration submitted successfully (pending approval)',
-      issuerId: result.id,
+    if (missingDocs.length > 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'Missing required documents.',
+        missingDocuments: missingDocs
+      });
+    }
 
-      // ✅ ADDED: helpful to reflect in frontend if needed
-      issuerType: issuerData.issuerType,
-      rootAuthorityId: issuerData.rootAuthorityId,
-      rootAuthorityName: issuerData.rootAuthorityName,
-      category: issuerData.category,
+    /* Step 10: OPTIONAL accreditation check (NON-BLOCKING) */
+    let accreditationCheck = null;
+    try {
+      console.log(`[ACCREDITATION] (Optional) Checking accreditation for "${orgName}"...`);
+      accreditationCheck = await couchDB.checkIfOrgAccredited(orgName);
+      console.log('[ACCREDITATION] Result (non-blocking):', accreditationCheck);
+    } catch (accErr) {
+      console.warn('[ACCREDITATION] Check failed (proceeding anyway):', accErr.message);
+      accreditationCheck = null;
+    }
 
-      accredited: accreditationCheck?.isAccredited ?? false,
-      accreditedType: accreditationCheck?.accreditedType ?? null
-    });
+    /* Step 11: Hash password */
+    console.log('[HASH] Hashing password...');
+    const hashedPassword = await bcrypt.hash(password, 10);
 
-  } catch (error) {
-    console.error('Issuer registration error:', error);
-    return res.status(500).json({
-      success: false,
-      message: error.message
-    });
-  }
+    /* Step 12: ✅ Normalize uploaded docs into structured format */
+    const docs = uploadedFiles.map(file => ({
+      docType: String(file.fieldname || '').trim().toLowerCase(),
+      originalname: file.originalname,
+      mimetype: file.mimetype,
+      size: file.size,
+      buffer: file.buffer
+    }));
+
+    /* Step 13: Build issuerData */
+    const issuerData = {
+      orgName: String(orgName).trim(),
+      contactName: String(contactName).trim(),
+      email: normalizedEmail,
+      password: hashedPassword,
+      documents: docs,
+
+      issuerType: normalizedIssuerType,
+      rootAuthorityId: normalizedIssuerType === 'subordinate' ? rootAuthorityId : null,
+      rootAuthorityName: normalizedIssuerType === 'subordinate' ? rootAuthorityName : null,
+      category: normalizedCategory
+    };
+
+    /* Step 14: Save issuer registration */
+    console.log('[COUCHDB] Saving issuer registration (pending issuer application)...');
+
+    let result;
+    try {
+      result = await couchDB.createIssuerRegistration(issuerData, accreditationCheck);
+    } catch (err) {
+      if (err.statusCode === 409) {
+        return res.status(409).json({
+          success: false,
+          message: 'Issuer registration already exists for this email/org.',
+          existing: err.details || null
+        });
+      }
+      throw err;
+    }
+
+    console.log('[REGISTER ISSUER] ✅ Result:', result);
+    console.log('=== ISSUER REGISTRATION DEBUG END ===\n');
+
+    return res.status(201).json({
+      success: true,
+      message: 'Issuer registration submitted successfully (pending approval)',
+      issuerId: result.id,
+      issuerType: issuerData.issuerType,
+      rootAuthorityId: issuerData.rootAuthorityId,
+      rootAuthorityName: issuerData.rootAuthorityName,
+      category: issuerData.category,
+      requiredDocumentsValidated: true,
+      accredited: accreditationCheck?.isAccredited ?? false,
+      accreditedType: accreditationCheck?.accreditedType ?? null
+    });
+
+  } catch (error) {
+    console.error('Issuer registration error:', error);
+    return res.status(500).json({
+      success: false,
+      message: error.message
+    });
+  }
+},
+
+getIssuerRequirementsByCategory: async (req, res) => {
+  try {
+    const category = String(req.params.category || '').trim().toLowerCase();
+
+    if (!category) {
+      return res.status(400).json({
+        success: false,
+        message: 'Category is required.'
+      });
+    }
+
+    const requirements = ISSUER_CATEGORY_REQUIREMENTS[category];
+
+    if (!requirements) {
+      return res.status(404).json({
+        success: false,
+        message: 'No requirements found for the selected category.'
+      });
+    }
+
+    return res.status(200).json({
+      success: true,
+      category,
+      requiredDocuments: requirements
+    });
+
+  } catch (error) {
+    console.error('Error fetching issuer requirements:', error);
+    return res.status(500).json({
+      success: false,
+      message: error.message
+    });
+  }
 },
 
 

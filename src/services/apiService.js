@@ -206,6 +206,61 @@ const apiService = {
       throw error;
     }
   },
+
+  /*
+  Function Name: getIssuerRequirementsByCategory
+
+  Technical:
+  Fetches the required document list for a selected issuer category via:
+    GET /auth/issuer-requirements/:category
+
+  Tropang Ex:
+  Kapag pumili yung user ng category (e.g. university, government, training_provider),
+  tatawagin ito para malaman ng frontend kung anong exact documents ang ipapakita
+  at ire-require sa registration form.
+*/
+getIssuerRequirementsByCategory: async (category) => {
+  try {
+
+    /* Step 1: Validate input
+      Tropang Ex:
+      Kailangan may category muna bago humingi ng required docs.
+    */
+    if (!category) {
+      throw new Error('category is required');
+    }
+
+    /* Step 2: Send GET request to backend
+      Technical:
+      Calls backend route:
+        /api/auth/issuer-requirements/:category
+
+      Tropang Ex:
+      Frontend → backend:
+      "Ano yung requirements para sa category na ’to?"
+    */
+    const response = await axios.get(
+      `/auth/issuer-requirements/${encodeURIComponent(category)}`
+    );
+
+    /* Step 3: Return backend payload
+      Expected backend response:
+      {
+        success: true,
+        category: "university",
+        requiredDocuments: [...]
+      }
+    */
+    return response.data;
+
+  } catch (error) {
+    console.error(
+      'Error fetching issuer requirements by category:',
+      error.response?.data?.message || error.message
+    );
+    throw error;
+  }
+},
   // ==========================================================================================================================================================================
 
 

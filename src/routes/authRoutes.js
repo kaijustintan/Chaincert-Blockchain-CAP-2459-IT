@@ -78,7 +78,9 @@ router.post('/upload-pfp', upload.single('profilePicture'), authController.uploa
 // =========================================================================================================
 
 // POST /api/auth/register-issuer - Register a new issuer (multipart form-data, includes docs)
-router.post('/register-issuer', upload.array('documents'), authController.registerIssuer);
+router.post('/register-issuer', upload.any(), authController.registerIssuer);
+
+router.get('/issuer-requirements/:category', authController.getIssuerRequirementsByCategory);
 
 // POST /api/auth/login-issuer - Login issuer
 router.post('/login-issuer', authController.loginIssuer);

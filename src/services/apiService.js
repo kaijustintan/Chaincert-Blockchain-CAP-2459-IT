@@ -524,6 +524,92 @@ rejectIssuer: async (issuerId, rejectionReason) => {
     throw error;
   }
 },
+// ==========================================================================================================================================================================
+
+// =============================================================================================================
+// ROOT AUTHORITY → Approve/Reject Subordinate Issuer (Blockchain-aware via SDK)
+// =============================================================================================================
+
+/*
+  Function Name: rootApproveSubordinateIssuer
+
+  Technical:
+  Root authority approves a subordinate issuer application.
+  Backend will:
+   - update CouchDB rootApprovalStatus=approved
+   - log approval on blockchain (best-effort)
+
+  Params:
+   - issuerId (the subordinate issuer application _id)
+   - approvalReason (optional)
+*/
+rootApproveSubordinateIssuer: async (issuerId, approvalReason) => {
+  try {
+    const response = await axios.post(
+      `/root-approve-subordinate/${issuerId}`,
+      { approvalReason: approvalReason || '' }
+    );
+    return response.data;
+  } catch (error) {
+    console.error(
+      'Error root-approving subordinate issuer:',
+      error.response?.data?.message || error.message
+    );
+    throw error;
+  }
+},
+
+/*
+  Function Name: rootRejectSubordinateIssuer
+
+  Technical:
+  Root authority rejects a subordinate issuer application.
+  Backend will:
+   - update CouchDB rootApprovalStatus=rejected
+   - log rejection on blockchain (best-effort)
+
+  Params:
+   - issuerId (the subordinate issuer application _id)
+   - rejectionReason (required)
+*/
+rootRejectSubordinateIssuer: async (issuerId, rejectionReason) => {
+  try {
+    const response = await axios.post(
+      `/root-reject-subordinate/${issuerId}`,
+      { rejectionReason }
+    );
+    return response.data;
+  } catch (error) {
+    console.error(
+      'Error root-rejecting subordinate issuer:',
+      error.response?.data?.message || error.message
+    );
+    throw error;
+  }
+},
+
+/*
+  Function Name: getPendingSubordinatesForRoot
+
+  Technical:
+  Fetch all pending subordinate applications under the logged-in root authority.
+  (Used for root authority dashboard approval list)
+
+  Returns:
+   - list of subordinate issuer docs (pending rootApprovalStatus)
+*/
+getPendingSubordinatesForRoot: async () => {
+  try {
+    const response = await axios.get(`/root/subordinates/pending`);
+    return response.data;
+  } catch (error) {
+    console.error(
+      'Error fetching pending subordinates:',
+      error.response?.data?.message || error.message
+    );
+    throw error;
+  }
+},
   // ==========================================================================================================================================================================
 // ==========================================================================================================================================================================
 //                                                               ADMIN / STATUS MANAGEMENT (DISABLE / ENABLE)

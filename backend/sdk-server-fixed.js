@@ -56,7 +56,8 @@
 */
 
 const express = require('express');          // Express framework for building REST APIs
-// cron moved to adminDashboardController.js - poloconst cors = require('cors');                // Enables Cross-Origin Resource Sharing (CORS)
+// cron moved to adminDashboardController.js - poloconst 
+const cors = require('cors');                // Enables Cross-Origin Resource Sharing (CORS)
 const { Gateway, Wallets } = require('fabric-network'); // Hyperledger Fabric SDK (connect to blockchain + manage identities)
 const path = require('path');                // Node utility for handling file and directory paths
 const fs = require('fs');                    // File system access (read CCP files, check existence)
@@ -979,6 +980,26 @@ app.post('/api/approve-issuer/:issuerId', (req, res) => {
 
 app.post('/api/reject-issuer/:issuerId', (req, res) => {
   authController.rejectIssuer(req, res, getContractAndGateway);
+});
+// ==========================================================================================================================================================================
+
+// =========================================================================================================
+// ROOT AUTHORITY → Subordinate Approval/Rejection (Blockchain-aware)
+// =========================================================================================================
+
+// Root authority approves subordinate (CouchDB update + blockchain log)
+app.post('/api/root-approve-subordinate/:issuerId', (req, res) => {
+  authController.rootApproveSubordinateIssuer(req, res, getContractAndGateway);
+});
+
+// Root authority rejects subordinate (CouchDB update + blockchain log)
+app.post('/api/root-reject-subordinate/:issuerId', (req, res) => {
+  authController.rootRejectSubordinateIssuer(req, res, getContractAndGateway);
+});
+
+// Root authority views pending subordinates under them (CouchDB read-only)
+app.get('/api/root/subordinates/pending', (req, res) => {
+  authController.getPendingSubordinatesForRoot(req, res);
 });
 // ==========================================================================================================================================================================
 

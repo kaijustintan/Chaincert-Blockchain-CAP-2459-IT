@@ -698,26 +698,21 @@ async function checkDuplicateIssuerRegistration(email, orgName) {
             - fabric identity (pang blockchain)
             - couchDBUrl (kung saan DB niya naka-host)
             - walletId (pang wallet tracking)
+
+  ✅ ADDED (NEW DESIGN):
+  - If issuerType === "subordinate", admin approval is BLOCKED unless rootApprovalStatus === "approved"
+  - Prevent approving if status is not "pending" (avoid re-approve / invalid transitions)
 */
 async function approveIssuer(issuerId, adminId) {
   try {
-
     /* Step 1: Ensure issuersDB is ready */
     if (!issuersDB) await initializeDatabases();
 
-    /* Step 2: Logs which issuerId is being approved. (DEBUG Purposes)
-      Tropang Ex: Pang-trace lang para alam mo kung sino ina-approve sa logs.
-    */
     console.log(`[COUCHDB] Approving issuer: ${issuerId}`);
 
-    /* Step 3: Fetch issuer application document from issuers DB via its ID
-      Tropang Ex: Kinukuha yung application record ni issuer para ma-update natin fields niya.
-    */
+    /* Step 3: Fetch issuer application document */
     const issuerDoc = await issuersDB.get(issuerId);
 
-    /* Step 4: Log key issuer info (debug snapshot)
-      Tropang Ex: Quick sanity check kung tama yung issuer doc na nakuha (name/email/org).
-    */
     console.log(`[COUCHDB] Retrieved issuer:`, {
       _id: issuerDoc._id,
       contactName: issuerDoc.contactName,
@@ -725,48 +720,46 @@ async function approveIssuer(issuerId, adminId) {
       orgName: issuerDoc.orgName
     });
 
-    /* Step 5: Assign Fabric identity dynamically
+    // ✅ ADDED: block invalid approval transitions (optional but recommended)
+    if (String(issuerDoc.status || '').toLowerCase() !== 'pending') {
+      const err = new Error(
+        `Issuer cannot be approved because current status is '${issuerDoc.status}'.`
+      );
+      err.statusCode = 409;
+      throw err;
+    }
 
-      Technical: Creates a Fabric identity string from orgName:
-                orgName -> lowercase + remove spaces + "-admin"
-      Tropang Ex: Gumagawa ng blockchain identity name based sa orgName para consistent.
-      Example: "De La Salle University" -> "delasalleuniversity-admin"
-      NOTE: This assumes may corresponding identity w the EXACT name talaga sa wallet/CA side.
-            So yung id na nacreate during node setupWallet etc, = to delasalleuniversity-admin rin dapat
-    */
+    // ✅ ADDED: subordinate gate — root must approve first
+    const issuerType = String(issuerDoc.issuerType || 'root').trim().toLowerCase();
+    const rootApprovalStatus = String(issuerDoc.rootApprovalStatus || 'not_required')
+      .trim()
+      .toLowerCase();
+
+    if (issuerType === 'subordinate' && rootApprovalStatus !== 'approved') {
+      const err = new Error(
+        'Cannot approve subordinate issuer until root authority approves first.'
+      );
+      err.statusCode = 403;
+      throw err;
+    }
+
+    /* Step 5: Assign Fabric identity dynamically */
     if (issuerDoc.orgName) {
-      const fabricId = issuerDoc.orgName.trim().toLowerCase().replace(/\s+/g, '') + '-admin';
+      const fabricId =
+        issuerDoc.orgName.trim().toLowerCase().replace(/\s+/g, '') + '-admin';
       issuerDoc.fabricIdentity = fabricId;
     } else {
       issuerDoc.fabricIdentity = undefined;
     }
 
-    /* Step 6: Resolve issuer-specific CouchDB URL using "couchdb_connections" DB
-
-      Technical:
-        --> Normalize orgName (lowercase + remove spaces)
-        --> Query admin CouchDB DB "couchdb_connections"
-        --> Find matching orgName doc to get couchDBUrl
-      Example:
-        orgName = "De La Salle University"
-        normalized = "delasalleuniversity"
-        -> find doc { orgName: "delasalleuniversity", couchDBUrl: "http://..." }
-      NOTE! --> couchDB connection of an org was MANUALLY inserted sa "couchdb_connections" database 
-    */
+    /* Step 6: Resolve issuer-specific CouchDB URL using "couchdb_connections" DB */
     const normalizedOrgName = issuerDoc.orgName.toLowerCase().replace(/\s+/g, "");
     const nanoAdmin = require('nano')('http://admin:adminpw@localhost:5985');
     const connDb = nanoAdmin.use('couchdb_connections');
 
     const result = await connDb.find({ selector: { orgName: normalizedOrgName } });
 
-    /* Step 7: Attach couchDBUrl if nahanap/meron
-      Technical:
-        - If match found, set issuerDoc.couchDBUrl
-        - If none found, throw error (approval stops)
-      Tropang Ex:
-        - Pag walang CouchDB URL mapping, bawal i-approve kasi di makakapag-save ng wallet/credentials later.
-        - So hard fail siya para ma-fix muna mapping.
-    */
+    /* Step 7: Attach couchDBUrl */
     if (result.docs.length > 0) {
       issuerDoc.couchDBUrl = result.docs[0].couchDBUrl;
       console.log(`[COUCHDB] Assigned couchDBUrl for issuer:`, issuerDoc.couchDBUrl);
@@ -774,39 +767,25 @@ async function approveIssuer(issuerId, adminId) {
       throw new Error('No CouchDB connection found for org: ' + normalizedOrgName);
     }
 
-    /* Step 8: Generate unique walletId for issuer
-
-      Technical: Creates a unique walletId based on timestamp.
-      Tropang Ex: Gumagawa ng wallet identifier para ma-track yung “wallet” ni issuer sa system.
-    */
+    /* Step 8: Generate unique walletId for issuer */
     const walletId = `wallet_${Date.now()}`;
     issuerDoc.walletId = walletId;
 
-    /* Step 9: Update approval fields (status + approver + timestamp)
-      Technical:
-        - status = approved
-        - approvedBy = adminId
-        - approvedAt = now
-      Tropang Ex:
-        - Eto yung actual “approval stamp” sa record.
-        - Makikita sa admin dashboard / audit later.
-    */
+    /* Step 9: Update approval fields */
     issuerDoc.status = 'approved';
     issuerDoc.approvedBy = adminId;
     issuerDoc.approvedAt = new Date().toISOString();
 
-    /* Step 10: Save updated issuer doc back to CouchDB
-      Tropang Ex: Sine-save na natin yung updated issuer record sa database.
-    */
+    // ✅ ADDED: clear rejection fields if previously set (keeps doc clean)
+    issuerDoc.rejectionReason = null;
+    issuerDoc.rejectedAt = null;
+    issuerDoc.rejectedBy = null;
+
+    /* Step 10: Save updated issuer doc */
     await issuersDB.insert(issuerDoc);
     console.log(`[COUCHDB] Issuer status updated to 'approved'`);
 
-    /* Step 11: Return important issuer fields (summary response)
-      Technical: Returns a trimmed object for callers (controllers/endpoints).
-      Tropang Ex: Ito yung ibabalik sa API response para makita agad ni frontend yung updated status/info.
-      “Okay, approved na yung issuer. I wont give d full issuerDoc. Eto lang yung info na kailangan mong malaman ngayon—
-       hindi ko ibibigay lahat, kasi hindi mo naman kailangan at delikado pa. (ex: password)”
-    */
+    /* Step 11: Return summary response */
     return {
       _id: issuerDoc._id,
       contactName: issuerDoc.contactName,
@@ -820,11 +799,11 @@ async function approveIssuer(issuerId, adminId) {
     };
 
   } catch (error) {
-    // Optional: if you want consistent error logs for this function
     console.error(`[COUCHDB] ❌ approveIssuer failed:`, error.message);
     throw error;
   }
 }
+
 // ==========================================================================================================================================================================
 
 /* 
@@ -835,29 +814,28 @@ async function approveIssuer(issuerId, adminId) {
             - status = rejected
             - rejection reason (bakit siya bagsak)
             - rejectedAt timestamp (kelan nireject)
+
+  ✅ ADDED (recommended):
+  - Prevent rejecting if status is not "pending" (avoid rejecting already approved/rejected)
 */
 async function rejectIssuer(issuerId, rejectionReason) {
-
-  /* Step 1: Ensure issuersDB is initialized */
   if (!issuersDB) await initializeDatabases();
 
-  /* Step 2: Retrieve issuer record by ID
-    Technical: Fetch issuer application document from CouchDB.
-  */
   const issuerDoc = await issuersDB.get(issuerId);
 
-  /* Step 3: Update fields for rejection
-    Technical: Mark as rejected + store reason + timestamp.
-    Tropang Ex: Nilalagay na yung “rejected” status + bakit + kelan.
-  */
+  // ✅ ADDED: block invalid rejection transitions (optional but recommended)
+  if (String(issuerDoc.status || '').toLowerCase() !== 'pending') {
+    const err = new Error(
+      `Issuer cannot be rejected because current status is '${issuerDoc.status}'.`
+    );
+    err.statusCode = 409;
+    throw err;
+  }
+
   issuerDoc.status = 'rejected';
   issuerDoc.rejectionReason = rejectionReason;
   issuerDoc.rejectedAt = new Date().toISOString();
 
-  /* Step 4: Save updated doc back to CouchDB
-    Technical: Inserts updated issuerDoc (same _id, new _rev).
-    Tropang Ex: Official na yung rejection, naka-save na sa DB.
-  */
   return await issuersDB.insert(issuerDoc);
 }
 // ==========================================================================================================================================================================
@@ -889,6 +867,237 @@ async function getApprovedIssuer(email) {
   return result.docs.length > 0 ? result.docs[0] : null;
 }
 
+// ==========================================================================================================================================================================
+// ROOT AUTHORITY → SUBORDINATE ISSUER APPROVAL FUNCTIONS
+// ==========================================================================================================================================================================
+
+/*
+  Function Name: getPendingSubordinatesForRoot
+
+  Technical:
+  Fetches all pending subordinate issuer applications assigned to a specific root authority.
+  Filters by:
+    - type = issuer_registration
+    - status = pending
+    - issuerType = subordinate
+    - rootAuthorityId = <logged in root issuer id>
+    - rootApprovalStatus = pending
+
+  Tropang Ex:
+  Ito yung listahan ng mga subordinate applications na naghihintay
+  ng approval ng specific root authority.
+*/
+async function getPendingSubordinatesForRoot(rootAuthorityId) {
+  try {
+    if (!issuersDB) await initializeDatabases();
+
+    if (!rootAuthorityId) {
+      throw new Error('rootAuthorityId is required');
+    }
+
+    const result = await issuersDB.find({
+      selector: {
+        type: 'issuer_registration',
+        status: 'pending',
+        issuerType: 'subordinate',
+        rootAuthorityId: rootAuthorityId,
+        rootApprovalStatus: 'pending'
+      },
+      sort: ['createdAt']
+    });
+
+    return result.docs || [];
+
+  } catch (error) {
+    console.error('[COUCHDB] Error getting pending subordinates for root:', error.message);
+    throw error;
+  }
+}
+
+// ==========================================================================================================================================================================
+
+/*
+  Function Name: rootApproveSubordinateIssuer
+
+  Technical:
+  Root authority approves a subordinate issuer application.
+  Updates ONLY the root-approval layer, not the final admin approval.
+  Does NOT change status from pending.
+  Updates:
+    - rootApprovalStatus = approved
+    - rootApprovedAt
+    - rootApprovedBy
+    - rootApprovalReason
+
+  Tropang Ex:
+  First gate pa lang ito.
+  Ibig sabihin:
+    Root authority says "okay, under me ka"
+  Pero pending pa rin siya overall until ChainCert-admin approves.
+*/
+async function rootApproveSubordinateIssuer(issuerId, rootAuthorityId, approvalReason = '') {
+  try {
+    if (!issuersDB) await initializeDatabases();
+
+    if (!issuerId) {
+      throw new Error('issuerId is required');
+    }
+    if (!rootAuthorityId) {
+      throw new Error('rootAuthorityId is required');
+    }
+
+    const issuerDoc = await issuersDB.get(issuerId);
+
+    if (!issuerDoc) {
+      const err = new Error('Issuer not found');
+      err.statusCode = 404;
+      throw err;
+    }
+
+    if (String(issuerDoc.status || '').toLowerCase() !== 'pending') {
+      const err = new Error(
+        `Subordinate issuer cannot be root-approved because current status is '${issuerDoc.status}'.`
+      );
+      err.statusCode = 409;
+      throw err;
+    }
+
+    if (String(issuerDoc.issuerType || '').toLowerCase() !== 'subordinate') {
+      const err = new Error('Only subordinate issuers can be root-approved.');
+      err.statusCode = 400;
+      throw err;
+    }
+
+    if ((issuerDoc.rootAuthorityId || '') !== rootAuthorityId) {
+      const err = new Error('This subordinate issuer is not assigned to the current root authority.');
+      err.statusCode = 403;
+      throw err;
+    }
+
+    if (String(issuerDoc.rootApprovalStatus || '').toLowerCase() === 'approved') {
+      const err = new Error('Subordinate issuer is already root-approved.');
+      err.statusCode = 409;
+      throw err;
+    }
+
+    issuerDoc.rootApprovalStatus = 'approved';
+    issuerDoc.rootApprovedAt = new Date().toISOString();
+    issuerDoc.rootApprovedBy = rootAuthorityId;
+    issuerDoc.rootApprovalReason = approvalReason || 'Approved by root authority';
+
+    // clear root rejection fields if any
+    issuerDoc.rootRejectionReason = null;
+
+    const result = await issuersDB.insert(issuerDoc);
+
+    return {
+      _id: issuerDoc._id,
+      orgName: issuerDoc.orgName,
+      email: issuerDoc.email,
+      status: issuerDoc.status,
+      issuerType: issuerDoc.issuerType,
+      rootAuthorityId: issuerDoc.rootAuthorityId,
+      rootAuthorityName: issuerDoc.rootAuthorityName || null,
+      rootApprovalStatus: issuerDoc.rootApprovalStatus,
+      rootApprovedAt: issuerDoc.rootApprovedAt,
+      rootApprovedBy: issuerDoc.rootApprovedBy,
+      rootApprovalReason: issuerDoc.rootApprovalReason,
+      _rev: result.rev
+    };
+
+  } catch (error) {
+    console.error('[COUCHDB] ❌ rootApproveSubordinateIssuer failed:', error.message);
+    throw error;
+  }
+}
+
+// ==========================================================================================================================================================================
+
+/*
+  Function Name: rootRejectSubordinateIssuer
+
+  Technical:
+  Root authority rejects a subordinate issuer application.
+  Keeps overall status as pending OR marks rootApprovalStatus as rejected,
+  so admin cannot approve it.
+
+  Tropang Ex:
+  Root authority says:
+    "Hindi kita ina-approve under me."
+  So kahit nasa pending list pa siya, blocked siya until maayos/reapply.
+*/
+async function rootRejectSubordinateIssuer(issuerId, rootAuthorityId, rejectionReason) {
+  try {
+    if (!issuersDB) await initializeDatabases();
+
+    if (!issuerId) {
+      throw new Error('issuerId is required');
+    }
+    if (!rootAuthorityId) {
+      throw new Error('rootAuthorityId is required');
+    }
+    if (!rejectionReason || rejectionReason.trim() === '') {
+      const err = new Error('Root rejection reason is required.');
+      err.statusCode = 400;
+      throw err;
+    }
+
+    const issuerDoc = await issuersDB.get(issuerId);
+
+    if (!issuerDoc) {
+      const err = new Error('Issuer not found');
+      err.statusCode = 404;
+      throw err;
+    }
+
+    if (String(issuerDoc.status || '').toLowerCase() !== 'pending') {
+      const err = new Error(
+        `Subordinate issuer cannot be root-rejected because current status is '${issuerDoc.status}'.`
+      );
+      err.statusCode = 409;
+      throw err;
+    }
+
+    if (String(issuerDoc.issuerType || '').toLowerCase() !== 'subordinate') {
+      const err = new Error('Only subordinate issuers can be root-rejected.');
+      err.statusCode = 400;
+      throw err;
+    }
+
+    if ((issuerDoc.rootAuthorityId || '') !== rootAuthorityId) {
+      const err = new Error('This subordinate issuer is not assigned to the current root authority.');
+      err.statusCode = 403;
+      throw err;
+    }
+
+    issuerDoc.rootApprovalStatus = 'rejected';
+    issuerDoc.rootApprovedAt = null;
+    issuerDoc.rootApprovedBy = null;
+    issuerDoc.rootApprovalReason = null;
+    issuerDoc.rootRejectionReason = rejectionReason;
+    issuerDoc.rootRejectedAt = new Date().toISOString();
+
+    const result = await issuersDB.insert(issuerDoc);
+
+    return {
+      _id: issuerDoc._id,
+      orgName: issuerDoc.orgName,
+      email: issuerDoc.email,
+      status: issuerDoc.status,
+      issuerType: issuerDoc.issuerType,
+      rootAuthorityId: issuerDoc.rootAuthorityId,
+      rootAuthorityName: issuerDoc.rootAuthorityName || null,
+      rootApprovalStatus: issuerDoc.rootApprovalStatus,
+      rootRejectionReason: issuerDoc.rootRejectionReason,
+      rootRejectedAt: issuerDoc.rootRejectedAt,
+      _rev: result.rev
+    };
+
+  } catch (error) {
+    console.error('[COUCHDB] ❌ rootRejectSubordinateIssuer failed:', error.message);
+    throw error;
+  }
+}
 // ==========================================================================================================================================================================
 //                                                                       NOTIFICATION Functions
 // ==========================================================================================================================================================================
@@ -2531,6 +2740,10 @@ module.exports = {
   verifyAdminCurrentPassword,
   changeAdminPassword, 
   getAdminByEmail,
-  getBlockedHolderIDsByTemplate
+  getBlockedHolderIDsByTemplate,
+
+    getPendingSubordinatesForRoot,
+  rootApproveSubordinateIssuer,
+  rootRejectSubordinateIssuer
 
 };

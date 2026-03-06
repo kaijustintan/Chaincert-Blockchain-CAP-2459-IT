@@ -1678,6 +1678,210 @@ async GetAllVerificationLogs(ctx) {
       // =========================================================================================================
 // QUERY: Get issuer approval/rejection logs (filtered by email)
 // =========================================================================================================
+
+// =========================================================================================================
+// ROOT AUTHORITY: SUBORDINATE ISSUER DECISION LOGS
+// =========================================================================================================
+
+/*
+  Function Name: LogRootSubordinateApproval
+
+  Technical:
+  Writes an on-chain audit log when a ROOT AUTHORITY approves
+  a subordinate issuer application.
+
+  Purpose:
+  - Immutable audit trail
+  - Proof that root authority approved first
+  - Separate from ChainCert-admin approval log
+
+  Tropang Ex:
+  Bago ma-final approve ni chaincert-admin ang subordinate issuer,
+  dapat may record muna sa blockchain na:
+  “Oo, in-approve na siya ng napili niyang root authority.”
+*/
+async LogRootSubordinateApproval(
+  ctx,
+  issuerId,
+  issuerEmail,
+  orgName,
+  rootAuthorityId,
+  rootAuthorityName,
+  reason
+) {
+  /* Step 1: Validate required fields
+
+     Tropang Ex:
+     Siguraduhin muna na kompleto yung importante bago magsulat sa blockchain.
+  */
+  if (!issuerId) throw new Error('issuerId is required');
+  if (!issuerEmail) throw new Error('issuerEmail is required');
+  if (!orgName) throw new Error('orgName is required');
+  if (!rootAuthorityId) throw new Error('rootAuthorityId is required');
+  if (!rootAuthorityName) throw new Error('rootAuthorityName is required');
+  if (!reason || reason.trim() === '') {
+    throw new Error('Reason is required for root subordinate approval');
+  }
+
+  /* Step 2: Get deterministic blockchain timestamp
+
+     Technical:
+     Uses Fabric transaction timestamp so all endorsing peers
+     compute the same timestamp value.
+
+     Tropang Ex:
+     Oras galing mismo sa blockchain, hindi sa laptop/server clock.
+  */
+  const txTimestamp = ctx.stub.getTxTimestamp();
+  const timestamp = new Date(
+    txTimestamp.seconds * 1000 + Math.floor(txTimestamp.nanos / 1000000)
+  ).toISOString();
+
+  /* Step 3: Get transaction ID and build log key
+
+     Tropang Ex:
+     Unique log ID per blockchain transaction.
+  */
+  const txId = ctx.stub.getTxID();
+  const logId = `root_subordinate_approval_${txId}`;
+
+  /* Step 4: Build log object
+
+     Technical:
+     Stores:
+      - subordinate issuer details
+      - root authority details
+      - decision = approved
+      - performer identity/MSP from Fabric cert
+
+     Tropang Ex:
+     Ito yung actual resibo ng approval ni root authority.
+  */
+  const log = {
+    id: logId,
+    type: 'root_subordinate_decision',
+    decision: 'approved',
+    entity: 'issuer',
+    issuerType: 'subordinate',
+
+    issuerId,
+    issuerEmail,
+    orgName,
+
+    rootAuthorityId,
+    rootAuthorityName,
+
+    reason,
+
+    performedBy: ctx.clientIdentity.getID(),
+    performedByMSP: ctx.clientIdentity.getMSPID(),
+
+    txId,
+    timestamp,
+    version: 1
+  };
+
+  /* Step 5: Save log to world state
+
+     Tropang Ex:
+     Officially naka-log na sa blockchain.
+  */
+  await ctx.stub.putState(logId, Buffer.from(JSON.stringify(log)));
+
+  /* Step 6: Emit chaincode event (optional but useful)
+
+     Tropang Ex:
+     Pwede itong gamitin later for real-time UI updates or listeners.
+  */
+  await ctx.stub.setEvent(
+    'RootSubordinateApproved',
+    Buffer.from(JSON.stringify(log))
+  );
+
+  /* Step 7: Return log payload */
+  return JSON.stringify(log);
+}
+
+// =========================================================================================================
+
+/*
+  Function Name: LogRootSubordinateRejection
+
+  Technical:
+  Writes an on-chain audit log when a ROOT AUTHORITY rejects
+  a subordinate issuer application.
+
+  Tropang Ex:
+  Kapag sinabi ni root authority na “hindi kita ina-approve under me,”
+  dito natin tina-track immutably sa blockchain.
+*/
+async LogRootSubordinateRejection(
+  ctx,
+  issuerId,
+  issuerEmail,
+  orgName,
+  rootAuthorityId,
+  rootAuthorityName,
+  reason
+) {
+  /* Step 1: Validate required fields */
+  if (!issuerId) throw new Error('issuerId is required');
+  if (!issuerEmail) throw new Error('issuerEmail is required');
+  if (!orgName) throw new Error('orgName is required');
+  if (!rootAuthorityId) throw new Error('rootAuthorityId is required');
+  if (!rootAuthorityName) throw new Error('rootAuthorityName is required');
+  if (!reason || reason.trim() === '') {
+    throw new Error('Reason is required for root subordinate rejection');
+  }
+
+  /* Step 2: Get deterministic blockchain timestamp */
+  const txTimestamp = ctx.stub.getTxTimestamp();
+  const timestamp = new Date(
+    txTimestamp.seconds * 1000 + Math.floor(txTimestamp.nanos / 1000000)
+  ).toISOString();
+
+  /* Step 3: Transaction ID + log key */
+  const txId = ctx.stub.getTxID();
+  const logId = `root_subordinate_rejection_${txId}`;
+
+  /* Step 4: Build rejection log object */
+  const log = {
+    id: logId,
+    type: 'root_subordinate_decision',
+    decision: 'rejected',
+    entity: 'issuer',
+    issuerType: 'subordinate',
+
+    issuerId,
+    issuerEmail,
+    orgName,
+
+    rootAuthorityId,
+    rootAuthorityName,
+
+    reason,
+
+    performedBy: ctx.clientIdentity.getID(),
+    performedByMSP: ctx.clientIdentity.getMSPID(),
+
+    txId,
+    timestamp,
+    version: 1
+  };
+
+  /* Step 5: Save to ledger */
+  await ctx.stub.putState(logId, Buffer.from(JSON.stringify(log)));
+
+  /* Step 6: Emit event */
+  await ctx.stub.setEvent(
+    'RootSubordinateRejected',
+    Buffer.from(JSON.stringify(log))
+  );
+
+  /* Step 7: Return log payload */
+  return JSON.stringify(log);
+}
+
       // ==========================================================================================================================================================================
 // Get ALL issuer decision logs for a specific issuer email
 // ==========================================================================================================================================================================

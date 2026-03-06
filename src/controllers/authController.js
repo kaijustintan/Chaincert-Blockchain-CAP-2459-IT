@@ -811,12 +811,48 @@ getDisabledIssuers: async (req, res) => {
     Tropang Ex:
     Admin clicks Approve → issuer becomes usable (gets couchDBUrl + fabricIdentity etc).
   */
-  approveIssuer: async (req, res, getContractAndGateway) => {
+ /*
+  Endpoint: POST /api/approve-issuer/:issuerId
+  Function Name: approveIssuer
+
+  ✅ ADDED:
+  - Admin-only access check
+  - Root-approval gate for subordinate issuers:
+      issuerType=subordinate AND rootApprovalStatus !== approved => BLOCK
+*/
+approveIssuer: async (req, res, getContractAndGateway) => {
   let gateway = null;
 
   try {
     const { issuerId } = req.params;
-    const { approvalReason } = req.body; // optional custom reason
+    const { approvalReason } = req.body;
+
+    // ✅ ADDED: Ensure requester is authenticated + admin
+    if (!req.user) {
+      return res.status(401).json({ success: false, message: 'Unauthorized.' });
+    }
+    if (req.user.role !== 'admin') {
+      return res.status(403).json({ success: false, message: 'Admin access required.' });
+    }
+
+    // ✅ ADDED: Load issuer first so we can enforce subordinate gate
+    const issuerDoc = await couchDB.getIssuerById(issuerId);
+    if (!issuerDoc) {
+      return res.status(404).json({ success: false, message: 'Issuer not found.' });
+    }
+
+    // ✅ ADDED: Root approval gate (subordinate must be approved by root first)
+    const issuerType = String(issuerDoc.issuerType || 'root').toLowerCase();
+    const rootApprovalStatus = String(issuerDoc.rootApprovalStatus || 'not_required').toLowerCase();
+
+    if (issuerType === 'subordinate' && rootApprovalStatus !== 'approved') {
+      return res.status(403).json({
+        success: false,
+        message: 'Cannot approve subordinate issuer until root authority approves first.',
+        issuerType,
+        rootApprovalStatus
+      });
+    }
 
     // 1️⃣ Approve in CouchDB FIRST (source of truth)
     const result = await couchDB.approveIssuer(
@@ -861,7 +897,6 @@ getDisabledIssuers: async (req, res) => {
       gateway = null;
     }
 
-    // 3️⃣ Single response only
     return res.status(200).json({
       success: true,
       message: blockchainWarning
@@ -874,12 +909,23 @@ getDisabledIssuers: async (req, res) => {
   } catch (error) {
     console.error('Error approving issuer:', error);
     if (res.headersSent) return;
+
+    // ✅ ADDED: If couchDB.approveIssuer throws a typed error, honor it
+    if (error.statusCode) {
+      return res.status(error.statusCode).json({
+        success: false,
+        message: error.message
+      });
+    }
+
     return res.status(500).json({
       success: false,
       message: error.message
     });
   }
 },
+
+// =============================================================================================
 
   // ========================================================================================================================================================================
 
@@ -893,12 +939,28 @@ getDisabledIssuers: async (req, res) => {
     Tropang Ex:
     Admin clicks Reject → may rejection reason + timestamp.
   */
-  rejectIssuer: async (req, res, getContractAndGateway) => {
+  /*
+  Endpoint: POST /api/reject-issuer/:issuerId
+  Function Name: rejectIssuer
+
+  ✅ ADDED:
+  - Admin-only access check
+  - (No root gate needed for rejection — admin can reject anytime)
+*/
+rejectIssuer: async (req, res, getContractAndGateway) => {
   let gateway = null;
 
   try {
     const { issuerId } = req.params;
     const { rejectionReason } = req.body;
+
+    // ✅ ADDED: Ensure requester is authenticated + admin
+    if (!req.user) {
+      return res.status(401).json({ success: false, message: 'Unauthorized.' });
+    }
+    if (req.user.role !== 'admin') {
+      return res.status(403).json({ success: false, message: 'Admin access required.' });
+    }
 
     if (!rejectionReason || rejectionReason.trim() === '') {
       return res.status(400).json({
@@ -910,13 +972,14 @@ getDisabledIssuers: async (req, res) => {
     // 1️⃣ Reject in CouchDB FIRST
     const result = await couchDB.rejectIssuer(
       issuerId,
-      rejectionReason
+      rejectionReason,
+      req.user?.id || 'admin' // ✅ ADDED: track who rejected (if your couch fn supports it)
     );
 
     // We need issuerEmail + orgName for blockchain log
     const issuerDoc = await couchDB.getIssuerById(issuerId);
-    const issuerEmail = issuerDoc.email;
-    const orgName = issuerDoc.orgName;
+    const issuerEmail = issuerDoc?.email || '';
+    const orgName = issuerDoc?.orgName || '';
 
     // 2️⃣ Blockchain logging (BEST-EFFORT ONLY)
     let blockchainWarning = null;
@@ -962,6 +1025,15 @@ getDisabledIssuers: async (req, res) => {
   } catch (error) {
     console.error('Error rejecting issuer:', error);
     if (res.headersSent) return;
+
+    // ✅ ADDED: If couchDB.rejectIssuer throws a typed error, honor it
+    if (error.statusCode) {
+      return res.status(error.statusCode).json({
+        success: false,
+        message: error.message
+      });
+    }
+
     return res.status(500).json({
       success: false,
       message: error.message
@@ -969,6 +1041,294 @@ getDisabledIssuers: async (req, res) => {
   }
 },
 
+// ========================================================================================================================================================================
+// ROOT AUTHORITY: SUBORDINATE ISSUER REVIEW
+// ========================================================================================================================================================================
+
+/*
+  Endpoint: GET /api/root/subordinates/pending
+  Function Name: getPendingSubordinatesForRoot
+
+  Technical:
+  Returns all pending subordinate issuer applications assigned to the logged-in root authority.
+
+  Tropang Ex:
+  Ito yung queue ng root authority:
+  "Sino-sino yung gustong pumasok under me?"
+*/
+getPendingSubordinatesForRoot: async (req, res) => {
+  try {
+    // ✅ Root authority must be logged in as issuer
+    if (!req.user) {
+      return res.status(401).json({
+        success: false,
+        message: 'Unauthorized.'
+      });
+    }
+
+    if (req.user.role !== 'issuer') {
+      return res.status(403).json({
+        success: false,
+        message: 'Issuer access required.'
+      });
+    }
+
+    const rootAuthorityId = req.user.id;
+
+    const rows = await couchDB.getPendingSubordinatesForRoot(rootAuthorityId);
+
+    return res.status(200).json({
+      success: true,
+      data: rows,
+      count: rows.length
+    });
+
+  } catch (error) {
+    console.error('Error fetching pending subordinates for root:', error);
+    return res.status(500).json({
+      success: false,
+      message: error.message
+    });
+  }
+},
+
+// ========================================================================================================================================================================
+
+/*
+  Endpoint: POST /api/root-approve-subordinate/:issuerId
+  Function Name: rootApproveSubordinateIssuer
+
+  Technical:
+  Root authority approves subordinate in CouchDB FIRST,
+  then logs it to blockchain (best-effort only).
+
+  Tropang Ex:
+  First gate:
+    root authority approves subordinate
+  Second gate:
+    chaincert-admin still needs to approve later
+*/
+rootApproveSubordinateIssuer: async (req, res, getContractAndGateway) => {
+  let gateway = null;
+
+  try {
+    const { issuerId } = req.params;
+    const { approvalReason } = req.body;
+
+    if (!req.user) {
+      return res.status(401).json({
+        success: false,
+        message: 'Unauthorized.'
+      });
+    }
+
+    if (req.user.role !== 'issuer') {
+      return res.status(403).json({
+        success: false,
+        message: 'Issuer access required.'
+      });
+    }
+
+    const rootAuthorityId = req.user.id;
+
+    // ✅ Get root authority doc (used for blockchain identity + display)
+    const rootAuthorityDoc = await couchDB.getIssuerById(rootAuthorityId);
+    if (!rootAuthorityDoc) {
+      return res.status(404).json({
+        success: false,
+        message: 'Root authority issuer record not found.'
+      });
+    }
+
+    // 1️⃣ Update CouchDB first
+    const result = await couchDB.rootApproveSubordinateIssuer(
+      issuerId,
+      rootAuthorityId,
+      approvalReason || ''
+    );
+
+    // 2️⃣ Load subordinate issuer doc for log payload
+    const subordinateDoc = await couchDB.getIssuerById(issuerId);
+
+    // 3️⃣ Blockchain log (BEST-EFFORT ONLY)
+    let blockchainWarning = null;
+
+    try {
+      if (typeof getContractAndGateway !== 'function') {
+        throw new Error('getContractAndGateway not provided');
+      }
+
+      const identityName = rootAuthorityDoc.fabricIdentity;
+      const orgName = rootAuthorityDoc.orgName;
+
+      const cg = await getContractAndGateway(identityName, orgName);
+      gateway = cg.gateway;
+      const contract = cg.contract;
+
+      await contract.submitTransaction(
+        'LogRootSubordinateApproval',
+        issuerId,
+        subordinateDoc.email,
+        subordinateDoc.orgName,
+        rootAuthorityId,
+        rootAuthorityDoc.orgName || rootAuthorityDoc.contactName || rootAuthorityDoc.email,
+        approvalReason || 'Approved by root authority'
+      );
+
+    } catch (bcErr) {
+      blockchainWarning = bcErr?.message || String(bcErr);
+      console.error('[rootApproveSubordinateIssuer] Blockchain log failed:', blockchainWarning);
+    } finally {
+      try { if (gateway) await gateway.disconnect(); } catch (_) {}
+      gateway = null;
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: blockchainWarning
+        ? 'Subordinate issuer root-approved, but blockchain log failed.'
+        : 'Subordinate issuer root-approved successfully.',
+      warning: blockchainWarning,
+      data: result
+    });
+
+  } catch (error) {
+    console.error('Error root-approving subordinate issuer:', error);
+
+    if (error.statusCode) {
+      return res.status(error.statusCode).json({
+        success: false,
+        message: error.message
+      });
+    }
+
+    return res.status(500).json({
+      success: false,
+      message: error.message
+    });
+  }
+},
+
+// ========================================================================================================================================================================
+
+/*
+  Endpoint: POST /api/root-reject-subordinate/:issuerId
+  Function Name: rootRejectSubordinateIssuer
+
+  Technical:
+  Root authority rejects subordinate in CouchDB FIRST,
+  then logs it to blockchain (best-effort only).
+
+  Tropang Ex:
+  Root authority says:
+    "Hindi kita ia-accept under me."
+*/
+rootRejectSubordinateIssuer: async (req, res, getContractAndGateway) => {
+  let gateway = null;
+
+  try {
+    const { issuerId } = req.params;
+    const { rejectionReason } = req.body;
+
+    if (!req.user) {
+      return res.status(401).json({
+        success: false,
+        message: 'Unauthorized.'
+      });
+    }
+
+    if (req.user.role !== 'issuer') {
+      return res.status(403).json({
+        success: false,
+        message: 'Issuer access required.'
+      });
+    }
+
+    if (!rejectionReason || rejectionReason.trim() === '') {
+      return res.status(400).json({
+        success: false,
+        message: 'Rejection reason is required.'
+      });
+    }
+
+    const rootAuthorityId = req.user.id;
+
+    const rootAuthorityDoc = await couchDB.getIssuerById(rootAuthorityId);
+    if (!rootAuthorityDoc) {
+      return res.status(404).json({
+        success: false,
+        message: 'Root authority issuer record not found.'
+      });
+    }
+
+    // 1️⃣ Update CouchDB first
+    const result = await couchDB.rootRejectSubordinateIssuer(
+      issuerId,
+      rootAuthorityId,
+      rejectionReason
+    );
+
+    // 2️⃣ Load subordinate issuer doc for log payload
+    const subordinateDoc = await couchDB.getIssuerById(issuerId);
+
+    // 3️⃣ Blockchain log (BEST-EFFORT ONLY)
+    let blockchainWarning = null;
+
+    try {
+      if (typeof getContractAndGateway !== 'function') {
+        throw new Error('getContractAndGateway not provided');
+      }
+
+      const identityName = rootAuthorityDoc.fabricIdentity;
+      const orgName = rootAuthorityDoc.orgName;
+
+      const cg = await getContractAndGateway(identityName, orgName);
+      gateway = cg.gateway;
+      const contract = cg.contract;
+
+      await contract.submitTransaction(
+        'LogRootSubordinateRejection',
+        issuerId,
+        subordinateDoc.email,
+        subordinateDoc.orgName,
+        rootAuthorityId,
+        rootAuthorityDoc.orgName || rootAuthorityDoc.contactName || rootAuthorityDoc.email,
+        rejectionReason
+      );
+
+    } catch (bcErr) {
+      blockchainWarning = bcErr?.message || String(bcErr);
+      console.error('[rootRejectSubordinateIssuer] Blockchain log failed:', blockchainWarning);
+    } finally {
+      try { if (gateway) await gateway.disconnect(); } catch (_) {}
+      gateway = null;
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: blockchainWarning
+        ? 'Subordinate issuer root-rejected, but blockchain log failed.'
+        : 'Subordinate issuer root-rejected successfully.',
+      warning: blockchainWarning,
+      data: result
+    });
+
+  } catch (error) {
+    console.error('Error root-rejecting subordinate issuer:', error);
+
+    if (error.statusCode) {
+      return res.status(error.statusCode).json({
+        success: false,
+        message: error.message
+      });
+    }
+
+    return res.status(500).json({
+      success: false,
+      message: error.message
+    });
+  }
+},
 // ========================================================================================================================================================================
 // ADMIN: ISSUER DECISION LOGS (SPECIFIC EMAIL)
 // ========================================================================================================================================================================

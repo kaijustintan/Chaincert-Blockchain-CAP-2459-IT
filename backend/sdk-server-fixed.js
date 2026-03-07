@@ -75,6 +75,11 @@ const issuerCredentialController = require('./controllers/issuerCredentialContro
 const verifierController = require('./controllers/verifierController');  // UBUNTU DIRECTORY BASED 
 const adminDashboardController = require('./controllers/adminDashboardController'); // UBUNTU DIRECTORY BASED 
 const authController = require('./controllers/authController');
+const createSystemRoutes = require('../src/routes/systemRoutes');
+const createCredentialApiRoutes = require('../src/routes/credentialApiRoutes');
+const createIssuerApiRoutes = require('../src/routes/issuerApiRoutes');
+const createVerificationApiRoutes = require('../src/routes/verificationApiRoutes');
+const createAdminApiRoutes = require('../src/routes/adminApiRoutes');
 
 
 
@@ -164,8 +169,51 @@ app.use((req, res, next) => {
   "Lahat ng request na nagsisimula sa /api/auth ibato mo sa authRoutes."
   Example: POST /api/auth/register → handled by authRoutes.js
 */
-const authRoutes = require('./routes/authRoutes');
+const authRoutes = require('../src/routes/authRoutes');
+const adminRoutes = require('../src/routes/adminRoutes');
+const issuerRoutes = require('../src/routes/issuerRoutes');
+const credentialRoutes = require('../src/routes/credentialRoutes');
+const verificationRoutes = require('../src/routes/verificationRoutes');
+
 app.use('/api/auth', authRoutes);
+
+// Transitional mounts: keep /api/auth route compatibility while introducing domain route groups.
+app.use('/api/admin', adminRoutes);
+app.use('/api/issuer', issuerRoutes);
+app.use('/api/credentials', credentialRoutes);
+app.use('/api/verify', verificationRoutes);
+
+app.use('/api/auth', adminRoutes);
+app.use('/api/auth', issuerRoutes);
+app.use('/api/auth', credentialRoutes);
+app.use('/api/auth', verificationRoutes);
+
+app.use('/api', createSystemRoutes());
+
+app.use('/api', createCredentialApiRoutes({
+  couchdb,
+  nano,
+  getContractAndGateway,
+  issuerCredentialController,
+  verifierController,
+}));
+
+app.use('/api', createIssuerApiRoutes({
+  getContractAndGateway,
+  issuerCredentialController,
+}));
+
+app.use('/api', createVerificationApiRoutes({
+  getContractAndGateway,
+  verifierController,
+}));
+
+app.use('/api', createAdminApiRoutes({
+  couchdb,
+  getContractAndGateway,
+  adminDashboardController,
+  authController,
+}));
 // ==========================================================================================================================================================================
 
 /* 
@@ -490,656 +538,8 @@ process.on('SIGINT', async () => {
 });
 // ==========================================================================================================================================================================
 
-// ==========================================================================================================================================================================
-//                                                                       GET Endpoints
-// ==========================================================================================================================================================================
-
-/*
-  Endpoint: GET /api/health
-  Technical: Returns a simple health status response to confirm that the backend server is running.
-  Tropang Ex: Parang tinatanong mo yung server ng “Uy, buhay ka pa ba?”
-*/
-app.get('/api/health', (req, res) => {
-  res.json({ status: 'OK' });
-});
-// ==========================================================================================================================================================================
-
-/*
-  Endpoint: GET /api/pending-issuers
-
-  Technical: Retrieves/gets all issuer registration applications that are still subject for admin approval 
-  Tropang Ex: Dito kinukuha ng admin yung listahan ng mga schools/organizations na nag-apply bilang issuer pero hindi pa approved.
-*/
-app.get('/api/pending-issuers', async (req, res) => {
-  try {
-
-     /* Step 1: Fetch pending issuer records from CouchDB
-
-      Technical: Queries the database for issuer documents with pending status.
-      Tropang Ex: Kinukuha dito lahat ng issuer applications na lumalabas sa admin dashboard.
-      Example: Newly registered school → appears here until approved/rejected.
-    */
-    const pendingIssuers = await couchdb.getPendingIssuers();
-    
-    /* Step 2: Return pending issuers list
-
-      Technical: Sends the list of pending issuers to the client.
-      Tropang Ex: Ibinabalik sa frontend yung mga application para makita ng admin.
-    */
-    res.status(200).json({
-      success: true,
-      data: pendingIssuers
-    });
-  } catch (error) {
-    
-     /* Step 3: Handle errors
-
-      Technical: Catches and returns server-side errors.
-      Tropang Ex: Kapag may problema sa database, mag-e-error na lang nang maayos.
-    */
-    console.error('Error fetching pending issuers:', error.message);
-    res.status(500).json({ 
-      success: false, 
-      message: error.message 
-    });
-  }
-});
-// ==========================================================================================================================================================================
-
-app.get('/api/credentials/issued', (req, res) => {
-  return issuerCredentialController.get_IssuerIssuedCredentials(req, res, getContractAndGateway);
-});
-// ==========================================================================================================================================================================
-
-// =========================================================================================================
-// Issuer Credential Templates (Blockchain → templates only)
-// =========================================================================================================
-
-/*
-  Endpoint: GET /api/credentials/templates
-
-  Technical:
-  Delegates to issuerCredentialController.getCredentialTemplates which:
-    - resolves Fabric identity (issuer/admin)
-    - queries chaincode for issuer templates
-    - returns credentials array
-
-  Tropang Ex:
-  Receptionist lang si sdk file:
-  "Boss controller, ikaw na bahala kumuha ng templates."
-*/
-app.get('/api/credentials/templates', (req, res) => {
-  issuerCredentialController.getCredentialTemplates(req, res, getContractAndGateway);
-});
-
-// ==========================================================================================================================================================================
-
-/*
-  Endpoint: GET /api/credentials/issuer/:issuerID
-
-  Technical: Fetches an issuer’s credential TEMPLATES from the issuer’s own COUCHDB wallet database.
-  Tropang Ex: Para to sa display on the issuer dashboard. Instead na blockchain ang kukunin, diretso CouchDB wallet ng issuer para mabilis.
-*/
-app.get('/api/credentials/issuer/:issuerID', async (req, res) => {
-  try {
-
-    /* Step 1: Validate issuerID param
-
-      Technical: Ensures issuerID is valid and not placeholder value.
-      Tropang Ex: Hindi pwede blank o "ISSUER" kasi placeholder yan.
-      Example: issuerID="ISSUER" → 400 error.
-    */
-    const { issuerID } = req.params;
-    
-    if (!issuerID || issuerID === 'ISSUER') {
-      return res.status(400).json({ 
-        success: false, 
-        error: 'Valid issuer ID is required',
-        message: 'Issuer ID cannot be empty or "ISSUER"'
-      });
-    }
-
-     /* Step 2: Check if user is authenticated/logged in | PENDING parang ang redundant? need pa ba talaga to */
-    const user = req.user;
-    if (!user) {
-      return res.status(401).json({ success: false, error: 'Unauthorized' });
-    }
-
-
-     /* Step 3: Connect to admin CouchDB to get issuer record
-
-      Technical: Uses admin CouchDB to read issuer info (especially couchDBUrl).
-      Tropang Ex: Admin DB muna para malaman kung saan yung sariling CouchDB (its url) ni issuer.
-      Example: issuersDB.get(issuerID) returns couchDBUrl.
-    */
-    const adminNano = nano('http://admin:adminpw@localhost:5985'); // hardcoded talaga to 
-    const issuersDB = adminNano.use('issuers');
-    
-    let issuer;
-    try 
-    {
-      issuer = await issuersDB.get(issuerID);
-    } 
-    catch (err) 
-    {
-      if (err.statusCode === 404) {
-        return res.status(404).json({ 
-          success: false, 
-          error: 'Issuer not found'
-        });
-      }
-      throw err;
-    }
-
-     /* Step 4: Ensure issuer has couchDBUrl
-
-      Technical: Validates issuer record contains couchDBUrl.
-      Tropang Ex: Kung wala yung URL, hindi natin ma-aaccess yung issuer’s own DB.
-    */
-    if (!issuer || !issuer.couchDBUrl) {
-      return res.status(403).json({ 
-        success: false, 
-        error: 'Issuer not found or CouchDB URL missing' 
-      });
-    }
-
-    /* Step 5: Connect to issuer’s own CouchDB and  access "wallet_issuer_credentials" database.*/
-    const issuerNano = nano(issuer.couchDBUrl);
-    const walletDb = issuerNano.use('wallet_issuer_credentials');
-
-
-    // ✅ Use .find() instead of .view() - no design docs needed!
-    /* Step 6: Query credentials using .find() selector
-
-      Technical: Queries wallet DB documents filtered by issuerId.
-      Tropang Ex: Kinukuha lahat ng docs na issued by that issuer.
-      Note: Using .find() so no design docs/view needed.
-    */
-    const result = await walletDb.find({
-      selector: {
-        issuerId: issuerID
-      }
-    });
-
-     /* Step 7: Return standardized response
-
-      Technical: Returns docs, count, and timestamp.
-      Tropang Ex: Ibinabalik sa dashboard yung list + count.
-    */
-    res.json({ 
-      success: true, 
-      credentials: result.docs || [],
-      count: (result.docs || []).length,
-      timestamp: new Date().toISOString()
-    });
-
-
-  } catch (error) {
-    console.error(`❌ Error fetching issuer credentials: ${error.message}`);
-    res.status(500).json({ 
-      success: false, 
-      error: error.message 
-    });
-  }
-});
-
-// ==========================================================================================================================================================================
-
-/*
-  Endpoint: GET /api/credentials/:id/history
-
-  Technical: Retrieves the full blockchain transaction HISTORY of a SPECIFIC CREDENTIAL using its ID.
-  Tropang Ex: Para to makita lahat ng nangyari sa isang credential mula umpisa hanggang ngayon
-  (ex: creation, issuance, updates).
-*/
-app.get('/api/credentials/:id/history', async (req, res) => {
-  try {
-
-    /* Step 1: Check if user is authenticated/logged in (JWT/session)*/
-    const user = req.user;
-    if (!user) {
-      return res.status(401).json({ success: false, error: 'Unauthorized' });
-    }
-
-    /* Step 2: Determines which Fabric identity will be used to query blockchain history based on role
-      Tropang Ex: Dito pinipili kung anong blockchain identity ang gagamitin para mag-query ng history.
-    */
-    let identityName, orgName;
-
-    if (user.role === 'issuer') {
-
-      /* Step 2A: Fetches issuer record to get fabricIdentity and orgName
-          Tropang Ex: Kung issuer ka, dapat approved ka at may Fabric identity ka bago ka makakita ng history.
-      */
-      const issuer = await couchdb.getApprovedIssuer(user.email);
-      if (!issuer || !issuer.fabricIdentity || !issuer.orgName) {
-        return res.status(403).json({ success: false, error: 'Issuer not approved or Fabric identity missing.' });
-      }
-      identityName = issuer.fabricIdentity;
-      orgName = issuer.orgName;
-
-    } 
-    else if (user.role === 'admin') {
-      identityName = 'chaincert-admin';
-      orgName = 'Org1';
-    }
-    /* Allow students to view credential history using chaincert-admin identity (read-only)
-       Technical: Students can only read history, not submit transactions
-       // - polo
-    */
-    else if (user.role === 'student' || user.role === 'user') {
-      identityName = 'chaincert-admin';
-      orgName = 'Org1';
-    }
-    else {
-      return res.status(403).json({ success: false, error: 'Forbidden: Not allowed.' });
-    }
-
-    /* Step 3: Connect to blockchain using resolved identity
-      Tropang Ex: Kumokonek sa blockchain para makapag-query ng ledger history.
-      Example: getContractAndGateway("delasalleuniversity-admin", "De La Salle University")
-    */
-    const { gateway, contract } = await getContractAndGateway(identityName, orgName);
-
-    /* Step 4: Query blockchain for credential history using Calls chaincode function Get_CredentialTemplateOrIssuedCredentialHistory 
-
-      Tropang Ex: Kinukuha lahat ng past versions at transactions ng isang credential.
-      Example: creation → issue → update → revoke (if supported).
-    */
-    const result = await contract.evaluateTransaction('Get_CredentialTemplateOrIssuedCredentialHistory', req.params.id);
-    
-     /* Step 5: Parse and return history
-
-      Technical: Parses chaincode response and returns history list with timestamp.
-      Tropang Ex: Ibinabalik yung buong audit trail ng credential para sa transparency at verification.
-    */
-    res.json({ 
-      success: true, 
-      history: JSON.parse(result.toString()),
-      timestamp: new Date().toISOString()
-    });
-  } catch (error) {
-    console.error(`❌ Error: ${error.message}`);
-    res.status(500).json({ success: false, error: error.message });
-  }
-});
-// ==========================================================================================================================================================================
-
-/*
-  Endpoint: GET /api/issuer/credentials/history
-
-  Technical:
-  Retrieves the complete audit trail of ALL credentials for the logged-in issuer.
-  Delegates to issuerCredentialController.get_IssuerCredentialsHistory which handles:
-    - Identity resolution (issuer's Fabric identity + org)
-    - Blockchain query (Get_IssuerCredentialsHistory chaincode)
-    - Flattening and sorting history entries
-    - Optional filtering by credentialId
-
-  Tropang Ex:
-  Ito yung endpoint para makita ng issuer yung buong timeline ng lahat ng nangyari
-  sa credentials niya — template creation, issuance, revocation, etc.
-  Perfect for audit dashboard at blockchain transparency.
-
-  Query Params:
-  - credentialId (optional) → filter history to show only entries for that credential
-
-  Response:
-  {
-    "success": true,
-    "data": [ ...flattened history entries sorted by most recent... ],
-    "count": 42,
-    "isFiltered": false,
-    "filter": null,
-    "timestamp": "2026-02-03T17:10:00.000Z"
-  }
-*/
-app.get('/api/issuer/credentials/history', (req, res) => {
-  issuerCredentialController.get_IssuerCredentialsHistory(req, res, getContractAndGateway);
-});
-
-// ==========================================================================================================================================================================
-
-// ==========================================================================================================================================================================
-
-// ✅ VERIFY CREDENTIAL ENDPOINT (delegates to controller)
-/*
-  Endpoint: GET /api/credentials/:credentialId/verify
-
-  Technical:
-  - Thin route that forwards to credentialVerifyController.verifyCredential.
-  Tropang Ex:
-  - Si controller na ang bahala sa buong verification flow; si server dito taga‑pasa lang.
-*/
-app.get( '/api/credentials/:credentialId/verify', (req, res) => verifierController.verifyCredentialByID(req, res, getContractAndGateway));
-
-// ==========================================================================================================================================================================
-
-// ==========================================================================================================================================================================
-//                                                                       POST Endpoints
-// ==========================================================================================================================================================================
-
-
-// ==========================================================================================================================================================================
-
-/*
-  Endpoint: POST /api/issuer/credentials/create
-
-  Technical: Delegates issuer credential creation logic to a controller, passing the blockchain gateway helper.
-  Tropang Ex: Ito yung endpoint na tumatawag lang sa controller.
-  Hindi dito ginagawa yung logic — dito lang siya “pinapasa” sa tamang file.
-
-  Tropang explanation:
-Parang receptionist lang siya. Tumatanggap ng request, tapos ituturo kung sino ang gagawa ng trabaho.
-*/
-// ✅ CORRECT
-app.post('/api/issuer/credentials/create', (req, res) => {
-  issuerCredentialController.Create_CredentialTemplate(req, res, getContractAndGateway);
-});
-// ==========================================================================================================================================================================
-
-/*
-  Endpoint: POST /api/credentials/:credentialId/issue
-
-  Technical:
-  Delegates credential issuance logic to issuerCredentialController.issueCredential.
-*/
-app.post('/api/credentials/:credentialId/issue', (req, res) => {
-  issuerCredentialController.issue_CredentialToUser(req, res, getContractAndGateway);
-});
-// ==========================================================================================================================================================================
-
-/*
-  Endpoint: POST /api/credentials/:credentialId/revoke
-
-  Technical:
-  Delegates credential revocation logic to issuerCredentialController.revokeCredential.
-
-  - Expects :credentialId to be the BLOCKCHAIN credential ID (e.g. "cred_1770...").
-  - Controller is responsible for:
-      1) Calling the chaincode function `RevokeCredential` via getContractAndGateway.
-      2) Syncing revocation to CouchDB copies via couchDB_service.revokeCredential(blockchainId, issuerEmail).
-*/
-app.post('/api/credentials/:credentialId/revoke', (req, res) => {
-  issuerCredentialController.revoke_Credential(req, res, getContractAndGateway);
-});
-// ==========================================================================================================================================================================
-
-/* 
-  Endpoint: POST /api/credentials/:credentialId/log-verification
-
-  Technical:
-  Delegates on-chain verification logging to verifierController.logVerificationEvent,
-  passing the Fabric getContractAndGateway helper.
-
-  Tropang Ex:
-  Pagkatapos mag-Verify sa UI (may name/email), dito dadaan para magsulat ng
-  verification log sa blockchain via LogVerification() chaincode function.
-*/
-app.post('/api/credentials/:credentialId/log-verification', (req, res) => {
-  verifierController.logVerificationEvent(req, res, getContractAndGateway);
-});
-// ==========================================================================================================================================================================
-// NEW: Verification logs (all)
-app.get('/api/verification-logs', (req, res) =>
-  verifierController.getAllVerificationLogs(req, res, getContractAndGateway)
-);
-// ==========================================================================================================================================================================
-
-// NEW: Verification log by ID
-app.get('/api/verification-logs/:logId', (req, res) =>
-  verifierController.getVerificationLogById(req, res, getContractAndGateway)
-);
-// ==========================================================================================================================================================================
-
-/*
-  Endpoint: GET /api/admin/credentials/all
-
-  Technical:
-  Delegates the "global credentials view" logic to the adminDashboardController,
-  which calls the CouchDB helper to aggregate all credentials across all issuers.
-  Accepts optional query params:
-    - issuerId: limit results to a specific issuer
-    - type: 'issued' | 'templates' (or omitted for all)
-
-  Tropang Ex:
-  Ito yung endpoint na ginagamit ng Admin Dashboard para makuha
-  lahat ng credentials (templates + issued) ng lahat ng issuers.
-  Dito lang tumatanggap ng HTTP request — yung tunay na logic nasa controller/service.
-
-  Tropang explanation:
-  Parang receptionist lang din:
-  - Tumatanggap ng GET request sa /api/admin/credentials/all
-  - Sinasabi kay adminDashboardController: “Ikaw na bahala sa aggregation.”
-*/
-app.get('/api/admin/credentials/all', (req, res) => {
-  adminDashboardController.getAllIssuerCredentialsAdminController(req, res);
-});
-// ==========================================================================================================================================================================
-
-/*
-  Endpoint: GET /api/admin/status-logs
-
-  Technical:
-  Returns blockchain audit logs for issuer/user status changes
-  (disable/enable actions) via chaincode GetAllStatusLogs.
-*/
-app.get('/api/admin/status-logs', (req, res) => {
-  authController.getAllStatusLogs(req, res, getContractAndGateway);
-});
-// ==========================================================================================================================================================================
-
-/*
-  Endpoint: POST /api/auth/disable-issuer/:issuerId
-
-  Technical:
-  - Admin-only action
-  - Updates issuer status in CouchDB
-  - Logs action to blockchain (LogIssuerStatusChange)
-*/
-app.get('/api/auth/disabled-issuers', (req, res) => {
-  authController.getDisabledIssuers(req, res);
-});
-// ==========================================================================================================================================================================
-
-app.post('/api/auth/disable-issuer/:issuerId', (req, res) => {
-  authController.disableIssuer(req, res, getContractAndGateway);
-});
-// ==========================================================================================================================================================================
-
-/*
-  Endpoint: POST /api/auth/enable-issuer/:issuerId
-*/
-app.post('/api/auth/enable-issuer/:issuerId', (req, res) => {
-  authController.enableIssuer(req, res, getContractAndGateway);
-});
-// ==========================================================================================================================================================================
-
-/*
-  Endpoint: POST /api/auth/disable-user/:userId
-*/
-app.post('/api/auth/disable-user/:userId', (req, res) => {
-  authController.disableUser(req, res, getContractAndGateway);
-});
-// ==========================================================================================================================================================================
-
-/*
-  Endpoint: POST /api/auth/enable-user/:userId
-*/
-app.post('/api/auth/enable-user/:userId', (req, res) => {
-  authController.enableUser(req, res, getContractAndGateway);
-});
-// ==========================================================================================================================================================================
-
-// ✅ SDK routes for issuer decisions (blockchain-aware)
-app.post('/api/approve-issuer/:issuerId', (req, res) => {
-  authController.approveIssuer(req, res, getContractAndGateway);
-});
-
-// ==========================================================================================================================================================================
-
-app.post('/api/reject-issuer/:issuerId', (req, res) => {
-  authController.rejectIssuer(req, res, getContractAndGateway);
-});
-// ==========================================================================================================================================================================
-
-// =========================================================================================================
-// ROOT AUTHORITY → Subordinate Approval/Rejection (Blockchain-aware)
-// =========================================================================================================
-
-// Root authority approves subordinate (CouchDB update + blockchain log)
-app.post('/api/root-approve-subordinate/:issuerId', (req, res) => {
-  authController.rootApproveSubordinateIssuer(req, res, getContractAndGateway);
-});
-
-// Root authority rejects subordinate (CouchDB update + blockchain log)
-app.post('/api/root-reject-subordinate/:issuerId', (req, res) => {
-  authController.rootRejectSubordinateIssuer(req, res, getContractAndGateway);
-});
-
-// Root authority views pending subordinates under them (CouchDB read-only)
-app.get('/api/root/subordinates/pending', (req, res) => {
-  authController.getPendingSubordinatesForRoot(req, res);
-});
-// ==========================================================================================================================================================================
-
-/*
-  Endpoint: GET /api/admin/issuer-decision-logs
-
-  Technical:
-  Returns ALL onboarding actions (approvals + rejections) across ALL issuers
-  via chaincode GetAllIssuerDecisionLogs.
-*/
-app.get('/api/admin/issuer-decision-logs', (req, res) => {
-  authController.getAllIssuerDecisionLogs(req, res, getContractAndGateway);
-});
-
-/*
-  Endpoint: GET /api/admin/issuer-decision-logs/approved
-
-  Technical:
-  Returns ALL approval logs across ALL issuers
-  via chaincode GetAllIssuerApprovalLogs.
-*/
-app.get('/api/admin/issuer-decision-logs/approved', (req, res) => {
-  authController.getAllIssuerApprovalLogs(req, res, getContractAndGateway);
-});
-
-/*
-  Endpoint: GET /api/admin/issuer-decision-logs/rejected
-
-  Technical:
-  Returns ALL rejection logs across ALL issuers
-  via chaincode GetAllIssuerRejectionLogs.
-*/
-app.get('/api/admin/issuer-decision-logs/rejected', (req, res) => {
-  authController.getAllIssuerRejectionLogs(req, res, getContractAndGateway);
-});
-
-// ==========================================================================================================================================================================
-
-app.get('/api/admin/issuer-decision-logs/:issuerEmail', (req, res) => {
-  authController.getIssuerDecisionLogs(req, res, getContractAndGateway);
-});
-// ==========================================================================================================================================================================
-
-// =========================================================================================================
-// ADMIN: CHANGE PASSWORD (BLOCKCHAIN-AWARE)
-// =========================================================================================================
-
-app.post('/api/admin/change-password', (req, res) => {
-  authController.changeAdminPasswordSecure(req, res, getContractAndGateway);
-});
-
-/*
-  Endpoint: GET /api/admin/status-logs/issuers
-
-  Technical:
-  Returns blockchain audit logs for ISSUER status changes only
-  (disable/enable actions) via chaincode GetAllIssuerStatusLogs.
-*/
-app.get('/api/admin/status-logs/issuers', (req, res) => {
-  authController.getAllIssuerStatusLogs(req, res, getContractAndGateway);
-});
-
-/*
-  Endpoint: GET /api/admin/status-logs/users
-
-  Technical:
-  Returns blockchain audit logs for USER status changes only
-  (disable/enable actions) via chaincode GetAllUserStatusLogs.
-*/
-app.get('/api/admin/status-logs/users', (req, res) => {
-  authController.getAllUserStatusLogs(req, res, getContractAndGateway);
-});
-
-/*
-  Endpoint: GET /api/admin/status-logs/issuer/:email
-
-  Technical:
-  Returns blockchain audit logs for a specific ISSUER email
-  via chaincode GetIssuerStatusLogs.
-*/
-app.get('/api/admin/status-logs/issuer/:email', (req, res) => {
-  authController.getIssuerStatusLogs(req, res, getContractAndGateway);
-});
-
-/*
-  Endpoint: GET /api/admin/status-logs/user/:email
-
-  Technical:
-  Returns blockchain audit logs for a specific USER email
-  via chaincode GetUserStatusLogs.
-*/
-app.get('/api/admin/status-logs/user/:email', (req, res) => {
-  authController.getUserStatusLogs(req, res, getContractAndGateway);
-});
-
-/*
- Endpoint: GET /api/admin/status-logs/issuers/:issuerEmail
-
- Technical:
- Returns blockchain audit logs for a SPECIFIC issuer email
- (disable/enable actions) via chaincode GetIssuerStatusLogs(issuerEmail).
-*/
-app.get('/api/admin/status-logs/issuers/:issuerEmail', (req, res) => {
-  authController.getIssuerStatusLogs(req, res, getContractAndGateway);
-});
-
-/*
- Endpoint: GET /api/admin/status-logs/users/:userEmail
-
- Technical:
- Returns blockchain audit logs for a SPECIFIC user email
- (disable/enable actions) via chaincode GetUserStatusLogs(userEmail).
-*/
-app.get('/api/admin/status-logs/users/:userEmail', (req, res) => {
-  authController.getUserStatusLogs(req, res, getContractAndGateway);
-});
-
-
-// ==========================================================================================================================================================================
-//                                                         AUTO EXPIRY LOGIC - polo
-// ==========================================================================================================================================================================
-// Logic moved to adminDashboardController.js — sdk is just a thin router here - polo
-
-/* Init midnight cron job on server startup - polo */
+// Initialize recurring expiry checks on startup.
 adminDashboardController.initExpiryCron(getContractAndGateway);
-
-/*
-  Endpoint: POST /api/admin/trigger-expiry-check
-  Technical: Delegates to adminDashboardController.triggerExpiryCheck
-  // - polo
-*/
-app.post('/api/admin/trigger-expiry-check', (req, res) => {
-  adminDashboardController.triggerExpiryCheck(req, res, getContractAndGateway);
-});
-
-// ==========================================================================================================================================================================
-// ==========================================================================================================================================================================
-// ==========================================================================================================================================================================
-
-
 
 module.exports = {
   getContractAndGateway

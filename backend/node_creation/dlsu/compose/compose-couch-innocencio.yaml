@@ -1,0 +1,17 @@
+networks:
+  test:
+    name: fabric_test
+
+services:
+  couchdb_innocencio:
+    container_name: couchdb_innocencio
+    image: couchdb:3.4.2
+    labels:
+      service: hyperledger-fabric
+    environment:
+      - COUCHDB_USER=admin
+      - COUCHDB_PASSWORD=adminpw
+    ports:
+      - "9085:5984"
+    networks:
+      - test

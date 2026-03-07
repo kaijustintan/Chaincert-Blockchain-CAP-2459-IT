@@ -993,10 +993,23 @@ async function approveIssuer(issuerId, adminId) {
     }
 
     /* Step 5: Assign Fabric identity dynamically */
-    if (issuerDoc.orgName) {
-      const fabricId =
-        issuerDoc.orgName.trim().toLowerCase().replace(/\s+/g, '') + '-admin';
-      issuerDoc.fabricIdentity = fabricId;
+    const normalize = (value) =>
+      String(value || '')
+        .trim()
+        .toLowerCase()
+        .replace(/\s+/g, '');
+
+    if (issuerType === 'subordinate') {
+      if (!issuerDoc.rootAuthorityName || !issuerDoc.orgName) {
+        const err = new Error(
+          'Subordinate issuer is missing rootAuthorityName or orgName for fabric identity assignment.'
+        );
+        err.statusCode = 400;
+        throw err;
+      }
+      issuerDoc.fabricIdentity = `${normalize(issuerDoc.rootAuthorityName)}-subordinate-${normalize(issuerDoc.orgName)}`;
+    } else if (issuerDoc.orgName) {
+      issuerDoc.fabricIdentity = `${normalize(issuerDoc.orgName)}-admin`;
     } else {
       issuerDoc.fabricIdentity = undefined;
     }

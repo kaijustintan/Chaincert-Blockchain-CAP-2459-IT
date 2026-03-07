@@ -192,6 +192,8 @@ const adminRoutes = require('./routes/adminRoutes');
 const issuerRoutes = require('./routes/issuerRoutes');
 const credentialRoutes = require('./routes/credentialRoutes');
 const verificationRoutes = require('./routes/verificationRoutes');
+const walletRoutes = require('./routes/walletRoutes');
+
 
 // ==========================================================================================================================================================================
 // ROUTE MOUNTING
@@ -203,6 +205,7 @@ app.use('/api/admin', adminRoutes);
 app.use('/api/issuer', issuerRoutes);
 app.use('/api/credentials', credentialRoutes);
 app.use('/api/verify', verificationRoutes);
+app.use('/api/wallet', walletRoutes);
 
 // ==========================================================================================================================================================================
 // HELPERS / SHUTDOWN

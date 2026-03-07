@@ -1,28 +1,11 @@
 const express = require('express');
 const nano = require('nano');
 
-const authController = require('../controllers/authController');
 const issuerCredentialController = require('../controllers/issuerCredentialController');
 const verifierController = require('../controllers/verifierController');
 const couchdb = require('../couchDB_service');
 
 const router = express.Router();
-
-// ======================================================
-// STUDENT / WALLET CREDENTIAL ROUTES
-// ======================================================
-
-// GET /api/credentials/credentials/user/:holderID
-// Get student wallet credentials (CouchDB reads).
-router.get('/credentials/user/:holderID', authController.getUserCredentials);
-
-// PATCH /api/credentials/credentials/:credentialId/visibility
-// Update credential visibility state.
-router.patch('/credentials/:credentialId/visibility', authController.updateCredentialVisibility);
-
-// PATCH /api/credentials/credentials/:credentialId/order
-// Update credential display order.
-router.patch('/credentials/:credentialId/order', authController.updateCredentialOrder);
 
 // ======================================================
 // ISSUER / ADMIN CREDENTIAL ROUTES

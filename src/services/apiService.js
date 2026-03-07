@@ -194,7 +194,7 @@ const apiService = {
         Technical: Sends issuer application data to backend.
         Tropang Ex: Application form ng school/org.
       */
-      const response = await axios.post('/auth/register-issuer', formData);
+      const response = await axios.post('/issuer/register', formData);
 
       /* Step 2: Return application result
         Tropang Ex: Confirmation na na-submit yung application.
@@ -277,7 +277,7 @@ getIssuerRequirementsByCategory: async (category) => {
       /* Step 1: POST issuer credentials
         Tropang Ex: Login attempt ng issuer.
       */
-      const response = await axios.post('/auth/login-issuer', credentials);
+      const response = await axios.post('/issuer/login', credentials);
 
       /* Step 2: Return issuer session data */
       return response.data;
@@ -742,7 +742,7 @@ approveIssuer: async (issuerId, approvalReason) => {
 
     return response.data;
 
-  } catch (error) {
+    } catch (error) {
     console.error(
       'Error approving issuer:',
       error.response?.data?.message || error.message
@@ -1642,7 +1642,7 @@ Get_VerificationLogById: async (logId) => {
       /* Step 2: Send GET request to backend
          // - polo
       */
-      const response = await axios.get(`/credentials/credentials/user/${holderID}`);
+      const response = await axios.get(`/wallet/credentials/${holderID}`);
 
       /* Step 3: Return credentials array
          Technical: Backend returns { success, credentials, count, timestamp }
@@ -1674,7 +1674,7 @@ Get_VerificationLogById: async (logId) => {
       if (!['public', 'private'].includes(visibility)) throw new Error('visibility must be public or private');
 
       const response = await axios.patch(
-        `/credentials/credentials/${credentialId}/visibility`,
+        `/wallet/visibility/${credentialId}`,
         { visibility }
       );
       return response.data;
@@ -1698,7 +1698,7 @@ Get_VerificationLogById: async (logId) => {
       if (typeof newOrder !== 'number') throw new Error('newOrder must be a number');
 
       const response = await axios.patch(
-        `/credentials/credentials/${credentialId}/order`,
+        `/wallet/order/${credentialId}`,
         { newOrder }
       );
       return response.data;
@@ -1713,64 +1713,64 @@ Get_VerificationLogById: async (logId) => {
 // =============================================================================================================
 
 /*
-  Function Name: Admin_ChangePassword
+  Function Name: Admin_ChangePassword
 
-  Technical:
-  Calls SDK endpoint:
-    POST /api/admin/change-password
+  Technical:
+  Calls SDK endpoint:
+    POST /api/admin/change-password
 
-  Requires:
-    - currentPassword
-    - newPassword
+  Requires:
+    - currentPassword
+    - newPassword
 
-  Tropang Ex:
-  Admin nagpapalit ng password.
-  Backend automatically knows who the admin is via JWT.
+  Tropang Ex:
+  Admin nagpapalit ng password.
+  Backend automatically knows who the admin is via JWT.
 */
 Admin_ChangePassword: async ({ currentPassword, newPassword }) => {
-  try {
-    const response = await axios.post('/admin/change-password', {
-      currentPassword,
-      newPassword
-    });
+  try {
+    const response = await axios.post('/admin/change-password', {
+      currentPassword,
+      newPassword
+    });
 
-    return response.data;
+    return response.data;
 
-  } catch (error) {
-    console.error(
-      'Error changing admin password:',
-      error.response?.data?.message || error.message
-    );
-    throw error;
-  }
+  } catch (error) {
+    console.error(
+      'Error changing admin password:',
+      error.response?.data?.message || error.message
+    );
+    throw error;
+  }
 },
 
 // Get all ISSUER status-change logs only (blockchain)
 Get_AllIssuerStatusLogs: async () => {
-  try {
-    const response = await axios.get('/admin/status-logs/issuers');
-    return response.data; // { success, logs, count }
-  } catch (error) {
-    console.error(
-      'Error fetching issuer status logs:',
-      error.response?.data?.message || error.message
-    );
-    throw error;
-  }
+  try {
+    const response = await axios.get('/admin/status-logs/issuers');
+    return response.data; // { success, logs, count }
+  } catch (error) {
+    console.error(
+      'Error fetching issuer status logs:',
+      error.response?.data?.message || error.message
+    );
+    throw error;
+  }
 },
 
 // Get all USER status-change logs only (blockchain)
 Get_AllUserStatusLogs: async () => {
-  try {
-    const response = await axios.get('/admin/status-logs/users');
-    return response.data; // { success, logs, count }
-  } catch (error) {
-    console.error(
-      'Error fetching user status logs:',
-      error.response?.data?.message || error.message
-    );
-    throw error;
-  }
+  try {
+    const response = await axios.get('/admin/status-logs/users');
+    return response.data; // { success, logs, count }
+  } catch (error) {
+    console.error(
+      'Error fetching user status logs:',
+      error.response?.data?.message || error.message
+    );
+    throw error;
+  }
 },
 
 // ==========================================================================================================================================================================
@@ -1778,63 +1778,63 @@ Get_AllUserStatusLogs: async () => {
 // ==========================================================================================================================================================================
 
 /*
-  Function Name: Get_AllIssuerDecisionLogs
+  Function Name: Get_AllIssuerDecisionLogs
 
-  Technical:
-  Fetches ALL onboarding decision logs (approvals + rejections) across ALL issuers via:
-    GET /api/admin/issuer-decision-logs
+  Technical:
+  Fetches ALL onboarding decision logs (approvals + rejections) across ALL issuers via:
+    GET /api/admin/issuer-decision-logs
 */
 Get_AllIssuerDecisionLogs: async () => {
-  try {
-    const response = await axios.get('/admin/issuer-decision-logs');
-    return response.data; // { success, logs, count }
-  } catch (error) {
-    console.error(
-      'Error fetching ALL issuer decision logs:',
-      error.response?.data?.message || error.message
-    );
-    throw error;
-  }
+  try {
+    const response = await axios.get('/admin/issuer-decision-logs');
+    return response.data; // { success, logs, count }
+  } catch (error) {
+    console.error(
+      'Error fetching ALL issuer decision logs:',
+      error.response?.data?.message || error.message
+    );
+    throw error;
+  }
 },
 
 /*
-  Function Name: Get_AllIssuerApprovalLogs
+  Function Name: Get_AllIssuerApprovalLogs
 
-  Technical:
-  Fetches ALL approval logs across ALL issuers via:
-    GET /api/admin/issuer-decision-logs/approved
+  Technical:
+  Fetches ALL approval logs across ALL issuers via:
+    GET /api/admin/issuer-decision-logs/approved
 */
 Get_AllIssuerApprovalLogs: async () => {
-  try {
-    const response = await axios.get('/admin/issuer-decision-logs/approved');
-    return response.data; // { success, logs, count }
-  } catch (error) {
-    console.error(
-      'Error fetching ALL issuer approval logs:',
-      error.response?.data?.message || error.message
-    );
-    throw error;
-  }
+  try {
+    const response = await axios.get('/admin/issuer-decision-logs/approved');
+    return response.data; // { success, logs, count }
+  } catch (error) {
+    console.error(
+      'Error fetching ALL issuer approval logs:',
+      error.response?.data?.message || error.message
+    );
+    throw error;
+  }
 },
 
 /*
-  Function Name: Get_AllIssuerRejectionLogs
+  Function Name: Get_AllIssuerRejectionLogs
 
-  Technical:
-  Fetches ALL rejection logs across ALL issuers via:
-    GET /api/admin/issuer-decision-logs/rejected
+  Technical:
+  Fetches ALL rejection logs across ALL issuers via:
+    GET /api/admin/issuer-decision-logs/rejected
 */
 Get_AllIssuerRejectionLogs: async () => {
-  try {
-    const response = await axios.get('/admin/issuer-decision-logs/rejected');
-    return response.data; // { success, logs, count }
-  } catch (error) {
-    console.error(
-      'Error fetching ALL issuer rejection logs:',
-      error.response?.data?.message || error.message
-    );
-    throw error;
-  }
+  try {
+    const response = await axios.get('/admin/issuer-decision-logs/rejected');
+    return response.data; // { success, logs, count }
+  } catch (error) {
+    console.error(
+      'Error fetching ALL issuer rejection logs:',
+      error.response?.data?.message || error.message
+    );
+    throw error;
+  }
 },
 
 // ==========================================================================================================================================================================

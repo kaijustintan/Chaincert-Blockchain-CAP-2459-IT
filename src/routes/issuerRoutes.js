@@ -1,9 +1,23 @@
 const express = require('express');
+const multer = require('multer');
 
 const authController = require('../controllers/authController');
 const issuerCredentialController = require('../controllers/issuerCredentialController');
 
 const router = express.Router();
+const upload = multer({ storage: multer.memoryStorage() });
+
+// ======================================================
+// ISSUER AUTH / ONBOARDING
+// ======================================================
+
+// POST /api/issuer/register
+// Submit issuer registration with attachments.
+router.post('/register', upload.any(), authController.registerIssuer);
+
+// POST /api/issuer/login
+// Authenticate an issuer account.
+router.post('/login', authController.loginIssuer);
 
 // ======================================================
 // ISSUER REGISTRATION / DOCUMENT ROUTES
@@ -30,7 +44,6 @@ router.get(
   authController.viewIssuerDocument
 );
 
-
 // ======================================================
 // ISSUER DASHBOARD / FAST READ ROUTES
 // ======================================================
@@ -56,10 +69,8 @@ router.get(
   issuerCredentialController.getEligibleUsersForTemplate
 );
 
-
 // ======================================================
 // BLOCKCHAIN CREDENTIAL OPERATIONS
-// (Merged from issuerApiRoutes.js)
 // ======================================================
 
 // GET /api/issuer/credentials/history

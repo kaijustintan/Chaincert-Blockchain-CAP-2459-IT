@@ -27,10 +27,4 @@ router.post('/change-password', authController.changePassword);
 // POST /api/auth/upload-pfp - Upload/update profile picture.
 router.post('/upload-pfp', upload.single('profilePicture'), authController.uploadProfilePicture);
 
-// POST /api/auth/register-issuer - Submit issuer registration with attachments.
-router.post('/register-issuer', upload.any(), authController.registerIssuer);
-
-// POST /api/auth/login-issuer - Authenticate an issuer account.
-router.post('/login-issuer', authController.loginIssuer);
-
 module.exports = router;

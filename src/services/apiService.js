@@ -212,7 +212,7 @@ const apiService = {
 
   Technical:
   Fetches the required document list for a selected issuer category via:
-    GET /auth/issuer-requirements/:category
+    GET /issuer/issuer-requirements/:category
 
   Tropang Ex:
   Kapag pumili yung user ng category (e.g. university, government, training_provider),
@@ -233,14 +233,14 @@ getIssuerRequirementsByCategory: async (category) => {
     /* Step 2: Send GET request to backend
       Technical:
       Calls backend route:
-        /api/auth/issuer-requirements/:category
+        /api/issuer/issuer-requirements/:category
 
       Tropang Ex:
       Frontend → backend:
       "Ano yung requirements para sa category na ’to?"
     */
     const response = await axios.get(
-      `/auth/issuer-requirements/${encodeURIComponent(category)}`
+      `/issuer/issuer-requirements/${encodeURIComponent(category)}`
     );
 
     /* Step 3: Return backend payload
@@ -442,7 +442,7 @@ getIssuerRequirementsByCategory: async (category) => {
     try {
 
       /* Step 1: GET pending issuers */
-      const response = await axios.get('/auth/pending-issuers');
+      const response = await axios.get('/admin/pending-issuers');
 
       /* Step 2: Return issuer list */
       return response.data;
@@ -462,7 +462,7 @@ getIssuerRequirementsByCategory: async (category) => {
 */
 getPendingRootIssuers: async () => {
   try {
-    const response = await axios.get('/auth/pending-root-issuers');
+    const response = await axios.get('/admin/pending-root-issuers');
     return response.data;
   } catch (error) {
     console.error(
@@ -482,7 +482,7 @@ getPendingRootIssuers: async () => {
 */
 getPendingSubordinateIssuers: async () => {
   try {
-    const response = await axios.get('/auth/pending-subordinate-issuers');
+    const response = await axios.get('/admin/pending-subordinate-issuers');
     return response.data;
   } catch (error) {
     console.error(
@@ -502,7 +502,7 @@ getPendingSubordinateIssuers: async () => {
 */
 getPendingSubordinateIssuersAwaitingRootApproval: async () => {
   try {
-    const response = await axios.get('/auth/pending-subordinate-awaiting-root');
+    const response = await axios.get('/admin/pending-subordinate-awaiting-root');
     return response.data;
   } catch (error) {
     console.error(
@@ -522,7 +522,7 @@ getPendingSubordinateIssuersAwaitingRootApproval: async () => {
 */
 getPendingSubordinateIssuersRootApproved: async () => {
   try {
-    const response = await axios.get('/auth/pending-subordinate-root-approved');
+    const response = await axios.get('/admin/pending-subordinate-root-approved');
     return response.data;
   } catch (error) {
     console.error(
@@ -545,7 +545,7 @@ getPendingSubordinateIssuersRootApproved: async () => {
 */
 getAllSubordinatesForRoot: async () => {
   try {
-    const response = await axios.get('/auth/root/subordinates/all');
+    const response = await axios.get('/admin/root/subordinates/all');
     return response.data;
   } catch (error) {
     console.error(
@@ -564,7 +564,7 @@ getAllSubordinatesForRoot: async () => {
 */
 getRootApprovedSubordinatesForRoot: async () => {
   try {
-    const response = await axios.get('/auth/root/subordinates/root-approved');
+    const response = await axios.get('/admin/root/subordinates/root-approved');
     return response.data;
   } catch (error) {
     console.error(
@@ -583,7 +583,7 @@ getRootApprovedSubordinatesForRoot: async () => {
 */
 getRootRejectedSubordinatesForRoot: async () => {
   try {
-    const response = await axios.get('/auth/root/subordinates/root-rejected');
+    const response = await axios.get('/admin/root/subordinates/root-rejected');
     return response.data;
   } catch (error) {
     console.error(
@@ -602,7 +602,7 @@ getRootRejectedSubordinatesForRoot: async () => {
 */
 getApprovedSubordinatesForRoot: async () => {
   try {
-    const response = await axios.get('/auth/root/subordinates/approved');
+    const response = await axios.get('/admin/root/subordinates/approved');
     return response.data;
   } catch (error) {
     console.error(
@@ -621,7 +621,7 @@ getApprovedSubordinatesForRoot: async () => {
 */
 getDisabledSubordinatesForRoot: async () => {
   try {
-    const response = await axios.get('/auth/root/subordinates/disabled');
+    const response = await axios.get('/admin/root/subordinates/disabled');
     return response.data;
   } catch (error) {
     console.error(
@@ -641,7 +641,7 @@ getDisabledSubordinatesForRoot: async () => {
 */
 getAdminActionablePendingIssuers: async () => {
   try {
-    const response = await axios.get('/auth/pending-issuers-admin-actionable');
+    const response = await axios.get('/admin/pending-issuers-admin-actionable');
     return response.data;
   } catch (error) {
     console.error(
@@ -665,7 +665,7 @@ getAdminActionablePendingIssuers: async () => {
   getApprovedIssuers: async () => {
     try {
       // Step 1: GET approved issuers
-      const response = await axios.get('/auth/approved-issuers');
+      const response = await axios.get('/admin/approved-issuers');
 
       // Step 2: Return payload (backend already sends { success, data, count, ... })
       return response.data;
@@ -689,7 +689,7 @@ getAdminActionablePendingIssuers: async () => {
 getRejectedIssuers: async () => {
   try {
     // Step 1: GET rejected issuers
-    const response = await axios.get('/auth/rejected-issuers');
+    const response = await axios.get('/admin/rejected-issuers');
 
     // Step 2: Return payload
     return response.data;
@@ -711,7 +711,7 @@ getRejectedIssuers: async () => {
 */
 getDisabledIssuers: async () => {
   try {
-    const response = await axios.get('/auth/disabled-issuers');
+    const response = await axios.get('/admin/disabled-issuers');
     return response.data;
   } catch (error) {
     console.error(
@@ -734,7 +734,7 @@ approveIssuer: async (issuerId, approvalReason) => {
   try {
 
     const response = await axios.post(
-      `/approve-issuer/${issuerId}`,
+      `/admin/approve-issuer/${issuerId}`,
       {
         approvalReason: approvalReason || ''
       }
@@ -763,7 +763,7 @@ rejectIssuer: async (issuerId, rejectionReason) => {
   try {
 
     const response = await axios.post(
-      `/reject-issuer/${issuerId}`,
+      `/admin/reject-issuer/${issuerId}`,
       {
         rejectionReason
       }
@@ -801,7 +801,7 @@ rejectIssuer: async (issuerId, rejectionReason) => {
 rootApproveSubordinateIssuer: async (issuerId, approvalReason) => {
   try {
     const response = await axios.post(
-      `/root-approve-subordinate/${issuerId}`,
+      `/admin/root-approve-subordinate/${issuerId}`,
       { approvalReason: approvalReason || '' }
     );
     return response.data;
@@ -830,7 +830,7 @@ rootApproveSubordinateIssuer: async (issuerId, approvalReason) => {
 rootRejectSubordinateIssuer: async (issuerId, rejectionReason) => {
   try {
     const response = await axios.post(
-      `/root-reject-subordinate/${issuerId}`,
+      `/admin/root-reject-subordinate/${issuerId}`,
       { rejectionReason }
     );
     return response.data;
@@ -855,7 +855,7 @@ rootRejectSubordinateIssuer: async (issuerId, rejectionReason) => {
 */
 getPendingSubordinatesForRoot: async () => {
   try {
-    const response = await axios.get(`/root/subordinates/pending`);
+    const response = await axios.get(`/admin/root/subordinates/pending`);
     return response.data;
   } catch (error) {
     console.error(
@@ -879,7 +879,7 @@ disableIssuer: async (issuerId, reason) => {
     if (!issuerId) throw new Error('issuerId is required');
     if (!reason || reason.trim() === '') throw new Error('reason is required');
 
-    const response = await axios.post(`/auth/disable-issuer/${issuerId}`, { reason });
+    const response = await axios.post(`/admin/disable-issuer/${issuerId}`, { reason });
     return response.data;
   } catch (error) {
     console.error(
@@ -899,7 +899,7 @@ enableIssuer: async (issuerId, reason) => {
     if (!issuerId) throw new Error('issuerId is required');
     if (!reason || reason.trim() === '') throw new Error('reason is required');
 
-    const response = await axios.post(`/auth/enable-issuer/${issuerId}`, { reason });
+    const response = await axios.post(`/admin/enable-issuer/${issuerId}`, { reason });
     return response.data;
   } catch (error) {
     console.error(
@@ -919,7 +919,7 @@ disableUser: async (userId, reason) => {
     if (!userId) throw new Error('userId is required');
     if (!reason || reason.trim() === '') throw new Error('reason is required');
 
-    const response = await axios.post(`/auth/disable-user/${userId}`, { reason });
+    const response = await axios.post(`/admin/disable-user/${userId}`, { reason });
     return response.data;
   } catch (error) {
     console.error(
@@ -939,7 +939,7 @@ enableUser: async (userId, reason) => {
     if (!userId) throw new Error('userId is required');
     if (!reason || reason.trim() === '') throw new Error('reason is required');
 
-    const response = await axios.post(`/auth/enable-user/${userId}`, { reason });
+    const response = await axios.post(`/admin/enable-user/${userId}`, { reason });
     return response.data;
   } catch (error) {
     console.error(
@@ -1078,7 +1078,7 @@ enableUser: async (userId, reason) => {
 
   Technical:
   Calls backend endpoint:
-    GET /api/auth/issuer/templates/exists
+    GET /api/issuer/issuer/templates/exists
 
   Returns:
     {
@@ -1095,7 +1095,7 @@ Check_IssuerHasTemplates: async () => {
   try {
 
     // Step 1: Send GET request to backend
-    const response = await axios.get('/auth/issuer/templates/exists');
+    const response = await axios.get('/issuer/issuer/templates/exists');
 
     // Step 2: Return full response payload
     return response.data;
@@ -1400,7 +1400,7 @@ Check_IssuerHasTemplates: async () => {
   // Get all verification logs (blockchain)
 Get_AllVerificationLogs: async () => {
   try {
-    const response = await axios.get('/verification-logs'); // baseURL already has /api
+    const response = await axios.get('/verify/verification-logs'); // baseURL already has /api
     return response.data; // { success, logs, count, timestamp }
   } catch (error) {
     console.error(
@@ -1481,7 +1481,7 @@ Get_IssuerDecisionLogs_ByEmail: async (issuerEmail) => {
 // Get single verification log by ID
 Get_VerificationLogById: async (logId) => {
   try {
-    const response = await axios.get(`/verification-logs/${logId}`);
+    const response = await axios.get(`/verify/verification-logs/${logId}`);
     return response.data; // { success, log, timestamp }
   } catch (error) {
     console.error(
@@ -1621,7 +1621,7 @@ Get_VerificationLogById: async (logId) => {
     Technical:
     Fetches all credentials for a specific student/holder from
     the admin CouchDB (wallet_user_credentials) via:
-      GET /api/auth/credentials/user/:holderID
+      GET /api/credentials/credentials/user/:holderID
 
     Tropang Ex:
     Ito yung kinukuha ng student dashboard para makita niya
@@ -1642,7 +1642,7 @@ Get_VerificationLogById: async (logId) => {
       /* Step 2: Send GET request to backend
          // - polo
       */
-      const response = await axios.get(`/auth/credentials/user/${holderID}`);
+      const response = await axios.get(`/credentials/credentials/user/${holderID}`);
 
       /* Step 3: Return credentials array
          Technical: Backend returns { success, credentials, count, timestamp }
@@ -1664,7 +1664,7 @@ Get_VerificationLogById: async (logId) => {
     Function Name: Update_CredentialVisibility
     Technical:
     Updates visibility of a credential in CouchDB via:
-      PATCH /api/auth/credentials/:credentialId/visibility
+      PATCH /api/credentials/credentials/:credentialId/visibility
     CouchDB only — no blockchain call
     // - polo
   */
@@ -1674,7 +1674,7 @@ Get_VerificationLogById: async (logId) => {
       if (!['public', 'private'].includes(visibility)) throw new Error('visibility must be public or private');
 
       const response = await axios.patch(
-        `/auth/credentials/${credentialId}/visibility`,
+        `/credentials/credentials/${credentialId}/visibility`,
         { visibility }
       );
       return response.data;
@@ -1688,7 +1688,7 @@ Get_VerificationLogById: async (logId) => {
     Function Name: Update_CredentialOrder
     Technical:
     Updates currentOrder of a credential in CouchDB via:
-      PATCH /api/auth/credentials/:credentialId/order
+      PATCH /api/credentials/credentials/:credentialId/order
     CouchDB only — no blockchain call
     // - polo
   */
@@ -1698,7 +1698,7 @@ Get_VerificationLogById: async (logId) => {
       if (typeof newOrder !== 'number') throw new Error('newOrder must be a number');
 
       const response = await axios.patch(
-        `/auth/credentials/${credentialId}/order`,
+        `/credentials/credentials/${credentialId}/order`,
         { newOrder }
       );
       return response.data;
@@ -1767,34 +1767,6 @@ Get_AllUserStatusLogs: async () => {
   } catch (error) {
     console.error(
       'Error fetching user status logs:',
-      error.response?.data?.message || error.message
-    );
-    throw error;
-  }
-},
-
-// Get status-change logs for a specific ISSUER email
-Get_IssuerStatusLogs_ByEmail: async (email) => {
-  try {
-    const response = await axios.get(`/admin/status-logs/issuer/${encodeURIComponent(email)}`);
-    return response.data;
-  } catch (error) {
-    console.error(
-      'Error fetching issuer status logs by email:',
-      error.response?.data?.message || error.message
-    );
-    throw error;
-  }
-},
-
-// Get status-change logs for a specific USER email
-Get_UserStatusLogs_ByEmail: async (email) => {
-  try {
-    const response = await axios.get(`/admin/status-logs/user/${encodeURIComponent(email)}`);
-    return response.data;
-  } catch (error) {
-    console.error(
-      'Error fetching user status logs by email:',
       error.response?.data?.message || error.message
     );
     throw error;
@@ -1928,7 +1900,7 @@ Get_UserStatusLogs_ByEmail: async (userEmail) => {
   Fetches a filtered list of users eligible to receive a credential instance
   for a given templateId by calling:
 
-    GET /auth/issuer/templates/:templateId/eligible-users
+    GET /issuer/issuer/templates/:templateId/eligible-users
 
   Returns:
     - success flag
@@ -1957,14 +1929,14 @@ Get_EligibleUsersForTemplate: async (templateId) => {
     /* Step 2: Call backend endpoint
 
       Technical:
-      Calls GET /api/auth/issuer/templates/:templateId/eligible-users
+      Calls GET /api/issuer/issuer/templates/:templateId/eligible-users
       (Assuming axios baseURL already points to /api and authRoutes is mounted at /api/auth)
 
       Tropang Ex:
       Frontend → "Boss, sino-sino yung pwede bigyan nitong template na ’to?"
     */
     const response = await axios.get(
-      `/auth/issuer/templates/${templateId}/eligible-users`
+      `/issuer/issuer/templates/${templateId}/eligible-users`
     );
 
     /* Step 3: Return backend response
@@ -1998,7 +1970,7 @@ getIssuerDocuments: async (issuerId) => {
   try {
     if (!issuerId) throw new Error('issuerId is required');
 
-    const response = await axios.get(`/auth/issuer/${issuerId}/documents`);
+    const response = await axios.get(`/issuer/issuer/${issuerId}/documents`);
     return response.data;
   } catch (error) {
     console.error(
@@ -2021,7 +1993,7 @@ viewIssuerDocumentBlob: async (issuerId, attachmentName) => {
     if (!attachmentName) throw new Error('attachmentName is required');
 
     const response = await axios.get(
-      `/auth/issuer/${issuerId}/documents/${encodeURIComponent(attachmentName)}`,
+      `/issuer/issuer/${issuerId}/documents/${encodeURIComponent(attachmentName)}`,
       { responseType: 'blob' }
     );
 
@@ -2047,7 +2019,7 @@ downloadIssuerDocumentBlob: async (issuerId, attachmentName) => {
     if (!attachmentName) throw new Error('attachmentName is required');
 
     const response = await axios.get(
-      `/auth/issuer/${issuerId}/documents/${encodeURIComponent(attachmentName)}?download=1`,
+      `/issuer/issuer/${issuerId}/documents/${encodeURIComponent(attachmentName)}?download=1`,
       { responseType: 'blob' }
     );
 

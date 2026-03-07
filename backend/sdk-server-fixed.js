@@ -75,11 +75,11 @@ const issuerCredentialController = require('./controllers/issuerCredentialContro
 const verifierController = require('./controllers/verifierController');  // UBUNTU DIRECTORY BASED 
 const adminDashboardController = require('./controllers/adminDashboardController'); // UBUNTU DIRECTORY BASED 
 const authController = require('./controllers/authController');
-const createSystemRoutes = require('../src/routes/systemRoutes');
-const createCredentialApiRoutes = require('../src/routes/credentialApiRoutes');
-const createIssuerApiRoutes = require('../src/routes/issuerApiRoutes');
-const createVerificationApiRoutes = require('../src/routes/verificationApiRoutes');
-const createAdminApiRoutes = require('../src/routes/adminApiRoutes');
+const createSystemRoutes = require('./routes/systemRoutes');
+const createCredentialApiRoutes = require('./routes/credentialApiRoutes');
+const createIssuerApiRoutes = require('./routes/issuerApiRoutes');
+const createVerificationApiRoutes = require('./routes/verificationApiRoutes');
+const createAdminApiRoutes = require('./routes/adminApiRoutes');
 
 
 

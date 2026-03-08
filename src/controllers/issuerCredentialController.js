@@ -1594,6 +1594,8 @@ exports.getCredentialTemplates = async (req, res, getContractAndGateway) => {
 // ==========================================================================================================================================================================
 
 
+module.exports = exports;
+
 exports.getIssuerCredentials = async (req, res) => {
   try {
     const { issuerId } = req.params;

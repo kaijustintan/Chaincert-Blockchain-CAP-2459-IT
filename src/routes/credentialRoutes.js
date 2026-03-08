@@ -169,7 +169,7 @@ router.get('/:id/history', async (req, res) => {
 // POST /api/credentials/:credentialId/issue
 // Issue credential to a holder.
 router.post('/:credentialId/issue', (req, res) => {
-  return issuerCredentialController.issue_CredentialToUser(
+  return issuerCredentialController.Issue_Credential(
     req,
     res,
     req.app.locals.getContractAndGateway
@@ -193,7 +193,7 @@ router.post('/:credentialId/revoke', (req, res) => {
 // GET /api/credentials/:credentialId/verify
 // Verify credential by id.
 router.get('/:credentialId/verify', (req, res) => {
-  return verifierController.verifyCredentialByID(
+  return verifierController.Verify_Credential(
     req,
     res,
     req.app.locals.getContractAndGateway

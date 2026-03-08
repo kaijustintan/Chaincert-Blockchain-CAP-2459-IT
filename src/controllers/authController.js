@@ -30,8 +30,8 @@
   CATEGORY: ISSUER REGISTRATION / ADMIN REVIEW
   - registerIssuer(req, res)
   - getPendingIssuers(req, res)
-  - approveIssuer(req, res)
-  - rejectIssuer(req, res)
+  - Approve_Issuer(req, res)
+  - Reject_Issuer(req, res)
 
   CATEGORY: ISSUER LOGIN
   - loginIssuer(req, res)
@@ -1064,10 +1064,10 @@ getDisabledIssuers: async (req, res) => {
 
   /*
     Endpoint: POST /api/auth/approve-issuer/:issuerId
-    Function Name: approveIssuer
+    Function Name: Approve_Issuer
 
     Technical:
-    Approves issuer application by calling couchDB.approveIssuer(issuerId, adminId).
+    Approves issuer application by calling couchDB.Approve_Issuer(issuerId, adminId).
     Note:
     - Uses req.user?.id if auth middleware attaches user info, else fallback "admin".
 
@@ -1076,14 +1076,14 @@ getDisabledIssuers: async (req, res) => {
   */
  /*
   Endpoint: POST /api/approve-issuer/:issuerId
-  Function Name: approveIssuer
+  Function Name: Approve_Issuer
 
   ✅ ADDED:
   - Admin-only access check
   - Root-approval gate for subordinate issuers:
       issuerType=subordinate AND rootApprovalStatus !== approved => BLOCK
 */
-approveIssuer: async (req, res, getContractAndGateway) => {
+Approve_Issuer: async (req, res, getContractAndGateway) => {
   let gateway = null;
 
   try {
@@ -1118,7 +1118,7 @@ approveIssuer: async (req, res, getContractAndGateway) => {
     }
 
     // 1️⃣ Approve in CouchDB FIRST (source of truth)
-    const result = await couchDB.approveIssuer(
+    const result = await couchDB.Approve_Issuer(
       issuerId,
       req.user?.id || 'admin'
     );
@@ -1154,7 +1154,7 @@ approveIssuer: async (req, res, getContractAndGateway) => {
 
     } catch (bcErr) {
       blockchainWarning = bcErr?.message || String(bcErr);
-      console.error('[approveIssuer] Blockchain log failed:', blockchainWarning);
+      console.error('[Approve_Issuer] Blockchain log failed:', blockchainWarning);
     } finally {
       try { if (gateway) await gateway.disconnect(); } catch (_) {}
       gateway = null;
@@ -1173,7 +1173,7 @@ approveIssuer: async (req, res, getContractAndGateway) => {
     console.error('Error approving issuer:', error);
     if (res.headersSent) return;
 
-    // ✅ ADDED: If couchDB.approveIssuer throws a typed error, honor it
+    // ✅ ADDED: If couchDB.Approve_Issuer throws a typed error, honor it
     if (error.statusCode) {
       return res.status(error.statusCode).json({
         success: false,
@@ -1194,23 +1194,23 @@ approveIssuer: async (req, res, getContractAndGateway) => {
 
   /*
     Endpoint: POST /api/auth/reject-issuer/:issuerId
-    Function Name: rejectIssuer
+    Function Name: Reject_Issuer
 
     Technical:
-    Rejects issuer application by calling couchDB.rejectIssuer(issuerId, rejectionReason).
+    Rejects issuer application by calling couchDB.Reject_Issuer(issuerId, rejectionReason).
 
     Tropang Ex:
     Admin clicks Reject → may rejection reason + timestamp.
   */
   /*
   Endpoint: POST /api/reject-issuer/:issuerId
-  Function Name: rejectIssuer
+  Function Name: Reject_Issuer
 
   ✅ ADDED:
   - Admin-only access check
   - (No root gate needed for rejection — admin can reject anytime)
 */
-rejectIssuer: async (req, res, getContractAndGateway) => {
+Reject_Issuer: async (req, res, getContractAndGateway) => {
   let gateway = null;
 
   try {
@@ -1233,7 +1233,7 @@ rejectIssuer: async (req, res, getContractAndGateway) => {
     }
 
     // 1️⃣ Reject in CouchDB FIRST
-    const result = await couchDB.rejectIssuer(
+    const result = await couchDB.Reject_Issuer(
       issuerId,
       rejectionReason,
       req.user?.id || 'admin' // ✅ ADDED: track who rejected (if your couch fn supports it)
@@ -1270,7 +1270,7 @@ rejectIssuer: async (req, res, getContractAndGateway) => {
 
     } catch (bcErr) {
       blockchainWarning = bcErr?.message || String(bcErr);
-      console.error('[rejectIssuer] Blockchain log failed:', blockchainWarning);
+      console.error('[Reject_Issuer] Blockchain log failed:', blockchainWarning);
     } finally {
       try { if (gateway) await gateway.disconnect(); } catch (_) {}
       gateway = null;
@@ -1289,7 +1289,7 @@ rejectIssuer: async (req, res, getContractAndGateway) => {
     console.error('Error rejecting issuer:', error);
     if (res.headersSent) return;
 
-    // ✅ ADDED: If couchDB.rejectIssuer throws a typed error, honor it
+    // ✅ ADDED: If couchDB.Reject_Issuer throws a typed error, honor it
     if (error.statusCode) {
       return res.status(error.statusCode).json({
         success: false,
@@ -2178,7 +2178,7 @@ loginIssuer: async (req, res) => {
 // ADMIN: DISABLE / ENABLE ISSUER (WITH BLOCKCHAIN AUDIT LOG) — SAFE VERSION
 // =================================================================================================
 
-disableIssuer: async (req, res, getContractAndGateway) => {
+Disable_Issuer: async (req, res, getContractAndGateway) => {
   let gateway = null;
 
   try {
@@ -2208,7 +2208,7 @@ disableIssuer: async (req, res, getContractAndGateway) => {
     }
 
     // 2) Update CouchDB FIRST (source for UI lists)
-    await couchDB.disableIssuer(issuerId, 'chaincert-admin', reason);
+    await couchDB.Disable_Issuer(issuerId, 'chaincert-admin', reason);
 
     // 3) Blockchain logging (BEST-EFFORT ONLY)
     let blockchainLogWarning = null;
@@ -2222,19 +2222,19 @@ disableIssuer: async (req, res, getContractAndGateway) => {
       const orgName = 'Org1';
 
           // ✅ DEBUG LOGS (PASTE THESE)
-      console.log('\n[disableIssuer][DEBUG] typeof getContractAndGateway =', typeof getContractAndGateway);
-      console.log('[disableIssuer][DEBUG] identityName =', identityName, '| orgName =', orgName);
-      console.log('[disableIssuer][DEBUG] issuerId =', issuerId, '| issuerEmail =', issuer.email);
-      console.log('[disableIssuer][DEBUG] about to call getContractAndGateway...\n');
+      console.log('\n[Disable_Issuer][DEBUG] typeof getContractAndGateway =', typeof getContractAndGateway);
+      console.log('[Disable_Issuer][DEBUG] identityName =', identityName, '| orgName =', orgName);
+      console.log('[Disable_Issuer][DEBUG] issuerId =', issuerId, '| issuerEmail =', issuer.email);
+      console.log('[Disable_Issuer][DEBUG] about to call getContractAndGateway...\n');
 
       // prefer same style as issuerCredentialController
       const cg = await getContractAndGateway(identityName, orgName);
 
-       console.log('\n[disableIssuer][DEBUG] getContractAndGateway returned:', cg);
-  console.log('[disableIssuer][DEBUG] cg type =', typeof cg);
-  console.log('[disableIssuer][DEBUG] cg keys =', cg ? Object.keys(cg) : null);
-  console.log('[disableIssuer][DEBUG] cg.gateway exists =', !!(cg && cg.gateway));
-  console.log('[disableIssuer][DEBUG] cg.contract exists =', !!(cg && cg.contract), '\n');
+       console.log('\n[Disable_Issuer][DEBUG] getContractAndGateway returned:', cg);
+  console.log('[Disable_Issuer][DEBUG] cg type =', typeof cg);
+  console.log('[Disable_Issuer][DEBUG] cg keys =', cg ? Object.keys(cg) : null);
+  console.log('[Disable_Issuer][DEBUG] cg.gateway exists =', !!(cg && cg.gateway));
+  console.log('[Disable_Issuer][DEBUG] cg.contract exists =', !!(cg && cg.contract), '\n');
 
       if (!cg || !cg.gateway || !cg.contract) {
         throw new Error('getContractAndGateway returned an invalid connection object');
@@ -2253,7 +2253,7 @@ disableIssuer: async (req, res, getContractAndGateway) => {
 
     } catch (bcErr) {
       blockchainLogWarning = bcErr?.message || String(bcErr);
-      console.error('[disableIssuer] Blockchain log failed:', blockchainLogWarning);
+      console.error('[Disable_Issuer] Blockchain log failed:', blockchainLogWarning);
       // DO NOT throw — keep it best-effort
     } finally {
       // Always attempt disconnect if gateway was created
@@ -2271,7 +2271,7 @@ disableIssuer: async (req, res, getContractAndGateway) => {
     });
 
   } catch (error) {
-    console.error('disableIssuer error:', error);
+    console.error('Disable_Issuer error:', error);
 
     // ✅ avoid ERR_HTTP_HEADERS_SENT
     if (res.headersSent) return;
@@ -2283,7 +2283,7 @@ disableIssuer: async (req, res, getContractAndGateway) => {
   }
 },
 
-enableIssuer: async (req, res, getContractAndGateway) => {
+Enable_Issuer: async (req, res, getContractAndGateway) => {
   let gateway = null;
 
   try {
@@ -2313,7 +2313,7 @@ enableIssuer: async (req, res, getContractAndGateway) => {
     }
 
     // 2) Update CouchDB FIRST
-    await couchDB.enableIssuer(issuerId, 'chaincert-admin', reason);
+    await couchDB.Enable_Issuer(issuerId, 'chaincert-admin', reason);
 
     // 3) Blockchain logging (BEST-EFFORT ONLY)
     let blockchainLogWarning = null;
@@ -2344,7 +2344,7 @@ enableIssuer: async (req, res, getContractAndGateway) => {
 
     } catch (bcErr) {
       blockchainLogWarning = bcErr?.message || String(bcErr);
-      console.error('[enableIssuer] Blockchain log failed:', blockchainLogWarning);
+      console.error('[Enable_Issuer] Blockchain log failed:', blockchainLogWarning);
     } finally {
       try { if (gateway) await gateway.disconnect(); } catch (_) {}
       gateway = null;
@@ -2359,7 +2359,7 @@ enableIssuer: async (req, res, getContractAndGateway) => {
     });
 
   } catch (error) {
-    console.error('enableIssuer error:', error);
+    console.error('Enable_Issuer error:', error);
     if (res.headersSent) return;
 
     return res.status(500).json({
@@ -2374,7 +2374,7 @@ enableIssuer: async (req, res, getContractAndGateway) => {
 // ADMIN: DISABLE / ENABLE USER (WITH BLOCKCHAIN AUDIT LOG)
 // ========================================================================================================================================================================
 
-disableUser: async (req, res, getContractAndGateway) => {
+Disable_User: async (req, res, getContractAndGateway) => {
   let gateway;
 
   try {
@@ -2407,7 +2407,7 @@ disableUser: async (req, res, getContractAndGateway) => {
     }
 
     // 2) Update CouchDB using existing service function
-    await couchDB.disableUser(userId, 'chaincert-admin', reason);
+    await couchDB.Disable_User(userId, 'chaincert-admin', reason);
 
     // 3) Blockchain log
     let blockchainLogWarning = null;
@@ -2437,7 +2437,7 @@ disableUser: async (req, res, getContractAndGateway) => {
     });
 
   } catch (error) {
-    console.error('disableUser error:', error);
+    console.error('Disable_User error:', error);
     if (res.headersSent) return;
     return res.status(500).json({
       success: false,
@@ -2448,7 +2448,7 @@ disableUser: async (req, res, getContractAndGateway) => {
   }
 },
 
-enableUser: async (req, res, getContractAndGateway) => {
+Enable_User: async (req, res, getContractAndGateway) => {
   let gateway;
 
   try {
@@ -2481,7 +2481,7 @@ enableUser: async (req, res, getContractAndGateway) => {
     }
 
     // 2) Update CouchDB using existing service function
-    await couchDB.enableUser(userId, 'chaincert-admin', reason);
+    await couchDB.Enable_User(userId, 'chaincert-admin', reason);
 
     // 3) Blockchain log
     let blockchainLogWarning = null;
@@ -2511,7 +2511,7 @@ enableUser: async (req, res, getContractAndGateway) => {
     });
 
   } catch (error) {
-    console.error('enableUser error:', error);
+    console.error('Enable_User error:', error);
     if (res.headersSent) return;
     return res.status(500).json({
       success: false,

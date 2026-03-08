@@ -64,32 +64,32 @@ router.get('/root/subordinates/disabled', authController.getDisabledSubordinates
 
 // POST /api/admin/approve-issuer/:issuerId
 router.post('/approve-issuer/:issuerId', (req, res) => {
-  authController.approveIssuer(req, res, req.app.locals.getContractAndGateway);
+  authController.Approve_Issuer(req, res, req.app.locals.getContractAndGateway);
 });
 
 // POST /api/admin/reject-issuer/:issuerId
 router.post('/reject-issuer/:issuerId', (req, res) => {
-  authController.rejectIssuer(req, res, req.app.locals.getContractAndGateway);
+  authController.Reject_Issuer(req, res, req.app.locals.getContractAndGateway);
 });
 
 // POST /api/admin/disable-issuer/:issuerId
 router.post('/disable-issuer/:issuerId', (req, res) => {
-  authController.disableIssuer(req, res, req.app.locals.getContractAndGateway);
+  authController.Disable_Issuer(req, res, req.app.locals.getContractAndGateway);
 });
 
 // POST /api/admin/enable-issuer/:issuerId
 router.post('/enable-issuer/:issuerId', (req, res) => {
-  authController.enableIssuer(req, res, req.app.locals.getContractAndGateway);
+  authController.Enable_Issuer(req, res, req.app.locals.getContractAndGateway);
 });
 
 // POST /api/admin/disable-user/:userId
 router.post('/disable-user/:userId', (req, res) => {
-  authController.disableUser(req, res, req.app.locals.getContractAndGateway);
+  authController.Disable_User(req, res, req.app.locals.getContractAndGateway);
 });
 
 // POST /api/admin/enable-user/:userId
 router.post('/enable-user/:userId', (req, res) => {
-  authController.enableUser(req, res, req.app.locals.getContractAndGateway);
+  authController.Enable_User(req, res, req.app.locals.getContractAndGateway);
 });
 
 // =========================

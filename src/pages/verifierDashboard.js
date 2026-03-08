@@ -121,7 +121,7 @@ export default function VerifierDashboard() {
 
     try {
       // Call API to verify credential (CouchDB + optional blockchain)
-      const response = await apiService.Verify_CredentialById(query);
+      const response = await apiService.Verify_Credential(query);
 
       if (response.verified && response.success) {
         setResult(response);

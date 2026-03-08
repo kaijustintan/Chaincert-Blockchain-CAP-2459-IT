@@ -10,7 +10,7 @@ const router = express.Router();
 
 // GET /api/verify/verify/:credentialID
 // Verify credential by ID from URL params.
-router.get('/verify/:credentialID', verifierController.verifyCredentialByID);
+router.get('/verify/:credentialID', verifierController.Verify_Credential);
 
 // POST /api/verify/verify
 // Verify credential by ID from request body.
@@ -25,7 +25,7 @@ router.post('/verify', (req, res, next) => {
   }
 
   req.params.credentialID = credentialID;
-  return verifierController.verifyCredentialByID(req, res, next);
+  return verifierController.Verify_Credential(req, res, next);
 });
 
 // GET /api/verify/verify-stats
@@ -34,7 +34,7 @@ router.get('/verify-stats', verifierController.getVerificationStats);
 
 // GET /api/verify/verify-credential/:credentialID
 // Legacy verification endpoint alias.
-router.get('/verify-credential/:credentialID', verifierController.verifyCredentialByID);
+router.get('/verify-credential/:credentialID', verifierController.Verify_Credential);
 
 // ======================================================
 // VERIFICATION LOG ROUTES

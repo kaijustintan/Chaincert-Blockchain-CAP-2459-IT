@@ -136,7 +136,7 @@ const [showAll, setShowAll] = useState(false);
         return;
       }
       console.log("[PROFILE PAGE] Fetching history for:", blockchainId);
-      const result = await apiService.Get_CredentialHistoryById(blockchainId);
+      const result = await apiService.Get_CredentialHistory(blockchainId);
       setHistoryData(result);
     } catch (err) {
       console.error("[PROFILE PAGE] History fetch error:", err);

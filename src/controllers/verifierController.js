@@ -36,7 +36,7 @@ function normalizeCredentialId(credentialId) {
 }
 
 /**
- * Function Name: verifyCredentialByID
+ * Function Name: Verify_Credential
  *
  * Technical:
  * Verifies a credential by its ID using:
@@ -57,7 +57,7 @@ function normalizeCredentialId(credentialId) {
  * Expected extra param injected from router:
  *   getContractAndGateway(identityName, orgName) => { gateway, contract }
  */
-const verifyCredentialByID = async (req, res, getContractAndGateway) => {
+const Verify_Credential = async (req, res, getContractAndGateway) => {
   try {
     const { credentialId } = req.params;
 
@@ -410,7 +410,7 @@ const logVerificationEvent = async (req, res, getContractAndGateway) => {
       const adminCouch = nano(COUCHDB_URL);
       const userWalletDb = adminCouch.use('wallet_user_credentials');
 
-      // reuse same normalization pattern as verifyCredentialByID
+      // reuse same normalization pattern as Verify_Credential
       const normalizedId = normalizeCredentialId(credentialId);
 
       const result = await userWalletDb.find({
@@ -677,7 +677,7 @@ const getVerificationLogById = async (req, res, getContractAndGateway) => {
 
 /* Ito yung pinapagamit natin sa router. Kapag may tumawag ng /verify o stats endpoint, dito rin babagsak. */
 module.exports = {
-  verifyCredentialByID,
+  Verify_Credential,
   getVerificationStats,
   logVerificationEvent,
   getAllVerificationLogs,

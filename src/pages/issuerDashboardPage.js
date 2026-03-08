@@ -472,7 +472,7 @@ export default function IssuerDashboard() {
         return;
       }
 
-      await apiService.Revoke_CredentialInstance(revokeForm.credentialId, revokeForm.rejectionReason); // - polo
+      await apiService.Revoke_Credential(revokeForm.credentialId, revokeForm.rejectionReason); // - polo
       alert("Credential revoked successfully!");
       closeRevokeModal();
       fetchCredentials();
@@ -662,7 +662,7 @@ export default function IssuerDashboard() {
         return;
       }
 
-      await apiService.Issue_CredentialToUser(
+      await apiService.Issue_Credential(
         issueForm.credentialId,
         issueForm.recipientId,
         issueForm.expiryDate

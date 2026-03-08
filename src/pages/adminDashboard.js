@@ -64,10 +64,10 @@ export default function AdminDashboard() {
 
   // ✅ NEW: Reject Issuer modal state (required rejection reason)
   const [showRejectIssuerModal, setShowRejectIssuerModal] = useState(false);
-  const [rejectIssuerId, setRejectIssuerId] = useState(null);
+  const [Reject_IssuerId, setRejectIssuerId] = useState(null);
   const [rejectReason, setRejectReason] = useState("");
-  const [rejectIssuerError, setRejectIssuerError] = useState("");
-  const [rejectIssuerLoading, setRejectIssuerLoading] = useState(false);
+  const [Reject_IssuerError, setRejectIssuerError] = useState("");
+  const [Reject_IssuerLoading, setRejectIssuerLoading] = useState(false);
 
   // ADDED
   const [rejectedIssuers, setRejectedIssuers] = useState([]);
@@ -258,7 +258,7 @@ const handleDownloadIssuerDocument = async (doc) => {
       setCredentialHistoryError(null);
       setCredentialHistoryLoading(true);
 
-      const resp = await apiService.Get_CredentialHistoryById(row.credentialId);
+      const resp = await apiService.Get_CredentialHistory(row.credentialId);
 
       const list = Array.isArray(resp.history) ? resp.history : [];
       const sorted = [...list].sort(
@@ -288,7 +288,7 @@ const handleDownloadIssuerDocument = async (doc) => {
   };
 
   const closeRejectIssuerModal = () => {
-    if (rejectIssuerLoading) return;
+    if (Reject_IssuerLoading) return;
     setShowRejectIssuerModal(false);
     setRejectIssuerId(null);
     setRejectReason("");
@@ -308,7 +308,7 @@ const handleDownloadIssuerDocument = async (doc) => {
       setRejectIssuerLoading(true);
       setRejectIssuerError("");
 
-      await apiService.rejectIssuer(rejectIssuerId, trimmed);
+      await apiService.Reject_Issuer(Reject_IssuerId, trimmed);
 
       setMessage("✅ Issuer rejected successfully!");
       closeRejectIssuerModal();
@@ -364,10 +364,10 @@ const handleDownloadIssuerDocument = async (doc) => {
       setIssuerStatusError("");
 
       if (issuerStatusAction === "disable") {
-        await apiService.disableIssuer(issuerId, trimmed);
+        await apiService.Disable_Issuer(issuerId, trimmed);
         setMessage("✅ Issuer disabled successfully!");
       } else {
-        await apiService.enableIssuer(issuerId, trimmed);
+        await apiService.Enable_Issuer(issuerId, trimmed);
         setMessage("✅ Issuer enabled successfully!");
       }
 
@@ -468,7 +468,7 @@ const handleDownloadIssuerDocument = async (doc) => {
 
   const handleApproveIssuer = async (issuerId) => {
     try {
-      await apiService.approveIssuer(issuerId);
+      await apiService.Approve_Issuer(issuerId);
       setMessage("✅ Issuer approved successfully!");
       await fetchPendingIssuers(pendingIssuerFilter);
       await fetchApprovedIssuers();
@@ -539,10 +539,10 @@ const handleDownloadIssuerDocument = async (doc) => {
       setUserStatusError("");
 
       if (userStatusAction === "disable") {
-        await apiService.disableUser(userId, trimmed);
+        await apiService.Disable_User(userId, trimmed);
         setMessage("✅ User disabled successfully!");
       } else {
-        await apiService.enableUser(userId, trimmed);
+        await apiService.Enable_User(userId, trimmed);
         setMessage("✅ User enabled successfully!");
       }
 
@@ -1202,9 +1202,9 @@ const handleDownloadIssuerDocument = async (doc) => {
                   }}
                 />
 
-                {rejectIssuerError ? (
+                {Reject_IssuerError ? (
                   <div style={{ color: "#ff6b6b", marginTop: "10px" }}>
-                    ❌ {rejectIssuerError}
+                    ❌ {Reject_IssuerError}
                   </div>
                 ) : null}
 
@@ -1219,15 +1219,15 @@ const handleDownloadIssuerDocument = async (doc) => {
                   <button
                     type="button"
                     onClick={closeRejectIssuerModal}
-                    disabled={rejectIssuerLoading}
+                    disabled={Reject_IssuerLoading}
                     style={{
                       padding: "10px 14px",
                       borderRadius: "10px",
                       border: "1px solid rgba(255,255,255,0.18)",
                       background: "transparent",
                       color: "#fff",
-                      cursor: rejectIssuerLoading ? "not-allowed" : "pointer",
-                      opacity: rejectIssuerLoading ? 0.65 : 1,
+                      cursor: Reject_IssuerLoading ? "not-allowed" : "pointer",
+                      opacity: Reject_IssuerLoading ? 0.65 : 1,
                       fontWeight: 700,
                     }}
                   >
@@ -1236,19 +1236,19 @@ const handleDownloadIssuerDocument = async (doc) => {
 
                   <button
                     type="submit"
-                    disabled={rejectIssuerLoading}
+                    disabled={Reject_IssuerLoading}
                     style={{
                       padding: "10px 14px",
                       borderRadius: "10px",
                       border: "1px solid rgba(255,255,255,0.18)",
                       background: "rgba(255,107,107,0.12)",
                       color: "#ff6b6b",
-                      cursor: rejectIssuerLoading ? "not-allowed" : "pointer",
-                      opacity: rejectIssuerLoading ? 0.65 : 1,
+                      cursor: Reject_IssuerLoading ? "not-allowed" : "pointer",
+                      opacity: Reject_IssuerLoading ? 0.65 : 1,
                       fontWeight: 800,
                     }}
                   >
-                    {rejectIssuerLoading ? "Rejecting..." : "Confirm Reject"}
+                    {Reject_IssuerLoading ? "Rejecting..." : "Confirm Reject"}
                   </button>
                 </div>
               </form>

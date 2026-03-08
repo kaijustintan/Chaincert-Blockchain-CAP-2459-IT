@@ -24,15 +24,15 @@
   - checkIfOrgAccredited(orgName) UNUSED
   - createIssuerRegistration(issuerData, accreditationCheck)
   - getPendingIssuers()
-  - approveIssuer(issuerId, adminId)
-  - rejectIssuer(issuerId, rejectionReason)
+  - Approve_Issuer(issuerId, adminId)
+  - Reject_Issuer(issuerId, rejectionReason)
   - getApprovedIssuer(email)
 
   CATEGORY: ISSUER DASHBOARD / FAST CREDENTIAL VIEWS
   - getIssuerCredentials(issuerId)
 
   CATEGORY: ISSUED CREDENTIALS STORAGE (COPIES)
-  - saveIssuedCredentialToBothDBs(issuerEmail, credentialDataExtended)
+  - Issue_Credential_DB(issuerEmail, credentialDataExtended)
 
   CATEGORY: LOW-LEVEL EXPORTS
   - couch (nano root client)
@@ -939,7 +939,7 @@ async function checkDuplicateIssuerRegistration(email, orgName) {
 // ==========================================================================================================================================================================
 
 /* 
-  Function Name: approveIssuer
+  Function Name: Approve_Issuer
 
   Technical: Approves an issuer application by updating its CouchDB record (status, admin approver, Fabric identity, CouchDB URL, walletId).
   Tropang Ex: Ito yung “Approve” button logic ni admin. Pag na-approve si issuer, lalagyan siya ng:
@@ -952,7 +952,7 @@ async function checkDuplicateIssuerRegistration(email, orgName) {
   - If issuerType === "subordinate", admin approval is BLOCKED unless rootApprovalStatus === "approved"
   - Prevent approving if status is not "pending" (avoid re-approve / invalid transitions)
 */
-async function approveIssuer(issuerId, adminId) {
+async function Approve_Issuer(issuerId, adminId) {
   try {
     /* Step 1: Ensure issuersDB is ready */
     if (!issuersDB) await initializeDatabases();
@@ -1061,7 +1061,7 @@ async function approveIssuer(issuerId, adminId) {
     };
 
   } catch (error) {
-    console.error(`[COUCHDB] ❌ approveIssuer failed:`, error.message);
+    console.error(`[COUCHDB] ❌ Approve_Issuer failed:`, error.message);
     throw error;
   }
 }
@@ -1069,7 +1069,7 @@ async function approveIssuer(issuerId, adminId) {
 // ==========================================================================================================================================================================
 
 /* 
-  Function Name: rejectIssuer
+  Function Name: Reject_Issuer
 
   Technical: Rejects an issuer application by updating its CouchDB record (status, rejectionReason, rejectedAt).
   Tropang Ex: Ito yung “Reject” button logic ni admin. Pag nireject si issuer, lalagyan siya ng:
@@ -1080,7 +1080,7 @@ async function approveIssuer(issuerId, adminId) {
   ✅ ADDED (recommended):
   - Prevent rejecting if status is not "pending" (avoid rejecting already approved/rejected)
 */
-async function rejectIssuer(issuerId, rejectionReason) {
+async function Reject_Issuer(issuerId, rejectionReason) {
   if (!issuersDB) await initializeDatabases();
 
   const issuerDoc = await issuersDB.get(issuerId);
@@ -1726,7 +1726,7 @@ async function markNotificationAsRead(notificationId) {
 //                                                                       CREDENTIAL TEMPLATE Functions
 // ==========================================================================================================================================================================
 /* 
-  Function Name: save_CredentialTemplateToIssuerDB
+  Function Name: Create_CredentialTemplate_DB
 
   Technical:
   Saves a single credential TEMPLATE document into the issuer’s OWN CouchDB database
@@ -1737,7 +1737,7 @@ async function markNotificationAsRead(notificationId) {
   (halimbawa: "Diploma Template 2026") sa personal CouchDB ni issuer.
   Hindi ito blockchain call, pure CouchDB lang para sa dashboard listing.
 */
-async function save_CredentialTemplateToIssuerDB(issuerDoc, credentialDoc) {
+async function Create_CredentialTemplate_DB(issuerDoc, credentialDoc) {
 
   /* Step 1: Validate issuer document and CouchDB URL
      
@@ -1813,7 +1813,7 @@ async function save_CredentialTemplateToIssuerDB(issuerDoc, credentialDoc) {
 // ==========================================================================================================================================================================
 
 /* 
-  Function Name: saveIssuedCredentialToBothDBs (UPDATED)
+  Function Name: Issue_Credential_DB (UPDATED)
 
   Technical:
   Saves an ISSUED credential (AFTER blockchain success) to:
@@ -1831,7 +1831,7 @@ async function save_CredentialTemplateToIssuerDB(issuerDoc, credentialDoc) {
     - mabilis i-display sa issuer dashboard (issuer DB)
     - makita sa user wallet / verify flow (admin DB)
 */
-async function saveIssuedCredentialToBothDBs(issuerEmail, credentialData) {
+async function Issue_Credential_DB(issuerEmail, credentialData) {
   try {
 
     /* Step 1: Ensure issuersDB initialized + resolve issuer record by email
@@ -2168,7 +2168,7 @@ async function deleteIssuerCredentialTemplate(credentialId, issuerEmail) {
 // ==========================================================================================================================================================================
 
 /*
-  Function Name: revokeCredential
+  Function Name: Revoke_Credential_DB
 
   Technical:
   Revokes an issued credential in BOTH:
@@ -2189,7 +2189,7 @@ async function deleteIssuerCredentialTemplate(credentialId, issuerEmail) {
   - Ia-update din yung kopya sa admin DB / user wallet (para sa holder view / verification).
 */
 
-async function revokeCredential(blockchainId, issuerEmail, rejectionReason) {
+async function Revoke_Credential_DB(blockchainId, issuerEmail, rejectionReason) {
   try {
     if (!blockchainId) {
       throw new Error('blockchainId is required to revoke credential');
@@ -2213,7 +2213,7 @@ async function revokeCredential(blockchainId, issuerEmail, rejectionReason) {
     const issuerCouch = require('nano')(issuer.couchDBUrl);
     const issuerIssuedDb = issuerCouch.use('issued_credentials');
 
-    // Match saveIssuedCredentialToBothDBs: issuer_cred_<blockchainId>
+    // Match Issue_Credential_DB: issuer_cred_<blockchainId>
     const issuerDocId = `issuer_cred_${blockchainId}`;
 
     let issuerDoc;
@@ -2239,7 +2239,7 @@ async function revokeCredential(blockchainId, issuerEmail, rejectionReason) {
     const adminCouch = require('nano')(COUCHDB_URL); // same constant used above
     const userWalletDb = adminCouch.use('wallet_user_credentials');
 
-    // Match saveIssuedCredentialToBothDBs: user_cred_<blockchainId>
+    // Match Issue_Credential_DB: user_cred_<blockchainId>
     const userDocId = `user_cred_${blockchainId}`;
 
     let userDoc;
@@ -2286,13 +2286,13 @@ async function revokeCredential(blockchainId, issuerEmail, rejectionReason) {
 
 // ==========================================================================================================================================================================
 /* 
-  Function Name: verifyCredentialFromCouchDB
+  Function Name: Verify_Credential_DB
 
   Technical: Verifies if a credential exists in ADMIN CouchDB (wallet_user_credentials) using document _id.
             It normalizes the input ID to always search as user_cred_<id>.
   Tropang Ex: Pang verify endpoint: chine-check kung may record sa user wallet DB, meaning “known credential”.
 */
-async function verifyCredentialFromCouchDB(credentialId) {
+async function Verify_Credential_DB(credentialId) {
   try {
     console.log(`[COUCHDB] Verifying credential: ${credentialId}`);
     
@@ -2743,7 +2743,7 @@ async function getAllIssuerCredentialsAdmin(options = {}) {
   }
 }
 
-async function disableIssuer(issuerId, adminId, reason) {
+async function Disable_Issuer(issuerId, adminId, reason) {
   if (!issuersDB) await initializeDatabases();
 
   if (!reason || reason.trim() === "") {
@@ -2760,7 +2760,7 @@ async function disableIssuer(issuerId, adminId, reason) {
   return await issuersDB.insert(issuerDoc);
 }
 
-async function enableIssuer(issuerId, adminId, reason) {
+async function Enable_Issuer(issuerId, adminId, reason) {
   if (!issuersDB) await initializeDatabases();
 
   if (!reason || reason.trim() === "") {
@@ -2777,7 +2777,7 @@ async function enableIssuer(issuerId, adminId, reason) {
   return await issuersDB.insert(issuerDoc);
 }
 
-async function disableUser(userId, adminId, reason) {
+async function Disable_User(userId, adminId, reason) {
   if (!usersDb) await initializeDatabases();
 
   if (!reason || reason.trim() === "") {
@@ -2794,7 +2794,7 @@ async function disableUser(userId, adminId, reason) {
   return await usersDb.insert(userDoc);
 }
 
-async function enableUser(userId, adminId, reason) {
+async function Enable_User(userId, adminId, reason) {
   if (!usersDb) await initializeDatabases();
 
   if (!reason || reason.trim() === "") {
@@ -3224,8 +3224,8 @@ module.exports = {
   getIssuerDocumentStream,
   getIssuerByEmail,
   checkDuplicateIssuerRegistration,
-  approveIssuer,
-  rejectIssuer,
+  Approve_Issuer,
+  Reject_Issuer,
   getApprovedIssuer,
 
 
@@ -3236,13 +3236,13 @@ module.exports = {
   markNotificationAsRead,
 
   // Credentials (Star Feature!)
-  saveIssuedCredentialToBothDBs,         // ✅ NEW - Use this!
+  Issue_Credential_DB,         // ✅ NEW - Use this!
   getUserCredentialsByHolderId,
   getIssuerCredentials,
-  save_CredentialTemplateToIssuerDB,
+  Create_CredentialTemplate_DB,
   deleteIssuerCredentialTemplate,
-  revokeCredential,
-  verifyCredentialFromCouchDB, // ✅ UPDATED: Now properly cleans credential IDs
+  Revoke_Credential_DB,
+  Verify_Credential_DB, // ✅ UPDATED: Now properly cleans credential IDs
   checkAndExpireCredentials,  // - polo
 
   // ADMIN DASHBOARD
@@ -3252,10 +3252,10 @@ module.exports = {
   getIssuerIssuedByIssuerId,
   getAllIssuerCredentialsAdmin,
 
-  disableIssuer,
-  enableIssuer,
-  disableUser,
-  enableUser,
+  Disable_Issuer,
+  Enable_Issuer,
+  Disable_User,
+  Enable_User,
 
   verifyAdminCurrentPassword,
   changeAdminPassword, 

@@ -76,7 +76,7 @@ router.get(
 // GET /api/issuer/credentials/history
 // Get issuer credential history from blockchain
 router.get('/credentials/history', (req, res) => {
-  return issuerCredentialController.get_IssuerCredentialsHistory(
+  return issuerCredentialController.Get_CredentialHistory(
     req,
     res,
     req.app.locals.getContractAndGateway

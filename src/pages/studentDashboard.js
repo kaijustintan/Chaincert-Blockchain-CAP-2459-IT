@@ -15,7 +15,7 @@
   - holderID pulled from localStorage "user" object (same pattern as issuerDashboardPage.js)
   - Added loading + error states
   - UI: credential name only on cards (first sight), click → modal with full details + See History
-  - See History uses apiService.Get_CredentialHistoryById (same as admin dashboard)
+  - See History uses apiService.Get_CredentialHistory (same as admin dashboard)
 */
 
 import React, { useState, useEffect, useMemo } from "react";
@@ -171,7 +171,7 @@ export default function StudentDashboard() {
   /*
     Technical:
     Same flow as admin dashboard "See History" button.
-    Uses apiService.Get_CredentialHistoryById(blockchainId)
+    Uses apiService.Get_CredentialHistory(blockchainId)
     blockchainId is stored as cred.blockchainId in wallet_user_credentials docs.
 
     // - polo
@@ -191,7 +191,7 @@ export default function StudentDashboard() {
       }
 
       console.log("[STUDENT DASHBOARD] Fetching history for:", blockchainId); // - polo
-      const result = await apiService.Get_CredentialHistoryById(blockchainId);
+      const result = await apiService.Get_CredentialHistory(blockchainId);
       setHistoryData(result);
 
     } catch (err) {
@@ -466,7 +466,7 @@ export default function StudentDashboard() {
             </div>
 
             {/* See History button — same as admin dashboard
-                Technical: Calls Get_CredentialHistoryById using cred.blockchainId
+                Technical: Calls Get_CredentialHistory using cred.blockchainId
                 // - polo
             */}
             <div className="modal-footer">

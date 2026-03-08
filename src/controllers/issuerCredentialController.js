@@ -13,7 +13,7 @@
   - Create_CredentialTemplate(req, res, getContractAndGateway)
 
   CATEGORY: CREDENTIAL ISSUANCE (INSTANCES)
-  - issue_CredentialToUser(req, res, getContractAndGateway)
+  - Issue_Credential(req, res, getContractAndGateway)
 */
 
 const nano = require('nano');
@@ -250,7 +250,7 @@ exports.Create_CredentialTemplate = async (req, res, getContractAndGateway) => {
       };
 
       // CHANGES: Use centralized CouchDB service instead of manual nano + .use()
-      couchdbResult = await couchdbService.save_CredentialTemplateToIssuerDB(
+      couchdbResult = await couchdbService.Create_CredentialTemplate_DB(
         issuerDoc,
         credentialDoc
       ); // CHANGES - unified DB access
@@ -344,7 +344,7 @@ exports.Create_CredentialTemplate = async (req, res, getContractAndGateway) => {
 // ==========================================================================================================================================================================
 
 /*
-  Function Name: issue_CredentialToUser (UPDATED)
+  Function Name: Issue_Credential (UPDATED)
 
   Technical:
   Issues a credential INSTANCE based on an existing template by:
@@ -366,7 +366,7 @@ exports.Create_CredentialTemplate = async (req, res, getContractAndGateway) => {
        para mabilis lumabas sa dashboards.
     3) Ngayon, kasama na si templateId para madaling ma-check kung na-issue na dati.
 */
-exports.issue_CredentialToUser = async (req, res, getContractAndGateway) => {
+exports.Issue_Credential = async (req, res, getContractAndGateway) => {
   try {
 
     /* Step 1: Extract template credentialId from params + issuance details from body
@@ -503,7 +503,7 @@ exports.issue_CredentialToUser = async (req, res, getContractAndGateway) => {
     /* Step 9: Save a copy of the issued credential to BOTH CouchDBs
 
       Technical:
-      saveIssuedCredentialToBothDBs(issuerEmail, credentialDataExtended)
+      Issue_Credential_DB(issuerEmail, credentialDataExtended)
 
       Tropang Ex:
       After blockchain, gumawa tayo ng fast-copy sa databases for dashboards + verification.
@@ -589,7 +589,7 @@ exports.issue_CredentialToUser = async (req, res, getContractAndGateway) => {
         skills: (credentialData.skills?.length > 0) ? credentialData.skills : templateSkills
       };
 
-      const couchResult = await couchdbService.saveIssuedCredentialToBothDBs(
+      const couchResult = await couchdbService.Issue_Credential_DB(
         user.email,
         credentialDataExtended
       );
@@ -871,7 +871,7 @@ exports.check_IssuerHasTemplates = async (req, res) => {
 // ==========================================================================================================================================================================
 
 /*
-  Function Name: get_IssuerCredentialsHistory
+  Function Name: Get_CredentialHistory
 
   Technical:
   Retrieves the complete audit trail of ALL credentials for the logged-in issuer:
@@ -899,7 +899,7 @@ exports.check_IssuerHasTemplates = async (req, res) => {
   - 404 if issuer profile not found
   - 500 for blockchain/system errors
 */
-exports.get_IssuerCredentialsHistory = async (req, res, getContractAndGateway) => {
+exports.Get_CredentialHistory = async (req, res, getContractAndGateway) => {
   try {
 
     /* Step 0: Check authentication
@@ -1306,14 +1306,14 @@ exports.revoke_Credential = async (req, res, getContractAndGateway) => {
     /* Step 7: Sync revocation to CouchDB copies
 
        Technical:
-       - Uses couchdbService.revokeCredential(blockchainId, issuerEmail)
+       - Uses couchdbService.Revoke_Credential_DB(blockchainId, issuerEmail)
        - blockchainId = revokedCredential.id (same as credentialId)
        - issuerEmail = user.email (current issuer/admin actor)
     */
     try {
       console.log(`[REVOKE] Updating CouchDB copies (issuer + admin)...`);
 
-      const couchResult = await couchdbService.revokeCredential(
+      const couchResult = await couchdbService.Revoke_Credential_DB(
         revokedCredential.id,   // blockchainId (cred_...)
         user.email,             // issuerEmail
         rejectionReason || ''        // - polo

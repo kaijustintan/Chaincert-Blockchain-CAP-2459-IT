@@ -31,8 +31,8 @@
 
   CATEGORY: ADMIN / ISSUER REVIEW
   - getPendingIssuers()
-  - approveIssuer(issuerId)
-  - rejectIssuer(issuerId, rejectionReason)
+  - Approve_Issuer(issuerId)
+  - Reject_Issuer(issuerId, rejectionReason)
 
 
   CATEGORY: ISSUER CREDENTIAL TEMPLATES (CREATE + READ)
@@ -724,13 +724,13 @@ getDisabledIssuers: async () => {
   // ==========================================================================================================================================================================
 
   /*
-  Function Name: approveIssuer
+  Function Name: Approve_Issuer
 
   Technical:
   Approves an issuer application via SDK endpoint
   (CouchDB + Blockchain logging).
 */
-approveIssuer: async (issuerId, approvalReason) => {
+Approve_Issuer: async (issuerId, approvalReason) => {
   try {
 
     const response = await axios.post(
@@ -753,13 +753,13 @@ approveIssuer: async (issuerId, approvalReason) => {
 // =============================================================================================================
 
 /*
-  Function Name: rejectIssuer
+  Function Name: Reject_Issuer
 
   Technical:
   Rejects issuer application via SDK endpoint
   (CouchDB + Blockchain logging).
 */
-rejectIssuer: async (issuerId, rejectionReason) => {
+Reject_Issuer: async (issuerId, rejectionReason) => {
   try {
 
     const response = await axios.post(
@@ -871,10 +871,10 @@ getPendingSubordinatesForRoot: async () => {
 // ==========================================================================================================================================================================
 
 /*
-  Function Name: disableIssuer
+  Function Name: Disable_Issuer
   Technical: Disables an APPROVED issuer (admin action) with required reason.
 */
-disableIssuer: async (issuerId, reason) => {
+Disable_Issuer: async (issuerId, reason) => {
   try {
     if (!issuerId) throw new Error('issuerId is required');
     if (!reason || reason.trim() === '') throw new Error('reason is required');
@@ -891,10 +891,10 @@ disableIssuer: async (issuerId, reason) => {
 },
 
 /*
-  Function Name: enableIssuer
+  Function Name: Enable_Issuer
   Technical: Re-enables a DISABLED issuer (admin action) with required reason.
 */
-enableIssuer: async (issuerId, reason) => {
+Enable_Issuer: async (issuerId, reason) => {
   try {
     if (!issuerId) throw new Error('issuerId is required');
     if (!reason || reason.trim() === '') throw new Error('reason is required');
@@ -911,10 +911,10 @@ enableIssuer: async (issuerId, reason) => {
 },
 
 /*
-  Function Name: disableUser
+  Function Name: Disable_User
   Technical: Disables a USER account (admin action) with required reason.
 */
-disableUser: async (userId, reason) => {
+Disable_User: async (userId, reason) => {
   try {
     if (!userId) throw new Error('userId is required');
     if (!reason || reason.trim() === '') throw new Error('reason is required');
@@ -931,10 +931,10 @@ disableUser: async (userId, reason) => {
 },
 
 /*
-  Function Name: enableUser
+  Function Name: Enable_User
   Technical: Re-enables a disabled USER account (admin action) with required reason.
 */
-enableUser: async (userId, reason) => {
+Enable_User: async (userId, reason) => {
   try {
     if (!userId) throw new Error('userId is required');
     if (!reason || reason.trim() === '') throw new Error('reason is required');
@@ -1224,7 +1224,7 @@ Check_IssuerHasTemplates: async () => {
       1) magsulat sa blockchain (IssueCredential)
       2) mag-save sa CouchDB (issued_credentials + wallet_user_credentials).
   */
-  Issue_CredentialToUser: async (credentialId, holderID, expiryDate) => {
+  Issue_Credential: async (credentialId, holderID, expiryDate) => {
     try {
       /* Step 1: POST issuance request to backend
          Technical:
@@ -1267,7 +1267,7 @@ Check_IssuerHasTemplates: async () => {
 // ==========================================================================================================================================================================
 
   /*
-    Function Name: Revoke_CredentialInstance
+    Function Name: Revoke_Credential
 
     Technical:
     Revokes a credential INSTANCE by calling:
@@ -1283,7 +1283,7 @@ Check_IssuerHasTemplates: async () => {
       1) blockchain (RevokeCredential)
       2) CouchDB copies (issued_credentials + wallet_user_credentials).
   */
-    Revoke_CredentialInstance: async (credentialId, rejectionReason) => { // - polo
+    Revoke_Credential: async (credentialId, rejectionReason) => { // - polo
     try {
       /* Step 1: POST revoke request to backend
          Technical:
@@ -1324,7 +1324,7 @@ Check_IssuerHasTemplates: async () => {
   // ==========================================================================================================================================================================
 
   /*
-    Function Name: Verify_CredentialById
+    Function Name: Verify_Credential
 
     Technical:
     Verifies a credential by its ID via backend endpoint:
@@ -1336,7 +1336,7 @@ Check_IssuerHasTemplates: async () => {
       - valid pa ba (hindi revoked, hindi expired),
       - ano status sa CouchDB at blockchain.
   */
-  Verify_CredentialById: async (credentialId) => {
+  Verify_Credential: async (credentialId) => {
     try {
       const response = await axios.get(`/credentials/${credentialId}/verify`);
       // Backend already returns a rich object:
@@ -1559,7 +1559,7 @@ Get_VerificationLogById: async (logId) => {
   // ==========================================================================================================================================================================
 
     /*
-    Function Name: Get_CredentialHistoryById
+    Function Name: Get_CredentialHistory
 
     Technical:
     Fetches the FULL blockchain history of a specific credential
@@ -1579,7 +1579,7 @@ Get_VerificationLogById: async (logId) => {
     Ibinabalik nito lahat ng blockchain transactions ng credential —
     creation, issuance, updates, revoke, etc.
   */
-  Get_CredentialHistoryById: async (credentialId) => {
+  Get_CredentialHistory: async (credentialId) => {
     try {
 
       /* Step 1: Validate input */

@@ -2,6 +2,7 @@ const express = require('express');
 const multer = require('multer');
 
 const authController = require('../controllers/authController');
+const issuerOnboardingController = require('../controllers/issuerOnboardingController');
 const issuerCredentialController = require('../controllers/issuerCredentialController');
 
 const router = express.Router();
@@ -13,7 +14,7 @@ const upload = multer({ storage: multer.memoryStorage() });
 
 // POST /api/issuer/register
 // Submit issuer registration with attachments.
-router.post('/register', upload.any(), authController.registerIssuer);
+router.post('/register', upload.any(), issuerOnboardingController.registerIssuer);
 
 // POST /api/issuer/login
 // Authenticate an issuer account.
@@ -27,21 +28,21 @@ router.post('/login', authController.loginIssuer);
 // Get required documents for issuer registration category
 router.get(
   '/issuer-requirements/:category',
-  authController.getIssuerRequirementsByCategory
+  issuerOnboardingController.getIssuerRequirementsByCategory
 );
 
 // GET /api/issuer/issuer/:issuerId/documents
 // Get issuer document metadata
 router.get(
   '/issuer/:issuerId/documents',
-  authController.getIssuerDocuments
+  issuerOnboardingController.getIssuerDocuments
 );
 
 // GET /api/issuer/issuer/:issuerId/documents/:attachmentName
 // View or download a specific issuer document
 router.get(
   '/issuer/:issuerId/documents/:attachmentName',
-  authController.viewIssuerDocument
+  issuerOnboardingController.viewIssuerDocument
 );
 
 // ======================================================
@@ -59,7 +60,7 @@ router.get(
 // Get issuer credentials (dashboard fast reads)
 router.get(
   '/issuer/:issuerId/credentials',
-  authController.getIssuerCredentials
+  issuerCredentialController.getIssuerCredentials
 );
 
 // GET /api/issuer/issuer/templates/:templateId/eligible-users

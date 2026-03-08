@@ -144,13 +144,13 @@ router.get('/status-logs/users', (req, res) => {
   adminAuditController.getAllUserStatusLogs(req, res, req.app.locals.getContractAndGateway);
 });
 
-// GET /api/admin/status-logs/issuer/:email
-router.get('/status-logs/issuer/:email', (req, res) => {
+// GET /api/admin/status-logs/issuer/:issuerEmail
+router.get('/status-logs/issuer/:issuerEmail', (req, res) => {
   adminAuditController.getIssuerStatusLogs(req, res, req.app.locals.getContractAndGateway);
 });
 
-// GET /api/admin/status-logs/user/:email
-router.get('/status-logs/user/:email', (req, res) => {
+// GET /api/admin/status-logs/user/:userEmail
+router.get('/status-logs/user/:userEmail', (req, res) => {
   adminAuditController.getUserStatusLogs(req, res, req.app.locals.getContractAndGateway);
 });
 

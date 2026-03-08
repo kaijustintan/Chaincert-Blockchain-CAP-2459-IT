@@ -698,7 +698,7 @@ exports.get_CredentialTemplatesByIssuerID = async (req, res) => {
       tatawag na lang tayo sa “service” na marunong na maghanap
       ng credentials ng issuer.
     */
-    const result = await couchDB_service.getIssuerCredentials(issuerId);
+    const result = await couchdbService.getIssuerCredentials(issuerId);
 
     /*
       Step 3: Normalize empty result from service

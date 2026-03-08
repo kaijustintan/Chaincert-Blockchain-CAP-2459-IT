@@ -100,6 +100,8 @@ router.get('/issuer/:issuerID', async (req, res) => {
 // GET /api/credentials/:id/history
 // Get blockchain history of a credential.
 router.get('/:id/history', async (req, res) => {
+  let gateway;
+
   try {
     const user = req.user;
     if (!user) {
@@ -138,10 +140,12 @@ router.get('/:id/history', async (req, res) => {
       });
     }
 
-    const { contract } = await req.app.locals.getContractAndGateway(
+    const cg = await req.app.locals.getContractAndGateway(
       identityName,
       orgName
     );
+    gateway = cg.gateway;
+    const contract = cg.contract;
 
     const result = await contract.evaluateTransaction(
       'Get_CredentialTemplateOrIssuedCredentialHistory',
@@ -159,6 +163,8 @@ router.get('/:id/history', async (req, res) => {
       success: false,
       error: error.message,
     });
+  } finally {
+    try { if (gateway) await gateway.disconnect(); } catch (_) {}
   }
 });
 

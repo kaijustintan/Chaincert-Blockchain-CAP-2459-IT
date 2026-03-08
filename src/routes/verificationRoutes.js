@@ -8,33 +8,50 @@ const router = express.Router();
 // VERIFICATION ACTIONS
 // ======================================================
 
-// GET /api/verify/verify/:credentialID
+// GET /api/verify/verify/:credentialId
 // Verify credential by ID from URL params.
-router.get('/verify/:credentialID', verifierController.Verify_Credential);
+router.get('/verify/:credentialId', (req, res) => {
+  return verifierController.Verify_Credential(
+    req,
+    res,
+    req.app.locals.getContractAndGateway
+  );
+});
 
 // POST /api/verify/verify
 // Verify credential by ID from request body.
-router.post('/verify', (req, res, next) => {
-  const { credentialID } = req.body || {};
+router.post('/verify', (req, res) => {
+  const { credentialID, credentialId } = req.body || {};
+  const resolvedCredentialId = credentialId || credentialID;
 
-  if (!credentialID) {
+  if (!resolvedCredentialId) {
     return res.status(400).json({
       success: false,
       message: 'Credential ID is required in body',
     });
   }
 
-  req.params.credentialID = credentialID;
-  return verifierController.Verify_Credential(req, res, next);
+  req.params.credentialId = resolvedCredentialId;
+  return verifierController.Verify_Credential(
+    req,
+    res,
+    req.app.locals.getContractAndGateway
+  );
 });
 
 // GET /api/verify/verify-stats
 // Get verification statistics.
 router.get('/verify-stats', verifierController.getVerificationStats);
 
-// GET /api/verify/verify-credential/:credentialID
+// GET /api/verify/verify-credential/:credentialId
 // Legacy verification endpoint alias.
-router.get('/verify-credential/:credentialID', verifierController.Verify_Credential);
+router.get('/verify-credential/:credentialId', (req, res) => {
+  return verifierController.Verify_Credential(
+    req,
+    res,
+    req.app.locals.getContractAndGateway
+  );
+});
 
 // ======================================================
 // VERIFICATION LOG ROUTES

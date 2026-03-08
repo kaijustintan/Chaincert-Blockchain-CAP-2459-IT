@@ -1595,3 +1595,52 @@ exports.getCredentialTemplates = async (req, res, getContractAndGateway) => {
 
 
 module.exports = exports;
+
+exports.getIssuerCredentials = async (req, res) => {
+  try {
+    const { issuerId } = req.params;
+    console.log(`[AUTHCONTROLLER] Fetching credentials for issuer: ${issuerId}`);
+
+    if (!issuerId) {
+      return res.status(400).json({
+        success: false,
+        message: 'Issuer ID is required'
+      });
+    }
+
+    const credentialsData = await couchdbService.getIssuerCredentials(issuerId);
+    console.log(`[AUTHCONTROLLER] Credentials data received:`, credentialsData);
+
+    if (!credentialsData || !credentialsData.credentials || credentialsData.credentials.length === 0) {
+      return res.status(200).json({
+        success: true,
+        message: 'No credentials found for this issuer',
+        data: {
+          issuerId: issuerId,
+          issuerName: credentialsData?.issuerName || 'Unknown',
+          email: credentialsData?.email || 'N/A',
+          credentialCount: 0,
+          credentials: []
+        }
+      });
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: 'Credentials retrieved successfully',
+      data: {
+        issuerId: credentialsData.issuerId,
+        issuerName: credentialsData.issuerName,
+        email: credentialsData.email,
+        credentialCount: credentialsData.credentialCount,
+        credentials: credentialsData.credentials
+      }
+    });
+  } catch (error) {
+    console.error('Error fetching issuer credentials:', error);
+    return res.status(500).json({
+      success: false,
+      message: `Error fetching credentials: ${error.message}`
+    });
+  }
+};

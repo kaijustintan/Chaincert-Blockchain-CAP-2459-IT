@@ -2,6 +2,7 @@ const express = require('express');
 const multer = require('multer');
 
 const authController = require('../controllers/authController');
+const accountController = require('../controllers/accountController');
 
 const router = express.Router();
 const upload = multer({ storage: multer.memoryStorage() });
@@ -13,18 +14,18 @@ router.post('/register', authController.register);
 router.post('/login', authController.login);
 
 // GET /api/auth/user/:id - Fetch user profile details by user id.
-router.get('/user/:id', authController.getUserInfo);
+router.get('/user/:id', accountController.getUserInfo);
 
 // GET /api/auth/users - List users.
-router.get('/users', authController.getAllUsers);
+router.get('/users', accountController.getAllUsers);
 
 // POST /api/auth/update-profile - Update user profile fields.
-router.post('/update-profile', authController.updateProfile);
+router.post('/update-profile', accountController.updateProfile);
 
 // POST /api/auth/change-password - Change account password.
 router.post('/change-password', authController.changePassword);
 
 // POST /api/auth/upload-pfp - Upload/update profile picture.
-router.post('/upload-pfp', upload.single('profilePicture'), authController.uploadProfilePicture);
+router.post('/upload-pfp', upload.single('profilePicture'), accountController.uploadProfilePicture);
 
 module.exports = router;

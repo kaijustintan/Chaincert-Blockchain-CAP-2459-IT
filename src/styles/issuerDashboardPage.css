@@ -179,8 +179,6 @@
   background: linear-gradient(135deg, #ef4444 0%, #b91c1c 100%) !important;
   color: #fff !important;
   box-shadow: 0 4px 16px rgba(239, 68, 68, 0.3);
-  width: auto !important;
-  display: inline-flex !important;
   padding: 12px 28px !important;
   border-radius: 12px !important;
   font-size: 14px !important;
@@ -1582,67 +1580,176 @@
   }
 }
 
-/* Skills input row - polo */
-.skills-input-row {
+/* =====================================================
+   ISSUER DASHBOARD - Layout Improvements
+   ===================================================== */
+
+/* Toolbar row for action buttons (Create, Issue, History) */
+.issuer-toolbar {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin: 20px 0;
+  animation: fadeInUp 0.5s ease-out 0.15s both;
+}
+
+/* View toggle buttons - inline, not full-width */
+.issuer-view-toggle {
+  display: flex;
+  gap: 8px;
+  margin: 20px 0 0 0;
+  animation: fadeInUp 0.5s ease-out 0.05s both;
+}
+
+.issuer-view-toggle .action-btn {
+  width: auto;
+  display: inline-flex;
+  padding: 10px 24px;
+  font-size: 13px;
+  margin-bottom: 0;
+}
+
+/* Subordinate section header with dropdown */
+.subordinate-header-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.subordinate-header-row h3 {
+  margin: 0 !important;
+}
+
+.subordinate-filter-group {
   display: flex;
   gap: 8px;
   align-items: center;
 }
 
-.skills-input-row input {
-  flex: 1;
-}
-
-.add-skill-btn {
-  padding: 6px 14px;
-  background: rgba(147, 51, 234, 0.7);
-  border: none;
-  border-radius: 6px;
-  color: white;
-  cursor: pointer;
-  font-size: 0.85rem;
+.subordinate-filter-group label {
+  color: #a78bfa;
+  font-size: 12px;
+  font-weight: 600;
   white-space: nowrap;
 }
 
-.add-skill-btn:hover {
-  background: rgba(147, 51, 234, 0.9);
+/* Themed select for subordinate sections */
+.subordinate-filter-group select,
+.table-container select {
+  padding: 8px 14px;
+  border: 1px solid rgba(139, 92, 246, 0.3);
+  border-radius: 10px;
+  font-size: 13px;
+  background-color: rgba(18, 12, 45, 0.95);
+  color: #e5e5e5;
+  font-family: 'Poppins', sans-serif;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%23a78bfa' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 10px center;
+  background-size: 16px;
+  padding-right: 32px;
 }
 
-.skills-tags {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  margin-top: 8px;
+.subordinate-filter-group select:focus,
+.table-container select:focus {
+  outline: none;
+  border-color: #8b5cf6;
+  box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.2);
 }
 
-.skill-tag {
-  display: flex;
+.subordinate-filter-group select option,
+.table-container select option {
+  background-color: #110c2d;
+  color: #fff;
+}
+
+/* Return to Dashboard button for history page */
+.btn-return-dashboard {
+  display: inline-flex;
   align-items: center;
   gap: 6px;
-  padding: 4px 10px;
-  background: rgba(147, 51, 234, 0.2);
-  border: 1px solid rgba(147, 51, 234, 0.5);
-  border-radius: 20px;
-  font-size: 0.82rem;
-  color: white;
-}
-
-.skill-tag button {
-  background: none;
-  border: none;
-  color: rgba(255,255,255,0.6);
+  padding: 10px 24px;
+  border: 2px solid rgba(139, 92, 246, 0.35);
+  border-radius: 12px;
+  background: rgba(139, 92, 246, 0.08);
+  color: #a78bfa;
   cursor: pointer;
-  font-size: 1rem;
-  padding: 0;
-  line-height: 1;
+  font-size: 13px;
+  font-weight: 600;
+  font-family: 'Poppins', sans-serif;
+  transition: all 0.3s ease;
+  margin-bottom: 20px;
 }
 
-.skill-tag button:hover {
+.btn-return-dashboard:hover {
+  background: linear-gradient(135deg, #667eea, #764ba2);
+  color: #fff;
+  border-color: transparent;
+  box-shadow: 0 4px 20px rgba(102, 126, 234, 0.35);
+  transform: translateY(-2px);
+}
+
+/* Badge styles for subordinate tables */
+.badge.purple {
+  background: rgba(139, 92, 246, 0.15);
+  color: #a78bfa;
+  border: 1px solid rgba(139, 92, 246, 0.3);
+  padding: 4px 10px;
+  border-radius: 20px;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: capitalize;
+}
+
+.badge.gray {
+  background: rgba(156, 163, 175, 0.15);
+  color: #9ca3af;
+  border: 1px solid rgba(156, 163, 175, 0.3);
+  padding: 4px 10px;
+  border-radius: 20px;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: capitalize;
+}
+
+.badge.green {
+  padding: 4px 10px;
+  border-radius: 20px;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: capitalize;
+  background: rgba(34, 197, 94, 0.15);
+  color: #4ade80;
+  border: 1px solid rgba(34, 197, 94, 0.3);
+}
+
+.badge.red {
+  padding: 4px 10px;
+  border-radius: 20px;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: capitalize;
+  background: rgba(239, 68, 68, 0.15);
+  color: #f87171;
+  border: 1px solid rgba(239, 68, 68, 0.3);
+}
+
+/* No-template error inline styling */
+.no-template-warning {
+  margin-top: 10px;
+  padding: 12px 16px;
+  border-radius: 10px;
+  background: rgba(255, 107, 107, 0.12);
+  border: 1px solid rgba(255, 107, 107, 0.3);
   color: #ff6b6b;
-}
-
-.badge-preview {
-  display: flex;
-  align-items: center;
-  margin-top: 8px;
+  font-weight: 600;
+  font-size: 13px;
 }

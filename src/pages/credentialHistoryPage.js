@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import apiService from "../services/apiService";
+import { useNavigate } from "react-router-dom";
 import "../styles/issuerDashboardPage.css";
 
 export default function CredentialHistoryPage() {
@@ -21,6 +22,7 @@ export default function CredentialHistoryPage() {
 
   // NEW: which field to search on (frontend-only)
   const [searchField, setSearchField] = useState("credentialId"); // "credentialId" | "holderId" | "holderName" | "credentialName"
+  const navigate = useNavigate();
 
   useEffect(() => {
     fetchAllHistory();
@@ -254,6 +256,11 @@ export default function CredentialHistoryPage() {
   return (
     <div className="issuer-dashboard">
       <h2>🔍 Credential History (Blockchain Audit Trail)</h2>
+
+      {/* CSS-CHANGE: Return to Dashboard button - polo */}
+        <button className="btn-return-dashboard" onClick={() => navigate("/issuer/dashboard")}>
+          ← Return to Dashboard
+        </button>
 
       {/* CSS-CHANGE: replaced inline style div with className */}
       <div className="history-search-container">

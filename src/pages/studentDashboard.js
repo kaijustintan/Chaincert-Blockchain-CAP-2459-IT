@@ -26,6 +26,7 @@
 import React, { useState, useEffect, useMemo, useRef } from "react";
 import apiService from "../services/apiService";
 import "../styles/studentDashboard.css";
+import { exportCredentialToPDF } from '../services/pdfExportService'; // - polo
 
 // ==========================================================================================================================================================================
 // HELPERS
@@ -761,6 +762,13 @@ export default function StudentDashboard() {
                 onClick={() => handleSeeHistory(selectedCred)}
               >
                 📜 See History
+              </button>
+              <button
+                className="action-btn history"
+                onClick={() => exportCredentialToPDF(selectedCred, templateDetails)}
+                style={{ marginLeft: 8 }}
+              >
+                📄 Export PDF
               </button>
             </div>
 

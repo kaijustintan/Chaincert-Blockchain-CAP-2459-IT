@@ -72,6 +72,11 @@ export default function IssuerDashboard() {
   const [subordinateDirectoryError, setSubordinateDirectoryError] = useState("");
   const [subordinateDirectoryFilter, setSubordinateDirectoryFilter] = useState("all");
 
+  const [rootSubordinateLogs, setRootSubordinateLogs] = useState([]);
+  const [rootSubordinateLogsLoading, setRootSubordinateLogsLoading] = useState(false);
+  const [rootSubordinateLogsError, setRootSubordinateLogsError] = useState("");
+  const [rootSubordinateLogFilter, setRootSubordinateLogFilter] = useState("all");
+
   // Root Authority → Reject subordinate modal
   const [showRejectSubordinateModal, setShowRejectSubordinateModal] = useState(false);
   const [rejectSubordinateTarget, setRejectSubordinateTarget] = useState(null);
@@ -92,6 +97,7 @@ export default function IssuerDashboard() {
     fetchTemplateOptions();
     fetchPendingSubordinatesForRoot();
     fetchSubordinateDirectory("all");
+    fetchRootSubordinateLogs("all");
   }, []);
 
   // Filtering logic
@@ -115,6 +121,11 @@ export default function IssuerDashboard() {
     fetchSubordinateDirectory(subordinateDirectoryFilter);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [subordinateDirectoryFilter]);
+
+  useEffect(() => {
+    fetchRootSubordinateLogs(rootSubordinateLogFilter);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [rootSubordinateLogFilter]);
 
   const fetchCredentials = async () => {
     try {
@@ -222,12 +233,55 @@ export default function IssuerDashboard() {
     }
   };
 
+
+
+  const fetchRootSubordinateLogs = async (filter = rootSubordinateLogFilter) => {
+    try {
+      setRootSubordinateLogsLoading(true);
+      setRootSubordinateLogsError("");
+
+      let response;
+      if (filter === "approved") {
+        response = await apiService.GetRootSubordinateApprovalLogsByRootAuthority();
+      } else if (filter === "rejected") {
+        response = await apiService.GetRootSubordinateRejectionLogsByRootAuthority();
+      } else {
+        response = await apiService.GetRootSubordinateLogsByRootAuthority();
+      }
+
+      const list = Array.isArray(response?.logs)
+        ? response.logs
+        : Array.isArray(response?.data)
+        ? response.data
+        : Array.isArray(response)
+        ? response
+        : [];
+
+      const sorted = [...list].sort((a, b) => {
+        const ta = new Date(a.timestamp || 0).getTime();
+        const tb = new Date(b.timestamp || 0).getTime();
+        return tb - ta;
+      });
+
+      setRootSubordinateLogs(sorted);
+    } catch (err) {
+      console.error("Error fetching root subordinate logs:", err);
+      setRootSubordinateLogs([]);
+      setRootSubordinateLogsError(
+        err.response?.data?.message || "Failed to load subordinate decision logs."
+      );
+    } finally {
+      setRootSubordinateLogsLoading(false);
+    }
+  };
+
   const handleRootApproveSubordinate = async (issuerId) => {
     try {
       await apiService.rootApproveSubordinateIssuer(issuerId, "");
       alert("Subordinate issuer approved successfully!");
       fetchPendingSubordinatesForRoot();
       fetchSubordinateDirectory(subordinateDirectoryFilter);
+      fetchRootSubordinateLogs(rootSubordinateLogFilter);
     } catch (err) {
       console.error("Error approving subordinate issuer:", err);
       alert(
@@ -276,6 +330,7 @@ export default function IssuerDashboard() {
       closeRejectSubordinateModal();
       fetchPendingSubordinatesForRoot();
       fetchSubordinateDirectory(subordinateDirectoryFilter);
+      fetchRootSubordinateLogs(rootSubordinateLogFilter);
     } catch (err) {
       console.error("Error rejecting subordinate issuer:", err);
       setRejectSubordinateError(
@@ -1259,6 +1314,100 @@ export default function IssuerDashboard() {
         )}
       </div>
       
+
+      {/* ROOT AUTHORITY → SUBORDINATE DECISION LOGS (BLOCKCHAIN) */}
+      <div className="table-container" style={{ marginTop: 24 }}>
+        <div
+          style={{
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+            marginBottom: 12,
+            gap: 12,
+            flexWrap: "wrap",
+          }}
+        >
+          <h3 style={{ margin: 0 }}>Subordinate Decision Logs</h3>
+
+          <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+            <label htmlFor="rootSubordinateLogFilter">View:</label>
+            <select
+              id="rootSubordinateLogFilter"
+              value={rootSubordinateLogFilter}
+              onChange={(e) => setRootSubordinateLogFilter(e.target.value)}
+            >
+              <option value="all">All</option>
+              <option value="approved">Approved</option>
+              <option value="rejected">Rejected</option>
+            </select>
+          </div>
+        </div>
+
+        {rootSubordinateLogsLoading ? (
+          <div className="no-results">
+            <p>Loading subordinate decision logs...</p>
+          </div>
+        ) : rootSubordinateLogsError ? (
+          <div className="no-results">
+            <p style={{ color: "#ff6b6b" }}>{rootSubordinateLogsError}</p>
+          </div>
+        ) : rootSubordinateLogs.length === 0 ? (
+          <div className="no-results">
+            <p>No subordinate decision logs found.</p>
+          </div>
+        ) : (
+          <table className="template-table">
+            <thead>
+              <tr>
+                <th>Subordinate Issuer ID</th>
+                <th>Subordinate Email</th>
+                <th>Organization Name</th>
+                <th>Decision</th>
+                <th>Reason</th>
+                <th>Performed By MSP</th>
+                <th>Timestamp</th>
+                <th>Tx ID</th>
+              </tr>
+            </thead>
+            <tbody>
+              {rootSubordinateLogs.map((log, index) => {
+                const isApproved =
+                  String(log.decision || "").toLowerCase() === "approved";
+                return (
+                  <tr key={log.txId || `${log.issuerId || "issuer"}-${index}`}>
+                    <td style={{ fontFamily: "monospace", fontSize: 12 }}>
+                      {log.issuerId || "N/A"}
+                    </td>
+                    <td>{log.issuerEmail || "N/A"}</td>
+                    <td>{log.orgName || "N/A"}</td>
+                    <td>
+                      <span
+                        className={isApproved ? "badge green" : "badge red"}
+                        style={{ textTransform: "capitalize" }}
+                      >
+                        {log.decision || "N/A"}
+                      </span>
+                    </td>
+                    <td>{log.reason || "—"}</td>
+                    <td style={{ fontFamily: "monospace", fontSize: 12 }}>
+                      {log.performedByMSP || "N/A"}
+                    </td>
+                    <td>
+                      {log.timestamp
+                        ? new Date(log.timestamp).toLocaleString()
+                        : "N/A"}
+                    </td>
+                    <td style={{ fontFamily: "monospace", fontSize: 12 }}>
+                      {log.txId ? `${String(log.txId).slice(0, 18)}...` : "N/A"}
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        )}
+      </div>
+
 
       {/* TEMPLATES VIEW */}
       {dashboardView === "templates" && (

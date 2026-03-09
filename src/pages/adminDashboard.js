@@ -36,6 +36,11 @@ export default function AdminDashboard() {
   const [issuerDecisionLogsError, setIssuerDecisionLogsError] = useState(null);
   const [issuerDecisionFilter, setIssuerDecisionFilter] = useState("all"); // 'all' | 'approved' | 'rejected'
 
+  const [rootSubordinateLogs, setRootSubordinateLogs] = useState([]);
+  const [rootSubordinateLogsError, setRootSubordinateLogsError] = useState(null);
+  const [rootSubordinateDecisionFilter, setRootSubordinateDecisionFilter] = useState("all");
+  const [rootSubordinateSearchQuery, setRootSubordinateSearchQuery] = useState("");
+
   // See History Modal
   const [showHistoryStatusModal, setShowHistoryStatusModal] = useState(false);
   const [historyStatusTarget, setHistoryStatusTarget] = useState(null); // { email, type: 'issuer' | 'user' }
@@ -763,6 +768,44 @@ const handleDownloadIssuerDocument = async (doc) => {
     }
   };
 
+  const fetchRootSubordinateDecisionLogs = async (
+    filter = rootSubordinateDecisionFilter
+  ) => {
+    try {
+      setLogsLoading(true);
+      setRootSubordinateLogsError(null);
+
+      let data;
+      if (filter === "approved") {
+        data = await apiService.GetAllRootSubordinateApprovalLogs();
+      } else if (filter === "rejected") {
+        data = await apiService.GetAllRootSubordinateRejectionLogs();
+      } else {
+        data = await apiService.GetAllRootSubordinateLogs();
+      }
+
+      const rows = Array.isArray(data.logs) ? data.logs : [];
+      const sortedRows = [...rows].sort((a, b) => {
+        const ta = new Date(a.timestamp || 0).getTime();
+        const tb = new Date(b.timestamp || 0).getTime();
+        return tb - ta;
+      });
+
+      setRootSubordinateLogs(sortedRows);
+    } catch (error) {
+      console.error("Error fetching root subordinate decision logs:", error);
+      setRootSubordinateLogs([]);
+      setRootSubordinateLogsError(
+        error?.response?.data?.message ||
+          error?.response?.data?.error ||
+          error?.message ||
+          "Failed to load root subordinate decision logs"
+      );
+    } finally {
+      setLogsLoading(false);
+    }
+  };
+
   const openHistoryStatusModal = async (email, type) => {
     setHistoryStatusTarget({ email, type });
     setHistoryStatusLogs([]);
@@ -822,8 +865,12 @@ const handleDownloadIssuerDocument = async (doc) => {
     } else if (tab === "logs") {
       if (logCategory === "verification") {
         fetchVerificationLogs();
-      } else {
+      } else if (logCategory === "status") {
         fetchStatusLogs();
+      } else if (logCategory === "decision") {
+        fetchIssuerDecisionLogs();
+      } else {
+        fetchRootSubordinateDecisionLogs();
       }
     } else if (tab === "users") {
       fetchUsers();
@@ -849,6 +896,8 @@ const handleDownloadIssuerDocument = async (doc) => {
       fetchStatusLogs(statusLogFilter, statusLogEmailSearch);
     } else if (logCategory === "decision") {
       fetchIssuerDecisionLogs();
+    } else if (logCategory === "root_subordinate_decision") {
+      fetchRootSubordinateDecisionLogs();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [logCategory]);
@@ -858,6 +907,12 @@ const handleDownloadIssuerDocument = async (doc) => {
     fetchStatusLogs(statusLogFilter, statusLogEmailSearch);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [statusLogFilter]);
+
+  useEffect(() => {
+    if (tab !== "logs" || logCategory !== "root_subordinate_decision") return;
+    fetchRootSubordinateDecisionLogs(rootSubordinateDecisionFilter);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [rootSubordinateDecisionFilter]);
 
   useEffect(() => {
     if (tab !== "credentials") return;
@@ -2299,6 +2354,7 @@ const handleDownloadIssuerDocument = async (doc) => {
               <option value="verification">Verification Logs</option>
               <option value="status">Status Change Logs</option>
               <option value="decision">Issuer Decision Logs</option>
+              <option value="root_subordinate_decision">Root Subordinate Decision Logs</option>
             </select>
 
             {logCategory === "status" && (
@@ -2343,6 +2399,37 @@ const handleDownloadIssuerDocument = async (doc) => {
                 >
                   Search
                 </button>
+              </>
+            )}
+
+            {logCategory === "root_subordinate_decision" && (
+              <>
+                <label htmlFor="rootSubordinateDecisionFilter">Decision:</label>
+                <select
+                  id="rootSubordinateDecisionFilter"
+                  value={rootSubordinateDecisionFilter}
+                  onChange={(e) => setRootSubordinateDecisionFilter(e.target.value)}
+                >
+                  <option value="all">All</option>
+                  <option value="approved">Approved</option>
+                  <option value="rejected">Rejected</option>
+                </select>
+
+                <input
+                  type="text"
+                  value={rootSubordinateSearchQuery}
+                  onChange={(e) => setRootSubordinateSearchQuery(e.target.value)}
+                  placeholder="Search root authority name or ID..."
+                  style={{
+                    padding: "8px 10px",
+                    borderRadius: 10,
+                    border: "1px solid rgba(255,255,255,0.18)",
+                    background: "rgba(255,255,255,0.06)",
+                    color: "#fff",
+                    outline: "none",
+                    minWidth: 260,
+                  }}
+                />
               </>
             )}
           </div>
@@ -2420,6 +2507,79 @@ const handleDownloadIssuerDocument = async (doc) => {
                 );
               })()}
             </div>
+          ) : logCategory === "root_subordinate_decision" ? (
+            <>
+              {rootSubordinateLogsError ? (
+                <div className="tab-placeholder">❌ {rootSubordinateLogsError}</div>
+              ) : (() => {
+                const query = rootSubordinateSearchQuery.trim().toLowerCase();
+                const filtered = query
+                  ? rootSubordinateLogs.filter((log) => {
+                      const searchable = [
+                        log.rootAuthorityName,
+                        log.rootAuthorityId,
+                        log.issuerEmail,
+                        log.orgName,
+                      ]
+                        .filter(Boolean)
+                        .join(" ")
+                        .toLowerCase();
+                      return searchable.includes(query);
+                    })
+                  : rootSubordinateLogs;
+
+                return filtered.length > 0 ? (
+                  <div className="table-wrapper">
+                    <table className="admin-table">
+                      <thead>
+                        <tr>
+                          <th>Root Authority Name</th>
+                          <th>Root Authority ID</th>
+                          <th>Subordinate Issuer Email</th>
+                          <th>Organization Name</th>
+                          <th>Decision</th>
+                          <th>Reason</th>
+                          <th>Performed By MSP</th>
+                          <th>Tx ID</th>
+                          <th>Timestamp</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {filtered.map((log, index) => {
+                          const isApproved =
+                            String(log.decision || "").toLowerCase() === "approved";
+                          return (
+                            <tr key={log.txId || `${log.rootAuthorityId || "root"}-${index}`}>
+                              <td>{log.rootAuthorityName || "N/A"}</td>
+                              <td style={{ fontFamily: "monospace", fontSize: "12px" }}>
+                                {log.rootAuthorityId || "N/A"}
+                              </td>
+                              <td>{log.issuerEmail || "N/A"}</td>
+                              <td>{log.orgName || "N/A"}</td>
+                              <td>
+                                <span style={{ fontWeight: 700, color: isApproved ? "#4ade80" : "#ff6b6b" }}>
+                                  {log.decision || "N/A"}
+                                </span>
+                              </td>
+                              <td>{log.reason || "—"}</td>
+                              <td style={{ fontFamily: "monospace", fontSize: "12px" }}>
+                                {log.performedByMSP || "N/A"}
+                              </td>
+                              <td style={{ fontFamily: "monospace", fontSize: "12px" }}>
+                                {log.txId ? `${String(log.txId).slice(0, 18)}...` : "N/A"}
+                              </td>
+                              <td>{formatTimestamp(log.timestamp)}</td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                ) : (
+                  <div className="tab-placeholder">No root subordinate logs found.</div>
+                );
+              })()}
+            </>
           ) : logCategory === "verification" ? (
             <>
               {verificationLogsError ? (

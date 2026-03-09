@@ -1478,7 +1478,7 @@ exports.getEligibleUsersForTemplate = async (req, res) => {
 };
 
 // =========================================================================================================
-// ISSUER: GET CREDENTIAL TEMPLATES (FROM BLOCKCHAIN)
+// ISSUER: GET CREDENTIAL TEMPLATES (FROM COUCHDB)
 // =========================================================================================================
 
 /*
@@ -1486,15 +1486,13 @@ exports.getEligibleUsersForTemplate = async (req, res) => {
 
   Technical:
   Returns all TEMPLATE credentials (isTemplate: true) for the current issuer/admin
-  from the blockchain using the appropriate Fabric identity.
+  from CouchDB for fast operational dashboard reads.
 
   Tropang Ex:
   Ito yung list ng “blueprints” ni issuer (diploma/cert designs).
-  Controller na bahala sa identity + chaincode query.
+  Controller na bahala sa issuer resolution + CouchDB query.
 */
 exports.getCredentialTemplates = async (req, res, getContractAndGateway) => {
-  let gateway = null;
-
   try {
 
     /* Step 1: Check if user is authenticated (JWT middleware attaches req.user)
@@ -1510,81 +1508,35 @@ exports.getCredentialTemplates = async (req, res, getContractAndGateway) => {
       });
     }
 
-    /* Step 2: Determine which Fabric identity to use (issuer vs admin)
+    /* Step 2: Resolve target issuer ID
 
       Tropang Ex:
-      Sino pipirma sa blockchain query?
-      - Issuer → sarili niyang identity
-      - Admin → admin identity
+      Sino yung issuer na kukunan ng templates?
+      - Issuer: sarili niya (req.user.id)
+      - Admin: pwede mag-target via req.params.issuerId fallback sa req.user.id
     */
-    let identityName, orgName;
-
-    if (user.role === 'issuer') {
-      /* Step 2A: Fetch approved issuer data from CouchDB via email */
-      const issuerDoc = await couchdbService.getApprovedIssuer(user.email);
-
-      if (!issuerDoc || !issuerDoc.fabricIdentity || !issuerDoc.orgName) {
-        return res.status(403).json({
-          success: false,
-          error: 'Issuer not approved or info missing.'
-        });
-      }
-
-      identityName = issuerDoc.fabricIdentity;
-      orgName = issuerDoc.orgName;
-
-    } else if (user.role === 'admin') {
-      identityName = 'chaincert-admin'; // keep your existing admin identity
-      orgName = 'Org1';
-
-    } else {
+    if (user.role !== 'issuer' && user.role !== 'admin') {
       return res.status(403).json({
         success: false,
         error: 'Not authorized to view templates.'
       });
     }
 
-    /* Step 3: Connect to blockchain using chosen identity/org
-
-      Tropang Ex:
-      Kumokonek sa Fabric gamit yung tamang signer.
-    */
-    const gwObj = await getContractAndGateway(identityName, orgName);
-    gateway = gwObj.gateway;
-    const contract = gwObj.contract;
-
-    /* Step 4: Determine issuer ID to query
-
-      Tropang Ex:
-      Sino yung issuer na kukunan ng templates?
-      - Issuer: sarili niya (user.id)
-      - Admin: placeholder (depende sa design mo)
-    */
-    const issuerIdToQuery = (user.role === 'issuer')
+    const issuerIdToQuery = user.role === 'issuer'
       ? user.id
-      : 'ISSUER';
+      : (req.params?.issuerId || req.user?.id);
 
-    /* Step 5: Query chaincode for TEMPLATES only
+    if (!issuerIdToQuery) {
+      return res.status(400).json({
+        success: false,
+        error: 'issuerId is required.'
+      });
+    }
 
-      Tropang Ex:
-      “Get_IssuerCredentialTemplates(issuerID)” → ibalik templates only.
-    */
-    const resultBuffer = await contract.evaluateTransaction(
-      'Get_IssuerCredentialTemplates',
-      issuerIdToQuery
-    );
+    /* Step 3: Query CouchDB templates (default source for dashboard/UI lists) */
+    const resultArray = await couchdbService.getIssuerTemplatesByIssuerId(issuerIdToQuery);
 
-    const resultArray = JSON.parse(resultBuffer.toString());
-
-    /* Step 6: Disconnect gateway
-
-      Tropang Ex:
-      Clean disconnect after query.
-    */
-    await gateway.disconnect();
-    gateway = null;
-
-    /* Step 7: Return standardized response */
+    /* Step 4: Return standardized response */
     return res.status(200).json({
       success: true,
       credentials: Array.isArray(resultArray) ? resultArray : [],
@@ -1594,9 +1546,6 @@ exports.getCredentialTemplates = async (req, res, getContractAndGateway) => {
 
   } catch (error) {
     console.error('❌ Error (getCredentialTemplates):', error.message);
-
-    // safety disconnect
-    try { if (gateway) await gateway.disconnect(); } catch (e) {}
 
     return res.status(500).json({
       success: false,

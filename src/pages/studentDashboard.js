@@ -18,7 +18,7 @@
   - See History uses apiService.Get_CredentialHistory (same as admin dashboard)
 */
 
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect, useMemo, useRef } from "react";
 import apiService from "../services/apiService";
 import "../styles/studentDashboard.css";
 
@@ -293,9 +293,65 @@ export default function StudentDashboard() {
 
       {/* CSS-CHANGE: Greeting section - polo */}
       <div className="greeting-section">
-        <div className="greeting-text">
-          <h1>Welcome back, {displayName}</h1>
-          <p>Your credential wallet at a glance</p>
+        <div className="greeting-header-row" ref={notificationPanelRef}>
+          <div className="greeting-text">
+            <h1>Welcome back, {displayName}</h1>
+            <p>Your credential wallet at a glance</p>
+          </div>
+
+          <div className="notification-bell-wrap">
+            <button
+              type="button"
+              className={`notification-bell-btn ${notificationsOpen ? 'open' : ''}`}
+              onClick={() => setNotificationsOpen((prev) => !prev)}
+              aria-label="Toggle notifications"
+            >
+              🔔
+              {unreadCount > 0 && <span className="notification-badge">{unreadCount}</span>}
+            </button>
+
+            {notificationsOpen && (
+              <div className="notification-panel">
+                <div className="notification-panel-header">
+                  <h3>Notifications</h3>
+                </div>
+
+                {notificationsLoading && <div className="notification-panel-state">Loading notifications...</div>}
+
+                {!notificationsLoading && notificationsError && (
+                  <div className="notification-panel-state error">{notificationsError}</div>
+                )}
+
+                {!notificationsLoading && !notificationsError && notifications.length === 0 && (
+                  <div className="notification-panel-state">No notifications yet.</div>
+                )}
+
+                {!notificationsLoading && !notificationsError && notifications.length > 0 && (
+                  <div className="notification-list">
+                    {notifications.map((notif) => {
+                      const notifType = getNotificationTypeMeta(notif.notificationType);
+                      const safeCreatedAt = notif.createdAt || new Date().toISOString();
+
+                      return (
+                        <button
+                          key={notif._id}
+                          type="button"
+                          className={`notification-item ${notif.read ? 'read' : 'unread'}`}
+                          onClick={() => handleNotificationClick(notif)}
+                        >
+                          <div className="notification-item-type">{notifType.icon} {notifType.label}</div>
+                          <div className="notification-item-message">{notif.message || 'A new credential has been issued to you.'}</div>
+                          <div className="notification-item-meta">Credential: {notif.credentialName || 'Credential'}</div>
+                          <div className="notification-item-meta">Issuer: {notif.issuerName || notif.issuerId || 'Issuer'}</div>
+                          <div className="notification-item-time">{formatDate(safeCreatedAt)} • {notif.read ? 'Read' : 'Unread'}</div>
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
         </div>
       </div>
 

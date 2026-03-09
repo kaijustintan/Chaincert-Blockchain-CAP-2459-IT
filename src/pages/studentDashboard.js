@@ -77,8 +77,6 @@ export default function StudentDashboard() {
   const [notificationsLoading, setNotificationsLoading] = useState(true);
   const [notificationsError, setNotificationsError] = useState(null);
   const [unreadCount, setUnreadCount] = useState(0);
-  const [notificationsOpen, setNotificationsOpen] = useState(false);
-  const notificationPanelRef = useRef(null);
 
   /* UI state */
   const [view, setView] = useState("cards");
@@ -173,60 +171,23 @@ export default function StudentDashboard() {
     fetchDashboardData();
   }, []);
 
-  useEffect(() => {
-    const handleClickOutside = (event) => {
-      if (notificationPanelRef.current && !notificationPanelRef.current.contains(event.target)) {
-        setNotificationsOpen(false);
-      }
-    };
-
-    if (notificationsOpen) {
-      document.addEventListener('mousedown', handleClickOutside);
-    }
-
-    return () => {
-      document.removeEventListener('mousedown', handleClickOutside);
-    };
-  }, [notificationsOpen]);
-
-
   const handleNotificationClick = async (notification) => {
-    if (!notification) return;
+    if (!notification || notification.read) return;
 
     try {
-      if (!notification.read) {
-        await apiService.markNotificationAsRead(notification._id);
+      await apiService.markNotificationAsRead(notification._id);
 
-        setNotifications((prev) =>
-          prev.map((item) =>
-            item._id === notification._id
-              ? { ...item, read: true, readAt: new Date().toISOString() }
-              : item
-          )
-        );
+      setNotifications((prev) =>
+        prev.map((item) =>
+          item._id === notification._id
+            ? { ...item, read: true, readAt: new Date().toISOString() }
+            : item
+        )
+      );
 
-        setUnreadCount((prev) => (prev > 0 ? prev - 1 : 0));
-      }
-
-      const credentialId = notification.credentialId;
-      const matchedCredential = credentials.find((cred) => {
-        if (!credentialId) return false;
-        return (
-          cred.blockchainId === credentialId ||
-          cred.id === credentialId ||
-          cred._id === credentialId
-        );
-      });
-
-      if (matchedCredential) {
-        await handleCardClick(matchedCredential);
-      } else {
-        console.warn('[STUDENT DASHBOARD] No matching credential found for notification:', notification._id);
-      }
-
-      setNotificationsOpen(false);
+      setUnreadCount((prev) => (prev > 0 ? prev - 1 : 0));
     } catch (err) {
-      console.error('[STUDENT DASHBOARD] Failed to process notification click:', err);
+      console.error('[STUDENT DASHBOARD] Failed to mark notification as read:', err);
     }
   };
 
@@ -431,6 +392,46 @@ export default function StudentDashboard() {
             List
           </button>
         </div>
+      </div>
+
+      <div className="section-title-row">
+        <h2>Notifications {unreadCount > 0 ? `(${unreadCount} unread)` : ''}</h2>
+      </div>
+
+      <div className="content">
+        {notificationsLoading && <div className="empty-card">Loading notifications...</div>}
+
+        {!notificationsLoading && notificationsError && (
+          <div className="empty-card error">{notificationsError}</div>
+        )}
+
+        {!notificationsLoading && !notificationsError && notifications.length === 0 && (
+          <div className="empty-card">No notifications yet.</div>
+        )}
+
+        {!notificationsLoading && !notificationsError && notifications.length > 0 && (
+          <div className="card-grid" style={{ gridTemplateColumns: '1fr' }}>
+            {notifications.map((notif) => {
+              const notifType = getNotificationTypeMeta(notif.notificationType);
+              const safeCreatedAt = notif.createdAt || new Date().toISOString();
+
+              return (
+                <div
+                  key={notif._id}
+                  className="cred-card clickable"
+                  onClick={() => handleNotificationClick(notif)}
+                  style={{ opacity: notif.read ? 0.75 : 1, borderLeft: notif.read ? '4px solid #6b7280' : '4px solid #8b5cf6' }}
+                >
+                  <p className="cred-card-issuer">{notifType.icon} {notifType.label}</p>
+                  <div className="cred-card-name">{notif.message || 'A new credential has been issued to you.'}</div>
+                  <p className="cred-card-issuer">Credential: {notif.credentialName || 'Credential'}</p>
+                  <p className="cred-card-issuer">Issuer: {notif.issuerName || notif.issuerId || 'Issuer'}</p>
+                  <p className="cred-card-date">{formatDate(safeCreatedAt)} • {notif.read ? 'Read' : 'Unread'}</p>
+                </div>
+              );
+            })}
+          </div>
+        )}
       </div>
 
       {/* Controls */}

@@ -16,6 +16,11 @@
   - Added loading + error states
   - UI: credential name only on cards (first sight), click → modal with full details + See History
   - See History uses apiService.Get_CredentialHistory (same as admin dashboard)
+
+  NOTIFICATION CHANGES:
+  - Added notification bell button with unread badge
+  - Notifications now appear in a floating panel instead of inline in the main body
+  - Clicking a notification marks it as read and opens the related credential if found
 */
 
 import React, { useState, useEffect, useMemo, useRef } from "react";
@@ -28,11 +33,11 @@ import "../styles/studentDashboard.css";
 
 const formatDate = (iso) => {
   if (!iso) return "N/A";
-  try {
-    return new Date(iso).toLocaleDateString();
-  } catch {
-    return iso;
-  }
+
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) return "N/A";
+
+  return d.toLocaleDateString();
 };
 
 const getNotificationTypeMeta = (notificationType) => {
@@ -64,7 +69,6 @@ const StatusPill = ({ status }) => {
 // ==========================================================================================================================================================================
 
 export default function StudentDashboard() {
-
   // ── State ──────────────────────────────────────────────────────────────────
 
   /* Dynamic credentials from CouchDB (replaces MOCK_CREDENTIALS)
@@ -73,10 +77,14 @@ export default function StudentDashboard() {
   const [credentials, setCredentials] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+
+  /* Notifications */
   const [notifications, setNotifications] = useState([]);
   const [notificationsLoading, setNotificationsLoading] = useState(true);
   const [notificationsError, setNotificationsError] = useState(null);
   const [unreadCount, setUnreadCount] = useState(0);
+  const [notificationsOpen, setNotificationsOpen] = useState(false);
+  const notificationPanelRef = useRef(null);
 
   /* UI state */
   const [view, setView] = useState("cards");
@@ -88,6 +96,7 @@ export default function StudentDashboard() {
      // - polo
   */
   const [selectedCred, setSelectedCred] = useState(null);
+
   // - polo: stores skills + badgeImage fetched from issuer's template
   const [templateDetails, setTemplateDetails] = useState(null);
   const [templateLoading, setTemplateLoading] = useState(false);
@@ -105,17 +114,18 @@ export default function StudentDashboard() {
   const user = JSON.parse(localStorage.getItem("user") || "{}");
   const displayName = user.fullName || user.username || user.email || "Student";
 
-  // ── Fetch credentials on mount ─────────────────────────────────────────────
+  // ── Fetch credentials + notifications on mount ────────────────────────────
 
   /*
     Technical:
     On component mount, reads logged-in user from localStorage (same as issuerDashboardPage.js line 78)
-    then calls apiService.Get_UserCredentials(holderID) to fetch from CouchDB.
+    then calls:
+      - apiService.Get_UserCredentials(holderID)
+      - apiService.getUserNotifications(holderID)
+      - apiService.getUnreadUserNotifications(holderID)
 
     Tropang Ex:
-    Pagload ng dashboard, kunin agad yung credentials ni student.
-
-    // - polo
+    Pagload ng dashboard, kunin agad yung credentials at notifications ni student.
   */
   useEffect(() => {
     const fetchDashboardData = async () => {
@@ -125,41 +135,39 @@ export default function StudentDashboard() {
         setNotificationsLoading(true);
         setNotificationsError(null);
 
-        /* Step 1: Get logged-in user from localStorage
-           Technical: Same pattern as issuerDashboardPage.js
-           // - polo
-        */
-        const user = JSON.parse(localStorage.getItem("user"));
-        if (!user || !user._id) {
+        const storedUser = JSON.parse(localStorage.getItem("user"));
+        if (!storedUser || !storedUser._id) {
           setError("User session not found. Please log in again.");
-          setLoading(false);
           return;
         }
 
-        const holderID = user._id;
-        console.log("[STUDENT DASHBOARD] Fetching credentials for holder:", holderID); // - polo
+        const holderID = storedUser._id;
+        console.log("[STUDENT DASHBOARD] Fetching dashboard data for holder:", holderID);
 
-        /* Step 2: Fetch from CouchDB via apiService
-           // - polo
-        */
         const [credentialsData, notificationsResponse, unreadResponse] = await Promise.all([
           apiService.Get_UserCredentials(holderID),
           apiService.getUserNotifications(holderID),
           apiService.getUnreadUserNotifications(holderID)
         ]);
 
-        console.log("[STUDENT DASHBOARD] Credentials fetched:", credentialsData?.length); // - polo
+        console.log("[STUDENT DASHBOARD] Credentials fetched:", credentialsData?.length);
 
         setCredentials(Array.isArray(credentialsData) ? credentialsData : []);
-        setNotifications(Array.isArray(notificationsResponse?.notifications) ? notificationsResponse.notifications : []);
-        setUnreadCount(
-          typeof unreadResponse?.unreadCount === 'number'
-            ? unreadResponse.unreadCount
-            : (Array.isArray(unreadResponse?.notifications) ? unreadResponse.notifications.length : 0)
+        setNotifications(
+          Array.isArray(notificationsResponse?.notifications)
+            ? notificationsResponse.notifications
+            : []
         );
 
+        setUnreadCount(
+          typeof unreadResponse?.unreadCount === "number"
+            ? unreadResponse.unreadCount
+            : Array.isArray(unreadResponse?.notifications)
+              ? unreadResponse.notifications.length
+              : 0
+        );
       } catch (err) {
-        console.error("[STUDENT DASHBOARD] Error fetching credentials:", err);
+        console.error("[STUDENT DASHBOARD] Error fetching dashboard data:", err);
         setError("Failed to load credentials. Please try again.");
         setNotificationsError("Failed to load notifications.");
       } finally {
@@ -171,46 +179,55 @@ export default function StudentDashboard() {
     fetchDashboardData();
   }, []);
 
-  const handleNotificationClick = async (notification) => {
-    if (!notification || notification.read) return;
+  // ── Close notification panel when clicking outside ─────────────────────────
 
-    try {
-      await apiService.markNotificationAsRead(notification._id);
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (
+        notificationPanelRef.current &&
+        !notificationPanelRef.current.contains(event.target)
+      ) {
+        setNotificationsOpen(false);
+      }
+    };
 
-      setNotifications((prev) =>
-        prev.map((item) =>
-          item._id === notification._id
-            ? { ...item, read: true, readAt: new Date().toISOString() }
-            : item
-        )
-      );
-
-      setUnreadCount((prev) => (prev > 0 ? prev - 1 : 0));
-    } catch (err) {
-      console.error('[STUDENT DASHBOARD] Failed to mark notification as read:', err);
+    if (notificationsOpen) {
+      document.addEventListener("mousedown", handleClickOutside);
     }
-  };
+
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, [notificationsOpen]);
 
   // ── Filter logic ───────────────────────────────────────────────────────────
 
   const filtered = useMemo(() => {
     return credentials.filter((c) => {
-      const searchable = [c.credentialName, c.credentialType, c.issuerName].join(" ").toLowerCase();
+      const searchable = [c.credentialName, c.credentialType, c.issuerName]
+        .join(" ")
+        .toLowerCase();
+
       const matchesQ = searchable.includes(query.toLowerCase());
+
       /* Technical: CouchDB uses "issued" status, normalize for filter comparison
          // - polo
       */
       const normalizedStatus = c.status === "issued" ? "active" : c.status;
       const matchesS = statusFilter === "all" ? true : normalizedStatus === statusFilter;
+
       return matchesQ && matchesS;
     });
   }, [credentials, query, statusFilter]);
 
   /* CSS-CHANGE: Compute stats from credentials for the stats bar - polo */
   const stats = useMemo(() => {
-    const active = credentials.filter(c => c.status === "issued" || c.status === "active").length;
-    const revoked = credentials.filter(c => c.status === "revoked").length;
-    const expired = credentials.filter(c => c.status === "expired").length;
+    const active = credentials.filter(
+      (c) => c.status === "issued" || c.status === "active"
+    ).length;
+    const revoked = credentials.filter((c) => c.status === "revoked").length;
+    const expired = credentials.filter((c) => c.status === "expired").length;
+
     return { total: credentials.length, active, revoked, expired };
   }, [credentials]);
 
@@ -238,10 +255,9 @@ export default function StudentDashboard() {
         return;
       }
 
-      console.log("[STUDENT DASHBOARD] Fetching history for:", blockchainId); // - polo
+      console.log("[STUDENT DASHBOARD] Fetching history for:", blockchainId);
       const result = await apiService.Get_CredentialHistory(blockchainId);
       setHistoryData(result);
-
     } catch (err) {
       console.error("[STUDENT DASHBOARD] History fetch error:", err);
       setHistoryError("Failed to load credential history.");
@@ -255,20 +271,70 @@ export default function StudentDashboard() {
     setSelectedCred(cred);
     setTemplateDetails(null);
     setTemplateLoading(true);
+
     try {
       if (cred.issuerID) {
         const templates = await apiService.Get_IssuerTemplatesByID(cred.issuerID);
-        // extract templateId: first 2 underscore-separated parts of blockchainId
+
+        // extract templateId: first 3 underscore-separated parts of blockchainId
         // e.g. cred_1772386809672_bjmh2b0hs_holderID_timestamp → cred_1772386809672_bjmh2b0hs
-        const parts = (cred.blockchainId || '').split('_');
-        const templateId = parts.slice(0, 3).join('_'); // cred_TIMESTAMP_RANDOMID
-        const match = templates.find(t => t._id === templateId || t.id === templateId);
+        const parts = (cred.blockchainId || "").split("_");
+        const templateId = parts.slice(0, 3).join("_");
+
+        const match = templates.find(
+          (t) => t._id === templateId || t.id === templateId
+        );
+
         if (match) setTemplateDetails(match);
       }
     } catch (err) {
-      console.error('[STUDENT DASHBOARD] Failed to fetch template details:', err);
+      console.error("[STUDENT DASHBOARD] Failed to fetch template details:", err);
     } finally {
       setTemplateLoading(false);
+    }
+  };
+
+  // ── Notification click handler ─────────────────────────────────────────────
+
+  const handleNotificationClick = async (notification) => {
+    if (!notification) return;
+
+    try {
+      if (!notification.read) {
+        await apiService.markNotificationAsRead(notification._id);
+
+        setNotifications((prev) =>
+          prev.map((item) =>
+            item._id === notification._id
+              ? { ...item, read: true, readAt: new Date().toISOString() }
+              : item
+          )
+        );
+
+        setUnreadCount((prev) => (prev > 0 ? prev - 1 : 0));
+      }
+
+      const matchedCredential = credentials.find((cred) => {
+        const notifCredentialId = notification.credentialId;
+
+        return (
+          (cred.blockchainId && cred.blockchainId === notifCredentialId) ||
+          (cred.id && cred.id === notifCredentialId) ||
+          (cred._id && cred._id === notifCredentialId)
+        );
+      });
+
+      if (matchedCredential) {
+        setNotificationsOpen(false);
+        await handleCardClick(matchedCredential);
+      } else {
+        console.warn(
+          "[STUDENT DASHBOARD] No matching credential found for notification:",
+          notification
+        );
+      }
+    } catch (err) {
+      console.error("[STUDENT DASHBOARD] Failed to handle notification click:", err);
     }
   };
 
@@ -290,7 +356,6 @@ export default function StudentDashboard() {
 
   return (
     <div className="dashboard-container">
-
       {/* CSS-CHANGE: Greeting section - polo */}
       <div className="greeting-section">
         <div className="greeting-header-row" ref={notificationPanelRef}>
@@ -302,12 +367,14 @@ export default function StudentDashboard() {
           <div className="notification-bell-wrap">
             <button
               type="button"
-              className={`notification-bell-btn ${notificationsOpen ? 'open' : ''}`}
+              className={`notification-bell-btn ${notificationsOpen ? "open" : ""}`}
               onClick={() => setNotificationsOpen((prev) => !prev)}
               aria-label="Toggle notifications"
             >
               🔔
-              {unreadCount > 0 && <span className="notification-badge">{unreadCount}</span>}
+              {unreadCount > 0 && (
+                <span className="notification-badge">{unreadCount}</span>
+              )}
             </button>
 
             {notificationsOpen && (
@@ -316,39 +383,73 @@ export default function StudentDashboard() {
                   <h3>Notifications</h3>
                 </div>
 
-                {notificationsLoading && <div className="notification-panel-state">Loading notifications...</div>}
-
-                {!notificationsLoading && notificationsError && (
-                  <div className="notification-panel-state error">{notificationsError}</div>
-                )}
-
-                {!notificationsLoading && !notificationsError && notifications.length === 0 && (
-                  <div className="notification-panel-state">No notifications yet.</div>
-                )}
-
-                {!notificationsLoading && !notificationsError && notifications.length > 0 && (
-                  <div className="notification-list">
-                    {notifications.map((notif) => {
-                      const notifType = getNotificationTypeMeta(notif.notificationType);
-                      const safeCreatedAt = notif.createdAt || new Date().toISOString();
-
-                      return (
-                        <button
-                          key={notif._id}
-                          type="button"
-                          className={`notification-item ${notif.read ? 'read' : 'unread'}`}
-                          onClick={() => handleNotificationClick(notif)}
-                        >
-                          <div className="notification-item-type">{notifType.icon} {notifType.label}</div>
-                          <div className="notification-item-message">{notif.message || 'A new credential has been issued to you.'}</div>
-                          <div className="notification-item-meta">Credential: {notif.credentialName || 'Credential'}</div>
-                          <div className="notification-item-meta">Issuer: {notif.issuerName || notif.issuerId || 'Issuer'}</div>
-                          <div className="notification-item-time">{formatDate(safeCreatedAt)} • {notif.read ? 'Read' : 'Unread'}</div>
-                        </button>
-                      );
-                    })}
+                {notificationsLoading && (
+                  <div className="notification-panel-state">
+                    Loading notifications...
                   </div>
                 )}
+
+                {!notificationsLoading && notificationsError && (
+                  <div className="notification-panel-state error">
+                    {notificationsError}
+                  </div>
+                )}
+
+                {!notificationsLoading &&
+                  !notificationsError &&
+                  notifications.length === 0 && (
+                    <div className="notification-panel-state">
+                      No notifications yet.
+                    </div>
+                  )}
+
+                {!notificationsLoading &&
+                  !notificationsError &&
+                  notifications.length > 0 && (
+                    <div className="notification-list">
+                      {notifications.map((notif) => {
+                        const notifType = getNotificationTypeMeta(
+                          notif.notificationType
+                        );
+                        const safeCreatedAt =
+                          notif.createdAt || new Date().toISOString();
+
+                        return (
+                          <button
+                            key={notif._id}
+                            type="button"
+                            className={`notification-item ${
+                              notif.read ? "read" : "unread"
+                            }`}
+                            onClick={() => handleNotificationClick(notif)}
+                          >
+                            <div className="notification-item-type">
+                              {notifType.icon} {notifType.label}
+                            </div>
+
+                            <div className="notification-item-message">
+                              {notif.message ||
+                                "A new credential has been issued to you."}
+                            </div>
+
+                            <div className="notification-item-meta">
+                              Credential: {notif.credentialName || "Credential"}
+                            </div>
+
+                            <div className="notification-item-meta">
+                              Issuer:{" "}
+                              {notif.issuerName || notif.issuerId || "Issuer"}
+                            </div>
+
+                            <div className="notification-item-time">
+                              {formatDate(safeCreatedAt)} •{" "}
+                              {notif.read ? "Read" : "Unread"}
+                            </div>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
               </div>
             )}
           </div>
@@ -362,16 +463,19 @@ export default function StudentDashboard() {
             <span className="stat-number">{stats.total}</span>
             <span className="stat-label">Total</span>
           </div>
+
           <div className="stat-item stat-active">
             <span className="stat-number">{stats.active}</span>
             <span className="stat-label">Active</span>
           </div>
+
           {stats.revoked > 0 && (
             <div className="stat-item stat-revoked">
               <span className="stat-number">{stats.revoked}</span>
               <span className="stat-label">Revoked</span>
             </div>
           )}
+
           {stats.expired > 0 && (
             <div className="stat-item stat-expired">
               <span className="stat-number">{stats.expired}</span>
@@ -385,53 +489,19 @@ export default function StudentDashboard() {
       <div className="section-title-row">
         <h2>My Credentials</h2>
         <div className="view-toggle">
-          <button className={view === "cards" ? "active" : ""} onClick={() => setView("cards")}>
+          <button
+            className={view === "cards" ? "active" : ""}
+            onClick={() => setView("cards")}
+          >
             Cards
           </button>
-          <button className={view === "list" ? "active" : ""} onClick={() => setView("list")}>
+          <button
+            className={view === "list" ? "active" : ""}
+            onClick={() => setView("list")}
+          >
             List
           </button>
         </div>
-      </div>
-
-      <div className="section-title-row">
-        <h2>Notifications {unreadCount > 0 ? `(${unreadCount} unread)` : ''}</h2>
-      </div>
-
-      <div className="content">
-        {notificationsLoading && <div className="empty-card">Loading notifications...</div>}
-
-        {!notificationsLoading && notificationsError && (
-          <div className="empty-card error">{notificationsError}</div>
-        )}
-
-        {!notificationsLoading && !notificationsError && notifications.length === 0 && (
-          <div className="empty-card">No notifications yet.</div>
-        )}
-
-        {!notificationsLoading && !notificationsError && notifications.length > 0 && (
-          <div className="card-grid" style={{ gridTemplateColumns: '1fr' }}>
-            {notifications.map((notif) => {
-              const notifType = getNotificationTypeMeta(notif.notificationType);
-              const safeCreatedAt = notif.createdAt || new Date().toISOString();
-
-              return (
-                <div
-                  key={notif._id}
-                  className="cred-card clickable"
-                  onClick={() => handleNotificationClick(notif)}
-                  style={{ opacity: notif.read ? 0.75 : 1, borderLeft: notif.read ? '4px solid #6b7280' : '4px solid #8b5cf6' }}
-                >
-                  <p className="cred-card-issuer">{notifType.icon} {notifType.label}</p>
-                  <div className="cred-card-name">{notif.message || 'A new credential has been issued to you.'}</div>
-                  <p className="cred-card-issuer">Credential: {notif.credentialName || 'Credential'}</p>
-                  <p className="cred-card-issuer">Issuer: {notif.issuerName || notif.issuerId || 'Issuer'}</p>
-                  <p className="cred-card-date">{formatDate(safeCreatedAt)} • {notif.read ? 'Read' : 'Unread'}</p>
-                </div>
-              );
-            })}
-          </div>
-        )}
       </div>
 
       {/* Controls */}
@@ -442,7 +512,11 @@ export default function StudentDashboard() {
           value={query}
           onChange={(e) => setQuery(e.target.value)}
         />
-        <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
+
+        <select
+          value={statusFilter}
+          onChange={(e) => setStatusFilter(e.target.value)}
+        >
           <option value="all">All statuses</option>
           <option value="active">Active</option>
           <option value="expired">Expired</option>
@@ -452,16 +526,11 @@ export default function StudentDashboard() {
 
       {/* Content */}
       <div className="content">
-
         {/* Loading state */}
-        {loading && (
-          <div className="empty-card">Loading credentials...</div>
-        )}
+        {loading && <div className="empty-card">Loading credentials...</div>}
 
         {/* Error state */}
-        {!loading && error && (
-          <div className="empty-card error">{error}</div>
-        )}
+        {!loading && error && <div className="empty-card error">{error}</div>}
 
         {/* Empty state */}
         {!loading && !error && filtered.length === 0 && (
@@ -486,14 +555,25 @@ export default function StudentDashboard() {
                 onClick={() => handleCardClick(cred)}
               >
                 {cred.badgeImage ? (
-                  <img src={cred.badgeImage} alt="badge" className="cred-card-badge-img" />
+                  <img
+                    src={cred.badgeImage}
+                    alt="badge"
+                    className="cred-card-badge-img"
+                  />
                 ) : (
                   <div className="cred-card-icon">🎓</div>
                 )}
+
                 <div className="cred-card-name">{cred.credentialName}</div>
                 <StatusPill status={cred.status} />
-                {cred.issuerName && <p className="cred-card-issuer">{cred.issuerName}</p>}
-                {cred.savedToUserWalletAt && <p className="cred-card-date">Issued {formatDate(cred.savedToUserWalletAt)}</p>}
+                {cred.issuerName && (
+                  <p className="cred-card-issuer">{cred.issuerName}</p>
+                )}
+                {cred.savedToUserWalletAt && (
+                  <p className="cred-card-date">
+                    Issued {formatDate(cred.savedToUserWalletAt)}
+                  </p>
+                )}
               </div>
             ))}
           </div>
@@ -521,9 +601,11 @@ export default function StudentDashboard() {
                   onClick={() => handleCardClick(cred)}
                 >
                   <td>{cred.credentialName}</td>
-                  <td>{cred.issuerName || 'N/A'}</td>
+                  <td>{cred.issuerName || "N/A"}</td>
                   <td>{formatDate(cred.savedToUserWalletAt)}</td>
-                  <td><StatusPill status={cred.status} /></td>
+                  <td>
+                    <StatusPill status={cred.status} />
+                  </td>
                 </tr>
               ))}
             </tbody>
@@ -538,75 +620,135 @@ export default function StudentDashboard() {
       */}
       {selectedCred && (
         <div className="modal-overlay" onClick={closeDetailModal}>
-          <div className="modal detail-modal" onClick={(e) => e.stopPropagation()}>
-
+          <div
+            className="modal detail-modal"
+            onClick={(e) => e.stopPropagation()}
+          >
             <div className="modal-header">
               <h2>{selectedCred.credentialName}</h2>
-              <button className="close-btn" onClick={closeDetailModal}>✕</button>
+              <button className="close-btn" onClick={closeDetailModal}>
+                ✕
+              </button>
             </div>
 
             <div className="modal-body">
               {/* Badge image from template - polo */}
-              {templateLoading && <p style={{textAlign:'center', opacity:0.7}}>Loading details...</p>}
+              {templateLoading && (
+                <p style={{ textAlign: "center", opacity: 0.7 }}>
+                  Loading details...
+                </p>
+              )}
+
               {!templateLoading && templateDetails?.badgeImage && (
-                <div style={{textAlign:'center', marginBottom:16}}>
+                <div style={{ textAlign: "center", marginBottom: 16 }}>
                   <img
                     src={templateDetails.badgeImage}
                     alt="badge"
-                    style={{width:96, height:96, objectFit:'cover', borderRadius:12}}
+                    style={{
+                      width: 96,
+                      height: 96,
+                      objectFit: "cover",
+                      borderRadius: 12
+                    }}
                   />
                 </div>
               )}
+
               <div className="detail-row">
                 <span className="detail-label">Type</span>
-                <span className="detail-value">{selectedCred.credentialType || "N/A"}</span>
+                <span className="detail-value">
+                  {selectedCred.credentialType || "N/A"}
+                </span>
               </div>
+
               <div className="detail-row">
                 <span className="detail-label">Issuer</span>
-                <span className="detail-value">{selectedCred.issuerName || "N/A"}</span>
+                <span className="detail-value">
+                  {selectedCred.issuerName || "N/A"}
+                </span>
               </div>
+
               <div className="detail-row">
                 <span className="detail-label">Status</span>
-                <span className="detail-value"><StatusPill status={selectedCred.status} /></span>
+                <span className="detail-value">
+                  <StatusPill status={selectedCred.status} />
+                </span>
               </div>
-              {(selectedCred.status === "revoked" || selectedCred.status === "REVOKED") && selectedCred.rejectionReason && (
-                <div className="detail-row">
-                  <span className="detail-label">Rejection Reason</span>
-                  <span className="detail-value" style={{color: "#ff6b6b"}}>{selectedCred.rejectionReason}</span>
-                </div>
-              )}
+
+              {(selectedCred.status === "revoked" ||
+                selectedCred.status === "REVOKED") &&
+                selectedCred.rejectionReason && (
+                  <div className="detail-row">
+                    <span className="detail-label">Rejection Reason</span>
+                    <span
+                      className="detail-value"
+                      style={{ color: "#ff6b6b" }}
+                    >
+                      {selectedCred.rejectionReason}
+                    </span>
+                  </div>
+                )}
+
               <div className="detail-row">
                 <span className="detail-label">Issued On</span>
-                <span className="detail-value">{formatDate(selectedCred.savedToUserWalletAt)}</span>
+                <span className="detail-value">
+                  {formatDate(selectedCred.savedToUserWalletAt)}
+                </span>
               </div>
+
               <div className="detail-row">
                 <span className="detail-label">Expiry Date</span>
-                <span className="detail-value">{formatDate(selectedCred.expiryDate)}</span>
+                <span className="detail-value">
+                  {formatDate(selectedCred.expiryDate)}
+                </span>
               </div>
+
               <div className="detail-row">
                 <span className="detail-label">Blockchain ID</span>
-                <span className="detail-value mono">{selectedCred.blockchainId || "N/A"}</span>
+                <span className="detail-value mono">
+                  {selectedCred.blockchainId || "N/A"}
+                </span>
               </div>
-            {/* Skills from template - polo */}
-              {!templateLoading && templateDetails?.skills && templateDetails.skills.length > 0 && (
-                <div className="detail-row" style={{flexDirection:'column', alignItems:'flex-start', gap:8}}>
-                  <span className="detail-label">Skills</span>
-                  <div style={{display:'flex', flexWrap:'wrap', gap:6, marginTop:4}}>
-                    {templateDetails.skills.map((skill, i) => (
-                      <span key={i} style={{
-                        background:'rgba(139,92,246,0.2)',
-                        border:'1px solid rgba(139,92,246,0.4)',
-                        borderRadius:20,
-                        padding:'3px 12px',
-                        fontSize:'0.8rem',
-                        color:'#c4b5fd'
-                      }}>
-                        {skill}
-                      </span>
-                    ))}
+
+              {/* Skills from template - polo */}
+              {!templateLoading &&
+                templateDetails?.skills &&
+                templateDetails.skills.length > 0 && (
+                  <div
+                    className="detail-row"
+                    style={{
+                      flexDirection: "column",
+                      alignItems: "flex-start",
+                      gap: 8
+                    }}
+                  >
+                    <span className="detail-label">Skills</span>
+                    <div
+                      style={{
+                        display: "flex",
+                        flexWrap: "wrap",
+                        gap: 6,
+                        marginTop: 4
+                      }}
+                    >
+                      {templateDetails.skills.map((skill, i) => (
+                        <span
+                          key={i}
+                          style={{
+                            background: "rgba(139,92,246,0.2)",
+                            border: "1px solid rgba(139,92,246,0.4)",
+                            borderRadius: 20,
+                            padding: "3px 12px",
+                            fontSize: "0.8rem",
+                            color: "#c4b5fd"
+                          }}
+                        >
+                          {skill}
+                        </span>
+                      ))}
+                    </div>
                   </div>
-                </div>
-              )}
+                )}
             </div>
 
             {/* See History button — same as admin dashboard
@@ -629,41 +771,64 @@ export default function StudentDashboard() {
               <div className="history-section">
                 <div className="history-header">
                   <h3>Blockchain History</h3>
-                  <button className="close-btn small" onClick={closeHistoryModal}>✕</button>
+                  <button className="close-btn small" onClick={closeHistoryModal}>
+                    ✕
+                  </button>
                 </div>
 
-                {historyLoading && <p className="history-loading">Loading history...</p>}
-                {historyError && <p className="history-error">{historyError}</p>}
+                {historyLoading && (
+                  <p className="history-loading">Loading history...</p>
+                )}
+                {historyError && (
+                  <p className="history-error">{historyError}</p>
+                )}
 
                 {historyData && historyData.history && (
                   <div className="history-list">
                     {historyData.history.map((entry, idx) => (
                       <div key={idx} className="history-entry">
                         <div className="history-entry-header">
-                          <span className="history-tx-id">{entry.txId || `TX-${idx + 1}`}</span>
+                          <span className="history-tx-id">
+                            {entry.txId || `TX-${idx + 1}`}
+                          </span>
                           <span className="history-timestamp">
-                            {entry.timestamp ? formatDate(entry.timestamp) : "N/A"}
+                            {entry.timestamp
+                              ? formatDate(entry.timestamp)
+                              : "N/A"}
                           </span>
                         </div>
+
                         <div className="history-entry-status">
-                          Status: <strong>{entry.value?.status || entry.status || "N/A"}</strong>
+                          Status:{" "}
+                          <strong>
+                            {entry.value?.status || entry.status || "N/A"}
+                          </strong>
                         </div>
-                        {(entry.value?.status === "revoked" || entry.status === "revoked") && (entry.value?.rejectionReason || entry.rejectionReason) && (
-                          <div className="history-entry-status" style={{color: "#ff6b6b"}}>
-                            Rejection Reason: <strong>{entry.value?.rejectionReason || entry.rejectionReason}</strong>
-                          </div>
-                        )}
+
+                        {(entry.value?.status === "revoked" ||
+                          entry.status === "revoked") &&
+                          (entry.value?.rejectionReason ||
+                            entry.rejectionReason) && (
+                            <div
+                              className="history-entry-status"
+                              style={{ color: "#ff6b6b" }}
+                            >
+                              Rejection Reason:{" "}
+                              <strong>
+                                {entry.value?.rejectionReason ||
+                                  entry.rejectionReason}
+                              </strong>
+                            </div>
+                          )}
                       </div>
                     ))}
                   </div>
                 )}
               </div>
             )}
-
           </div>
         </div>
       )}
-
     </div>
   );
 }

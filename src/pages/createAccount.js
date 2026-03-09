@@ -8,7 +8,6 @@ export default function CreateAccount() {
 
   // Step state: 'roleSelection', 'userForm', 'issuerForm'
   const [step, setStep] = useState("roleSelection");
-  const [selectedRole, setSelectedRole] = useState(null);
 
   // User form state
   const [user, setUser] = useState({
@@ -39,6 +38,7 @@ export default function CreateAccount() {
 
   // State to track if issuer submitted
   const [issuerSubmitted, setIssuerSubmitted] = useState(false);
+  const [userSubmitted, setUserSubmitted] = useState(false);
   const [userError, setUserError] = useState("");
   const [issuerError, setIssuerError] = useState("");
   const [userLoading, setUserLoading] = useState(false);
@@ -46,7 +46,6 @@ export default function CreateAccount() {
 
   // ========== ROLE SELECTION HANDLERS ==========
   const handleRoleSelection = (role) => {
-    setSelectedRole(role);
     if (role === "user") {
       setStep("userForm");
     } else {
@@ -56,9 +55,9 @@ export default function CreateAccount() {
 
   const handleGoBack = () => {
     setStep("roleSelection");
-    setSelectedRole(null);
     setUserError("");
     setIssuerError("");
+    setUserSubmitted(false);
     setRequiredDocuments([]);
     setApprovedIssuers([]);
     setUser({ fullName: "", email: "", password: "", confirmPassword: "" });
@@ -84,6 +83,7 @@ export default function CreateAccount() {
   const submitUser = async (e) => {
     e.preventDefault();
     setUserError("");
+    setUserSubmitted(false);
     console.log("USER SUBMIT FIRED", user);
 
     if (user.password !== user.confirmPassword) {
@@ -92,6 +92,11 @@ export default function CreateAccount() {
     }
     if (!user.email) {
       setUserError("Email is required.");
+      return;
+    }
+
+    if (user.password.length < 8) {
+      setUserError("Password must be at least 8 characters long.");
       return;
     }
 
@@ -107,8 +112,8 @@ export default function CreateAccount() {
       });
 
       if (response.success) {
-        alert("User registration successful!");
-        navigate("/login");
+        setUserSubmitted(true);
+        setTimeout(() => navigate("/login"), 1200);
       } else {
         setUserError(
           response.message || response.error || "Registration failed."
@@ -428,48 +433,65 @@ export default function CreateAccount() {
         <div className="form-card">
           <h2>User Registration</h2>
           <form onSubmit={submitUser} method="post">
-            <label>Full Name</label>
+            <label htmlFor="fullName">Full Name</label>
             <input
+              id="fullName"
               name="fullName"
               value={user.fullName}
               onChange={handleUserChange}
               placeholder="Juan Dela Cruz"
               required
+              disabled={userLoading}
             />
 
-            <label>Email</label>
+            <label htmlFor="userEmail">Email</label>
             <input
+              id="userEmail"
               name="email"
               type="email"
               value={user.email}
               onChange={handleUserChange}
               placeholder="you@example.com"
               required
+              disabled={userLoading}
             />
 
-            <label>Password</label>
+            <label htmlFor="userPassword">Password</label>
             <input
+              id="userPassword"
               name="password"
               type="password"
               value={user.password}
               onChange={handleUserChange}
               placeholder="Choose a strong password"
               required
+              minLength={8}
+              disabled={userLoading}
             />
 
-            <label>Confirm Password</label>
+            <label htmlFor="confirmUserPassword">Confirm Password</label>
             <input
+              id="confirmUserPassword"
               name="confirmPassword"
               type="password"
               value={user.confirmPassword}
               onChange={handleUserChange}
               placeholder="Confirm password"
               required
+              disabled={userLoading}
+              aria-invalid={Boolean(userError)}
+              aria-describedby={userError ? "user-form-feedback" : undefined}
             />
 
             {userError && (
-              <div style={{ color: "red", marginBottom: "8px" }}>
+              <div id="user-form-feedback" className="form-feedback error" role="alert">
                 {userError}
+              </div>
+            )}
+
+            {userSubmitted && (
+              <div className="form-feedback success" role="status" aria-live="polite">
+                Account created successfully! Redirecting to login...
               </div>
             )}
 
@@ -576,12 +598,14 @@ export default function CreateAccount() {
 
               {issuer.issuerType === "subordinate" && (
                 <>
-                  <label>Root Authority</label>
+                  <label htmlFor="rootAuthorityId">Root Authority</label>
                   <select
+                    id="rootAuthorityId"
                     name="rootAuthorityId"
                     value={issuer.rootAuthorityId}
                     onChange={handleIssuerChange}
                     required
+                    disabled={rootIssuersLoading || approvedIssuers.length === 0}
                   >
                     <option value="">
                       {rootIssuersLoading
@@ -595,6 +619,10 @@ export default function CreateAccount() {
                       </option>
                     ))}
                   </select>
+
+                  {!rootIssuersLoading && approvedIssuers.length === 0 && (
+                    <p className="form-helper-text">No approved root authorities are available yet.</p>
+                  )}
                 </>
               )}
 
@@ -602,25 +630,25 @@ export default function CreateAccount() {
               <h3 style={{ marginTop: "20px" }}>Part 3: Required Documents</h3>
 
               {!issuer.category && (
-                <p style={{ color: "#666", marginBottom: "12px" }}>
+                <p className="form-helper-text">
                   Select a category first to load required documents.
                 </p>
               )}
 
               {requirementsLoading && (
-                <p style={{ color: "#666", marginBottom: "12px" }}>
+                <p className="form-helper-text" role="status" aria-live="polite">
                   Loading document requirements...
                 </p>
               )}
 
               {!requirementsLoading && issuer.category && requiredDocuments.length > 0 && (
                 <>
-                  <p style={{ marginBottom: "12px" }}>
+                  <p className="form-helper-text">
                     Please upload all required documents below.
                   </p>
 
                   {requiredDocuments.map((docKey) => (
-                    <div key={docKey} style={{ marginBottom: "14px" }}>
+                    <div key={docKey} className="document-upload-item">
                       <label>{formatDocumentLabel(docKey)}</label>
                       <input
                         type="file"
@@ -634,9 +662,13 @@ export default function CreateAccount() {
                         required
                       />
                       {issuer.documentsByType?.[docKey] && (
-                        <small style={{ display: "block", marginTop: "4px" }}>
+                        <small className="document-status success">
                           Selected: {issuer.documentsByType[docKey].name}
                         </small>
+                      )}
+
+                      {!issuer.documentsByType?.[docKey] && (
+                        <small className="document-status pending">Waiting for upload</small>
                       )}
                     </div>
                   ))}
@@ -644,7 +676,7 @@ export default function CreateAccount() {
               )}
 
               {issuerError && (
-                <div style={{ color: "red", marginBottom: "8px" }}>
+                <div className="form-feedback error" role="alert">
                   {issuerError}
                 </div>
               )}

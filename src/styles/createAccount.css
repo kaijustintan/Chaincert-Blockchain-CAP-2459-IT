@@ -1,238 +1,596 @@
-/* CreateAccount.css - updated with role selection */
+/* =====================================================
+   CREATE ACCOUNT / REGISTER - Purple Glassmorphism Theme
+   Matching ChainCert Dashboard Aesthetic
+   ===================================================== */
 
+/* =====================================================
+   ANIMATIONS
+   ===================================================== */
+@keyframes fadeInUp {
+  from { opacity: 0; transform: translateY(24px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes gradientShift {
+  0% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+
+@keyframes shake {
+  0%, 100% { transform: translateX(0); }
+  25% { transform: translateX(-8px); }
+  75% { transform: translateX(8px); }
+}
+
+@keyframes shimmerSlide {
+  0% { left: -100%; }
+  100% { left: 100%; }
+}
+
+/* =====================================================
+   WRAPPER
+   ===================================================== */
 .create-account-wrapper {
   display: flex;
-  gap: 32px;
   justify-content: center;
   align-items: flex-start;
-  padding: 48px;
-  flex-wrap: wrap;
-  position: relative;
+  padding: 48px 24px;
+  min-height: calc(100vh - 80px);
+  font-family: 'Poppins', sans-serif;
+  color: #fff;
+  animation: fadeIn 0.4s ease-out;
+  background: rgba(0, 0, 0, 0.55);
 }
 
-/* ROLE SELECTION SCREEN */
 .create-account-wrapper.role-selection-wrapper {
-  justify-content: center;
   align-items: center;
-  min-height: calc(100vh - 200px);
 }
 
+/* =====================================================
+   ROLE SELECTION SCREEN
+   ===================================================== */
 .role-selection-container {
   text-align: center;
-  animation: slideIn 0.5s ease-out;
+  max-width: 700px;
+  animation: fadeInUp 0.5s ease-out;
 }
 
-.role-selection-container h1 {
-  font-size: 2rem;
-  color: #6b2bd9;
-  margin-bottom: 10px;
-  text-align: center;
+.register-brand {
+  font-size: 36px;
+  font-weight: 800;
+  margin: 0 0 8px 0;
+  background: linear-gradient(135deg, #a78bfa, #c4b5fd, #818cf8, #a78bfa);
+  background-size: 300% 100%;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  animation: gradientShift 4s ease infinite;
+  letter-spacing: -0.02em;
 }
 
-.role-selection-container p {
-  color: #666;
-  font-size: 1rem;
-  margin-bottom: 40px;
-  text-align: center;
+.register-heading {
+  font-size: 22px;
+  font-weight: 600;
+  color: #fff;
+  margin: 0 0 8px 0;
 }
 
+.register-subtitle {
+  color: #a78bfa;
+  font-size: 14px;
+  margin: 0 0 36px 0;
+}
+
+/* =====================================================
+   ROLE BUTTONS
+   ===================================================== */
 .role-buttons {
   display: flex;
-  gap: 30px;
+  gap: 24px;
   justify-content: center;
   flex-wrap: wrap;
+  margin-bottom: 32px;
 }
 
 .role-button {
-  background: #fff;
-  border: 2px solid #e0e0e0;
-  border-radius: 15px;
-  padding: 40px 30px;
+  background: rgba(12, 8, 32, 0.92);
+  border: 2px solid rgba(139, 92, 246, 0.2);
+  border-radius: 20px;
+  padding: 36px 32px;
   cursor: pointer;
-  transition: all 0.3s ease;
-  min-width: 280px;
-  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+  transition: all 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+  min-width: 260px;
+  max-width: 300px;
+  text-align: center;
+  position: relative;
+  overflow: hidden;
+  font-family: 'Poppins', sans-serif;
+}
+
+/* Top glow on hover */
+.role-button::before {
+  content: '';
+  position: absolute;
+  top: -1px;
+  left: -1px;
+  right: -1px;
+  height: 3px;
+  background: linear-gradient(90deg, transparent, rgba(139, 92, 246, 0.5), transparent);
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+.role-button:hover::before {
+  opacity: 1;
 }
 
 .role-button:hover {
-  transform: translateY(-8px);
-  border-color: #6b2bd9;
-  box-shadow: 0 8px 20px rgba(107, 43, 217, 0.2);
-}
-
-.role-button.user-role-btn:hover {
-  border-color: #667eea;
-  box-shadow: 0 8px 20px rgba(102, 126, 234, 0.2);
+  transform: translateY(-6px);
+  border-color: rgba(139, 92, 246, 0.5);
+  box-shadow: 0 16px 48px rgba(139, 92, 246, 0.2), 0 4px 16px rgba(0, 0, 0, 0.3);
 }
 
 .role-icon {
-  font-size: 3rem;
-  margin-bottom: 20px;
-  display: inline-block;
+  font-size: 2.5rem;
+  margin-bottom: 16px;
+  display: block;
 }
 
 .role-button h3 {
-  color: #333;
-  font-size: 1.3rem;
-  margin-bottom: 10px;
+  color: #f5f3ff;
+  font-size: 17px;
+  margin: 0 0 8px 0;
+  font-weight: 600;
 }
 
 .role-button p {
-  color: #999;
-  font-size: 0.9rem;
+  color: #b0adc0;
+  font-size: 13px;
+  margin: 0;
 }
 
-/* BACK BUTTON */
-.back-button {
-  position: fixed;
-  top: 80px;
-  left: 20px;
-  background: #fff;
-  border: 2px solid #6b2bd9;
-  color: #6b2bd9;
-  padding: 10px 16px;
-  border-radius: 6px;
-  cursor: pointer;
-  font-size: 0.9rem;
-  transition: all 0.3s;
-  font-weight: 600;
-  z-index: 100;
-}
-
-.back-button:hover {
-  background: #6b2bd9;
-  color: #fff;
-}
-
-/* FORM CARD */
-.form-card {
-  width: 420px;
-  background: #fff;
-  border-radius: 10px;
-  padding: 28px;
-  box-shadow: 0 6px 20px rgba(0,0,0,0.25);
-  animation: slideIn 0.5s ease-out;
-}
-
-.form-card h2 {
+/* =====================================================
+   RETURN TO LOGIN ROW (role selection)
+   ===================================================== */
+.return-login-row {
   text-align: center;
-  color: #6b2bd9;
-  margin-bottom: 18px;
-  margin-top: 0;
+  animation: fadeInUp 0.5s ease-out 0.2s both;
 }
 
+.return-login-row p {
+  color: #b0adc0;
+  font-size: 13px;
+  margin: 0 0 10px 0;
+}
+
+.btn-return-login {
+  background: transparent;
+  border: 2px solid rgba(139, 92, 246, 0.35);
+  color: #a78bfa;
+  padding: 10px 28px;
+  border-radius: 12px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 600;
+  font-family: 'Poppins', sans-serif;
+  transition: all 0.3s ease;
+}
+
+.btn-return-login:hover {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: #fff;
+  border-color: transparent;
+  box-shadow: 0 4px 20px rgba(102, 126, 234, 0.35);
+  transform: translateY(-2px);
+}
+
+/* =====================================================
+   FORM CARD
+   ===================================================== */
+.form-card {
+  width: 480px;
+  max-width: 95vw;
+  background: rgba(12, 8, 32, 0.94);
+  border: 1px solid rgba(139, 92, 246, 0.2);
+  border-radius: 24px;
+  padding: 36px;
+  box-shadow: 0 16px 56px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(139, 92, 246, 0.08);
+  animation: fadeInUp 0.5s ease-out;
+  position: relative;
+  overflow: hidden;
+}
+
+/* Top gradient accent */
+.form-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: linear-gradient(90deg, #667eea, #764ba2, #667eea);
+}
+
+/* Wider form for issuer registration */
+.form-card.form-card-wide {
+  width: 640px;
+}
+
+/* =====================================================
+   FORM CARD HEADER
+   ===================================================== */
+.form-card-header {
+  text-align: center;
+  margin-bottom: 28px;
+}
+
+.form-brand {
+  font-size: 28px;
+  font-weight: 800;
+  margin: 0 0 4px 0;
+  background: linear-gradient(135deg, #a78bfa, #c4b5fd, #818cf8);
+  background-size: 300% 100%;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  animation: gradientShift 4s ease infinite;
+}
+
+.form-card-header h2 {
+  color: #fff;
+  font-size: 20px;
+  font-weight: 700;
+  margin: 0 0 4px 0;
+}
+
+.form-subtitle {
+  color: #b0adc0;
+  font-size: 13px;
+  margin: 0;
+}
+
+/* =====================================================
+   FORM ELEMENTS
+   ===================================================== */
 .form-card form {
   display: flex;
   flex-direction: column;
 }
 
-.form-card label {
-  font-size: 0.9rem;
-  margin-top: 10px;
+.input-group {
+  display: flex;
+  flex-direction: column;
+  margin-bottom: 16px;
+}
+
+.input-group label {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+  color: #a78bfa;
   margin-bottom: 6px;
-  color: #333;
-  text-align: left;
-  font-weight: 500;
 }
 
-.form-card input,
-.form-card select {
-  padding: 10px 12px;
-  border-radius: 6px;
-  border: 1px solid #e0e0e0;
-  font-size: 0.95rem;
-  transition: all 0.3s;
+.input-group input,
+.input-group select {
+  padding: 12px 16px;
+  border-radius: 12px;
+  border: 1px solid rgba(139, 92, 246, 0.25);
+  font-size: 14px;
+  font-family: 'Poppins', sans-serif;
+  background: rgba(18, 12, 45, 0.95);
+  color: #e5e5e5;
+  transition: all 0.3s ease;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  appearance: none;
 }
 
-.form-card input:focus,
-.form-card select:focus {
+.input-group input::placeholder {
+  color: rgba(255, 255, 255, 0.25);
+}
+
+.input-group input:focus,
+.input-group select:focus {
   outline: none;
-  border-color: #6b2bd9;
-  box-shadow: 0 0 5px rgba(107, 43, 217, 0.2);
-  background-color: #f9f7ff;
+  border-color: #8b5cf6;
+  box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.15);
+  background: rgba(22, 16, 55, 0.98);
 }
 
-.form-card input::placeholder {
-  color: #ccc;
+.input-group select {
+  cursor: pointer;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%23a78bfa' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 14px center;
+  background-size: 16px;
+  padding-right: 36px;
 }
 
-/* BUTTONS */
-.btn-primary {
-  margin-top: 20px;
-  padding: 12px 18px;
-  background: #6b2bd9;
+.input-group select option {
+  background-color: #110c2d;
+  color: #fff;
+}
+
+/* File input styling */
+.file-input-group input[type="file"] {
+  padding: 10px 14px;
+  background: rgba(139, 92, 246, 0.06);
+  border: 1px dashed rgba(139, 92, 246, 0.3);
+  border-radius: 12px;
+  color: #c4b5fd;
+  cursor: pointer;
+  font-size: 13px;
+}
+
+.file-input-group input[type="file"]:hover {
+  border-color: #8b5cf6;
+  background: rgba(139, 92, 246, 0.1);
+}
+
+.file-input-group input[type="file"]::-webkit-file-upload-button {
+  background: linear-gradient(135deg, #667eea, #764ba2);
   color: #fff;
   border: none;
-  border-radius: 6px;
+  padding: 6px 14px;
+  border-radius: 8px;
+  font-size: 12px;
   font-weight: 600;
   cursor: pointer;
-  transition: all 0.3s;
-  font-size: 1rem;
+  margin-right: 10px;
+  font-family: 'Poppins', sans-serif;
+}
+
+.file-name-display {
+  display: block;
+  margin-top: 4px;
+  font-size: 12px;
+  color: #4ade80;
+}
+
+/* =====================================================
+   FORM GRID (side-by-side fields)
+   ===================================================== */
+.form-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+
+/* =====================================================
+   FORM SECTION TITLES
+   ===================================================== */
+.form-section-title {
+  font-size: 14px;
+  font-weight: 700;
+  color: #c4b5fd;
+  margin: 24px 0 16px 0;
+  padding-bottom: 8px;
+  border-bottom: 1px solid rgba(139, 92, 246, 0.15);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.form-section-title:first-of-type {
+  margin-top: 0;
+}
+
+/* =====================================================
+   FORM HINTS
+   ===================================================== */
+.form-hint {
+  color: #b0adc0;
+  font-size: 13px;
+  margin-bottom: 14px;
+}
+
+/* =====================================================
+   ERROR BANNER
+   ===================================================== */
+.form-error {
+  background: rgba(239, 68, 68, 0.1);
+  border: 1px solid rgba(239, 68, 68, 0.25);
+  color: #f87171;
+  padding: 12px 16px;
+  border-radius: 12px;
+  margin-bottom: 16px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  font-weight: 500;
+  animation: shake 0.3s ease;
+}
+
+.form-error span {
+  font-size: 16px;
+}
+
+/* =====================================================
+   PRIMARY BUTTON
+   ===================================================== */
+.btn-primary {
+  margin-top: 8px;
+  padding: 14px 24px;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: #fff;
+  border: none;
+  border-radius: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  font-size: 15px;
+  font-family: 'Poppins', sans-serif;
+  transition: all 0.3s ease;
+  box-shadow: 0 4px 20px rgba(102, 126, 234, 0.3);
+  position: relative;
+  overflow: hidden;
+  width: 100%;
+}
+
+.btn-primary::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.1), transparent);
+  transition: none;
+}
+
+.btn-primary:hover:not(:disabled)::after {
+  animation: shimmerSlide 0.8s ease;
 }
 
 .btn-primary:hover:not(:disabled) {
-  background: #5a20c0;
-  box-shadow: 0 4px 12px rgba(107, 43, 217, 0.3);
   transform: translateY(-2px);
+  box-shadow: 0 8px 28px rgba(102, 126, 234, 0.45);
+}
+
+.btn-primary:active:not(:disabled) {
+  transform: scale(0.98);
 }
 
 .btn-primary:disabled {
-  opacity: 0.6;
+  opacity: 0.5;
   cursor: not-allowed;
 }
 
+/* =====================================================
+   BOTTOM LINKS ROW
+   ===================================================== */
+.form-bottom-links {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 20px;
+  padding-top: 16px;
+  border-top: 1px solid rgba(139, 92, 246, 0.1);
+}
+
+.btn-link {
+  background: none;
+  border: none;
+  color: #a78bfa;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 600;
+  font-family: 'Poppins', sans-serif;
+  padding: 0;
+  transition: color 0.3s ease;
+}
+
+.btn-link:hover {
+  color: #c4b5fd;
+  text-decoration: underline;
+}
+
+/* =====================================================
+   ISSUER SUCCESS MESSAGE
+   ===================================================== */
 .issuer-message {
   text-align: center;
-  color: #000;
-  font-size: 0.95rem;
-  line-height: 1.6;
-  padding: 20px;
+  padding: 24px 16px;
+}
+
+.issuer-message .success-icon {
+  font-size: 48px;
+  margin-bottom: 16px;
+}
+
+.issuer-message h3 {
+  color: #fff;
+  font-size: 20px;
+  margin: 0 0 12px 0;
 }
 
 .issuer-message p {
-  margin-bottom: 20px;
-  color: #333;
+  color: #d4d4d8;
+  font-size: 14px;
+  line-height: 1.6;
+  margin-bottom: 16px;
 }
 
-/* ANIMATIONS */
-@keyframes slideIn {
-  from {
-    opacity: 0;
-    transform: translateY(20px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
+/* =====================================================
+   LOGIN PAGE CSS (moved from inline loginPage.css)
+   ===================================================== */
+/* These are kept in loginPage.css — no changes needed there */
 
-/* RESPONSIVE */
+/* =====================================================
+   RESPONSIVE
+   ===================================================== */
 @media (max-width: 768px) {
   .create-account-wrapper {
-    padding: 20px;
+    padding: 24px 16px;
   }
 
   .role-buttons {
     flex-direction: column;
-    gap: 20px;
+    gap: 16px;
+    align-items: center;
   }
 
   .role-button {
     min-width: 100%;
+    max-width: 100%;
+    padding: 28px 24px;
+  }
+
+  .register-brand {
+    font-size: 28px;
+  }
+
+  .form-card,
+  .form-card.form-card-wide {
+    width: 100%;
+    max-width: 100%;
+    padding: 28px 24px;
+    border-radius: 20px;
+  }
+
+  .form-grid {
+    grid-template-columns: 1fr;
+    gap: 0;
+  }
+
+  .form-bottom-links {
+    flex-direction: column;
+    gap: 10px;
+    text-align: center;
+  }
+}
+
+@media (max-width: 480px) {
+  .create-account-wrapper {
+    padding: 20px 12px;
   }
 
   .form-card {
-    width: 100%;
-    max-width: 420px;
+    padding: 24px 20px;
   }
 
-  .back-button {
-    position: relative;
-    margin-bottom: 15px;
-    display: block;
+  .register-brand {
+    font-size: 24px;
   }
 
-  .role-selection-container h1 {
-    font-size: 1.5rem;
+  .register-heading {
+    font-size: 18px;
+  }
+
+  .role-button {
+    padding: 24px 20px;
+  }
+
+  .role-icon {
+    font-size: 2rem;
+  }
+
+  .role-button h3 {
+    font-size: 15px;
   }
 }

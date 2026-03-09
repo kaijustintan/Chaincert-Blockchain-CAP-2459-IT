@@ -85,14 +85,17 @@ function LoginPage() {
     <div className="login-wrapper">
       {/* Left Side - Branding / Tagline */}
       <div className="login-left">
-        <h1>Level up your future.</h1>
-        <p>Join the ChainCert platform where you can:</p>
-        <ul>
-          <li>✔ Secure and verify your academic credentials</li>
-          <li>✔ Share your achievements with employers</li>
-          <li>✔ Build trust through blockchain technology</li>
-          <li>✔ Unlock new career and education opportunities</li>
-        </ul>
+        {/* CSS-CHANGE: wrapped in login-left-card for dark box styling - polo */}
+        <div className="login-left-card">
+          <h1>Level up your future.</h1>
+          <p>Join the ChainCert platform where you can:</p>
+          <ul>
+            <li>✔ Secure and verify your academic credentials</li>
+            <li>✔ Share your achievements with employers</li>
+            <li>✔ Build trust through blockchain technology</li>
+            <li>✔ Unlock new career and education opportunities</li>
+          </ul>
+        </div>
       </div>
 
 

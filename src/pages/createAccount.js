@@ -108,7 +108,7 @@ export default function CreateAccount() {
 
       if (response.success) {
         alert("User registration successful!");
-        navigate("/login");
+        navigate("/login"); /* CSS-CHANGE: redirect to login after success - polo */
       } else {
         setUserError(
           response.message || response.error || "Registration failed."
@@ -135,11 +135,6 @@ export default function CreateAccount() {
       setRootIssuersLoading(true);
       setIssuerError("");
 
-      // Reuse existing backend flow for approved issuers if available.
-      // Expected flexible shapes:
-      // 1) array directly
-      // 2) { data: [...] }
-      // 3) { issuers: [...] }
       const response = await apiService.getApprovedIssuers?.();
 
       let issuersList = [];
@@ -203,14 +198,11 @@ export default function CreateAccount() {
 
     fetchCategoryRequirements(issuer.category, issuer.issuerType);
 
-    // Clear uploaded docs that are no longer relevant
     setIssuer((prev) => {
       const currentRequired = [];
       if (prev.category && requiredDocuments.length > 0) {
         currentRequired.push(...requiredDocuments);
       }
-
-      // Since requiredDocuments updates async, keep current docs for now.
       return prev;
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -235,7 +227,6 @@ export default function CreateAccount() {
     setIssuer((prev) => {
       const updated = { ...prev, [name]: value };
 
-      // If issuerType changes away from subordinate, clear rootAuthorityId
       if (name === "issuerType" && value !== "subordinate") {
         updated.rootAuthorityId = "";
       }
@@ -390,8 +381,10 @@ export default function CreateAccount() {
     return (
       <div className="create-account-wrapper role-selection-wrapper">
         <div className="role-selection-container">
-          <h1>What would you like to register as?</h1>
-          <p>Choose your role to continue with registration</p>
+          {/* CSS-CHANGE: added brand name and improved heading - polo */}
+          <h1 className="register-brand">ChainCert</h1>
+          <h2 className="register-heading">Create an Account</h2>
+          <p className="register-subtitle">Choose your role to continue with registration</p>
 
           <div className="role-buttons">
             <button
@@ -412,6 +405,14 @@ export default function CreateAccount() {
               <p>Create and manage credentials</p>
             </button>
           </div>
+
+          {/* CSS-CHANGE: added Return to Login button - polo */}
+          <div className="return-login-row">
+            <p>Already have an account?</p>
+            <button className="btn-return-login" onClick={() => navigate("/login")}>
+              Return to Login
+            </button>
+          </div>
         </div>
       </div>
     );
@@ -421,55 +422,65 @@ export default function CreateAccount() {
   if (step === "userForm") {
     return (
       <div className="create-account-wrapper">
-        <button className="back-button" onClick={handleGoBack}>
-          ← Back
-        </button>
-
         <div className="form-card">
-          <h2>User Registration</h2>
+          {/* CSS-CHANGE: brand + heading inside form card - polo */}
+          <div className="form-card-header">
+            <h1 className="form-brand">ChainCert</h1>
+            <h2>User Registration</h2>
+            <p className="form-subtitle">Create your credential wallet account</p>
+          </div>
+
           <form onSubmit={submitUser} method="post">
-            <label>Full Name</label>
-            <input
-              name="fullName"
-              value={user.fullName}
-              onChange={handleUserChange}
-              placeholder="Juan Dela Cruz"
-              required
-            />
+            <div className="input-group">
+              <label>Full Name</label>
+              <input
+                name="fullName"
+                value={user.fullName}
+                onChange={handleUserChange}
+                placeholder="Juan Dela Cruz"
+                required
+              />
+            </div>
 
-            <label>Email</label>
-            <input
-              name="email"
-              type="email"
-              value={user.email}
-              onChange={handleUserChange}
-              placeholder="you@example.com"
-              required
-            />
+            <div className="input-group">
+              <label>Email</label>
+              <input
+                name="email"
+                type="email"
+                value={user.email}
+                onChange={handleUserChange}
+                placeholder="you@example.com"
+                required
+              />
+            </div>
 
-            <label>Password</label>
-            <input
-              name="password"
-              type="password"
-              value={user.password}
-              onChange={handleUserChange}
-              placeholder="Choose a strong password"
-              required
-            />
+            <div className="input-group">
+              <label>Password</label>
+              <input
+                name="password"
+                type="password"
+                value={user.password}
+                onChange={handleUserChange}
+                placeholder="Choose a strong password"
+                required
+              />
+            </div>
 
-            <label>Confirm Password</label>
-            <input
-              name="confirmPassword"
-              type="password"
-              value={user.confirmPassword}
-              onChange={handleUserChange}
-              placeholder="Confirm password"
-              required
-            />
+            <div className="input-group">
+              <label>Confirm Password</label>
+              <input
+                name="confirmPassword"
+                type="password"
+                value={user.confirmPassword}
+                onChange={handleUserChange}
+                placeholder="Confirm password"
+                required
+              />
+            </div>
 
             {userError && (
-              <div style={{ color: "red", marginBottom: "8px" }}>
-                {userError}
+              <div className="form-error">
+                <span>⚠️</span> {userError}
               </div>
             )}
 
@@ -477,6 +488,12 @@ export default function CreateAccount() {
               {userLoading ? "Creating Account..." : "Create User Account"}
             </button>
           </form>
+
+          {/* CSS-CHANGE: bottom links row - polo */}
+          <div className="form-bottom-links">
+            <button className="btn-link" onClick={handleGoBack}>← Back to Role Selection</button>
+            <button className="btn-link" onClick={() => navigate("/login")}>Return to Login</button>
+          </div>
         </div>
       </div>
     );
@@ -486,96 +503,117 @@ export default function CreateAccount() {
   if (step === "issuerForm") {
     return (
       <div className="create-account-wrapper">
-        <button className="back-button" onClick={handleGoBack}>
-          ← Back
-        </button>
-
-        <div className="form-card">
-          <h2>Issuer Registration</h2>
+        <div className="form-card form-card-wide">
+          {/* CSS-CHANGE: brand + heading inside form card - polo */}
+          <div className="form-card-header">
+            <h1 className="form-brand">ChainCert</h1>
+            <h2>Issuer Registration</h2>
+            <p className="form-subtitle">Apply to become an authorized credential issuer</p>
+          </div>
 
           {!issuerSubmitted ? (
             <form onSubmit={submitIssuer} method="post">
               {/* PART 1: BASIC DETAILS */}
-              <h3>Part 1: Basic Details</h3>
+              <div className="form-section-title">Part 1: Basic Details</div>
 
-              <label>Organization Name</label>
-              <input
-                name="orgName"
-                value={issuer.orgName}
-                onChange={handleIssuerChange}
-                placeholder="University / Company"
-                required
-              />
+              <div className="form-grid">
+                <div className="input-group">
+                  <label>Organization Name</label>
+                  <input
+                    name="orgName"
+                    value={issuer.orgName}
+                    onChange={handleIssuerChange}
+                    placeholder="University / Company"
+                    required
+                  />
+                </div>
 
-              <label>Contact Person</label>
-              <input
-                name="contactName"
-                value={issuer.contactName}
-                onChange={handleIssuerChange}
-                placeholder="Juan dela Cruz (Registrar)"
-                required
-              />
+                <div className="input-group">
+                  <label>Contact Person</label>
+                  <input
+                    name="contactName"
+                    value={issuer.contactName}
+                    onChange={handleIssuerChange}
+                    placeholder="Juan dela Cruz (Registrar)"
+                    required
+                  />
+                </div>
+              </div>
 
-              <label>Email</label>
-              <input
-                name="email"
-                type="email"
-                value={issuer.email}
-                onChange={handleIssuerChange}
-                placeholder="contact@school.edu"
-                required
-              />
+              <div className="input-group">
+                <label>Email</label>
+                <input
+                  name="email"
+                  type="email"
+                  value={issuer.email}
+                  onChange={handleIssuerChange}
+                  placeholder="contact@school.edu"
+                  required
+                />
+              </div>
 
-              <label>Password</label>
-              <input
-                name="password"
-                type="password"
-                value={issuer.password}
-                onChange={handleIssuerChange}
-                placeholder="Choose a strong password"
-                required
-              />
+              <div className="form-grid">
+                <div className="input-group">
+                  <label>Password</label>
+                  <input
+                    name="password"
+                    type="password"
+                    value={issuer.password}
+                    onChange={handleIssuerChange}
+                    placeholder="Choose a strong password"
+                    required
+                  />
+                </div>
 
-              <label>Confirm Password</label>
-              <input
-                name="confirmPassword"
-                type="password"
-                value={issuer.confirmPassword}
-                onChange={handleIssuerChange}
-                placeholder="Confirm password"
-                required
-              />
+                <div className="input-group">
+                  <label>Confirm Password</label>
+                  <input
+                    name="confirmPassword"
+                    type="password"
+                    value={issuer.confirmPassword}
+                    onChange={handleIssuerChange}
+                    placeholder="Confirm password"
+                    required
+                  />
+                </div>
+              </div>
 
               {/* PART 2: GOVERNANCE DETAILS */}
-              <h3 style={{ marginTop: "20px" }}>Part 2: Governance Details</h3>
+              <div className="form-section-title">Part 2: Governance Details</div>
 
-              <label>Issuer Type</label>
-              <select
-                name="issuerType"
-                value={issuer.issuerType}
-                onChange={handleIssuerChange}
-                required
-              >
-                <option value="root">Root Authority</option>
-                <option value="subordinate">Subordinate Issuer</option>
-              </select>
+              <div className="form-grid">
+                <div className="input-group">
+                  <label>Issuer Type</label>
+                  <select
+                    name="issuerType"
+                    value={issuer.issuerType}
+                    onChange={handleIssuerChange}
+                    required
+                  >
+                    <option value="root">Root Authority</option>
+                    <option value="subordinate">Subordinate Issuer</option>
+                  </select>
+                </div>
 
-              <label>Category</label>
-              <select
-                name="category"
-                value={issuer.category}
-                onChange={handleIssuerChange}
-                required
-              >
-                <option value="">-- Select category --</option>
-                <option value="university">University</option>
-                <option value="government">Government</option>
-                <option value="training_provider">Training Provider</option>
-                <option value="industry_certifier">Industry Certifier</option>
-              </select>
+                <div className="input-group">
+                  <label>Category</label>
+                  <select
+                    name="category"
+                    value={issuer.category}
+                    onChange={handleIssuerChange}
+                    required
+                  >
+                    <option value="">-- Select category --</option>
+                    <option value="university">University</option>
+                    <option value="government">Government</option>
+                    <option value="training_provider">Training Provider</option>
+                    <option value="industry_certifier">Industry Certifier</option>
+                  </select>
+                </div>
+              </div>
 
               {issuer.issuerType === "subordinate" && (
-                <>
+                <div className="input-group">
                   <label>Root Authority</label>
                   <select
                     name="rootAuthorityId"
@@ -595,32 +633,32 @@ export default function CreateAccount() {
                       </option>
                     ))}
                   </select>
-                </>
+                </div>
               )}
 
               {/* PART 3: REQUIRED DOCUMENTS */}
-              <h3 style={{ marginTop: "20px" }}>Part 3: Required Documents</h3>
+              <div className="form-section-title">Part 3: Required Documents</div>
 
               {!issuer.category && (
-                <p style={{ color: "#666", marginBottom: "12px" }}>
+                <p className="form-hint">
                   Select a category first to load required documents.
                 </p>
               )}
 
               {requirementsLoading && (
-                <p style={{ color: "#666", marginBottom: "12px" }}>
+                <p className="form-hint">
                   Loading document requirements...
                 </p>
               )}
 
               {!requirementsLoading && issuer.category && requiredDocuments.length > 0 && (
                 <>
-                  <p style={{ marginBottom: "12px" }}>
+                  <p className="form-hint">
                     Please upload all required documents below.
                   </p>
 
                   {requiredDocuments.map((docKey) => (
-                    <div key={docKey} style={{ marginBottom: "14px" }}>
+                    <div key={docKey} className="input-group file-input-group">
                       <label>{formatDocumentLabel(docKey)}</label>
                       <input
                         type="file"
@@ -634,7 +672,7 @@ export default function CreateAccount() {
                         required
                       />
                       {issuer.documentsByType?.[docKey] && (
-                        <small style={{ display: "block", marginTop: "4px" }}>
+                        <small className="file-name-display">
                           Selected: {issuer.documentsByType[docKey].name}
                         </small>
                       )}
@@ -644,8 +682,8 @@ export default function CreateAccount() {
               )}
 
               {issuerError && (
-                <div style={{ color: "red", marginBottom: "8px" }}>
-                  {issuerError}
+                <div className="form-error">
+                  <span>⚠️</span> {issuerError}
                 </div>
               )}
 
@@ -659,7 +697,8 @@ export default function CreateAccount() {
             </form>
           ) : (
             <div className="issuer-message">
-              <p>✅ Your registration has been submitted!</p>
+              <div className="success-icon">✅</div>
+              <h3>Registration Submitted!</h3>
 
               {issuer.issuerType === "subordinate" ? (
                 <>
@@ -682,9 +721,18 @@ export default function CreateAccount() {
                 </>
               )}
 
-              <button className="btn-primary" onClick={() => navigate("/")}>
-                Back to Home
+              {/* CSS-CHANGE: redirect to login instead of home - polo */}
+              <button className="btn-primary" onClick={() => navigate("/login")}>
+                Return to Login
               </button>
+            </div>
+          )}
+
+          {/* CSS-CHANGE: bottom links row - polo */}
+          {!issuerSubmitted && (
+            <div className="form-bottom-links">
+              <button className="btn-link" onClick={handleGoBack}>← Back to Role Selection</button>
+              <button className="btn-link" onClick={() => navigate("/login")}>Return to Login</button>
             </div>
           )}
         </div>

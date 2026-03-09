@@ -286,7 +286,185 @@ const rootAuthorityController = {
 
       return res.status(500).json({ success: false, message: error.message });
     }
+  },
+
+  // =========================================================================================================
+// ROOT AUTHORITY BLOCKCHAIN LOGS
+// =========================================================================================================
+
+GetRootSubordinateLogsByRootAuthority: async (req, res, getContractAndGateway) => {
+  let gateway = null;
+
+  try {
+    if (!req.user) {
+      return res.status(401).json({ success: false, message: 'Unauthorized.' });
+    }
+
+    if (req.user.role !== 'issuer') {
+      return res.status(403).json({ success: false, message: 'Issuer access required.' });
+    }
+
+    const rootAuthorityId = req.user.id;
+    const rootAuthorityDoc = await couchDB.getIssuerById(rootAuthorityId);
+
+    if (!rootAuthorityDoc) {
+      return res.status(404).json({
+        success: false,
+        message: 'Root authority issuer record not found.'
+      });
+    }
+
+    if (typeof getContractAndGateway !== 'function') {
+      return res.status(500).json({
+        success: false,
+        message: 'getContractAndGateway not provided.'
+      });
+    }
+
+    const identityName = rootAuthorityDoc.fabricIdentity;
+    const orgName = rootAuthorityDoc.orgName;
+
+    const cg = await getContractAndGateway(identityName, orgName);
+    gateway = cg.gateway;
+    const contract = cg.contract;
+
+    const result = await contract.evaluateTransaction(
+      'GetRootSubordinateLogsByRootAuthority',
+      rootAuthorityId
+    );
+
+    const logs = JSON.parse(result.toString());
+
+    return res.status(200).json({
+      success: true,
+      message: 'Root subordinate logs retrieved successfully.',
+      logs: Array.isArray(logs) ? logs : [],
+      count: Array.isArray(logs) ? logs.length : 0
+    });
+
+  } catch (error) {
+    console.error('Error fetching root subordinate logs by root authority:', error);
+    return res.status(500).json({ success: false, message: error.message });
+  } finally {
+    try { if (gateway) await gateway.disconnect(); } catch (_) {}
   }
+},
+
+GetRootSubordinateApprovalLogsByRootAuthority: async (req, res, getContractAndGateway) => {
+  let gateway = null;
+
+  try {
+    if (!req.user) {
+      return res.status(401).json({ success: false, message: 'Unauthorized.' });
+    }
+
+    if (req.user.role !== 'issuer') {
+      return res.status(403).json({ success: false, message: 'Issuer access required.' });
+    }
+
+    const rootAuthorityId = req.user.id;
+    const rootAuthorityDoc = await couchDB.getIssuerById(rootAuthorityId);
+
+    if (!rootAuthorityDoc) {
+      return res.status(404).json({
+        success: false,
+        message: 'Root authority issuer record not found.'
+      });
+    }
+
+    if (typeof getContractAndGateway !== 'function') {
+      return res.status(500).json({
+        success: false,
+        message: 'getContractAndGateway not provided.'
+      });
+    }
+
+    const identityName = rootAuthorityDoc.fabricIdentity;
+    const orgName = rootAuthorityDoc.orgName;
+
+    const cg = await getContractAndGateway(identityName, orgName);
+    gateway = cg.gateway;
+    const contract = cg.contract;
+
+    const result = await contract.evaluateTransaction(
+      'GetRootSubordinateApprovalLogsByRootAuthority',
+      rootAuthorityId
+    );
+
+    const logs = JSON.parse(result.toString());
+
+    return res.status(200).json({
+      success: true,
+      message: 'Root subordinate approval logs retrieved successfully.',
+      logs: Array.isArray(logs) ? logs : [],
+      count: Array.isArray(logs) ? logs.length : 0
+    });
+
+  } catch (error) {
+    console.error('Error fetching root subordinate approval logs by root authority:', error);
+    return res.status(500).json({ success: false, message: error.message });
+  } finally {
+    try { if (gateway) await gateway.disconnect(); } catch (_) {}
+  }
+},
+
+GetRootSubordinateRejectionLogsByRootAuthority: async (req, res, getContractAndGateway) => {
+  let gateway = null;
+
+  try {
+    if (!req.user) {
+      return res.status(401).json({ success: false, message: 'Unauthorized.' });
+    }
+
+    if (req.user.role !== 'issuer') {
+      return res.status(403).json({ success: false, message: 'Issuer access required.' });
+    }
+
+    const rootAuthorityId = req.user.id;
+    const rootAuthorityDoc = await couchDB.getIssuerById(rootAuthorityId);
+
+    if (!rootAuthorityDoc) {
+      return res.status(404).json({
+        success: false,
+        message: 'Root authority issuer record not found.'
+      });
+    }
+
+    if (typeof getContractAndGateway !== 'function') {
+      return res.status(500).json({
+        success: false,
+        message: 'getContractAndGateway not provided.'
+      });
+    }
+
+    const identityName = rootAuthorityDoc.fabricIdentity;
+    const orgName = rootAuthorityDoc.orgName;
+
+    const cg = await getContractAndGateway(identityName, orgName);
+    gateway = cg.gateway;
+    const contract = cg.contract;
+
+    const result = await contract.evaluateTransaction(
+      'GetRootSubordinateRejectionLogsByRootAuthority',
+      rootAuthorityId
+    );
+
+    const logs = JSON.parse(result.toString());
+
+    return res.status(200).json({
+      success: true,
+      message: 'Root subordinate rejection logs retrieved successfully.',
+      logs: Array.isArray(logs) ? logs : [],
+      count: Array.isArray(logs) ? logs.length : 0
+    });
+
+  } catch (error) {
+    console.error('Error fetching root subordinate rejection logs by root authority:', error);
+    return res.status(500).json({ success: false, message: error.message });
+  } finally {
+    try { if (gateway) await gateway.disconnect(); } catch (_) {}
+  }
+}
 };
 
 module.exports = rootAuthorityController;

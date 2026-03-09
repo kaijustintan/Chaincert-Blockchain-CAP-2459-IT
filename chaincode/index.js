@@ -1881,6 +1881,240 @@ async LogRootSubordinateRejection(
   /* Step 7: Return log payload */
   return JSON.stringify(log);
 }
+// ===================================================
+
+// =========================================================================================================
+// QUERY: Get ALL root subordinate decision logs
+// =========================================================================================================
+async GetAllRootSubordinateLogs(ctx) {
+  const iterator = await ctx.stub.getStateByRange('', '');
+  const results = [];
+
+  let res = await iterator.next();
+
+  while (!res.done) {
+    if (res.value && res.value.value) {
+      try {
+        const parsed = JSON.parse(res.value.value.toString('utf8'));
+
+        if (parsed.type === 'root_subordinate_decision') {
+          results.push(parsed);
+        }
+      } catch (err) {
+        console.warn(
+          '⚠️ GetAllRootSubordinateLogs: failed to parse record, skipping.',
+          err.message
+        );
+      }
+    }
+
+    res = await iterator.next();
+  }
+
+  await iterator.close();
+
+  return JSON.stringify(results);
+}
+
+// =========================================================================================================
+// QUERY: Get ALL root subordinate APPROVAL logs
+// =========================================================================================================
+async GetAllRootSubordinateApprovalLogs(ctx) {
+  const iterator = await ctx.stub.getStateByRange('', '');
+  const results = [];
+
+  let res = await iterator.next();
+
+  while (!res.done) {
+    if (res.value && res.value.value) {
+      try {
+        const parsed = JSON.parse(res.value.value.toString('utf8'));
+
+        if (
+          parsed.type === 'root_subordinate_decision' &&
+          parsed.decision === 'approved'
+        ) {
+          results.push(parsed);
+        }
+      } catch (err) {
+        console.warn(
+          '⚠️ GetAllRootSubordinateApprovalLogs: failed to parse record, skipping.',
+          err.message
+        );
+      }
+    }
+
+    res = await iterator.next();
+  }
+
+  await iterator.close();
+
+  return JSON.stringify(results);
+}
+
+// =========================================================================================================
+// QUERY: Get ALL root subordinate REJECTION logs
+// =========================================================================================================
+async GetAllRootSubordinateRejectionLogs(ctx) {
+  const iterator = await ctx.stub.getStateByRange('', '');
+  const results = [];
+
+  let res = await iterator.next();
+
+  while (!res.done) {
+    if (res.value && res.value.value) {
+      try {
+        const parsed = JSON.parse(res.value.value.toString('utf8'));
+
+        if (
+          parsed.type === 'root_subordinate_decision' &&
+          parsed.decision === 'rejected'
+        ) {
+          results.push(parsed);
+        }
+      } catch (err) {
+        console.warn(
+          '⚠️ GetAllRootSubordinateRejectionLogs: failed to parse record, skipping.',
+          err.message
+        );
+      }
+    }
+
+    res = await iterator.next();
+  }
+
+  await iterator.close();
+
+  return JSON.stringify(results);
+}
+
+// =========================================================================================================
+// QUERY: Get ALL root subordinate decision logs by ROOT AUTHORITY
+// =========================================================================================================
+async GetRootSubordinateLogsByRootAuthority(ctx, rootAuthorityId) {
+  if (!rootAuthorityId) {
+    throw new Error('rootAuthorityId is required');
+  }
+
+  const normalizedRootAuthorityId = String(rootAuthorityId).trim();
+  const iterator = await ctx.stub.getStateByRange('', '');
+  const results = [];
+
+  let res = await iterator.next();
+
+  while (!res.done) {
+    if (res.value && res.value.value) {
+      try {
+        const parsed = JSON.parse(res.value.value.toString('utf8'));
+
+        if (
+          parsed.type === 'root_subordinate_decision' &&
+          parsed.rootAuthorityId &&
+          String(parsed.rootAuthorityId).trim() === normalizedRootAuthorityId
+        ) {
+          results.push(parsed);
+        }
+      } catch (err) {
+        console.warn(
+          '⚠️ GetRootSubordinateLogsByRootAuthority: failed to parse record, skipping.',
+          err.message
+        );
+      }
+    }
+
+    res = await iterator.next();
+  }
+
+  await iterator.close();
+
+  return JSON.stringify(results);
+}
+
+// =========================================================================================================
+// QUERY: Get root subordinate APPROVAL logs by ROOT AUTHORITY
+// =========================================================================================================
+async GetRootSubordinateApprovalLogsByRootAuthority(ctx, rootAuthorityId) {
+  if (!rootAuthorityId) {
+    throw new Error('rootAuthorityId is required');
+  }
+
+  const normalizedRootAuthorityId = String(rootAuthorityId).trim();
+  const iterator = await ctx.stub.getStateByRange('', '');
+  const results = [];
+
+  let res = await iterator.next();
+
+  while (!res.done) {
+    if (res.value && res.value.value) {
+      try {
+        const parsed = JSON.parse(res.value.value.toString('utf8'));
+
+        if (
+          parsed.type === 'root_subordinate_decision' &&
+          parsed.decision === 'approved' &&
+          parsed.rootAuthorityId &&
+          String(parsed.rootAuthorityId).trim() === normalizedRootAuthorityId
+        ) {
+          results.push(parsed);
+        }
+      } catch (err) {
+        console.warn(
+          '⚠️ GetRootSubordinateApprovalLogsByRootAuthority: failed to parse record, skipping.',
+          err.message
+        );
+      }
+    }
+
+    res = await iterator.next();
+  }
+
+  await iterator.close();
+
+  return JSON.stringify(results);
+}
+
+// =========================================================================================================
+// QUERY: Get root subordinate REJECTION logs by ROOT AUTHORITY
+// =========================================================================================================
+async GetRootSubordinateRejectionLogsByRootAuthority(ctx, rootAuthorityId) {
+  if (!rootAuthorityId) {
+    throw new Error('rootAuthorityId is required');
+  }
+
+  const normalizedRootAuthorityId = String(rootAuthorityId).trim();
+  const iterator = await ctx.stub.getStateByRange('', '');
+  const results = [];
+
+  let res = await iterator.next();
+
+  while (!res.done) {
+    if (res.value && res.value.value) {
+      try {
+        const parsed = JSON.parse(res.value.value.toString('utf8'));
+
+        if (
+          parsed.type === 'root_subordinate_decision' &&
+          parsed.decision === 'rejected' &&
+          parsed.rootAuthorityId &&
+          String(parsed.rootAuthorityId).trim() === normalizedRootAuthorityId
+        ) {
+          results.push(parsed);
+        }
+      } catch (err) {
+        console.warn(
+          '⚠️ GetRootSubordinateRejectionLogsByRootAuthority: failed to parse record, skipping.',
+          err.message
+        );
+      }
+    }
+
+    res = await iterator.next();
+  }
+
+  await iterator.close();
+
+  return JSON.stringify(results);
+}
 
       // ==========================================================================================================================================================================
 // Get ALL issuer decision logs for a specific issuer email

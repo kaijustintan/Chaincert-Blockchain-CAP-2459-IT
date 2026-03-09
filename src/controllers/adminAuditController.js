@@ -498,7 +498,140 @@ const adminAuditController = {
     } finally {
       try { if (gateway) await gateway.disconnect(); } catch (_) {}
     }
+  },
+
+  // =========================================================================================================
+// ROOT SUBORDINATE DECISION LOGS (ADMIN AUDIT)
+// =========================================================================================================
+
+GetAllRootSubordinateLogs: async (req, res, getContractAndGateway) => {
+  let gateway = null;
+
+  try {
+    if (!req.user || req.user.role !== 'admin') {
+      return res.status(403).json({
+        success: false,
+        message: 'Admin access required.'
+      });
+    }
+
+    if (typeof getContractAndGateway !== 'function') {
+      return res.status(500).json({
+        success: false,
+        message: 'getContractAndGateway not provided.'
+      });
+    }
+
+    const cg = await getContractAndGateway('chaincert-admin', 'Org1');
+    gateway = cg.gateway;
+    const contract = cg.contract;
+
+    const result = await contract.evaluateTransaction('GetAllRootSubordinateLogs');
+    const logs = JSON.parse(result.toString());
+
+    return res.status(200).json({
+      success: true,
+      message: 'Root subordinate logs retrieved successfully.',
+      logs: Array.isArray(logs) ? logs : [],
+      count: Array.isArray(logs) ? logs.length : 0
+    });
+
+  } catch (error) {
+    console.error('Error fetching all root subordinate logs:', error);
+    return res.status(500).json({
+      success: false,
+      message: error.message
+    });
+  } finally {
+    try { if (gateway) await gateway.disconnect(); } catch (_) {}
   }
+},
+
+GetAllRootSubordinateApprovalLogs: async (req, res, getContractAndGateway) => {
+  let gateway = null;
+
+  try {
+    if (!req.user || req.user.role !== 'admin') {
+      return res.status(403).json({
+        success: false,
+        message: 'Admin access required.'
+      });
+    }
+
+    if (typeof getContractAndGateway !== 'function') {
+      return res.status(500).json({
+        success: false,
+        message: 'getContractAndGateway not provided.'
+      });
+    }
+
+    const cg = await getContractAndGateway('chaincert-admin', 'Org1');
+    gateway = cg.gateway;
+    const contract = cg.contract;
+
+    const result = await contract.evaluateTransaction('GetAllRootSubordinateApprovalLogs');
+    const logs = JSON.parse(result.toString());
+
+    return res.status(200).json({
+      success: true,
+      message: 'Root subordinate approval logs retrieved successfully.',
+      logs: Array.isArray(logs) ? logs : [],
+      count: Array.isArray(logs) ? logs.length : 0
+    });
+
+  } catch (error) {
+    console.error('Error fetching all root subordinate approval logs:', error);
+    return res.status(500).json({
+      success: false,
+      message: error.message
+    });
+  } finally {
+    try { if (gateway) await gateway.disconnect(); } catch (_) {}
+  }
+},
+
+GetAllRootSubordinateRejectionLogs: async (req, res, getContractAndGateway) => {
+  let gateway = null;
+
+  try {
+    if (!req.user || req.user.role !== 'admin') {
+      return res.status(403).json({
+        success: false,
+        message: 'Admin access required.'
+      });
+    }
+
+    if (typeof getContractAndGateway !== 'function') {
+      return res.status(500).json({
+        success: false,
+        message: 'getContractAndGateway not provided.'
+      });
+    }
+
+    const cg = await getContractAndGateway('chaincert-admin', 'Org1');
+    gateway = cg.gateway;
+    const contract = cg.contract;
+
+    const result = await contract.evaluateTransaction('GetAllRootSubordinateRejectionLogs');
+    const logs = JSON.parse(result.toString());
+
+    return res.status(200).json({
+      success: true,
+      message: 'Root subordinate rejection logs retrieved successfully.',
+      logs: Array.isArray(logs) ? logs : [],
+      count: Array.isArray(logs) ? logs.length : 0
+    });
+
+  } catch (error) {
+    console.error('Error fetching all root subordinate rejection logs:', error);
+    return res.status(500).json({
+      success: false,
+      message: error.message
+    });
+  } finally {
+    try { if (gateway) await gateway.disconnect(); } catch (_) {}
+  }
+}
 };
 
 module.exports = adminAuditController;

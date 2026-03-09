@@ -2033,6 +2033,92 @@ downloadIssuerDocumentBlob: async (issuerId, attachmentName) => {
   }
 },
 
+// =============================================================================================================
+// ROOT SUBORDINATE DECISION LOGS (ADMIN AUDIT)
+// =============================================================================================================
+
+GetAllRootSubordinateLogs: async () => {
+  try {
+    const response = await axios.get('/admin/root-subordinate-logs');
+    return response.data;
+  } catch (error) {
+    console.error(
+      'Error fetching all root subordinate logs:',
+      error.response?.data?.message || error.message
+    );
+    throw error;
+  }
+},
+
+GetAllRootSubordinateApprovalLogs: async () => {
+  try {
+    const response = await axios.get('/admin/root-subordinate-logs/approved');
+    return response.data;
+  } catch (error) {
+    console.error(
+      'Error fetching all root subordinate approval logs:',
+      error.response?.data?.message || error.message
+    );
+    throw error;
+  }
+},
+
+GetAllRootSubordinateRejectionLogs: async () => {
+  try {
+    const response = await axios.get('/admin/root-subordinate-logs/rejected');
+    return response.data;
+  } catch (error) {
+    console.error(
+      'Error fetching all root subordinate rejection logs:',
+      error.response?.data?.message || error.message
+    );
+    throw error;
+  }
+},
+
+// =============================================================================================================
+// ROOT AUTHORITY BLOCKCHAIN LOGS
+// =============================================================================================================
+
+GetRootSubordinateLogsByRootAuthority: async () => {
+  try {
+    const response = await axios.get('/admin/root/subordinate-logs');
+    return response.data;
+  } catch (error) {
+    console.error(
+      'Error fetching root subordinate logs by root authority:',
+      error.response?.data?.message || error.message
+    );
+    throw error;
+  }
+},
+
+GetRootSubordinateApprovalLogsByRootAuthority: async () => {
+  try {
+    const response = await axios.get('/admin/root/subordinate-logs/approved');
+    return response.data;
+  } catch (error) {
+    console.error(
+      'Error fetching root subordinate approval logs by root authority:',
+      error.response?.data?.message || error.message
+    );
+    throw error;
+  }
+},
+
+GetRootSubordinateRejectionLogsByRootAuthority: async () => {
+  try {
+    const response = await axios.get('/admin/root/subordinate-logs/rejected');
+    return response.data;
+  } catch (error) {
+    console.error(
+      'Error fetching root subordinate rejection logs by root authority:',
+      error.response?.data?.message || error.message
+    );
+    throw error;
+  }
+},
+
 
 
   // ==========================================================================================================================================================================

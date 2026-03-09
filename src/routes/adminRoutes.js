@@ -187,4 +187,66 @@ router.get('/issuer-decision-logs/:issuerEmail', (req, res) => {
   adminAuditController.getIssuerDecisionLogs(req, res, req.app.locals.getContractAndGateway);
 });
 
+// =========================
+// ROOT SUBORDINATE DECISION LOGS (ADMIN AUDIT)
+// =========================
+
+// GET /api/admin/root-subordinate-logs
+router.get('/root-subordinate-logs', (req, res) => {
+  adminAuditController.GetAllRootSubordinateLogs(
+    req,
+    res,
+    req.app.locals.getContractAndGateway
+  );
+});
+
+// GET /api/admin/root-subordinate-logs/approved
+router.get('/root-subordinate-logs/approved', (req, res) => {
+  adminAuditController.GetAllRootSubordinateApprovalLogs(
+    req,
+    res,
+    req.app.locals.getContractAndGateway
+  );
+});
+
+// GET /api/admin/root-subordinate-logs/rejected
+router.get('/root-subordinate-logs/rejected', (req, res) => {
+  adminAuditController.GetAllRootSubordinateRejectionLogs(
+    req,
+    res,
+    req.app.locals.getContractAndGateway
+  );
+});
+
+// =========================
+// ROOT AUTHORITY BLOCKCHAIN LOGS
+// =========================
+
+// GET /api/admin/root/subordinate-logs
+router.get('/root/subordinate-logs', (req, res) => {
+  rootAuthorityController.GetRootSubordinateLogsByRootAuthority(
+    req,
+    res,
+    req.app.locals.getContractAndGateway
+  );
+});
+
+// GET /api/admin/root/subordinate-logs/approved
+router.get('/root/subordinate-logs/approved', (req, res) => {
+  rootAuthorityController.GetRootSubordinateApprovalLogsByRootAuthority(
+    req,
+    res,
+    req.app.locals.getContractAndGateway
+  );
+});
+
+// GET /api/admin/root/subordinate-logs/rejected
+router.get('/root/subordinate-logs/rejected', (req, res) => {
+  rootAuthorityController.GetRootSubordinateRejectionLogsByRootAuthority(
+    req,
+    res,
+    req.app.locals.getContractAndGateway
+  );
+});
+
 module.exports = router;

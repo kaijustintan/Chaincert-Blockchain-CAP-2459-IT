@@ -18,7 +18,7 @@
   - See History uses apiService.Get_CredentialHistory (same as admin dashboard)
 */
 
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect, useMemo, useRef } from "react";
 import apiService from "../services/apiService";
 import "../styles/studentDashboard.css";
 
@@ -32,6 +32,15 @@ const formatDate = (iso) => {
     return new Date(iso).toLocaleDateString();
   } catch {
     return iso;
+  }
+};
+
+const getNotificationTypeMeta = (notificationType) => {
+  switch (notificationType) {
+    case "credential_issued":
+      return { icon: "✅", label: "Issued" };
+    default:
+      return { icon: "🔔", label: "Notification" };
   }
 };
 
@@ -64,6 +73,12 @@ export default function StudentDashboard() {
   const [credentials, setCredentials] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [notifications, setNotifications] = useState([]);
+  const [notificationsLoading, setNotificationsLoading] = useState(true);
+  const [notificationsError, setNotificationsError] = useState(null);
+  const [unreadCount, setUnreadCount] = useState(0);
+  const [notificationsOpen, setNotificationsOpen] = useState(false);
+  const notificationPanelRef = useRef(null);
 
   /* UI state */
   const [view, setView] = useState("cards");
@@ -105,10 +120,12 @@ export default function StudentDashboard() {
     // - polo
   */
   useEffect(() => {
-    const fetchCredentials = async () => {
+    const fetchDashboardData = async () => {
       try {
         setLoading(true);
         setError(null);
+        setNotificationsLoading(true);
+        setNotificationsError(null);
 
         /* Step 1: Get logged-in user from localStorage
            Technical: Same pattern as issuerDashboardPage.js
@@ -127,21 +144,91 @@ export default function StudentDashboard() {
         /* Step 2: Fetch from CouchDB via apiService
            // - polo
         */
-        const data = await apiService.Get_UserCredentials(holderID);
-        console.log("[STUDENT DASHBOARD] Credentials fetched:", data?.length); // - polo
+        const [credentialsData, notificationsResponse, unreadResponse] = await Promise.all([
+          apiService.Get_UserCredentials(holderID),
+          apiService.getUserNotifications(holderID),
+          apiService.getUnreadUserNotifications(holderID)
+        ]);
 
-        setCredentials(Array.isArray(data) ? data : []);
+        console.log("[STUDENT DASHBOARD] Credentials fetched:", credentialsData?.length); // - polo
+
+        setCredentials(Array.isArray(credentialsData) ? credentialsData : []);
+        setNotifications(Array.isArray(notificationsResponse?.notifications) ? notificationsResponse.notifications : []);
+        setUnreadCount(
+          typeof unreadResponse?.unreadCount === 'number'
+            ? unreadResponse.unreadCount
+            : (Array.isArray(unreadResponse?.notifications) ? unreadResponse.notifications.length : 0)
+        );
 
       } catch (err) {
         console.error("[STUDENT DASHBOARD] Error fetching credentials:", err);
         setError("Failed to load credentials. Please try again.");
+        setNotificationsError("Failed to load notifications.");
       } finally {
         setLoading(false);
+        setNotificationsLoading(false);
       }
     };
 
-    fetchCredentials();
+    fetchDashboardData();
   }, []);
+
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (notificationPanelRef.current && !notificationPanelRef.current.contains(event.target)) {
+        setNotificationsOpen(false);
+      }
+    };
+
+    if (notificationsOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [notificationsOpen]);
+
+
+  const handleNotificationClick = async (notification) => {
+    if (!notification) return;
+
+    try {
+      if (!notification.read) {
+        await apiService.markNotificationAsRead(notification._id);
+
+        setNotifications((prev) =>
+          prev.map((item) =>
+            item._id === notification._id
+              ? { ...item, read: true, readAt: new Date().toISOString() }
+              : item
+          )
+        );
+
+        setUnreadCount((prev) => (prev > 0 ? prev - 1 : 0));
+      }
+
+      const credentialId = notification.credentialId;
+      const matchedCredential = credentials.find((cred) => {
+        if (!credentialId) return false;
+        return (
+          cred.blockchainId === credentialId ||
+          cred.id === credentialId ||
+          cred._id === credentialId
+        );
+      });
+
+      if (matchedCredential) {
+        await handleCardClick(matchedCredential);
+      } else {
+        console.warn('[STUDENT DASHBOARD] No matching credential found for notification:', notification._id);
+      }
+
+      setNotificationsOpen(false);
+    } catch (err) {
+      console.error('[STUDENT DASHBOARD] Failed to process notification click:', err);
+    }
+  };
 
   // ── Filter logic ───────────────────────────────────────────────────────────
 
@@ -245,9 +332,65 @@ export default function StudentDashboard() {
 
       {/* CSS-CHANGE: Greeting section - polo */}
       <div className="greeting-section">
-        <div className="greeting-text">
-          <h1>Welcome back, {displayName}</h1>
-          <p>Your credential wallet at a glance</p>
+        <div className="greeting-header-row" ref={notificationPanelRef}>
+          <div className="greeting-text">
+            <h1>Welcome back, {displayName}</h1>
+            <p>Your credential wallet at a glance</p>
+          </div>
+
+          <div className="notification-bell-wrap">
+            <button
+              type="button"
+              className={`notification-bell-btn ${notificationsOpen ? 'open' : ''}`}
+              onClick={() => setNotificationsOpen((prev) => !prev)}
+              aria-label="Toggle notifications"
+            >
+              🔔
+              {unreadCount > 0 && <span className="notification-badge">{unreadCount}</span>}
+            </button>
+
+            {notificationsOpen && (
+              <div className="notification-panel">
+                <div className="notification-panel-header">
+                  <h3>Notifications</h3>
+                </div>
+
+                {notificationsLoading && <div className="notification-panel-state">Loading notifications...</div>}
+
+                {!notificationsLoading && notificationsError && (
+                  <div className="notification-panel-state error">{notificationsError}</div>
+                )}
+
+                {!notificationsLoading && !notificationsError && notifications.length === 0 && (
+                  <div className="notification-panel-state">No notifications yet.</div>
+                )}
+
+                {!notificationsLoading && !notificationsError && notifications.length > 0 && (
+                  <div className="notification-list">
+                    {notifications.map((notif) => {
+                      const notifType = getNotificationTypeMeta(notif.notificationType);
+                      const safeCreatedAt = notif.createdAt || new Date().toISOString();
+
+                      return (
+                        <button
+                          key={notif._id}
+                          type="button"
+                          className={`notification-item ${notif.read ? 'read' : 'unread'}`}
+                          onClick={() => handleNotificationClick(notif)}
+                        >
+                          <div className="notification-item-type">{notifType.icon} {notifType.label}</div>
+                          <div className="notification-item-message">{notif.message || 'A new credential has been issued to you.'}</div>
+                          <div className="notification-item-meta">Credential: {notif.credentialName || 'Credential'}</div>
+                          <div className="notification-item-meta">Issuer: {notif.issuerName || notif.issuerId || 'Issuer'}</div>
+                          <div className="notification-item-time">{formatDate(safeCreatedAt)} • {notif.read ? 'Read' : 'Unread'}</div>
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
         </div>
       </div>
 

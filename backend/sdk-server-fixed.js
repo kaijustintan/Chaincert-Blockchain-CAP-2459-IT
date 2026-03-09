@@ -2,6 +2,7 @@
 //                                                                       sdk-server-fixed.js
 // ==========================================================================================================================================================================
 
+require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
 const { Gateway, Wallets } = require('fabric-network');

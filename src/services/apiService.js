@@ -2184,6 +2184,64 @@ GetRootSubordinateRejectionLogsByRootAuthority: async () => {
     Technical: Returns the current axios base URL.
     Tropang Ex: Pang debug kung saan kumokonek yung frontend (local, staging, prod).
   */
+
+  // ==========================================================================================================================================================================
+  //                                                               PROFILE SHARE LINK - polo
+  // ==========================================================================================================================================================================
+
+  generateProfileShareLink: async ({ recipientEmail, durationDays }) => {
+    try {
+      const response = await axios.post('/auth/profile-share/generate', {
+        recipientEmail,
+        durationDays
+      });
+      return response.data;
+    } catch (error) {
+      console.error('Error generating profile share link:', error.response?.data?.message || error.message);
+      throw error;
+    }
+  },
+
+  getShareLinkInfo: async (token) => {
+    try {
+      const response = await axios.get(`/auth/profile-share/${token}/info`);
+      return response.data;
+    } catch (error) {
+      console.error('Error getting share link info:', error.response?.data?.message || error.message);
+      throw error;
+    }
+  },
+
+  requestShareLinkOTP: async (token, email) => {
+    try {
+      const response = await axios.post(`/auth/profile-share/${token}/request-otp`, { email });
+      return response.data;
+    } catch (error) {
+      console.error('Error requesting OTP:', error.response?.data?.message || error.message);
+      throw error;
+    }
+  },
+
+  verifyShareLinkOTP: async (token, otp) => {
+    try {
+      const response = await axios.post(`/auth/profile-share/${token}/verify-otp`, { otp });
+      return response.data;
+    } catch (error) {
+      console.error('Error verifying OTP:', error.response?.data?.message || error.message);
+      throw error;
+    }
+  },
+
+  revokeShareLink: async (token) => {
+    try {
+      const response = await axios.delete(`/auth/profile-share/${token}/revoke`);
+      return response.data;
+    } catch (error) {
+      console.error('Error revoking share link:', error.response?.data?.message || error.message);
+      throw error;
+    }
+  },
+
   getApiBaseUrl: () => {
     return axios.defaults.baseURL || 'http://localhost:4000';
   }

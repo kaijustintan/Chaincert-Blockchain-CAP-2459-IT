@@ -28,4 +28,19 @@ router.post('/change-password', authController.changePassword);
 // POST /api/auth/upload-pfp - Upload/update profile picture.
 router.post('/upload-pfp', upload.single('profilePicture'), accountController.uploadProfilePicture);
 
+// POST /api/auth/profile-share/generate - Generate a share link for user profile. - polo
+router.post('/profile-share/generate', accountController.generateShareLink);
+
+// GET /api/auth/profile-share/:token/info - Check token validity (public, no auth). - polo
+router.get('/profile-share/:token/info', accountController.getShareLinkInfo);
+
+// POST /api/auth/profile-share/:token/request-otp - Validate email + send OTP (public, no auth). - polo
+router.post('/profile-share/:token/request-otp', accountController.requestOTP);
+
+// POST /api/auth/profile-share/:token/verify-otp - Verify OTP + return profile data (public, no auth). - polo
+router.post('/profile-share/:token/verify-otp', accountController.verifyOTP);
+
+// DELETE /api/auth/profile-share/:token/revoke - Revoke a share link (auth required). - polo
+router.delete('/profile-share/:token/revoke', accountController.revokeShareLink);
+
 module.exports = router;

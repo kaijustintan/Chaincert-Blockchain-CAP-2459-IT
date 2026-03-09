@@ -1,70 +1,231 @@
 import React, { useState, useEffect } from "react";
+import { useParams } from "react-router-dom";
 import apiService from "../services/apiService";
 import '../styles/profilePreview.css';
 
 export default function ProfilePreview() {
-  // Get user data from localStorage
-  const user = JSON.parse(localStorage.getItem('user') || '{}');
-  const userName = user.username || user.name || user.fullName || 'User';
-  const userEmail = user.email || localStorage.getItem('email') || '';
-  const userRole = user.role || localStorage.getItem('role') || 'student';
-  const userId = user._id || user.id || '';
+  const { token } = useParams(); // - polo: token from URL /profile/:token
 
-  const [summary, setSummary] = useState("");
-  const [loading, setLoading] = useState(true);
-  const [avatar, setAvatar] = useState("👤"); // ✅ avatar state
+  // ── Gate state - polo ──────────────────────────────────────────
+  const [gateStage, setGateStage] = useState('email'); // 'email' | 'otp' | 'verified'
+  const [gateEmail, setGateEmail] = useState('');
+  const [gateOtp, setGateOtp] = useState('');
+  const [gateError, setGateError] = useState('');
+  const [gateLoading, setGateLoading] = useState(false);
+  const [resendCooldown, setResendCooldown] = useState(0); // seconds remaining
 
-  // Dynamic credentials from CouchDB (replaces static badges)
-  // - polo
+  // ── Profile data state - polo ──────────────────────────────────
+  const [profileData, setProfileData] = useState(null); // set after OTP verified
+  const [summary, setSummary] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [avatar, setAvatar] = useState('👤');
+
+  // ── Credentials state - polo ───────────────────────────────────
   const [credentials, setCredentials] = useState([]);
-  const [credLoading, setCredLoading] = useState(true);
+  const [credLoading, setCredLoading] = useState(false);
 
-    useEffect(() => {
-    const loadUserProfile = async () => {
+  // Derived display values - polo
+  const userName = profileData?.name || 'User';
+  const userEmail = profileData?.email || '';
+  const userRole = profileData?.role || 'student';
+  const userId = profileData?.id || profileData?.userId || '';
+
+  // ── Resend cooldown timer - polo ───────────────────────────────
+  useEffect(() => {
+    if (resendCooldown <= 0) return;
+    const timer = setTimeout(() => setResendCooldown(prev => prev - 1), 1000);
+    return () => clearTimeout(timer);
+  }, [resendCooldown]);
+
+  // ── Load credentials after OTP verified - polo ─────────────────
+  useEffect(() => {
+    if (gateStage !== 'verified' || !userId) return;
+    const fetchCredentials = async () => {
+      setCredLoading(true);
       try {
-        const response = await apiService.getUserInfo(userId);
-        if (response.success && response.user) {
-          setSummary(response.user.summary || '');
-
-          // Fetch credentials for public profile display
-          // - polo
-          try {
-            const data = await apiService.Get_UserCredentials(userId);
-            // Filter to public only — private credentials hidden from public view
-            // - polo
-            // Filter public only, exclude revoked, sort by currentOrder, top 5 - polo
-            const publicOnly = Array.isArray(data)
-              ? data
-                  .filter(c =>
-                    c.visibility === 'public' &&
-                    c.status !== 'revoked' &&
-                    c.status !== 'expired' &&
-                    c.status !== 'REVOKED' &&
-                    c.status !== 'EXPIRED'
-                  ) // - polo: hide revoked + expired from public preview per Kyle
-                  .sort((a, b) => (a.currentOrder ?? 0) - (b.currentOrder ?? 0))
-              : [];
-            setCredentials(publicOnly);
-          } catch (err) {
-            console.error("[PROFILE PREVIEW] Error fetching credentials:", err);
-          } finally {
-            setCredLoading(false);
-          }
-
-          // ✅ load avatar if profilePicture exists
-          if (response.user.profilePicture) {
-            setAvatar(response.user.profilePicture);
-          }
-        }
-      } catch (error) {
-        console.error('Error loading profile:', error);
+        const data = await apiService.Get_UserCredentials(userId);
+        const publicOnly = Array.isArray(data)
+          ? data
+              .filter(c =>
+                c.visibility === 'public' &&
+                c.status !== 'revoked' &&
+                c.status !== 'expired' &&
+                c.status !== 'REVOKED' &&
+                c.status !== 'EXPIRED'
+              )
+              .sort((a, b) => (a.currentOrder ?? 0) - (b.currentOrder ?? 0))
+          : [];
+        setCredentials(publicOnly);
+      } catch (err) {
+        console.error('[PROFILE PREVIEW] Error fetching credentials:', err);
       } finally {
-        setLoading(false);
+        setCredLoading(false);
       }
     };
+    fetchCredentials();
+  }, [gateStage, userId]);
 
-    loadUserProfile();
-  }, [userId]);
+  // ── Gate handlers - polo ───────────────────────────────────────
+  const handleRequestOTP = async () => {
+    if (!gateEmail.trim()) {
+      setGateError('Please enter your email.');
+      return;
+    }
+    setGateLoading(true);
+    setGateError('');
+    try {
+      const result = await apiService.requestShareLinkOTP(token, gateEmail.trim());
+      if (result.success) {
+        setGateStage('otp');
+        setResendCooldown(60);
+      } else {
+        setGateError(result.message || 'Failed to send code.');
+      }
+    } catch (err) {
+      setGateError(err.response?.data?.message || 'Failed to send code.');
+    } finally {
+      setGateLoading(false);
+    }
+  };
+
+  const handleVerifyOTP = async () => {
+    if (!gateOtp.trim()) {
+      setGateError('Please enter the verification code.');
+      return;
+    }
+    setGateLoading(true);
+    setGateError('');
+    try {
+      const result = await apiService.verifyShareLinkOTP(token, gateOtp.trim());
+      if (result.success) {
+        setProfileData(result.profile);
+        setSummary(result.profile?.summary || '');
+        if (result.profile?.profilePicture) setAvatar(result.profile.profilePicture);
+        setGateStage('verified');
+      } else {
+        setGateError(result.message || 'Invalid code.');
+      }
+    } catch (err) {
+      setGateError(err.response?.data?.message || 'Invalid code.');
+    } finally {
+      setGateLoading(false);
+    }
+  };
+
+  const handleResendOTP = async () => {
+    if (resendCooldown > 0) return;
+    setGateLoading(true);
+    setGateError('');
+    try {
+      await apiService.requestShareLinkOTP(token, gateEmail.trim());
+      setResendCooldown(60);
+    } catch (err) {
+      setGateError('Failed to resend code.');
+    } finally {
+      setGateLoading(false);
+    }
+  };
+
+  // ── Gate overlay styles - polo ─────────────────────────────────
+  const overlayStyle = {
+    position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+    background: 'rgba(8,4,20,0.88)',
+    backdropFilter: 'blur(12px)',
+    display: 'flex', alignItems: 'center', justifyContent: 'center',
+    zIndex: 1000
+  };
+  const gateBoxStyle = {
+    background: 'rgba(12,8,32,0.97)',
+    border: '1px solid rgba(139,92,246,0.4)',
+    borderRadius: 16,
+    padding: '36px 32px',
+    width: '100%', maxWidth: 420,
+    display: 'flex', flexDirection: 'column', gap: 16
+  };
+  const gateInputStyle = {
+    background: 'rgba(255,255,255,0.07)',
+    border: '1px solid #a78bfa',
+    borderRadius: 8, color: '#fff',
+    padding: '10px 14px', fontSize: '15px',
+    outline: 'none', width: '100%'
+  };
+  const gateBtnStyle = {
+    background: 'linear-gradient(135deg, #667eea, #764ba2)',
+    border: 'none', borderRadius: 8, color: '#fff',
+    padding: '10px 0', fontSize: '15px',
+    cursor: 'pointer', width: '100%', marginTop: 4
+  };
+
+  // ── Render gate stages - polo ──────────────────────────────────
+  if (gateStage === 'email') {
+    return (
+      <div className="profile-preview">
+        <div style={{ filter: 'blur(6px)', pointerEvents: 'none', userSelect: 'none', opacity: 0.4, minHeight: '100vh' }} />
+        <div style={overlayStyle}>
+          <div style={gateBoxStyle}>
+            <div style={{ textAlign: 'center' }}>
+              <div style={{ fontSize: 36, marginBottom: 8 }}>🔒</div>
+              <h2 style={{ color: '#c4b5fd', margin: 0, fontSize: '1.3rem' }}>Verify Your Identity</h2>
+              <p style={{ color: '#888', fontSize: '0.88rem', marginTop: 8 }}>
+                Enter your email to access this profile
+              </p>
+            </div>
+            <input
+              type="email"
+              placeholder="your@email.com"
+              value={gateEmail}
+              onChange={(e) => setGateEmail(e.target.value)}
+              onKeyDown={(e) => e.key === 'Enter' && handleRequestOTP()}
+              style={gateInputStyle}
+            />
+            {gateError && <p style={{ color: '#ff6b6b', fontSize: '0.85rem', margin: 0 }}>{gateError}</p>}
+            <button onClick={handleRequestOTP} disabled={gateLoading} style={gateBtnStyle}>
+              {gateLoading ? 'Sending...' : 'Send Verification Code'}
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (gateStage === 'otp') {
+    return (
+      <div className="profile-preview">
+        <div style={{ filter: 'blur(6px)', pointerEvents: 'none', userSelect: 'none', opacity: 0.4, minHeight: '100vh' }} />
+        <div style={overlayStyle}>
+          <div style={gateBoxStyle}>
+            <div style={{ textAlign: 'center' }}>
+              <div style={{ fontSize: 36, marginBottom: 8 }}>📧</div>
+              <h2 style={{ color: '#c4b5fd', margin: 0, fontSize: '1.3rem' }}>Check Your Email</h2>
+              <p style={{ color: '#888', fontSize: '0.88rem', marginTop: 8 }}>
+                Enter the 6-digit code sent to <strong style={{ color: '#fff' }}>{gateEmail}</strong>
+              </p>
+            </div>
+            <input
+              type="text"
+              placeholder="000000"
+              value={gateOtp}
+              onChange={(e) => setGateOtp(e.target.value.replace(/\D/g, '').slice(0, 6))}
+              onKeyDown={(e) => e.key === 'Enter' && handleVerifyOTP()}
+              style={{ ...gateInputStyle, letterSpacing: '0.3em', textAlign: 'center', fontSize: '1.4rem' }}
+              maxLength={6}
+            />
+            {gateError && <p style={{ color: '#ff6b6b', fontSize: '0.85rem', margin: 0 }}>{gateError}</p>}
+            <button onClick={handleVerifyOTP} disabled={gateLoading} style={gateBtnStyle}>
+              {gateLoading ? 'Verifying...' : 'Verify'}
+            </button>
+            <button
+              onClick={handleResendOTP}
+              disabled={resendCooldown > 0 || gateLoading}
+              style={{ background: 'transparent', border: '1px solid rgba(255,255,255,0.15)', borderRadius: 8, color: resendCooldown > 0 ? '#555' : '#a78bfa', padding: '8px 0', fontSize: '0.88rem', cursor: resendCooldown > 0 ? 'not-allowed' : 'pointer', width: '100%' }}
+            >
+              {resendCooldown > 0 ? `Resend code in ${resendCooldown}s` : 'Resend Code'}
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   if (loading) {
     return (

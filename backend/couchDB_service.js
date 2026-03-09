@@ -48,6 +48,7 @@ let usersDb = null;
 let issuersDB = null;
 let notificationsDb = null;
 let accreditedOrgsDb = null; // List of fully accredited orgs
+let profileShareLinksDb = null; // Profile share links - polo
 
 /* 
   Function Name: initializeDatabases
@@ -67,6 +68,7 @@ async function initializeDatabases() {
     issuersDB = couch.use('issuers');
     notificationsDb = couch.use('user_notifications');
     accreditedOrgsDb = couch.use('accredited_organizations');
+    profileShareLinksDb = couch.use('profile_share_links'); // - polo
     console.log('✅ CouchDB databases selected');
   } catch (error) {
     console.error('⚠️  Error initializing databases:', error.message);
@@ -3286,8 +3288,89 @@ async function getBlockedHolderIDsByTemplate(templateId) {
     throw error;
   }
 }
+
 // ==========================================================================================================================================================================
+//                                                                 PROFILE SHARE LINK Functions
 // ==========================================================================================================================================================================
+
+/*
+  Function Name: createProfileShareLink
+  Technical: Creates a new profile share link doc in profile_share_links DB.
+  Tropang Ex: Ginagawa yung shareable link doc kapag nag-click ng "Share Profile" si user. // - polo
+*/
+async function createProfileShareLink(userId, token, recipientEmail, expiresAt) {
+  if (!profileShareLinksDb) await initializeDatabases();
+  const doc = {
+    _id: `share_${userId}_${Date.now()}`,
+    type: 'profile_share_link',
+    userId,
+    token,
+    recipientEmail,
+    expiresAt: expiresAt || null,
+    createdAt: new Date().toISOString(),
+    isActive: true,
+    otp: null,
+    otpExpiresAt: null,
+    otpVerified: false
+  };
+  return await profileShareLinksDb.insert(doc);
+}
+
+/*
+  Function Name: getProfileShareLink
+  Technical: Fetches a share link doc by its token field.
+  Tropang Ex: Ginagamit kapag bumukas yung recipient ng link — hahanapin yung doc gamit token. // - polo
+*/
+async function getProfileShareLink(token) {
+  if (!profileShareLinksDb) await initializeDatabases();
+  const result = await profileShareLinksDb.find({ selector: { token } });
+  return result.docs[0] || null;
+}
+
+/*
+  Function Name: saveOTPToShareLink
+  Technical: Saves generated OTP + expiry into the share link doc.
+  Tropang Ex: Pagka-send ng OTP sa email, sinasave dito para ma-validate later. // - polo
+*/
+async function saveOTPToShareLink(token, otp, otpExpiresAt) {
+  if (!profileShareLinksDb) await initializeDatabases();
+  const doc = await getProfileShareLink(token);
+  if (!doc) throw new Error('Share link not found');
+  doc.otp = otp;
+  doc.otpExpiresAt = otpExpiresAt;
+  doc.otpVerified = false;
+  return await profileShareLinksDb.insert(doc);
+}
+
+/*
+  Function Name: verifyOTPAndGetUserId
+  Technical: Validates OTP + expiry, marks otpVerified = true, returns userId.
+  Tropang Ex: Kapag nag-submit ng OTP si recipient, dito ini-check kung tama at hindi pa expired. // - polo
+*/
+async function verifyOTPAndGetUserId(token, otp) {
+  if (!profileShareLinksDb) await initializeDatabases();
+  const doc = await getProfileShareLink(token);
+  if (!doc) throw new Error('Share link not found');
+  if (doc.otp !== otp) throw new Error('Invalid verification code.');
+  if (new Date() > new Date(doc.otpExpiresAt)) throw new Error('Code has expired. Request a new one.');
+  doc.otpVerified = true;
+  await profileShareLinksDb.insert(doc);
+  return doc.userId;
+}
+
+/*
+  Function Name: revokeProfileShareLink
+  Technical: Sets isActive = false on the share link doc (soft delete).
+  Tropang Ex: Kapag pinindot ni user ang "Revoke", dito nagiging inactive yung link. // - polo
+*/
+async function revokeProfileShareLink(token, userId) {
+  if (!profileShareLinksDb) await initializeDatabases();
+  const doc = await getProfileShareLink(token);
+  if (!doc) throw new Error('Share link not found');
+  if (doc.userId !== userId) throw new Error('Unauthorized');
+  doc.isActive = false;
+  return await profileShareLinksDb.insert(doc);
+}
 
 module.exports = {
   // Core initialization
@@ -3372,6 +3455,11 @@ module.exports = {
   getBlockedHolderIDsByTemplate,
 
   getPendingSubordinatesForRoot,
+  createProfileShareLink,   // - polo
+  getProfileShareLink,      // - polo
+  saveOTPToShareLink,       // - polo
+  verifyOTPAndGetUserId,    // - polo
+  revokeProfileShareLink,   // - polo
   getAllSubordinatesForRoot,
   getRootApprovedSubordinatesForRoot,
   getRootRejectedSubordinatesForRoot,

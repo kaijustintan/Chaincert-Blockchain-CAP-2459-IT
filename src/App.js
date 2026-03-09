@@ -51,6 +51,8 @@ function App() {
           <Route path="/help" element={<HelpPage />} />
           <Route path="/forgot-password" element={<ForgotPassword />} />
           <Route path="/verifier/dashboard" element={<VerifierDashboard />} />
+          <Route path="/profile-preview" element={<ProfilePreview />} />
+          <Route path="/profile/:token" element={<ProfilePreview />} /> {/* - polo: public share link route */}
 
           {/* ========== PROTECTED ROUTES (User/Issuer/Student) ========== */}
           <Route element={<ProtectedRoutes />}>
@@ -60,7 +62,6 @@ function App() {
             <Route path="/settings" element={<SettingsPage />} />
             <Route path="/profile" element={<ProfilePage />} />
             <Route path="/transcript" element={<Transcript />} />
-            <Route path="/profile-preview" element={<ProfilePreview />} />
             <Route path="/badge-details/:id" element={<BadgeDetails />} />
             <Route path="/profile-preview/badge-details/:id" element={<BadgeDetailsProfilePreviewPage />} />
             <Route path="/share-credential/:id" element={<ShareCredentialPage />} />

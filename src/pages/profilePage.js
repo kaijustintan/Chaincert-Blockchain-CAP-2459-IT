@@ -31,6 +31,15 @@ const [showAll, setShowAll] = useState(false);
   const [draggedIndex, setDraggedIndex] = useState(null);
   const [isSavingOrder, setIsSavingOrder] = useState(false);
 
+  // Share Profile modal state - polo
+  const [showShareModal, setShowShareModal] = useState(false);
+  const [shareRecipientEmail, setShareRecipientEmail] = useState('');
+  const [shareDuration, setShareDuration] = useState('7');
+  const [shareGeneratedUrl, setShareGeneratedUrl] = useState('');
+  const [shareLoading, setShareLoading] = useState(false);
+  const [shareError, setShareError] = useState('');
+  const [shareCopied, setShareCopied] = useState(false);
+
   // See History state (same as studentDashboard)
   // - polo
   const [historyData, setHistoryData] = useState(null);
@@ -289,6 +298,55 @@ const [showAll, setShowAll] = useState(false);
     }
   };
 
+  // Share Profile handlers - polo
+  const handleOpenShareModal = () => {
+    setShareRecipientEmail('');
+    setShareDuration('7');
+    setShareGeneratedUrl('');
+    setShareError('');
+    setShareCopied(false);
+    setShowShareModal(true);
+  };
+
+  const handleCloseShareModal = () => {
+    setShowShareModal(false);
+    setShareGeneratedUrl('');
+    setShareError('');
+  };
+
+  const handleGenerateShareLink = async () => {
+    if (!shareRecipientEmail.trim()) {
+      setShareError('Recipient email is required.');
+      return;
+    }
+    setShareLoading(true);
+    setShareError('');
+    setShareGeneratedUrl('');
+    try {
+      const result = await apiService.generateProfileShareLink({
+        recipientEmail: shareRecipientEmail.trim(),
+        durationDays: shareDuration
+      });
+      if (result.success) {
+        setShareGeneratedUrl(result.shareUrl);
+      } else {
+        setShareError(result.message || 'Failed to generate link.');
+      }
+    } catch (err) {
+      console.error('[SHARE] Error generating link:', err);
+      setShareError('Failed to generate link. Please try again.');
+    } finally {
+      setShareLoading(false);
+    }
+  };
+
+  const handleCopyShareUrl = () => {
+    navigator.clipboard.writeText(shareGeneratedUrl).then(() => {
+      setShareCopied(true);
+      setTimeout(() => setShareCopied(false), 2000);
+    });
+  };
+
   const handleCopyUrl = () => {
     navigator.clipboard
       .writeText(profileUrl)
@@ -355,6 +413,10 @@ const [showAll, setShowAll] = useState(false);
               onClick={() => window.open("/profile-preview", "_blank")}
             >
               Preview Public Profile
+            </button>
+            <span> | </span>
+            <button className="link-btn" onClick={handleOpenShareModal}> 
+              Share Profile
             </button>
           </div>
 
@@ -637,6 +699,117 @@ const [showAll, setShowAll] = useState(false);
       </section>
 
       )} {/* end Skills Wallet — hidden for issuers */}
+
+      {/* Share Profile Modal - polo */}
+      {showShareModal && (
+        <div className="modal-overlay" onClick={handleCloseShareModal}>
+          <div className="modal detail-modal" onClick={(e) => e.stopPropagation()} style={{ maxWidth: 480 }}>
+            <div className="modal-header">
+              <h2>Share Profile</h2>
+              <button className="close-btn" onClick={handleCloseShareModal}>✕</button>
+            </div>
+            <div className="modal-body">
+              {!shareGeneratedUrl ? (
+                <>
+                  <div className="detail-row" style={{ flexDirection: 'column', gap: 6 }}>
+                    <label style={{ color: '#a78bfa', fontSize: '0.85rem', fontWeight: 600 }}>
+                      Recipient Email <span style={{ color: '#ff6b6b' }}>*</span>
+                    </label>
+                    <input
+                      type="email"
+                      value={shareRecipientEmail}
+                      onChange={(e) => setShareRecipientEmail(e.target.value)}
+                      placeholder="hr@company.com"
+                      style={{
+                        background: 'rgba(255,255,255,0.08)',
+                        border: '1px solid #a78bfa',
+                        borderRadius: 8,
+                        color: '#fff',
+                        padding: '8px 12px',
+                        fontSize: '14px',
+                        outline: 'none',
+                        width: '100%'
+                      }}
+                    />
+                  </div>
+                  <div className="detail-row" style={{ flexDirection: 'column', gap: 6, marginTop: 14 }}>
+                    <label style={{ color: '#a78bfa', fontSize: '0.85rem', fontWeight: 600 }}>
+                      Link Duration
+                    </label>
+                    <select
+                      value={shareDuration}
+                      onChange={(e) => setShareDuration(e.target.value)}
+                      style={{
+                        background: 'rgba(20,10,40,0.95)',
+                        border: '1px solid #a78bfa',
+                        borderRadius: 8,
+                        color: '#fff',
+                        padding: '8px 12px',
+                        fontSize: '14px',
+                        outline: 'none',
+                        width: '100%'
+                      }}
+                    >
+                      <option value="1">1 Day</option>
+                      <option value="3">3 Days</option>
+                      <option value="7">7 Days</option>
+                      <option value="30">30 Days</option>
+                      <option value="none">No Expiry</option>
+                    </select>
+                  </div>
+                  {shareError && (
+                    <p style={{ color: '#ff6b6b', fontSize: '0.85rem', marginTop: 10 }}>{shareError}</p>
+                  )}
+                </>
+              ) : (
+                <>
+                  <p style={{ color: '#a78bfa', fontSize: '0.85rem', marginBottom: 10 }}>
+                    ✅ Link generated! Share this with <strong style={{ color: '#fff' }}>{shareRecipientEmail}</strong>:
+                  </p>
+                  <div style={{
+                    background: 'rgba(255,255,255,0.06)',
+                    border: '1px solid rgba(139,92,246,0.4)',
+                    borderRadius: 8,
+                    padding: '10px 12px',
+                    wordBreak: 'break-all',
+                    fontSize: '0.82rem',
+                    color: '#c4b5fd',
+                    marginBottom: 12
+                  }}>
+                    {shareGeneratedUrl}
+                  </div>
+                  <button
+                    onClick={handleCopyShareUrl}
+                    style={{
+                      background: shareCopied ? 'rgba(34,197,94,0.2)' : 'linear-gradient(135deg, #667eea, #764ba2)',
+                      border: 'none',
+                      borderRadius: 8,
+                      color: '#fff',
+                      padding: '8px 18px',
+                      cursor: 'pointer',
+                      fontSize: '0.9rem',
+                      width: '100%'
+                    }}
+                  >
+                    {shareCopied ? '✅ Copied!' : '📋 Copy Link'}
+                  </button>
+                </>
+              )}
+            </div>
+            {!shareGeneratedUrl && (
+              <div className="modal-footer">
+                <button
+                  className="action-btn history"
+                  onClick={handleGenerateShareLink}
+                  disabled={shareLoading}
+                >
+                  {shareLoading ? 'Generating...' : '🔗 Generate Link'}
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Credential Detail Modal (same as studentDashboard)
           // - polo

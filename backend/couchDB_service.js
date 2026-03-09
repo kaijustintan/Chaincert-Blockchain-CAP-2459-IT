@@ -65,7 +65,7 @@ async function initializeDatabases() {
   try {
     usersDb = couch.use('users');
     issuersDB = couch.use('issuers');
-    notificationsDb = couch.use('notifications');
+    notificationsDb = couch.use('user_notifications');
     accreditedOrgsDb = couch.use('accredited_organizations');
     console.log('✅ CouchDB databases selected');
   } catch (error) {
@@ -1712,14 +1712,120 @@ async function markNotificationAsRead(notificationId) {
   */
   const notif = await notificationsDb.get(notificationId);
 
-  /* Step 3: Update read status and timestamp
-    Tropang Ex: Minamarkahan na as “nabasa” yung notification.
+  /* Step 3: Idempotent update
+    Technical: Skip DB write if already marked as read.
   */
+  if (notif.read) {
+    return {
+      ok: true,
+      id: notif._id,
+      rev: notif._rev,
+      skipped: true
+    };
+  }
+
+  /* Step 4: Update read status and timestamp then save */
   notif.read = true;
   notif.readAt = new Date().toISOString();
 
-  /* Step 4: Save updated notification back to CouchDB */
   return await notificationsDb.insert(notif);
+}
+
+/*
+  Function Name: Create_CredentialNotification
+
+  Technical:
+  Creates holder-specific credential issuance notifications.
+  Stored in user_notifications DB for student wallet notifications.
+*/
+async function Create_CredentialNotification(holderID, notificationData = {}) {
+  if (!notificationsDb) await initializeDatabases();
+
+  if (!holderID) {
+    throw new Error('holderID is required for credential notification');
+  }
+
+  const now = new Date().toISOString();
+  const credentialId =
+    notificationData.credentialId ||
+    notificationData.id ||
+    notificationData.blockchainId ||
+    null;
+
+  const credentialName =
+    notificationData.credentialName ||
+    notificationData.credentialType ||
+    'Credential';
+
+  const issuerName =
+    notificationData.issuerName ||
+    notificationData.issuerOrgName ||
+    notificationData.issuerId ||
+    'Issuer';
+
+  const notification = {
+    _id: `notif_${Date.now()}_${Math.random().toString(36).slice(2, 11)}`,
+    type: 'credential_notification',
+    notificationType: 'credential_issued',
+    holderID,
+    credentialId,
+    credentialName,
+    issuerId: notificationData.issuerId || null,
+    issuerName,
+    issuerEmail: notificationData.issuerEmail || null,
+    message: notificationData.message || 'A new credential has been issued to you.',
+    read: false,
+    createdAt: now
+  };
+
+  return await notificationsDb.insert(notification);
+}
+
+/*
+  Function Name: getUserNotifications
+
+  Technical:
+  Fetches holder-specific credential notifications, newest first.
+*/
+async function getUserNotifications(holderID) {
+  if (!notificationsDb) await initializeDatabases();
+  if (!holderID) throw new Error('holderID is required');
+
+  const result = await notificationsDb.find({
+    selector: {
+      type: 'credential_notification',
+      holderID
+    },
+    limit: 1000
+  });
+
+  return (result.docs || [])
+    .filter((doc) => doc && !String(doc._id || '').startsWith('_design/'))
+    .sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
+}
+
+/*
+  Function Name: getUnreadUserNotifications
+
+  Technical:
+  Fetches unread holder-specific notifications, newest first.
+*/
+async function getUnreadUserNotifications(holderID) {
+  if (!notificationsDb) await initializeDatabases();
+  if (!holderID) throw new Error('holderID is required');
+
+  const result = await notificationsDb.find({
+    selector: {
+      type: 'credential_notification',
+      holderID,
+      read: false
+    },
+    limit: 1000
+  });
+
+  return (result.docs || [])
+    .filter((doc) => doc && !String(doc._id || '').startsWith('_design/'))
+    .sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
 }
 
 // ==========================================================================================================================================================================
@@ -3231,8 +3337,11 @@ module.exports = {
 
   // Notifications
   createNotification,
+  Create_CredentialNotification,
   getAllNotifications,
   getUnreadNotifications,
+  getUserNotifications,
+  getUnreadUserNotifications,
   markNotificationAsRead,
 
   // Credentials (Star Feature!)

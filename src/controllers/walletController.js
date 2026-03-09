@@ -81,6 +81,90 @@ const walletController = {
       console.error('[AUTH CONTROLLER] Error updating credential order:', error);
       return res.status(500).json({ success: false, message: `Error updating order: ${error.message}` });
     }
+  },
+
+  getUserNotifications: async (req, res) => {
+    try {
+      const { holderID } = req.params;
+
+      if (!holderID) {
+        return res.status(400).json({
+          success: false,
+          message: 'holderID is required'
+        });
+      }
+
+      const notifications = await couchDB.getUserNotifications(holderID);
+
+      return res.status(200).json({
+        success: true,
+        notifications: notifications || [],
+        count: (notifications || []).length,
+        timestamp: new Date().toISOString()
+      });
+    } catch (error) {
+      console.error('Error fetching user notifications:', error);
+      return res.status(500).json({
+        success: false,
+        message: `Error fetching notifications: ${error.message}`
+      });
+    }
+  },
+
+  getUnreadUserNotifications: async (req, res) => {
+    try {
+      const { holderID } = req.params;
+
+      if (!holderID) {
+        return res.status(400).json({
+          success: false,
+          message: 'holderID is required'
+        });
+      }
+
+      const notifications = await couchDB.getUnreadUserNotifications(holderID);
+
+      return res.status(200).json({
+        success: true,
+        notifications: notifications || [],
+        unreadCount: (notifications || []).length,
+        timestamp: new Date().toISOString()
+      });
+    } catch (error) {
+      console.error('Error fetching unread user notifications:', error);
+      return res.status(500).json({
+        success: false,
+        message: `Error fetching unread notifications: ${error.message}`
+      });
+    }
+  },
+
+  markNotificationAsRead: async (req, res) => {
+    try {
+      const { notificationId } = req.params;
+
+      if (!notificationId) {
+        return res.status(400).json({
+          success: false,
+          message: 'notificationId is required'
+        });
+      }
+
+      await couchDB.markNotificationAsRead(notificationId);
+
+      return res.status(200).json({
+        success: true,
+        message: 'Notification marked as read',
+        notificationId,
+        timestamp: new Date().toISOString()
+      });
+    } catch (error) {
+      console.error('Error marking notification as read:', error);
+      return res.status(500).json({
+        success: false,
+        message: `Error marking notification as read: ${error.message}`
+      });
+    }
   }
 };
 

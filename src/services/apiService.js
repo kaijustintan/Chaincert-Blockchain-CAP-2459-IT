@@ -1708,6 +1708,57 @@ Get_VerificationLogById: async (logId) => {
     }
   },
 
+  getUserNotifications: async (holderID) => {
+    try {
+      if (!holderID) {
+        throw new Error('holderID is required');
+      }
+
+      const response = await axios.get(`/wallet/notifications/${holderID}`);
+      return response.data;
+    } catch (error) {
+      console.error(
+        'Error fetching user notifications:',
+        error.response?.data?.message || error.message
+      );
+      throw error;
+    }
+  },
+
+  getUnreadUserNotifications: async (holderID) => {
+    try {
+      if (!holderID) {
+        throw new Error('holderID is required');
+      }
+
+      const response = await axios.get(`/wallet/notifications/${holderID}/unread`);
+      return response.data;
+    } catch (error) {
+      console.error(
+        'Error fetching unread user notifications:',
+        error.response?.data?.message || error.message
+      );
+      throw error;
+    }
+  },
+
+  markNotificationAsRead: async (notificationId) => {
+    try {
+      if (!notificationId) {
+        throw new Error('notificationId is required');
+      }
+
+      const response = await axios.patch(`/wallet/notifications/${notificationId}/read`);
+      return response.data;
+    } catch (error) {
+      console.error(
+        'Error marking notification as read:',
+        error.response?.data?.message || error.message
+      );
+      throw error;
+    }
+  },
+
   // =============================================================================================================
 // ADMIN / SETTINGS - CHANGE PASSWORD
 // =============================================================================================================

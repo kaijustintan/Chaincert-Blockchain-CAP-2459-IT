@@ -20,4 +20,13 @@ router.patch('/visibility/:credentialId', walletController.updateCredentialVisib
 // Update credential display order.
 router.patch('/order/:credentialId', walletController.updateCredentialOrder);
 
+// GET /api/wallet/notifications/:holderID
+router.get('/notifications/:holderID', walletController.getUserNotifications);
+
+// GET /api/wallet/notifications/:holderID/unread
+router.get('/notifications/:holderID/unread', walletController.getUnreadUserNotifications);
+
+// PATCH /api/wallet/notifications/:notificationId/read
+router.patch('/notifications/:notificationId/read', walletController.markNotificationAsRead);
+
 module.exports = router;

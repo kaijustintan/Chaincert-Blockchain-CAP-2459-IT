@@ -35,6 +35,15 @@ const formatDate = (iso) => {
   }
 };
 
+const getNotificationTypeMeta = (notificationType) => {
+  switch (notificationType) {
+    case "credential_issued":
+      return { icon: "✅", label: "Issued" };
+    default:
+      return { icon: "🔔", label: "Notification" };
+  }
+};
+
 /*
   StatusPill
   Technical: Maps CouchDB status values to display pills
@@ -64,6 +73,10 @@ export default function StudentDashboard() {
   const [credentials, setCredentials] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [notifications, setNotifications] = useState([]);
+  const [notificationsLoading, setNotificationsLoading] = useState(true);
+  const [notificationsError, setNotificationsError] = useState(null);
+  const [unreadCount, setUnreadCount] = useState(0);
 
   /* UI state */
   const [view, setView] = useState("cards");
@@ -105,10 +118,12 @@ export default function StudentDashboard() {
     // - polo
   */
   useEffect(() => {
-    const fetchCredentials = async () => {
+    const fetchDashboardData = async () => {
       try {
         setLoading(true);
         setError(null);
+        setNotificationsLoading(true);
+        setNotificationsError(null);
 
         /* Step 1: Get logged-in user from localStorage
            Technical: Same pattern as issuerDashboardPage.js
@@ -127,21 +142,54 @@ export default function StudentDashboard() {
         /* Step 2: Fetch from CouchDB via apiService
            // - polo
         */
-        const data = await apiService.Get_UserCredentials(holderID);
-        console.log("[STUDENT DASHBOARD] Credentials fetched:", data?.length); // - polo
+        const [credentialsData, notificationsResponse, unreadResponse] = await Promise.all([
+          apiService.Get_UserCredentials(holderID),
+          apiService.getUserNotifications(holderID),
+          apiService.getUnreadUserNotifications(holderID)
+        ]);
 
-        setCredentials(Array.isArray(data) ? data : []);
+        console.log("[STUDENT DASHBOARD] Credentials fetched:", credentialsData?.length); // - polo
+
+        setCredentials(Array.isArray(credentialsData) ? credentialsData : []);
+        setNotifications(Array.isArray(notificationsResponse?.notifications) ? notificationsResponse.notifications : []);
+        setUnreadCount(
+          typeof unreadResponse?.unreadCount === 'number'
+            ? unreadResponse.unreadCount
+            : (Array.isArray(unreadResponse?.notifications) ? unreadResponse.notifications.length : 0)
+        );
 
       } catch (err) {
         console.error("[STUDENT DASHBOARD] Error fetching credentials:", err);
         setError("Failed to load credentials. Please try again.");
+        setNotificationsError("Failed to load notifications.");
       } finally {
         setLoading(false);
+        setNotificationsLoading(false);
       }
     };
 
-    fetchCredentials();
+    fetchDashboardData();
   }, []);
+
+  const handleNotificationClick = async (notification) => {
+    if (!notification || notification.read) return;
+
+    try {
+      await apiService.markNotificationAsRead(notification._id);
+
+      setNotifications((prev) =>
+        prev.map((item) =>
+          item._id === notification._id
+            ? { ...item, read: true, readAt: new Date().toISOString() }
+            : item
+        )
+      );
+
+      setUnreadCount((prev) => (prev > 0 ? prev - 1 : 0));
+    } catch (err) {
+      console.error('[STUDENT DASHBOARD] Failed to mark notification as read:', err);
+    }
+  };
 
   // ── Filter logic ───────────────────────────────────────────────────────────
 
@@ -288,6 +336,46 @@ export default function StudentDashboard() {
             List
           </button>
         </div>
+      </div>
+
+      <div className="section-title-row">
+        <h2>Notifications {unreadCount > 0 ? `(${unreadCount} unread)` : ''}</h2>
+      </div>
+
+      <div className="content">
+        {notificationsLoading && <div className="empty-card">Loading notifications...</div>}
+
+        {!notificationsLoading && notificationsError && (
+          <div className="empty-card error">{notificationsError}</div>
+        )}
+
+        {!notificationsLoading && !notificationsError && notifications.length === 0 && (
+          <div className="empty-card">No notifications yet.</div>
+        )}
+
+        {!notificationsLoading && !notificationsError && notifications.length > 0 && (
+          <div className="card-grid" style={{ gridTemplateColumns: '1fr' }}>
+            {notifications.map((notif) => {
+              const notifType = getNotificationTypeMeta(notif.notificationType);
+              const safeCreatedAt = notif.createdAt || new Date().toISOString();
+
+              return (
+                <div
+                  key={notif._id}
+                  className="cred-card clickable"
+                  onClick={() => handleNotificationClick(notif)}
+                  style={{ opacity: notif.read ? 0.75 : 1, borderLeft: notif.read ? '4px solid #6b7280' : '4px solid #8b5cf6' }}
+                >
+                  <p className="cred-card-issuer">{notifType.icon} {notifType.label}</p>
+                  <div className="cred-card-name">{notif.message || 'A new credential has been issued to you.'}</div>
+                  <p className="cred-card-issuer">Credential: {notif.credentialName || 'Credential'}</p>
+                  <p className="cred-card-issuer">Issuer: {notif.issuerName || notif.issuerId || 'Issuer'}</p>
+                  <p className="cred-card-date">{formatDate(safeCreatedAt)} • {notif.read ? 'Read' : 'Unread'}</p>
+                </div>
+              );
+            })}
+          </div>
+        )}
       </div>
 
       {/* Controls */}

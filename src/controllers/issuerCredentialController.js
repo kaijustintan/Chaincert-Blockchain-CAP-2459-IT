@@ -596,6 +596,19 @@ exports.Issue_Credential = async (req, res, getContractAndGateway) => {
 
       console.log(`[ISSUE] ✅ CouchDB save successful:`, couchResult.message);
 
+      try {
+        await couchdbService.Create_CredentialNotification(holderID, {
+          credentialId: credentialDataExtended.id || credentialDataExtended.blockchainId,
+          credentialName: credentialDataExtended.credentialName || credentialDataExtended.credentialType,
+          issuerId: credentialDataExtended.issuerID || user.id || null,
+          issuerName: credentialDataExtended.issuerName || issuerDoc?.orgName || user.orgName || user.email || 'Issuer',
+          issuerEmail: user.email || null,
+          message: `A new credential (${credentialDataExtended.credentialName || credentialDataExtended.credentialType || 'Credential'}) has been issued to you.`
+        });
+      } catch (notificationError) {
+        console.warn('[ISSUE] Notification creation failed after credential save:', notificationError.message);
+      }
+
       /* Step 10: Return COMPLETE success response (blockchain + CouchDB ok) */
       return res.status(200).json({
         success: true,

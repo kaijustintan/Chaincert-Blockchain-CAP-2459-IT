@@ -221,7 +221,8 @@ const authController = {
           email: issuer.email,
           role: 'issuer',
           orgName: issuer.orgName,
-          contactName: issuer.contactName
+          contactName: issuer.contactName,
+          issuerType: issuer.issuerType || 'root' 
         }
       });
     } catch (error) {

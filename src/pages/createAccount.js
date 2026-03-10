@@ -146,7 +146,13 @@ export default function CreateAccount() {
         issuersList = response.issuers;
       }
 
-      setApprovedIssuers(issuersList);
+      const rootOnlyIssuers = issuersList.filter(
+        (issuer) => {
+          const t = String(issuer.issuerType || '').toLowerCase();
+          return t === 'root' || t === 'root_authority';
+        }
+      );
+      setApprovedIssuers(rootOnlyIssuers);
     } catch (err) {
       console.error("Error fetching approved issuers:", err);
       setApprovedIssuers([]);

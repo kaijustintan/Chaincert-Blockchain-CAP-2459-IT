@@ -2163,6 +2163,8 @@ const handleDownloadIssuerDocument = async (doc) => {
                                 See Documents
                               </button>
                             </>
+                          ) : issuer.status === "rejected" ? (
+                            <span style={{ opacity: 0.65 }}>—</span>
                           ) : (
                             <>
                               <button

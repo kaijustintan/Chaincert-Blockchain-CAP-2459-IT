@@ -26,7 +26,11 @@ function LoginPage() {
       if (issuerResponse.success) {
         console.log('✅ Issuer login successful!');
         localStorage.setItem('token', issuerResponse.token);
-        localStorage.setItem('user', JSON.stringify(issuerResponse.user));
+        // - polo: include issuerType so subordinate dashboard can hide root-only sections
+        localStorage.setItem('user', JSON.stringify({
+          ...issuerResponse.user,
+          issuerType: issuerResponse.user?.issuerType || issuerResponse.issuerType || 'root',
+        }));
         localStorage.setItem('role', 'issuer');
         setLoading(false);
         navigate('/issuer/dashboard');

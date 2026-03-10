@@ -5,6 +5,9 @@ import apiService from "../services/apiService";
 import "../styles/issuerDashboardPage.css";
 
 export default function IssuerDashboard() {
+  // - polo: get current issuer type to hide subordinate sections for subordinate issuers
+  const currentUser = JSON.parse(localStorage.getItem("user") || "{}");
+  const isSubordinate = currentUser?.issuerType === "subordinate";
   const navigate = useNavigate();
   const [credentials, setCredentials] = useState([]);
   const [filteredCredentials, setFilteredCredentials] = useState([]);
@@ -1130,7 +1133,8 @@ export default function IssuerDashboard() {
       </div>
 
 
-            {/* ROOT AUTHORITY → MY SUBORDINATES */}
+      {/* ROOT AUTHORITY → MY SUBORDINATES */}
+      {!isSubordinate && (
       <div className="table-container" style={{ marginTop: 24 }}>
         <div
           style={{
@@ -1313,9 +1317,10 @@ export default function IssuerDashboard() {
           </table>
         )}
       </div>
-      
+      )}
 
       {/* ROOT AUTHORITY → SUBORDINATE DECISION LOGS (BLOCKCHAIN) */}
+      {!isSubordinate && (
       <div className="table-container" style={{ marginTop: 24 }}>
         <div
           style={{
@@ -1407,7 +1412,7 @@ export default function IssuerDashboard() {
           </table>
         )}
       </div>
-
+      )}
 
       {/* TEMPLATES VIEW */}
       {dashboardView === "templates" && (

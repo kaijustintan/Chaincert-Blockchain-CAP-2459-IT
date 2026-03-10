@@ -121,6 +121,13 @@ const [issuerDocumentsError, setIssuerDocumentsError] = useState(null);
     return String(v);
   };
 
+  const getIssuerAdminMeta = (issuer) => ({
+    approvedBy: issuer?.approvedBy || "N/A",
+    rejectedBy: issuer?.rejectedBy || "N/A",
+    disabledBy: issuer?.disabledBy || "N/A",
+    enabledBy: issuer?.enabledBy || "N/A",
+  });
+
   const openIssuerDocumentsModal = async (issuer) => {
   try {
     const issuerId = issuer?._id || issuer?.id;
@@ -1611,7 +1618,9 @@ const handleDownloadIssuerDocument = async (doc) => {
                         <th>Previous Status</th>
                         <th>New Status</th>
                         <th>Reason</th>
+                        <th>Admin Email</th>
                         <th>Performed By</th>
+                        <th>Performed By MSP</th>
                         <th>Tx ID</th>
                         <th>Timestamp</th>
                       </tr>
@@ -1632,7 +1641,13 @@ const handleDownloadIssuerDocument = async (doc) => {
                           </td>
                           <td>{log.reason || "—"}</td>
                           <td style={{ fontFamily: "monospace", fontSize: "12px" }}>
-                            {log.performedByMSP || log.performedBy || "N/A"}
+                            {log.adminEmail || "N/A"}
+                          </td>
+                          <td style={{ fontFamily: "monospace", fontSize: "12px" }}>
+                            {log.performedBy || "N/A"}
+                          </td>
+                          <td style={{ fontFamily: "monospace", fontSize: "12px" }}>
+                            {log.performedByMSP || "N/A"}
                           </td>
                           <td style={{ fontFamily: "monospace", fontSize: "12px" }}>
                             {log.txId ? `${String(log.txId).slice(0, 18)}...` : "N/A"}
@@ -2013,6 +2028,10 @@ const handleDownloadIssuerDocument = async (doc) => {
                   <th>Root Approval</th>
                   <th>Root Approved At</th>
                   <th>Status</th>
+                  <th>Approved By</th>
+                  <th>Rejected By</th>
+                  <th>Disabled By</th>
+                  <th>Enabled By</th>
                   <th>Created At</th>
                   <th>Actions</th>
                 </tr>
@@ -2021,6 +2040,7 @@ const handleDownloadIssuerDocument = async (doc) => {
                   {visibleIssuers.map((issuer) => {
                     const id = issuer._id || issuer.id;
                     const isDisabled = issuer.isDisabled === true || issuer.status === "disabled";
+                    const adminMeta = getIssuerAdminMeta(issuer);
 
                     return (
                       <tr key={id}>
@@ -2086,6 +2106,19 @@ const handleDownloadIssuerDocument = async (doc) => {
                           >
                             {issuer.status || (isDisabled ? "disabled" : "approved")}
                           </span>
+                        </td>
+
+                        <td style={{ fontFamily: "monospace", fontSize: "12px" }}>
+                          {adminMeta.approvedBy}
+                        </td>
+                        <td style={{ fontFamily: "monospace", fontSize: "12px" }}>
+                          {adminMeta.rejectedBy}
+                        </td>
+                        <td style={{ fontFamily: "monospace", fontSize: "12px" }}>
+                          {adminMeta.disabledBy}
+                        </td>
+                        <td style={{ fontFamily: "monospace", fontSize: "12px" }}>
+                          {adminMeta.enabledBy}
                         </td>
 
                         <td>{formatTimestamp(issuer.createdAt)}</td>
@@ -2468,7 +2501,9 @@ const handleDownloadIssuerDocument = async (doc) => {
                           <th>Org Name</th>
                           <th>Decision</th>
                           <th>Reason</th>
+                          <th>Admin Email</th>
                           <th>Performed By</th>
+                          <th>Performed By MSP</th>
                           <th>Tx ID</th>
                           <th>Timestamp</th>
                         </tr>
@@ -2489,6 +2524,12 @@ const handleDownloadIssuerDocument = async (doc) => {
                                 </span>
                               </td>
                               <td>{log.reason || "—"}</td>
+                              <td style={{ fontFamily: "monospace", fontSize: "12px" }}>
+                                {log.adminEmail || "N/A"}
+                              </td>
+                              <td style={{ fontFamily: "monospace", fontSize: "12px" }}>
+                                {log.performedBy || "N/A"}
+                              </td>
                               <td style={{ fontFamily: "monospace", fontSize: "12px" }}>
                                 {log.performedByMSP || "N/A"}
                               </td>
@@ -2640,7 +2681,9 @@ const handleDownloadIssuerDocument = async (doc) => {
                         <th>Previous Status</th>
                         <th>New Status</th>
                         <th>Reason</th>
-                        <th>Changed By</th>
+                        <th>Admin Email</th>
+                        <th>Performed By</th>
+                        <th>Performed By MSP</th>
                         <th>Tx ID</th>
                         <th>Timestamp</th>
                       </tr>
@@ -2667,7 +2710,13 @@ const handleDownloadIssuerDocument = async (doc) => {
                           </td>
                           <td>{log.reason || "N/A"}</td>
                           <td style={{ fontFamily: "monospace", fontSize: "12px" }}>
-                            {log.performedByMSP || log.performedBy || "N/A"}
+                            {log.adminEmail || "N/A"}
+                          </td>
+                          <td style={{ fontFamily: "monospace", fontSize: "12px" }}>
+                            {log.performedBy || "N/A"}
+                          </td>
+                          <td style={{ fontFamily: "monospace", fontSize: "12px" }}>
+                            {log.performedByMSP || "N/A"}
                           </td>
                           <td style={{ fontFamily: "monospace", fontSize: "12px" }}>
                             {log.txId ? `${String(log.txId).slice(0, 18)}...` : "N/A"}

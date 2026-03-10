@@ -954,7 +954,7 @@ async function checkDuplicateIssuerRegistration(email, orgName) {
   - If issuerType === "subordinate", admin approval is BLOCKED unless rootApprovalStatus === "approved"
   - Prevent approving if status is not "pending" (avoid re-approve / invalid transitions)
 */
-async function Approve_Issuer(issuerId, adminId) {
+async function Approve_Issuer(issuerId, adminEmail) {
   try {
     /* Step 1: Ensure issuersDB is ready */
     if (!issuersDB) await initializeDatabases();
@@ -1037,7 +1037,7 @@ async function Approve_Issuer(issuerId, adminId) {
 
     /* Step 9: Update approval fields */
     issuerDoc.status = 'approved';
-    issuerDoc.approvedBy = adminId;
+    issuerDoc.approvedBy = adminEmail;
     issuerDoc.approvedAt = new Date().toISOString();
 
     // ✅ ADDED: clear rejection fields if previously set (keeps doc clean)
@@ -1082,7 +1082,7 @@ async function Approve_Issuer(issuerId, adminId) {
   ✅ ADDED (recommended):
   - Prevent rejecting if status is not "pending" (avoid rejecting already approved/rejected)
 */
-async function Reject_Issuer(issuerId, rejectionReason) {
+async function Reject_Issuer(issuerId, rejectionReason, adminEmail) {
   if (!issuersDB) await initializeDatabases();
 
   const issuerDoc = await issuersDB.get(issuerId);
@@ -1099,6 +1099,7 @@ async function Reject_Issuer(issuerId, rejectionReason) {
   issuerDoc.status = 'rejected';
   issuerDoc.rejectionReason = rejectionReason;
   issuerDoc.rejectedAt = new Date().toISOString();
+  issuerDoc.rejectedBy = adminEmail;
 
   return await issuersDB.insert(issuerDoc);
 }
@@ -2851,7 +2852,7 @@ async function getAllIssuerCredentialsAdmin(options = {}) {
   }
 }
 
-async function Disable_Issuer(issuerId, adminId, reason) {
+async function Disable_Issuer(issuerId, adminEmail, reason) {
   if (!issuersDB) await initializeDatabases();
 
   if (!reason || reason.trim() === "") {
@@ -2862,13 +2863,13 @@ async function Disable_Issuer(issuerId, adminId, reason) {
 
   issuerDoc.status = "disabled";
   issuerDoc.disabledAt = new Date().toISOString();
-  issuerDoc.disabledBy = adminId;
+  issuerDoc.disabledBy = adminEmail;
   issuerDoc.disableReason = reason;
 
   return await issuersDB.insert(issuerDoc);
 }
 
-async function Enable_Issuer(issuerId, adminId, reason) {
+async function Enable_Issuer(issuerId, adminEmail, reason) {
   if (!issuersDB) await initializeDatabases();
 
   if (!reason || reason.trim() === "") {
@@ -2879,13 +2880,13 @@ async function Enable_Issuer(issuerId, adminId, reason) {
 
   issuerDoc.status = "approved";
   issuerDoc.enabledAt = new Date().toISOString();
-  issuerDoc.enabledBy = adminId;
+  issuerDoc.enabledBy = adminEmail;
   issuerDoc.enableReason = reason;
 
   return await issuersDB.insert(issuerDoc);
 }
 
-async function Disable_User(userId, adminId, reason) {
+async function Disable_User(userId, adminEmail, reason) {
   if (!usersDb) await initializeDatabases();
 
   if (!reason || reason.trim() === "") {
@@ -2896,13 +2897,13 @@ async function Disable_User(userId, adminId, reason) {
 
   userDoc.isActive = false;
   userDoc.disabledAt = new Date().toISOString();
-  userDoc.disabledBy = adminId;
+  userDoc.disabledBy = adminEmail;
   userDoc.disableReason = reason;
 
   return await usersDb.insert(userDoc);
 }
 
-async function Enable_User(userId, adminId, reason) {
+async function Enable_User(userId, adminEmail, reason) {
   if (!usersDb) await initializeDatabases();
 
   if (!reason || reason.trim() === "") {
@@ -2913,7 +2914,7 @@ async function Enable_User(userId, adminId, reason) {
 
   userDoc.isActive = true;
   userDoc.enabledAt = new Date().toISOString();
-  userDoc.enabledBy = adminId;
+  userDoc.enabledBy = adminEmail;
   userDoc.enableReason = reason;
 
   return await usersDb.insert(userDoc);

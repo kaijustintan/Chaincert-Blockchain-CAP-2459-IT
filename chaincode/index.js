@@ -533,7 +533,7 @@ async LogVerification(ctx, credentialId, verifierName, verifierEmail, resultJson
 }
 // ==========================================================================================================================================================================
 
-async LogIssuerStatusChange(ctx, issuerEmail, previousStatus, newStatus, reason) {
+async LogIssuerStatusChange(ctx, issuerEmail, previousStatus, newStatus, reason, adminEmail) {
 
   if (!issuerEmail) {
     throw new Error("issuerEmail is required");
@@ -545,6 +545,10 @@ async LogIssuerStatusChange(ctx, issuerEmail, previousStatus, newStatus, reason)
 
   if (!reason || reason.trim() === "") {
     throw new Error("Reason is required for issuer status change");
+  }
+
+  if (!adminEmail) {
+    throw new Error("adminEmail is required");
   }
 
   const txTimestamp = ctx.stub.getTxTimestamp();
@@ -564,6 +568,7 @@ async LogIssuerStatusChange(ctx, issuerEmail, previousStatus, newStatus, reason)
     previousStatus: previousStatus || "",
     newStatus,
     reason,
+    adminEmail,
     performedBy: ctx.clientIdentity.getID(),
     performedByMSP: ctx.clientIdentity.getMSPID(),
     txId,
@@ -579,7 +584,7 @@ async LogIssuerStatusChange(ctx, issuerEmail, previousStatus, newStatus, reason)
 }
 // ==========================================================================================================================================================================
 
-async LogUserStatusChange(ctx, userEmail, previousStatus, newStatus, reason) {
+async LogUserStatusChange(ctx, userEmail, previousStatus, newStatus, reason, adminEmail) {
 
   if (!userEmail) {
     throw new Error("userEmail is required");
@@ -591,6 +596,10 @@ async LogUserStatusChange(ctx, userEmail, previousStatus, newStatus, reason) {
 
   if (!reason || reason.trim() === "") {
     throw new Error("Reason is required for user status change");
+  }
+
+  if (!adminEmail) {
+    throw new Error("adminEmail is required");
   }
 
   const txTimestamp = ctx.stub.getTxTimestamp();
@@ -610,6 +619,7 @@ async LogUserStatusChange(ctx, userEmail, previousStatus, newStatus, reason) {
     previousStatus: previousStatus || "",
     newStatus,
     reason,
+    adminEmail,
     performedBy: ctx.clientIdentity.getID(),
     performedByMSP: ctx.clientIdentity.getMSPID(),
     txId,
@@ -1592,7 +1602,7 @@ async GetAllVerificationLogs(ctx) {
       // =========================================================================================================
     // ADMIN AUDIT: ISSUER APPROVAL
     // =========================================================================================================
-    async LogIssuerApproval(ctx, issuerId, issuerEmail, orgName, reason) {
+    async LogIssuerApproval(ctx, issuerId, issuerEmail, orgName, reason, adminEmail) {
 
       if (!issuerId) throw new Error("issuerId is required");
       if (!issuerEmail) throw new Error("issuerEmail is required");
@@ -1600,6 +1610,7 @@ async GetAllVerificationLogs(ctx) {
       if (!reason || reason.trim() === "") {
         throw new Error("Reason is required for issuer approval");
       }
+      if (!adminEmail) throw new Error("adminEmail is required");
 
       const txTimestamp = ctx.stub.getTxTimestamp();
       const timestamp = new Date(
@@ -1619,6 +1630,7 @@ async GetAllVerificationLogs(ctx) {
         issuerEmail,
         orgName,
         reason,
+        adminEmail,
         performedBy: ctx.clientIdentity.getID(),
         performedByMSP: ctx.clientIdentity.getMSPID(),
         txId,
@@ -1635,7 +1647,7 @@ async GetAllVerificationLogs(ctx) {
     // =========================================================================================================
 // ADMIN AUDIT: ISSUER REJECTION
 // =========================================================================================================
-      async LogIssuerRejection(ctx, issuerId, issuerEmail, orgName, reason) {
+      async LogIssuerRejection(ctx, issuerId, issuerEmail, orgName, reason, adminEmail) {
 
         if (!issuerId) throw new Error("issuerId is required");
         if (!issuerEmail) throw new Error("issuerEmail is required");
@@ -1643,6 +1655,7 @@ async GetAllVerificationLogs(ctx) {
         if (!reason || reason.trim() === "") {
           throw new Error("Reason is required for issuer rejection");
         }
+        if (!adminEmail) throw new Error("adminEmail is required");
 
         const txTimestamp = ctx.stub.getTxTimestamp();
         const timestamp = new Date(
@@ -1662,6 +1675,7 @@ async GetAllVerificationLogs(ctx) {
           issuerEmail,
           orgName,
           reason,
+          adminEmail,
           performedBy: ctx.clientIdentity.getID(),
           performedByMSP: ctx.clientIdentity.getMSPID(),
           txId,
@@ -2163,7 +2177,7 @@ async GetRootSubordinateRejectionLogsByRootAuthority(ctx, rootAuthorityId) {
     // =========================================================================================================
 // ADMIN AUDIT: ADMIN PASSWORD CHANGE
 // =========================================================================================================
-async LogAdminChangePassword(ctx, adminEmail, changeType, reason) {
+async LogAdminChangePassword(ctx, adminEmail, changeType, reason, actingAdminEmail) {
 
  if (!adminEmail) {
    throw new Error("adminEmail is required");
@@ -2171,6 +2185,10 @@ async LogAdminChangePassword(ctx, adminEmail, changeType, reason) {
 
  if (!changeType) {
    throw new Error("changeType is required");
+ }
+
+ if (!actingAdminEmail) {
+   throw new Error("actingAdminEmail is required");
  }
 
  // reason is OPTIONAL for this log (unlike disable/enable); keep it best-effort reason = reason || "";
@@ -2190,6 +2208,7 @@ async LogAdminChangePassword(ctx, adminEmail, changeType, reason) {
    adminEmail,
     changeType,          // e.g. "self_change" | "reset_by_admin" | "forced_reset"
     reason,              // optional
+   actingAdminEmail: actingAdminEmail,
     performedBy: ctx.clientIdentity.getID(),
     performedByMSP: ctx.clientIdentity.getMSPID(),
     txId,

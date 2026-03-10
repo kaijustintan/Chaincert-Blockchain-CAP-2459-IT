@@ -197,6 +197,11 @@ const adminIssuerController = {
         return res.status(403).json({ success: false, message: 'Admin access required.' });
       }
 
+      const adminEmail = req.user.email;
+      if (!adminEmail) {
+        return res.status(400).json({ success: false, message: 'Admin email is required.' });
+      }
+
       const issuerDoc = await couchDB.getIssuerById(issuerId);
       if (!issuerDoc) {
         return res.status(404).json({ success: false, message: 'Issuer not found.' });
@@ -214,7 +219,7 @@ const adminIssuerController = {
         });
       }
 
-      const result = await couchDB.Approve_Issuer(issuerId, req.user?.id || 'admin');
+      const result = await couchDB.Approve_Issuer(issuerId, adminEmail);
 
       const issuerEmail = result.email;
       const orgName = result.orgName;
@@ -229,7 +234,7 @@ const adminIssuerController = {
         const { gateway: gw, contract } = await getContractAndGateway('chaincert-admin', 'Org1');
         gateway = gw;
 
-        await contract.submitTransaction('LogIssuerApproval', issuerId, issuerEmail, orgName, reason);
+        await contract.submitTransaction('LogIssuerApproval', issuerId, issuerEmail, orgName, reason, adminEmail);
       } catch (bcErr) {
         blockchainWarning = bcErr?.message || String(bcErr);
         console.error('[Approve_Issuer] Blockchain log failed:', blockchainWarning);
@@ -269,6 +274,11 @@ const adminIssuerController = {
         return res.status(403).json({ success: false, message: 'Admin access required.' });
       }
 
+      const adminEmail = req.user.email;
+      if (!adminEmail) {
+        return res.status(400).json({ success: false, message: 'Admin email is required.' });
+      }
+
       if (!rejectionReason || rejectionReason.trim() === '') {
         return res.status(400).json({ success: false, message: 'Rejection reason is required.' });
       }
@@ -276,7 +286,7 @@ const adminIssuerController = {
       const result = await couchDB.Reject_Issuer(
         issuerId,
         rejectionReason,
-        req.user?.id || 'admin'
+        adminEmail
       );
 
       const issuerDoc = await couchDB.getIssuerById(issuerId);
@@ -298,7 +308,8 @@ const adminIssuerController = {
           issuerId,
           issuerEmail,
           orgName,
-          rejectionReason
+          rejectionReason,
+          adminEmail
         );
       } catch (bcErr) {
         blockchainWarning = bcErr?.message || String(bcErr);
@@ -332,6 +343,18 @@ const adminIssuerController = {
       const { issuerId } = req.params;
       const { reason } = req.body;
 
+      if (!req.user) {
+        return res.status(401).json({ success: false, message: 'Unauthorized.' });
+      }
+      if (req.user.role !== 'admin') {
+        return res.status(403).json({ success: false, message: 'Admin access required.' });
+      }
+
+      const adminEmail = req.user.email;
+      if (!adminEmail) {
+        return res.status(400).json({ success: false, message: 'Admin email is required.' });
+      }
+
       if (!reason || reason.trim() === '') {
         return res.status(400).json({ success: false, message: 'Disabling reason is required.' });
       }
@@ -347,7 +370,7 @@ const adminIssuerController = {
         return res.status(400).json({ success: false, message: 'Issuer is already disabled.' });
       }
 
-      await couchDB.Disable_Issuer(issuerId, 'chaincert-admin', reason);
+      await couchDB.Disable_Issuer(issuerId, adminEmail, reason);
 
       let blockchainLogWarning = null;
 
@@ -384,7 +407,8 @@ const adminIssuerController = {
           issuer.email,
           previousStatus,
           'disabled',
-          reason
+          reason,
+          adminEmail
         );
       } catch (bcErr) {
         blockchainLogWarning = bcErr?.message || String(bcErr);
@@ -414,6 +438,18 @@ const adminIssuerController = {
       const { issuerId } = req.params;
       const { reason } = req.body;
 
+      if (!req.user) {
+        return res.status(401).json({ success: false, message: 'Unauthorized.' });
+      }
+      if (req.user.role !== 'admin') {
+        return res.status(403).json({ success: false, message: 'Admin access required.' });
+      }
+
+      const adminEmail = req.user.email;
+      if (!adminEmail) {
+        return res.status(400).json({ success: false, message: 'Admin email is required.' });
+      }
+
       if (!reason || reason.trim() === '') {
         return res.status(400).json({ success: false, message: 'Re-enable reason is required.' });
       }
@@ -432,7 +468,7 @@ const adminIssuerController = {
         });
       }
 
-      await couchDB.Enable_Issuer(issuerId, 'chaincert-admin', reason);
+      await couchDB.Enable_Issuer(issuerId, adminEmail, reason);
 
       let blockchainLogWarning = null;
 
@@ -454,7 +490,8 @@ const adminIssuerController = {
           issuer.email,
           previousStatus,
           'approved',
-          reason
+          reason,
+          adminEmail
         );
       } catch (bcErr) {
         blockchainLogWarning = bcErr?.message || String(bcErr);

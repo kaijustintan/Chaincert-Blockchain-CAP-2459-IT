@@ -867,8 +867,6 @@ const handleDownloadIssuerDocument = async (doc) => {
       fetchApprovedIssuers();
       fetchDisabledIssuers();
       fetchAdminCredentials();
-    } else if (tab === "verifications") {
-      fetchVerifications();
     } else if (tab === "logs") {
       if (logCategory === "verification") {
         fetchVerificationLogs();
@@ -953,12 +951,7 @@ const handleDownloadIssuerDocument = async (doc) => {
         >
           Manage Users
         </button>
-        <button
-          onClick={() => setTab("verifications")}
-          className={tab === "verifications" ? "active" : ""}
-        >
-          Verifications
-        </button>
+        
         <button
           onClick={() => setTab("logs")}
           className={tab === "logs" ? "active" : ""}
@@ -2255,7 +2248,6 @@ const handleDownloadIssuerDocument = async (doc) => {
                     <th>Email</th>
                     <th>Username</th>
                     <th>Role</th>
-                    <th>Org</th>
                     <th>Created At</th>
                     <th>Active</th>
                     <th>Actions</th>
@@ -2270,7 +2262,6 @@ const handleDownloadIssuerDocument = async (doc) => {
                         <td>{user.email || "N/A"}</td>
                         <td>{user.username || user.fullName || "N/A"}</td>
                         <td>{user.role || "user"}</td>
-                        <td>{user.org || "N/A"}</td>
                         <td>{formatTimestamp(user.createdAt)}</td>
                         <td>
                           {isDisabled ? (
@@ -2407,6 +2398,7 @@ const handleDownloadIssuerDocument = async (doc) => {
                   type="text"
                   value={statusLogEmailSearch}
                   onChange={(e) => setStatusLogEmailSearch(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === "Enter") fetchStatusLogs(statusLogFilter, e.target.value); }}
                   placeholder="Search by email..."
                   style={{
                     padding: "8px 10px",
@@ -2501,8 +2493,8 @@ const handleDownloadIssuerDocument = async (doc) => {
                           <th>Org Name</th>
                           <th>Decision</th>
                           <th>Reason</th>
-                          <th>Admin Email</th>
-                          <th>Performed By</th>
+                          <th>Changed By (Admin Email)</th>
+                          <th>Performed By (Fabric Identity)</th>
                           <th>Performed By MSP</th>
                           <th>Tx ID</th>
                           <th>Timestamp</th>
@@ -2644,7 +2636,7 @@ const handleDownloadIssuerDocument = async (doc) => {
                       {verificationLogs.map((log) => (
                         <tr key={log.logId || log.txId}>
                           <td style={{ fontFamily: "monospace", fontSize: "12px" }}>
-                            {log.logId || "N/A"}
+                            {log.logId || log.id || "N/A"}
                           </td>
                           <td>{log.verifierName || "N/A"}</td>
                           <td>{log.verifierEmail || "N/A"}</td>
@@ -2655,8 +2647,8 @@ const handleDownloadIssuerDocument = async (doc) => {
                             {log.holderID || "N/A"}
                           </td>
                           <td>{log.holderName || "N/A"}</td>
-                          <td>{renderCell(log.resultMessage ?? log.result)}</td>
-                          <td>{formatTimestamp(log.timestamp)}</td>
+                          <td>{log.result?.reason || log.resultMessage || "N/A"}</td>
+                          <td>{formatTimestamp(log.timestamp || log.verifiedAt)}</td>
                         </tr>
                       ))}
                     </tbody>

@@ -8,6 +8,18 @@ const adminAuditController = {
       const { userId } = req.params;
       const { reason } = req.body;
 
+      if (!req.user) {
+        return res.status(401).json({ success: false, message: 'Unauthorized.' });
+      }
+      if (req.user.role !== 'admin') {
+        return res.status(403).json({ success: false, message: 'Admin access required.' });
+      }
+
+      const adminEmail = req.user.email;
+      if (!adminEmail) {
+        return res.status(400).json({ success: false, message: 'Admin email is required.' });
+      }
+
       if (!reason || reason.trim() === '') {
         return res.status(400).json({ success: false, message: 'Disabling reason is required.' });
       }
@@ -23,7 +35,7 @@ const adminAuditController = {
         return res.status(400).json({ success: false, message: 'User is already disabled.' });
       }
 
-      await couchDB.Disable_User(userId, 'chaincert-admin', reason);
+      await couchDB.Disable_User(userId, adminEmail, reason);
 
       let blockchainLogWarning = null;
       const identityName = 'chaincert-admin';
@@ -39,7 +51,8 @@ const adminAuditController = {
           user.email,
           previousStatus,
           'disabled',
-          reason
+          reason,
+          adminEmail
         );
       }
 
@@ -66,6 +79,18 @@ const adminAuditController = {
       const { userId } = req.params;
       const { reason } = req.body;
 
+      if (!req.user) {
+        return res.status(401).json({ success: false, message: 'Unauthorized.' });
+      }
+      if (req.user.role !== 'admin') {
+        return res.status(403).json({ success: false, message: 'Admin access required.' });
+      }
+
+      const adminEmail = req.user.email;
+      if (!adminEmail) {
+        return res.status(400).json({ success: false, message: 'Admin email is required.' });
+      }
+
       if (!reason || reason.trim() === '') {
         return res.status(400).json({ success: false, message: 'Re-enable reason is required.' });
       }
@@ -81,7 +106,7 @@ const adminAuditController = {
         return res.status(400).json({ success: false, message: 'User is already active.' });
       }
 
-      await couchDB.Enable_User(userId, 'chaincert-admin', reason);
+      await couchDB.Enable_User(userId, adminEmail, reason);
 
       let blockchainLogWarning = null;
       const identityName = 'chaincert-admin';
@@ -97,7 +122,8 @@ const adminAuditController = {
           user.email,
           previousStatus,
           'active',
-          reason
+          reason,
+          adminEmail
         );
       }
 
@@ -169,6 +195,9 @@ const adminAuditController = {
       }
 
       const adminEmail = req.user.email;
+      if (!adminEmail) {
+        return res.status(400).json({ success: false, message: 'Admin email is required.' });
+      }
 
       await couchDB.changeAdminPassword(
         adminEmail,
@@ -200,7 +229,7 @@ const adminAuditController = {
         gateway = cg.gateway;
         const contract = cg.contract;
 
-        await contract.submitTransaction('LogAdminChangePassword', adminEmail, changeType, reason);
+        await contract.submitTransaction('LogAdminChangePassword', adminEmail, changeType, reason, adminEmail);
       } catch (bcErr) {
         blockchainWarning = bcErr?.message || String(bcErr);
         console.error('[changeAdminPasswordSecure] Blockchain log failed:', blockchainWarning);

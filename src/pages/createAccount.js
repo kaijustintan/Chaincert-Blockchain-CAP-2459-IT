@@ -124,11 +124,113 @@ export default function CreateAccount() {
 
   // ========== ISSUER FORM HELPERS ==========
   const formatDocumentLabel = (docKey) => {
-    return String(docKey || "")
-      .split("_")
-      .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
-      .join(" ");
+  const customLabels = {
+    ched_recognition_or_government_recognition:
+      "CHED / Government Recognition",
+    legal_personality_document:
+      "Legal Personality Document",
+    board_resolution_chaincert_authorization:
+      "Board Resolution – ChainCert Authorization",
+    quality_accreditation_certificate_optional:
+      "Quality Accreditation Certificate (Optional)",
+
+    legal_creation_instrument:
+      "Legal Creation Instrument",
+    mandate_or_function_document:
+      "Mandate / Function Document",
+    office_order_chaincert_authorization:
+      "Office Order / Memorandum – ChainCert Authorization",
+    sample_official_credential_template:
+      "Sample Official Credential Template",
+
+    sec_or_dti_registration:
+      "SEC or DTI Registration",
+    lgu_business_permit:
+      "LGU Business / Mayor’s Permit",
+    tesda_copr_or_equivalent_program_approval:
+      "TESDA CoPR / Program Approval",
+    program_brief_or_training_regulation_alignment:
+      "Program Brief / Training Regulation Alignment",
+
+    sec_registration_or_charter:
+      "SEC Registration or Charter",
+    industry_or_professional_recognition:
+      "Industry / Professional Recognition",
+    documented_certification_scheme_iso17024_aligned:
+      "Documented Certification Scheme (ISO/IEC 17024-aligned)",
+    board_resolution_chaincert_and_scheme_approval:
+      "Board Resolution – Scheme & ChainCert Approval",
+
+    root_authorization_letter:
+      "Root Authority Authorization Letter"
   };
+
+  if (customLabels[docKey]) return customLabels[docKey];
+
+  return String(docKey || "")
+    .split("_")
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(" ");
+};
+
+const getDocumentDescription = (docKey) => {
+  const descriptions = {
+    ched_recognition_or_government_recognition:
+      "Copy of CHED Government or Institutional Recognition confirming authority to operate and grant degrees.",
+
+    legal_personality_document:
+      "SEC Certificate of Incorporation or charter establishing the institution's legal existence.",
+
+    board_resolution_chaincert_authorization:
+      "Board resolution authorizing participation in ChainCert and designating officials responsible for issuing credentials.",
+
+    quality_accreditation_certificate_optional:
+      "Optional accreditation certificate from a recognized accrediting body (e.g., PAASCU, PACUCOA, AACCUP).",
+
+    legal_creation_instrument:
+      "Republic Act, Executive Order, or local ordinance formally creating the government office or agency.",
+
+    mandate_or_function_document:
+      "Official documentation showing the agency's mandate to issue the relevant credentials.",
+
+    office_order_chaincert_authorization:
+      "Office Order designating officials authorized to issue credentials through ChainCert.",
+
+    sample_official_credential_template:
+      "Sample certificate, license, or eligibility document currently issued by the agency.",
+
+    sec_or_dti_registration:
+      "SEC Certificate of Incorporation or DTI Business Registration.",
+
+    lgu_business_permit:
+      "Latest Mayor’s or LGU Business Permit confirming authority to operate.",
+
+    tesda_copr_or_equivalent_program_approval:
+      "TESDA Certificate of Program Registration (CoPR) or equivalent accreditation.",
+
+    program_brief_or_training_regulation_alignment:
+      "Program description showing learning outcomes, curriculum, and alignment with standards.",
+
+    sec_registration_or_charter:
+      "SEC certificate or charter establishing the certification body's legal existence.",
+
+    industry_or_professional_recognition:
+      "Evidence of recognition from professional or industry bodies.",
+
+    documented_certification_scheme_iso17024_aligned:
+      "Documentation describing the certification scheme aligned with ISO/IEC 17024 principles.",
+
+    board_resolution_chaincert_and_scheme_approval:
+      "Board resolution approving the certification scheme and ChainCert participation.",
+
+    root_authorization_letter:
+      "Formal letter from the root authority authorizing the subordinate issuer to operate under its supervision."
+  };
+
+  return descriptions[docKey] || "";
+};
+
+
 
   const fetchApprovedIssuers = async () => {
     try {
@@ -179,13 +281,30 @@ export default function CreateAccount() {
         categoryValue
       );
 
+      
+
       let docs = response?.requiredDocuments || [];
 
-      if (issuerTypeValue === "subordinate") {
-        docs = [...docs, "root_authorization_letter"];
-      }
+        if (issuerTypeValue === "subordinate") {
+          const alreadyHasRootAuth = docs.some(
+            (doc) => doc.key === "root_authorization_letter"
+          );
 
-      setRequiredDocuments(docs);
+          if (!alreadyHasRootAuth) {
+            docs = [
+              ...docs,
+              {
+                key: "root_authorization_letter",
+                label: "Root Authority Authorization Letter",
+                description:
+                  "Formal letter from the root authority authorizing the subordinate issuer to operate under its supervision."
+              }
+            ];
+          }
+        }
+
+        setRequiredDocuments(docs);
+
     } catch (err) {
       console.error("Error fetching issuer requirements:", err);
       setRequiredDocuments([]);
@@ -297,13 +416,13 @@ export default function CreateAccount() {
     }
 
     const missingDocuments = requiredDocuments.filter(
-      (docKey) => !issuer.documentsByType?.[docKey]
+      (doc) => !issuer.documentsByType?.[doc.key]
     );
 
     if (missingDocuments.length > 0) {
       setIssuerError(
         `Please upload all required documents: ${missingDocuments
-          .map(formatDocumentLabel)
+          .map((doc) => doc.label)
           .join(", ")}`
       );
       setIssuerLoading(false);
@@ -326,10 +445,10 @@ export default function CreateAccount() {
         formData.append("rootAuthorityId", issuer.rootAuthorityId);
       }
 
-      requiredDocuments.forEach((docKey) => {
-        const file = issuer.documentsByType?.[docKey];
+      requiredDocuments.forEach((doc) => {
+        const file = issuer.documentsByType?.[doc.key];
         if (file) {
-          formData.append(docKey, file);
+          formData.append(doc.key, file);
         }
       });
 
@@ -663,23 +782,28 @@ export default function CreateAccount() {
                     Please upload all required documents below.
                   </p>
 
-                  {requiredDocuments.map((docKey) => (
-                    <div key={docKey} className="input-group file-input-group">
-                      <label>{formatDocumentLabel(docKey)}</label>
+                  {requiredDocuments.map((doc) => (
+                    <div key={doc.key} className="input-group file-input-group">
+                      <label>{doc.label}</label>
+
+                      <small className="document-description">
+                        {doc.description}
+                      </small>
+
                       <input
                         type="file"
                         accept=".pdf,.jpg,.jpeg,.png"
                         onChange={(e) =>
                           handleIssuerDocumentChange(
-                            docKey,
+                            doc.key,
                             e.target.files?.[0] || null
                           )
                         }
                         required
                       />
-                      {issuer.documentsByType?.[docKey] && (
+                      {issuer.documentsByType?.[doc.key] && (
                         <small className="file-name-display">
-                          Selected: {issuer.documentsByType[docKey].name}
+                          Selected: {issuer.documentsByType[doc.key].name}
                         </small>
                       )}
                     </div>

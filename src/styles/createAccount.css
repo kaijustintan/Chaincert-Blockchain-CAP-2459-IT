@@ -594,3 +594,11 @@
     font-size: 15px;
   }
 }
+.document-description {
+  display: block;
+  margin-top: 4px;
+  margin-bottom: 8px;
+  font-size: 0.85rem;
+  color: #666;
+  line-height: 1.4;
+}

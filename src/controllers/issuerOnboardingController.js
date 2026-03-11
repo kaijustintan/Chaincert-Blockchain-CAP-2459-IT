@@ -1,5 +1,10 @@
 const couchDB = require('../couchDB_service');
-const ISSUER_CATEGORY_REQUIREMENTS = require('../config/issuerRequirements');
+
+const {
+  ISSUER_CATEGORY_REQUIREMENTS,
+  ISSUER_REQUIREMENT_METADATA
+} = require('../config/issuerRequirements');
+
 const bcrypt = require('bcryptjs');
 
 const issuerOnboardingController = {
@@ -100,6 +105,20 @@ const issuerOnboardingController = {
         uploadedFiles.map(file => String(file.fieldname || '').trim().toLowerCase())
       );
 
+      const allowedDocs = new Set([
+        ...ISSUER_CATEGORY_REQUIREMENTS[normalizedCategory],
+        ...(normalizedIssuerType === 'subordinate' ? ['root_authorization_letter'] : [])
+      ]);
+
+      const invalidDocs = [...uploadedFieldNames].filter(doc => !allowedDocs.has(doc));
+
+      if (invalidDocs.length > 0) {
+        return res.status(400).json({
+          success: false,
+          message: 'Invalid document type uploaded.',
+          invalidDocuments: invalidDocs
+        });
+      }
       const requiredDocs = [...ISSUER_CATEGORY_REQUIREMENTS[normalizedCategory]];
 
       if (normalizedIssuerType === 'subordinate') {
@@ -200,20 +219,19 @@ const issuerOnboardingController = {
         });
       }
 
-      const requirements = ISSUER_CATEGORY_REQUIREMENTS[category];
+     const requirements = ISSUER_CATEGORY_REQUIREMENTS[category];
 
-      if (!requirements) {
-        return res.status(404).json({
-          success: false,
-          message: 'No requirements found for the selected category.'
+        const requirementDetails = requirements.map((key) => ({
+          key,
+          label: ISSUER_REQUIREMENT_METADATA[key]?.label || key,
+          description: ISSUER_REQUIREMENT_METADATA[key]?.description || ""
+        }));
+
+        return res.status(200).json({
+          success: true,
+          category,
+          requiredDocuments: requirementDetails
         });
-      }
-
-      return res.status(200).json({
-        success: true,
-        category,
-        requiredDocuments: requirements
-      });
     } catch (error) {
       console.error('Error fetching issuer requirements:', error);
       return res.status(500).json({

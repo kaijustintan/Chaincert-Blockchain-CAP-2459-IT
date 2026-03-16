@@ -402,18 +402,21 @@ const [showAll, setShowAll] = useState(false);
 
         <div className="profile-info">
           <h2>{userName}</h2>       
-          <div className="profile-actions">
-            <button
-              className="link-btn"
-              onClick={() => window.open(`/profile-preview?userId=${userId}`, "_blank")}
-            >
-              Preview Public Profile
-            </button>
-            <span> | </span>
-            <button className="link-btn" onClick={handleOpenShareModal}> 
-              Share Profile
-            </button>
-          </div>
+          {/* Hide profile actions for admin role */}
+          {userRole !== "admin" && (
+            <div className="profile-actions">
+              <button
+                className="link-btn"
+                onClick={() => window.open(`/profile-preview?userId=${userId}`, "_blank")}
+              >
+                Preview Public Profile
+              </button>
+              <span> | </span>
+              <button className="link-btn" onClick={handleOpenShareModal}> 
+                Share Profile
+              </button>
+            </div>
+          )}
 
           {summary && !isEditingProfile && (
             <div className="profile-summary-display">
@@ -507,7 +510,8 @@ const [showAll, setShowAll] = useState(false);
         </div>
       </section>
 
-      {/* Personal Summary — only shown in edit mode or when summary exists - polo */}
+      {/* Hide Personal Summary for admin) */}
+      {userRole !== "admin" && (
       <section className="profile-section">
         <h3>Personal Summary</h3>
         {isEditingProfile ? (
@@ -552,9 +556,10 @@ const [showAll, setShowAll] = useState(false);
           </div>
         )}
       </section>
+      )} {/* end Personal Summary — hidden for admin */}
 
-      {/* Credential Wallet — hidden for issuers */}
-      {userRole !== "issuer" && (
+      {/* Credential Wallet — hidden for issuers and admin */}
+      {userRole !== "issuer" && userRole !== "admin" && (
       <section className="profile-section">
         <div className="section-header">
           <h3>Credential Wallet</h3>
@@ -610,8 +615,8 @@ const [showAll, setShowAll] = useState(false);
 
       )} {/* end Credential Wallet — hidden for issuers */}
 
-      {/* Skills Wallet — reads skills array from credentials, falls back to credentialType - polo */}
-      {userRole !== "issuer" && (
+      {/* Skills Wallet — hidden for issuers and admin */}
+      {userRole !== "issuer" && userRole !== "admin" && (
       <section className="profile-section">
         <div className="section-header">
           <h3>Skills Wallet</h3>

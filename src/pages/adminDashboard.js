@@ -1611,9 +1611,7 @@ const handleDownloadIssuerDocument = async (doc) => {
                         <th>Previous Status</th>
                         <th>New Status</th>
                         <th>Reason</th>
-                        <th>Admin Email</th>
                         <th>Performed By</th>
-                        <th>Performed By MSP</th>
                         <th>Tx ID</th>
                         <th>Timestamp</th>
                       </tr>
@@ -1635,12 +1633,6 @@ const handleDownloadIssuerDocument = async (doc) => {
                           <td>{log.reason || "—"}</td>
                           <td style={{ fontFamily: "monospace", fontSize: "12px" }}>
                             {log.adminEmail || "N/A"}
-                          </td>
-                          <td style={{ fontFamily: "monospace", fontSize: "12px" }}>
-                            {log.performedBy || "N/A"}
-                          </td>
-                          <td style={{ fontFamily: "monospace", fontSize: "12px" }}>
-                            {log.performedByMSP || "N/A"}
                           </td>
                           <td style={{ fontFamily: "monospace", fontSize: "12px" }}>
                             {log.txId ? `${String(log.txId).slice(0, 18)}...` : "N/A"}
@@ -2389,7 +2381,10 @@ const handleDownloadIssuerDocument = async (doc) => {
                 <select
                   id="statusLogFilter"
                   value={statusLogFilter}
-                  onChange={(e) => setStatusLogFilter(e.target.value)}
+                  onChange={(e) => {
+                    setStatusLogFilter(e.target.value);
+                    fetchStatusLogs(e.target.value, statusLogEmailSearch); // pass current email on filter change
+                  }}
                 >
                   <option value="all">All</option>
                   <option value="issuers">Issuers</option>
@@ -2495,9 +2490,9 @@ const handleDownloadIssuerDocument = async (doc) => {
                           <th>Org Name</th>
                           <th>Decision</th>
                           <th>Reason</th>
-                          <th>Changed By (Admin Email)</th>
-                          <th>Performed By (Fabric Identity)</th>
-                          <th>Performed By MSP</th>
+                          <th>Approved / Rejected By</th>
+                          <th>Performed By</th>
+                          <th>MSP</th>
                           <th>Tx ID</th>
                           <th>Timestamp</th>
                         </tr>
@@ -2667,6 +2662,7 @@ const handleDownloadIssuerDocument = async (doc) => {
               ) : statusLogs.length > 0 ? (
                 <div className="table-wrapper">
                   <table className="admin-table">
+                    {/* Removed Admin Email + Performed By (fabric) columns, renamed Performed By MSP → Performed By */}
                     <thead>
                       <tr>
                         <th>Log ID</th>
@@ -2675,9 +2671,7 @@ const handleDownloadIssuerDocument = async (doc) => {
                         <th>Previous Status</th>
                         <th>New Status</th>
                         <th>Reason</th>
-                        <th>Admin Email</th>
                         <th>Performed By</th>
-                        <th>Performed By MSP</th>
                         <th>Tx ID</th>
                         <th>Timestamp</th>
                       </tr>
@@ -2705,12 +2699,6 @@ const handleDownloadIssuerDocument = async (doc) => {
                           <td>{log.reason || "N/A"}</td>
                           <td style={{ fontFamily: "monospace", fontSize: "12px" }}>
                             {log.adminEmail || "N/A"}
-                          </td>
-                          <td style={{ fontFamily: "monospace", fontSize: "12px" }}>
-                            {log.performedBy || "N/A"}
-                          </td>
-                          <td style={{ fontFamily: "monospace", fontSize: "12px" }}>
-                            {log.performedByMSP || "N/A"}
                           </td>
                           <td style={{ fontFamily: "monospace", fontSize: "12px" }}>
                             {log.txId ? `${String(log.txId).slice(0, 18)}...` : "N/A"}

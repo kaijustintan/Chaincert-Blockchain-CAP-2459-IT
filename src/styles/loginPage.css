@@ -1,6 +1,6 @@
 /* =====================================================
-   LOGIN PAGE - Purple Glassmorphism Theme
-   Matching ChainCert Dashboard Aesthetic
+   LOGIN PAGE - Professional Dark Theme
+   ChainCert Platform
    ===================================================== */
 
 /* =====================================================
@@ -60,20 +60,19 @@
   animation: fadeInLeft 0.6s ease-out;
 }
 
-/* CSS-FIX: dark opaque card containing the left-side text - polo */
 .login-left-card {
-  background: rgba(12, 8, 32, 0.9);
-  border: 1px solid rgba(139, 92, 246, 0.2);
+  background: rgba(10, 14, 28, 0.92);
+  border: 1px solid rgba(99, 130, 201, 0.2);
   border-radius: 20px;
-  padding: 32px 30px;
-  max-width: 400px;
+  padding: 36px 32px;
+  max-width: 420px;
   width: 100%;
-  box-shadow: 0 12px 48px rgba(0, 0, 0, 0.4);
+  box-shadow: 0 12px 48px rgba(0, 0, 0, 0.5);
   position: relative;
   overflow: hidden;
 }
 
-/* Top gradient accent on the left card */
+/* Top accent — toned down to steel blue */
 .login-left-card::before {
   content: '';
   position: absolute;
@@ -81,11 +80,10 @@
   left: 0;
   right: 0;
   height: 3px;
-  background: linear-gradient(90deg, #667eea, #764ba2, #667eea);
+  background: linear-gradient(90deg, #3b5bdb, #5c7cfa, #3b5bdb);
   border-radius: 20px 20px 0 0;
 }
 
-/* CSS-FIX: decorative purple glow orb behind left card for life - polo */
 .login-left-card::after {
   content: '';
   position: absolute;
@@ -93,12 +91,11 @@
   right: -40px;
   width: 120px;
   height: 120px;
-  background: radial-gradient(circle, rgba(139, 92, 246, 0.15) 0%, transparent 70%);
+  background: radial-gradient(circle, rgba(91, 124, 250, 0.1) 0%, transparent 70%);
   border-radius: 50%;
   pointer-events: none;
 }
 
-/* CSS-FIX: wrap left content in a dark opaque box - polo */
 .login-left h1,
 .login-left p,
 .login-left ul {
@@ -107,16 +104,17 @@
 }
 
 .login-left h1 {
-  font-size: 1.8rem;
+  font-size: 1.75rem;
   font-weight: 700;
   margin-bottom: 0.6rem;
   color: #fff;
+  letter-spacing: -0.01em;
 }
 
 .login-left p {
   font-size: 0.85rem;
   margin-bottom: 1rem;
-  color: #c4b5fd;
+  color: #94a3b8;
 }
 
 .login-left ul {
@@ -127,8 +125,8 @@
 
 .login-left li {
   font-size: 0.85rem;
-  margin-bottom: 0.65rem;
-  color: #e0dff0;
+  margin-bottom: 0.7rem;
+  color: #cbd5e1;
   transition: all 0.3s ease;
   padding-left: 4px;
 }
@@ -152,15 +150,15 @@
 }
 
 /* =====================================================
-   LOGIN BOX (Glassmorphism Card)
+   LOGIN BOX
    ===================================================== */
 .login-box {
-  background: rgba(12, 8, 32, 0.94);
-  border: 1px solid rgba(139, 92, 246, 0.2);
-  padding: 2rem;
+  background: rgba(10, 14, 28, 0.95);
+  border: 1px solid rgba(99, 130, 201, 0.18);
+  padding: 2.2rem;
   border-radius: 20px;
-  box-shadow: 0 12px 48px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(139, 92, 246, 0.08);
-  width: 340px;
+  box-shadow: 0 12px 48px rgba(0, 0, 0, 0.55), inset 0 1px 0 rgba(99, 130, 201, 0.06);
+  width: 360px;
   max-width: 95vw;
   text-align: center;
   color: #fff;
@@ -170,7 +168,6 @@
   transition: transform 0.3s ease, box-shadow 0.3s ease;
 }
 
-/* Top gradient accent */
 .login-box::before {
   content: '';
   position: absolute;
@@ -178,33 +175,35 @@
   left: 0;
   right: 0;
   height: 3px;
-  background: linear-gradient(90deg, #667eea, #764ba2, #667eea);
+  background: linear-gradient(90deg, #3b5bdb, #5c7cfa, #3b5bdb);
 }
 
 .login-box:hover {
-  transform: translateY(-4px);
-  box-shadow: 0 20px 64px rgba(0, 0, 0, 0.6), 0 0 0 1px rgba(139, 92, 246, 0.15);
+  transform: translateY(-3px);
+  box-shadow: 0 20px 64px rgba(0, 0, 0, 0.6), 0 0 0 1px rgba(99, 130, 201, 0.12);
 }
 
 /* =====================================================
    BRAND NAME & TAGLINE
    ===================================================== */
 .brand-name {
-  font-size: 1.5rem;
+  font-size: 1.6rem;
   font-weight: 800;
   margin-bottom: 0.2rem;
-  background: linear-gradient(135deg, #a78bfa, #c4b5fd, #818cf8);
+  background: linear-gradient(135deg, #748ffc, #a5b4fc, #5c7cfa);
   background-size: 300% 100%;
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
-  animation: gradientShift 4s ease infinite;
+  animation: gradientShift 5s ease infinite;
+  letter-spacing: -0.01em;
 }
 
 .tagline {
   font-size: 0.72rem;
-  color: #a78bfa;
-  margin-bottom: 1.2rem;
-  letter-spacing: 0.3px;
+  color: #64748b;
+  margin-bottom: 1.4rem;
+  letter-spacing: 0.4px;
+  text-transform: uppercase;
 }
 
 /* =====================================================
@@ -225,7 +224,7 @@
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.8px;
-  color: #a78bfa;
+  color: #94a3b8;
   display: block;
   margin-bottom: 5px;
 }
@@ -234,24 +233,24 @@
   width: 100%;
   padding: 10px 14px;
   border-radius: 10px;
-  border: 1px solid rgba(139, 92, 246, 0.25);
+  border: 1px solid rgba(99, 130, 201, 0.2);
   font-size: 13px;
   font-family: 'Poppins', sans-serif;
-  background: rgba(18, 12, 45, 0.95);
-  color: #e5e5e5;
+  background: rgba(15, 20, 40, 0.95);
+  color: #e2e8f0;
   transition: all 0.3s ease;
   box-sizing: border-box;
 }
 
 .input-group input::placeholder {
-  color: rgba(255, 255, 255, 0.3);
+  color: rgba(255, 255, 255, 0.2);
 }
 
 .input-group input:focus {
   outline: none;
-  border-color: #8b5cf6;
-  box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.15);
-  background: rgba(22, 16, 55, 0.98);
+  border-color: #5c7cfa;
+  box-shadow: 0 0 0 3px rgba(92, 124, 250, 0.12);
+  background: rgba(18, 24, 50, 0.98);
 }
 
 .input-group input:disabled {
@@ -263,7 +262,7 @@
    LOGIN BUTTON
    ===================================================== */
 .login-btn {
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: linear-gradient(135deg, #3b5bdb 0%, #5c7cfa 100%);
   color: #fff;
   border: none;
   padding: 11px;
@@ -275,9 +274,10 @@
   font-weight: 600;
   font-family: 'Poppins', sans-serif;
   transition: all 0.3s ease;
-  box-shadow: 0 4px 20px rgba(102, 126, 234, 0.3);
+  box-shadow: 0 4px 20px rgba(59, 91, 219, 0.3);
   position: relative;
   overflow: hidden;
+  letter-spacing: 0.3px;
 }
 
 .login-btn::after {
@@ -287,7 +287,7 @@
   left: -100%;
   width: 100%;
   height: 100%;
-  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.1), transparent);
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.08), transparent);
   transition: none;
 }
 
@@ -297,7 +297,7 @@
 
 .login-btn:hover:not(:disabled) {
   transform: translateY(-2px);
-  box-shadow: 0 8px 28px rgba(102, 126, 234, 0.45);
+  box-shadow: 0 8px 28px rgba(59, 91, 219, 0.4);
 }
 
 .login-btn:active:not(:disabled) {
@@ -313,23 +313,23 @@
    ERROR BANNER
    ===================================================== */
 .error-banner {
-  background: rgba(239, 68, 68, 0.1);
-  border: 1px solid rgba(239, 68, 68, 0.25);
-  color: #f87171;
+  background: rgba(220, 38, 38, 0.08);
+  border: 1px solid rgba(220, 38, 38, 0.2);
+  color: #fca5a5;
   padding: 12px 16px;
-  border-radius: 12px;
+  border-radius: 10px;
   margin-bottom: 16px;
   display: flex;
   align-items: center;
   gap: 8px;
-  font-size: 13px;
+  font-size: 12.5px;
   font-weight: 500;
   animation: shake 0.3s ease;
   text-align: left;
 }
 
 .error-banner span {
-  font-size: 16px;
+  font-size: 15px;
 }
 
 /* =====================================================
@@ -343,44 +343,15 @@
 }
 
 .extra-links a {
-  color: #a78bfa;
+  color: #748ffc;
   text-decoration: none;
   font-weight: 600;
   transition: all 0.3s ease;
 }
 
 .extra-links a:hover {
-  color: #c4b5fd;
+  color: #a5b4fc;
   text-decoration: underline;
-}
-
-/* =====================================================
-   DEMO CREDENTIALS
-   ===================================================== */
-.demo-credentials {
-  margin-top: 16px;
-  padding: 12px;
-  background: rgba(139, 92, 246, 0.06);
-  border: 1px solid rgba(139, 92, 246, 0.12);
-  border-radius: 10px;
-  text-align: center;
-}
-
-.demo-credentials p {
-  margin: 0 0 6px 0;
-  color: #c4b5fd;
-  font-size: 11px;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-}
-
-.demo-credentials small {
-  color: #b0adc0;
-  font-size: 10px;
-  display: block;
-  margin: 3px 0;
-  font-family: 'Courier New', monospace;
 }
 
 /* =====================================================
@@ -402,7 +373,7 @@
   }
 
   .login-left h1 {
-    font-size: 2rem;
+    font-size: 1.8rem;
   }
 
   .login-left ul {
@@ -420,7 +391,7 @@
   }
 
   .login-left h1 {
-    font-size: 1.6rem;
+    font-size: 1.5rem;
   }
 
   .login-box {
@@ -429,6 +400,6 @@
   }
 
   .brand-name {
-    font-size: 1.5rem;
+    font-size: 1.4rem;
   }
 }

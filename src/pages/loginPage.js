@@ -76,8 +76,7 @@ function LoginPage() {
       
       setError(userResponse.message || userResponse.error || 'Login failed.');
     } catch (userError) {
-      const userMessage = userError?.response?.data?.message;
-      setError(userMessage || 'Invalid credentials or server error.');
+      setError('Invalid credentials.');
       console.error('Login error:', userError);
     }
     
@@ -91,8 +90,8 @@ function LoginPage() {
       <div className="login-left">
         {/* CSS-CHANGE: wrapped in login-left-card for dark box styling - polo */}
         <div className="login-left-card">
-          <h1>Level up your future.</h1>
-          <p>Join the ChainCert platform where you can:</p>
+          <h1>Your Credentials, Verified.</h1> 
+          <p>ChainCert is a blockchain-powered platform that enables you to:</p>
           <ul>
             <li>✔ Secure and verify your academic credentials</li>
             <li>✔ Share your achievements with employers</li>
@@ -160,11 +159,7 @@ function LoginPage() {
           </div>
 
 
-          <div className="demo-credentials">
-            <p><strong>Demo Accounts:</strong></p>
-            <small>Issuer: issuer1@example.com / password123</small><br/>
-            <small>Holder: student1@example.com / password123</small>
-          </div>
+          {/*removed demo accounts*/}
         </div>
       </div>
     </div>

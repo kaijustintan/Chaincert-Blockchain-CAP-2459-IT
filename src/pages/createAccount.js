@@ -826,32 +826,39 @@ const getDocumentDescription = (docKey) => {
               </button>
             </form>
           ) : (
-            <div className="issuer-message">
-              <div className="success-icon">✅</div>
-              <h3>Registration Submitted!</h3>
+            <div className="issuer-message"> {/* CSS-CHANGE: formal submission confirmation - polo */}
+              <div className="success-icon">📋</div>
+              <h3>Application Received</h3>
+              <p className="issuer-message-lead">
+                Thank you for submitting your issuer registration with ChainCert.
+              </p>
 
               {issuer.issuerType === "subordinate" ? (
                 <>
                   <p>
-                    Your subordinate issuer application is now pending root
-                    authority review.
+                    Your application has been received and is currently pending review
+                    by your selected root authority. Upon their approval, it will be
+                    forwarded to the ChainCert administration team for final evaluation.
                   </p>
                   <p>
-                    Once approved by the selected root authority, it will proceed
-                    to ChainCert admin review.
+                    Please ensure that your submitted documents are complete and accurate
+                    to avoid delays in the review process.
                   </p>
                 </>
               ) : (
                 <>
                   <p>
-                    You are waitlisted and your registration is subject to admin
-                    approval.
+                    Your application has been successfully submitted and is now under
+                    review by the ChainCert administration team. You will be notified
+                    once a decision has been made regarding your application.
                   </p>
-                  <p>Please wait for confirmation from the admin team.</p>
+                  <p>
+                    Please allow some time for the review process to be completed.
+                    Ensure your contact email is active for any correspondence.
+                  </p>
                 </>
               )}
 
-              {/* CSS-CHANGE: redirect to login instead of home - polo */}
               <button className="btn-primary" onClick={() => navigate("/login")}>
                 Return to Login
               </button>

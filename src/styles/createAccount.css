@@ -505,15 +505,27 @@
 
 .issuer-message h3 {
   color: #fff;
-  font-size: 20px;
+  font-size: 22px;
+  font-weight: 700;
   margin: 0 0 12px 0;
+  letter-spacing: -0.01em;
+}
+
+.issuer-message-lead {
+  color: #c4b5fd;
+  font-size: 14px;
+  font-weight: 600;
+  margin-bottom: 20px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid rgba(139, 92, 246, 0.15);
 }
 
 .issuer-message p {
   color: #d4d4d8;
-  font-size: 14px;
-  line-height: 1.6;
-  margin-bottom: 16px;
+  font-size: 13.5px;
+  line-height: 1.7;
+  margin-bottom: 12px;
+  text-align: left;
 }
 
 /* =====================================================

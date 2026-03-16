@@ -26,7 +26,7 @@
 import React, { useState, useEffect, useMemo, useRef } from "react";
 import apiService from "../services/apiService";
 import "../styles/studentDashboard.css";
-import { exportCredentialToPDF } from '../services/pdfExportService'; // - polo
+import { exportCredentialToPDF, exportAllCredentialsToPDF } from '../services/pdfExportService'; 
 
 // ==========================================================================================================================================================================
 // HELPERS
@@ -91,6 +91,7 @@ export default function StudentDashboard() {
   const [view, setView] = useState("cards");
   const [query, setQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
+  const [sortBy, setSortBy] = useState("newest"); 
 
   /* Credential detail modal
      Technical: selectedCred holds the full CouchDB doc when user clicks a card
@@ -204,24 +205,41 @@ export default function StudentDashboard() {
   // ── Filter logic ───────────────────────────────────────────────────────────
 
   const filtered = useMemo(() => {
-    return credentials.filter((c) => {
+    let result = credentials.filter((c) => {
       const searchable = [c.credentialName, c.credentialType, c.issuerName]
         .join(" ")
         .toLowerCase();
 
       const matchesQ = searchable.includes(query.toLowerCase());
 
-      /* Technical: CouchDB uses "issued" status, normalize for filter comparison
-         // - polo
-      */
       const normalizedStatus = c.status === "issued" ? "active" : c.status;
       const matchesS = statusFilter === "all" ? true : normalizedStatus === statusFilter;
 
       return matchesQ && matchesS;
     });
-  }, [credentials, query, statusFilter]);
 
-  /* CSS-CHANGE: Compute stats from credentials for the stats bar - polo */
+    if (sortBy === "newest") {
+      result = [...result].sort((a, b) =>
+        new Date(b.savedToUserWalletAt || 0) - new Date(a.savedToUserWalletAt || 0)
+      );
+    } else if (sortBy === "oldest") {
+      result = [...result].sort((a, b) =>
+        new Date(a.savedToUserWalletAt || 0) - new Date(b.savedToUserWalletAt || 0)
+      );
+    } else if (sortBy === "az") {
+      result = [...result].sort((a, b) =>
+        (a.credentialName || "").localeCompare(b.credentialName || "")
+      );
+    } else if (sortBy === "za") {
+      result = [...result].sort((a, b) =>
+        (b.credentialName || "").localeCompare(a.credentialName || "")
+      );
+    }
+
+    return result;
+  }, [credentials, query, statusFilter, sortBy]);
+
+  /* Compute stats from credentials for the stats bar */
   const stats = useMemo(() => {
     const active = credentials.filter(
       (c) => c.status === "issued" || c.status === "active"
@@ -457,28 +475,44 @@ export default function StudentDashboard() {
         </div>
       </div>
 
-      {/* CSS-CHANGE: Stats bar - polo */}
+      {/* Stats bar — clickable counters */}
       {!loading && !error && credentials.length > 0 && (
         <div className="stats-bar">
-          <div className="stat-item">
+          <div
+            className={`stat-item stat-clickable${statusFilter === "all" ? " stat-selected" : ""}`}
+            onClick={() => setStatusFilter("all")}
+            title="Show all credentials"
+          >
             <span className="stat-number">{stats.total}</span>
             <span className="stat-label">Total</span>
           </div>
 
-          <div className="stat-item stat-active">
+          <div
+            className={`stat-item stat-active stat-clickable${statusFilter === "active" ? " stat-selected" : ""}`}
+            onClick={() => setStatusFilter("active")}
+            title="Show active credentials"
+          >
             <span className="stat-number">{stats.active}</span>
             <span className="stat-label">Active</span>
           </div>
 
           {stats.revoked > 0 && (
-            <div className="stat-item stat-revoked">
+            <div
+              className={`stat-item stat-revoked stat-clickable${statusFilter === "revoked" ? " stat-selected" : ""}`}
+              onClick={() => setStatusFilter("revoked")}
+              title="Show revoked credentials"
+            >
               <span className="stat-number">{stats.revoked}</span>
               <span className="stat-label">Revoked</span>
             </div>
           )}
 
           {stats.expired > 0 && (
-            <div className="stat-item stat-expired">
+            <div
+              className={`stat-item stat-expired stat-clickable${statusFilter === "expired" ? " stat-selected" : ""}`}
+              onClick={() => setStatusFilter("expired")}
+              title="Show expired credentials"
+            >
               <span className="stat-number">{stats.expired}</span>
               <span className="stat-label">Expired</span>
             </div>
@@ -505,7 +539,7 @@ export default function StudentDashboard() {
         </div>
       </div>
 
-      {/* Controls */}
+      {/* Controls row with sort + export all */}
       <div className="controls">
         <input
           type="text"
@@ -523,7 +557,30 @@ export default function StudentDashboard() {
           <option value="expired">Expired</option>
           <option value="revoked">Revoked</option>
         </select>
+
+        <select
+          value={sortBy}
+          onChange={(e) => setSortBy(e.target.value)}
+          className="controls-sort"
+        >
+          <option value="newest">📅 Most Recent</option>
+          <option value="oldest">📅 Oldest First</option>
+          <option value="az">🔤 Name A–Z</option>
+          <option value="za">🔤 Name Z–A</option>
+        </select>
       </div>
+
+      {/* CSS-CHANGE: Export All button */}
+      {!loading && !error && credentials.length > 0 && (
+        <div style={{ marginBottom: 16, textAlign: "right" }}>
+          <button
+            className="export-all-btn"
+            onClick={() => exportAllCredentialsToPDF(credentials, displayName)}
+          >
+            📄 Export All as PDF
+          </button>
+        </div>
+      )}
 
       {/* Content */}
       <div className="content">

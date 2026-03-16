@@ -439,7 +439,9 @@ export default function CredentialHistoryPage() {
             <small>Filtered and sorted by selected criteria</small>
           </div>
 
-         <table className="template-table">
+         {/* Wrapped in scrollable container, full IDs shown */}
+         <div className="table-container" style={{ overflowX: "auto" }}>
+         <table className="template-table" style={{ minWidth: 1100 }}>
   <thead>
     <tr>
       <th>Timestamp</th>
@@ -447,8 +449,8 @@ export default function CredentialHistoryPage() {
       <th>Credential Name</th>
       <th>Credential Type</th>
       <th>Status</th>
-      <th>Holder Name</th> 
-      <th>Holder ID</th>   
+      <th>Holder Name</th>
+      <th>Holder ID</th>
       <th>Credential ID</th>
       <th>Transaction ID</th>
     </tr>
@@ -461,7 +463,7 @@ export default function CredentialHistoryPage() {
 
       return (
         <tr key={`${record.credentialId}-${record.txId}-${index}`}>
-          <td>{formatDate(record.timestamp)}</td>
+          <td style={{ whiteSpace: "nowrap" }}>{formatDate(record.timestamp)}</td>
 
           <td>
             <span className={getActionBadgeClass(action)}>
@@ -481,31 +483,28 @@ export default function CredentialHistoryPage() {
             </span>
           </td>
 
-          {/* ✅ NEW: Holder Name (snapshot from CouchDB / history API) */}
           <td>{record.holderName || "N/A"}</td>
 
-          {/* ✅ NEW: Holder ID (always from value.holderID) */}
-          <td className="history-mono-cell">
-            {(record.value?.holderID || "N/A").substring(0, 20)}
-            {(record.value?.holderID && record.value.holderID.length > 20) ? "..." : ""}
+          {/* /Full Holder ID — no truncation */}
+          <td className="history-mono-cell" style={{ whiteSpace: "nowrap" }}>
+            {record.value?.holderID || "N/A"}
           </td>
 
-          {/* Credential ID */}
-          <td className="history-mono-cell">
-            {(record.credentialId || "N/A").substring(0, 20)}
-            {(record.credentialId && record.credentialId.length > 20) ? "..." : ""}
+          {/* Full Credential ID — no truncation */}
+          <td className="history-mono-cell" style={{ whiteSpace: "nowrap" }}>
+            {record.credentialId || "N/A"}
           </td>
 
-          {/* Tx ID */}
-          <td className="history-mono-cell">
-            {(record.txId || "N/A").substring(0, 12)}
-            {(record.txId && record.txId.length > 12) ? "..." : ""}
+          {/* Full Tx ID — no truncation */}
+          <td className="history-mono-cell" style={{ whiteSpace: "nowrap" }}>
+            {record.txId || "N/A"}
           </td>
         </tr>
       );
     })}
   </tbody>
 </table>
+</div>
         </>
       )}
 

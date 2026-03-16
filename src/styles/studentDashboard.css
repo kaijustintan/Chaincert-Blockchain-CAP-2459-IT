@@ -244,6 +244,38 @@
   box-shadow: 0 6px 20px rgba(139, 92, 246, 0.12);
 }
 
+/* Clickable stat counters */
+.stat-clickable {
+  cursor: pointer;
+  user-select: none;
+}
+
+.stat-clickable:hover {
+  border-color: rgba(139, 92, 246, 0.55) !important;
+  box-shadow: 0 8px 24px rgba(139, 92, 246, 0.2) !important;
+  transform: translateY(-3px) !important;
+}
+
+.stat-selected {
+  box-shadow: 0 0 0 2px rgba(139, 92, 246, 0.6), 0 6px 20px rgba(139, 92, 246, 0.2) !important;
+  border-color: rgba(139, 92, 246, 0.7) !important;
+}
+
+.stat-active.stat-selected {
+  box-shadow: 0 0 0 2px rgba(74, 222, 128, 0.6), 0 6px 20px rgba(74, 222, 128, 0.15) !important;
+  border-color: rgba(74, 222, 128, 0.7) !important;
+}
+
+.stat-revoked.stat-selected {
+  box-shadow: 0 0 0 2px rgba(248, 113, 113, 0.6), 0 6px 20px rgba(248, 113, 113, 0.15) !important;
+  border-color: rgba(248, 113, 113, 0.7) !important;
+}
+
+.stat-expired.stat-selected {
+  box-shadow: 0 0 0 2px rgba(251, 191, 36, 0.6), 0 6px 20px rgba(251, 191, 36, 0.15) !important;
+  border-color: rgba(251, 191, 36, 0.7) !important;
+}
+
 .stat-number {
   font-size: 28px;
   font-weight: 700;
@@ -377,6 +409,31 @@
   border-color: #8b5cf6;
   box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.15);
   background: rgba(22, 16, 55, 0.98);
+}
+
+/* Sort dropdown in controls */
+.controls-sort {
+  max-width: 180px;
+}
+
+/* Export all button */
+.export-all-btn {
+  padding: 10px 20px;
+  border: none;
+  border-radius: 12px;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: #fff;
+  font-size: 13px;
+  font-weight: 600;
+  font-family: 'Poppins', sans-serif;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  box-shadow: 0 4px 16px rgba(102, 126, 234, 0.3);
+}
+
+.export-all-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px rgba(102, 126, 234, 0.45);
 }
 
 .controls select {

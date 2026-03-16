@@ -4,17 +4,44 @@ import apiService from "../services/apiService";
 import '../styles/profilePreview.css';
 
 export default function ProfilePreview() {
-  const { token } = useParams(); // - polo: token from URL /profile/:token
+  const { token } = useParams(); // token from URL /profile/:token
 
-  // ── Gate state - polo ──────────────────────────────────────────
-  const [gateStage, setGateStage] = useState('email'); // 'email' | 'otp' | 'verified'
+  // ── Owner bypass check ──────────────────────────────────
+  // If userId query param matches logged-in user, skip OTP gate entirely
+  const urlParams = new URLSearchParams(window.location.search);
+  const previewUserId = urlParams.get('userId');
+  const loggedInUser = JSON.parse(localStorage.getItem('user') || '{}');
+  const loggedInUserId = loggedInUser._id || loggedInUser.id || '';
+  const isOwner = previewUserId && loggedInUserId && previewUserId === loggedInUserId;
+
+  // check if this is a public link (no recipient email required)
+  const [isPublicLink, setIsPublicLink] = useState(false);
+
+  useEffect(() => {
+    const checkLinkType = async () => {
+      if (!token || isOwner) return;
+      try {
+        const result = await apiService.getShareLinkInfo(token);
+        if (result.success && result.valid && result.recipientEmail === null) {
+          setIsPublicLink(true);
+          setGateStage('verified');
+        }
+      } catch (err) {
+        console.error('[PROFILE PREVIEW] Error checking link type:', err);
+      }
+    };
+    checkLinkType();
+  }, [token, isOwner]); 
+
+  // ── Gate state ──────────────────────────────────────────
+  const [gateStage, setGateStage] = useState(isOwner ? 'verified' : 'email'); // 'email' | 'otp' | 'verified'
   const [gateEmail, setGateEmail] = useState('');
   const [gateOtp, setGateOtp] = useState('');
   const [gateError, setGateError] = useState('');
   const [gateLoading, setGateLoading] = useState(false);
   const [resendCooldown, setResendCooldown] = useState(0); // seconds remaining
 
-  // ── Profile data state - polo ──────────────────────────────────
+  // ── Profile data state  ──────────────────────────────────
   const [profileData, setProfileData] = useState(null); // set after OTP verified
   const [summary, setSummary] = useState('');
   const [loading, setLoading] = useState(false);
@@ -37,15 +64,71 @@ export default function ProfilePreview() {
     return () => clearTimeout(timer);
   }, [resendCooldown]);
 
+  // ── Load owner profile directly if owner is previewing
+  useEffect(() => {
+    if (!isOwner || !previewUserId) return;
+    const loadOwnerProfile = async () => {
+      try {
+        const response = await apiService.getUserInfo(previewUserId);
+        if (response.success && response.user) {
+          setProfileData({
+            id: response.user.id,
+            name: response.user.name,
+            email: response.user.email,
+            role: response.user.role,
+            summary: response.user.summary || '',
+            profilePicture: response.user.profilePicture || null
+          });
+          setSummary(response.user.summary || '');
+          if (response.user.profilePicture) setAvatar(response.user.profilePicture);
+        }
+      } catch (err) {
+        console.error('[PROFILE PREVIEW] Error loading owner profile:', err);
+      }
+    };
+    loadOwnerProfile();
+  }, [isOwner, previewUserId]); 
+
+  // ── Load profile for public link visitors ───────────────
+  useEffect(() => {
+    if (!isPublicLink || isOwner) return;
+    const loadPublicProfile = async () => {
+      try {
+        const doc = await apiService.getShareLinkInfo(token);
+        if (!doc.success) return;
+        const response = await apiService.getUserInfo(doc.userId);
+        if (response.success && response.user) {
+          setProfileData({
+            id: response.user.id,
+            name: response.user.name,
+            email: response.user.email,
+            role: response.user.role,
+            summary: response.user.summary || '',
+            profilePicture: response.user.profilePicture || null
+          });
+          setSummary(response.user.summary || '');
+          if (response.user.profilePicture) setAvatar(response.user.profilePicture);
+        }
+      } catch (err) {
+        console.error('[PROFILE PREVIEW] Error loading public profile:', err);
+      }
+    };
+    loadPublicProfile();
+  }, [isPublicLink, isOwner, token]); 
+
   // ── Load credentials after OTP verified - polo ─────────────────
   useEffect(() => {
-    if (gateStage !== 'verified' || !userId) return;
+    const effectiveUserId = isOwner ? previewUserId : userId;
+    if (gateStage !== 'verified' || !effectiveUserId) return;
     const fetchCredentials = async () => {
       setCredLoading(true);
       try {
-        const data = await apiService.Get_UserCredentials(userId);
-        const publicOnly = Array.isArray(data)
-          ? data
+        const data = await apiService.Get_UserCredentials(effectiveUserId);
+        // Owner sees ALL credentials, recipient sees only public ones - polo
+        const filtered = Array.isArray(data)
+          ? isOwner
+            ? data.sort((a, b) => (a.currentOrder ?? 0) - (b.currentOrder ?? 0))
+            : data
               .filter(c =>
                 c.visibility === 'public' &&
                 c.status !== 'revoked' &&
@@ -55,7 +138,7 @@ export default function ProfilePreview() {
               )
               .sort((a, b) => (a.currentOrder ?? 0) - (b.currentOrder ?? 0))
           : [];
-        setCredentials(publicOnly);
+        setCredentials(filtered);
       } catch (err) {
         console.error('[PROFILE PREVIEW] Error fetching credentials:', err);
       } finally {
@@ -63,7 +146,7 @@ export default function ProfilePreview() {
       }
     };
     fetchCredentials();
-  }, [gateStage, userId]);
+  }, [gateStage, userId, isOwner, previewUserId]); 
 
   // ── Gate handlers - polo ───────────────────────────────────────
   const handleRequestOTP = async () => {

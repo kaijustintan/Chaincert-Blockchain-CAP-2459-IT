@@ -128,7 +128,12 @@ const accountController = {
         return res.status(403).json({ success: false, message: 'This link has expired.' });
       }
 
-      return res.status(200).json({ success: true, valid: true });
+      return res.status(200).json({ 
+        success: true, 
+        valid: true,
+        recipientEmail: doc.recipientEmail || null, // null means public link
+        userId: doc.userId // needed for public link profile load
+      });
     } catch (error) {
       console.error('[SHARE] getShareLinkInfo error:', error);
       return res.status(500).json({ success: false, message: error.message });
@@ -343,6 +348,46 @@ const accountController = {
       return res.status(200).json({ success: true, message: 'Password reset successful. You may now log in.' });
     } catch (error) {
       console.error('[FORGOT-PW] resetPassword error:', error);
+      return res.status(500).json({ success: false, message: error.message });
+    }
+  },
+
+  // ============================================================
+  // PUBLIC SHARE LINK (no recipient, no OTP) 
+  // ============================================================
+
+  generatePublicShareLink: async (req, res) => {
+    try {
+      const { durationDays } = req.body;
+      const userId = req.user?.id || req.user?._id;
+
+      if (!userId) {
+        return res.status(401).json({ success: false, message: 'Unauthorized.' });
+      }
+
+      // Calculate expiry 
+      let expiresAt = null;
+      if (durationDays && durationDays !== 'none') {
+        const expiry = new Date();
+        expiry.setDate(expiry.getDate() + parseInt(durationDays));
+        expiresAt = expiry.toISOString();
+      }
+
+      // Generate unique token 
+      const token = crypto.randomBytes(24).toString('hex');
+
+      await couchDB.createProfileShareLink(userId, token, null, expiresAt);
+
+      const shareUrl = `http://localhost:3000/profile/${token}`;
+
+      return res.status(200).json({
+        success: true,
+        message: 'Public share link generated.',
+        shareUrl,
+        token
+      });
+    } catch (error) {
+      console.error('[SHARE] generatePublicShareLink error:', error);
       return res.status(500).json({ success: false, message: error.message });
     }
   },

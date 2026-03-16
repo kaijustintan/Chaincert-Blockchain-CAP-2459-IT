@@ -61,6 +61,9 @@ const [showAll, setShowAll] = useState(false);
   // Ref for the hidden file input
   const fileInputRef = useRef(null);
 
+  // pending profile picture (not yet uploaded, only on Save Changes)
+  const [pendingAvatar, setPendingAvatar] = useState(null); // { file, previewUrl }
+
   // Generate profile URL based on username
   const profileUrl = `https://www.chaincert.com/users/${userName
     .toLowerCase()
@@ -225,6 +228,13 @@ const [showAll, setShowAll] = useState(false);
   };
 
   const handleCancelEditProfile = () => {
+    // revert preview if picture was not saved
+    if (pendingAvatar) {
+      setAvatar(
+        JSON.parse(localStorage.getItem('user') || '{}').profilePicture || '👤'
+      );
+      setPendingAvatar(null);
+    }
     setIsEditingProfile(false);
   };
 
@@ -234,6 +244,19 @@ const [showAll, setShowAll] = useState(false);
     try {
       const trimmedName = editNameInput.trim();
       console.log("[DEBUG] Saving profile with name:", trimmedName);
+
+      // upload pending profile picture if one was selected
+      if (pendingAvatar?.file) {
+        const formData = new FormData();
+        formData.append('profilePicture', pendingAvatar.file);
+        formData.append('userId', userId);
+        const picResponse = await apiService.uploadProfilePicture(formData);
+        if (picResponse.success) {
+          setAvatar(picResponse.imageUrl);
+        }
+        setPendingAvatar(null); // clear pending after upload
+      }
+
       await apiService.updateProfile({
         userId,
         username: trimmedName || userName,
@@ -249,12 +272,12 @@ const [showAll, setShowAll] = useState(false);
       setIsPublic(editIsPublic);
       setEditNameInput(finalName);
       setIsEditingProfile(false);
-      setSaveMessage("✅ Profile saved successfully!");
-      setTimeout(() => setSaveMessage(""), 3000);
+      setSaveMessage("✅ Your profile has been updated successfully.");
+      setTimeout(() => setSaveMessage(""), 4000);
     } catch (err) {
       console.error("Error saving profile:", err);
-      setSaveMessage("❌ Failed to save profile");
-      setTimeout(() => setSaveMessage(""), 3000);
+      setSaveMessage("❌ Something went wrong while saving your profile. Please try again."); 
+      setTimeout(() => setSaveMessage(""), 4000);
     } finally {
       setIsSaving(false);
     }
@@ -267,36 +290,18 @@ const [showAll, setShowAll] = useState(false);
     }
   };
 
-  // Avatar: handle file selection
-  const handleFileChange = async (event) => {
+  // Avatar: handle file selection — only preview locally, upload on Save Changes 
+  const handleFileChange = (event) => {
     const file = event.target.files?.[0];
     if (!file) return;
 
-    console.log("File selected:", file.name);
-    alert(
-      `File selected: ${file.name}\n\nIn the next step, we'll hook this up to the backend.`
-    );
-    // This is the new logic
-    try {
-      const formData = new FormData();
-      formData.append('profilePicture', file); // 'profilePicture' must match the backend
-      formData.append('userId', userId);      // Send the userId too
-      
-      const response = await apiService.uploadProfilePicture(formData);
-      
-      if (response.success) {
-        alert('Profile picture updated successfully!');
-        setAvatar(response.imageUrl); // ✅ <-- ADD THIS (replaces the TODO)
-        // TODO: We will add code here to make the new image
-        // appear immediately without a refresh.
-      } else {
-        alert(`Error: ${response.message}`);
-      }
-    } catch (error) {
-      console.error("Error uploading profile picture:", error);
-      alert('An error occurred while uploading the image.');
-    }
+    const previewUrl = URL.createObjectURL(file);
+    setPendingAvatar({ file, previewUrl }); // store for upload on save
+    setAvatar(previewUrl); // show preview immediately in UI only
   };
+
+  // share type toggle — 'specific' or 'public'
+  const [shareType, setShareType] = useState('specific');
 
   // Share Profile handlers - polo
   const handleOpenShareModal = () => {
@@ -315,7 +320,8 @@ const [showAll, setShowAll] = useState(false);
   };
 
   const handleGenerateShareLink = async () => {
-    if (!shareRecipientEmail.trim()) {
+    // handle both specific and public share types
+    if (shareType === 'specific' && !shareRecipientEmail.trim()) {
       setShareError('Recipient email is required.');
       return;
     }
@@ -323,10 +329,17 @@ const [showAll, setShowAll] = useState(false);
     setShareError('');
     setShareGeneratedUrl('');
     try {
-      const result = await apiService.generateProfileShareLink({
-        recipientEmail: shareRecipientEmail.trim(),
-        durationDays: shareDuration
-      });
+      let result;
+      if (shareType === 'specific') {
+        result = await apiService.generateProfileShareLink({
+          recipientEmail: shareRecipientEmail.trim(),
+          durationDays: shareDuration
+        });
+      } else {
+        result = await apiService.generatePublicShareLink({
+          durationDays: shareDuration
+        });
+      }
       if (result.success) {
         setShareGeneratedUrl(result.shareUrl);
       } else {
@@ -347,17 +360,6 @@ const [showAll, setShowAll] = useState(false);
     });
   };
 
-  const handleCopyUrl = () => {
-    navigator.clipboard
-      .writeText(profileUrl)
-      .then(() => {
-        alert("Profile URL copied to clipboard!");
-      })
-      .catch((err) => {
-        console.error("Failed to copy URL:", err);
-      });
-  };
-
   if (loading) {
     return <div className="profile-page">Loading profile...</div>;
   }
@@ -371,8 +373,8 @@ const [showAll, setShowAll] = useState(false);
       <div className="avatar-wrapper">
         {/* THIS IS THE CHANGE */}
         <div className="avatar">
-          {avatar.startsWith('data:') ? (
-            <img src={avatar} alt="Profile" />
+          {avatar.startsWith('data:') || avatar.startsWith('blob:') ? (
+            <img src={avatar} alt="Profile" /> // handle both base64 and blob preview URLs
           ) : (
             avatar
           )}
@@ -399,18 +401,11 @@ const [showAll, setShowAll] = useState(false);
         </div>
 
         <div className="profile-info">
-          <h2>{userName}</h2>
-          <p className="profile-link">{profileUrl}</p>
+          <h2>{userName}</h2>       
           <div className="profile-actions">
-            <button className="link-btn">Edit URL</button>
-            <span> | </span>
-            <button className="link-btn" onClick={handleCopyUrl}>
-              Copy URL
-            </button>
-            <span> | </span>
             <button
               className="link-btn"
-              onClick={() => window.open("/profile-preview", "_blank")}
+              onClick={() => window.open(`/profile-preview?userId=${userId}`, "_blank")}
             >
               Preview Public Profile
             </button>
@@ -641,7 +636,11 @@ const [showAll, setShowAll] = useState(false);
                   >
                     <div className="skill-info">
                       <h4>{skill}</h4>
-                      <p>Derived from your issued credentials</p>
+                      {sourceCreds.length > 0 && (
+                        <p style={{ color: '#a78bfa', fontSize: '0.78rem', margin: '2px 0 0 0' }}>
+                          Derived from {sourceCreds.map(c => c.credentialName).join(', ')}
+                        </p>
+                      )}
                     </div>
                     {/* Source credential popup - polo */}
                     {isSelected && (
@@ -711,27 +710,61 @@ const [showAll, setShowAll] = useState(false);
             <div className="modal-body">
               {!shareGeneratedUrl ? (
                 <>
-                  <div className="detail-row" style={{ flexDirection: 'column', gap: 6 }}>
-                    <label style={{ color: '#a78bfa', fontSize: '0.85rem', fontWeight: 600 }}>
-                      Recipient Email <span style={{ color: '#ff6b6b' }}>*</span>
-                    </label>
-                    <input
-                      type="email"
-                      value={shareRecipientEmail}
-                      onChange={(e) => setShareRecipientEmail(e.target.value)}
-                      placeholder="hr@company.com"
+                  {/* share type toggle */}
+                  <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
+                    <button
+                      onClick={() => { setShareType('specific'); setShareError(''); }}
                       style={{
-                        background: 'rgba(255,255,255,0.08)',
-                        border: '1px solid #a78bfa',
-                        borderRadius: 8,
-                        color: '#fff',
-                        padding: '8px 12px',
-                        fontSize: '14px',
-                        outline: 'none',
-                        width: '100%'
+                        flex: 1, padding: '8px 0', borderRadius: 8, fontSize: '13px',
+                        fontWeight: 600, cursor: 'pointer', fontFamily: 'Poppins, sans-serif',
+                        border: shareType === 'specific' ? 'none' : '1px solid rgba(139,92,246,0.3)',
+                        background: shareType === 'specific' ? 'linear-gradient(135deg, #667eea, #764ba2)' : 'transparent',
+                        color: shareType === 'specific' ? '#fff' : '#a78bfa'
                       }}
-                    />
+                    >
+                      Specific Recipient
+                    </button>
+                    <button
+                      onClick={() => { setShareType('public'); setShareError(''); }}
+                      style={{
+                        flex: 1, padding: '8px 0', borderRadius: 8, fontSize: '13px',
+                        fontWeight: 600, cursor: 'pointer', fontFamily: 'Poppins, sans-serif',
+                        border: shareType === 'public' ? 'none' : '1px solid rgba(139,92,246,0.3)',
+                        background: shareType === 'public' ? 'linear-gradient(135deg, #667eea, #764ba2)' : 'transparent',
+                        color: shareType === 'public' ? '#fff' : '#a78bfa'
+                      }}
+                    >
+                      Anyone with Link
+                    </button>
                   </div>
+
+                  {shareType === 'specific' && (
+                    <div className="detail-row" style={{ flexDirection: 'column', gap: 6 }}>
+                      <label style={{ color: '#a78bfa', fontSize: '0.85rem', fontWeight: 600 }}>
+                        Recipient Email <span style={{ color: '#ff6b6b' }}>*</span>
+                      </label>
+                      <input
+                        type="email"
+                        value={shareRecipientEmail}
+                        onChange={(e) => setShareRecipientEmail(e.target.value)}
+                        placeholder="hr@company.com"
+                        style={{
+                          background: 'rgba(255,255,255,0.08)',
+                          border: '1px solid #a78bfa',
+                          borderRadius: 8, color: '#fff',
+                          padding: '8px 12px', fontSize: '14px',
+                          outline: 'none', width: '100%'
+                        }}
+                      />
+                    </div>
+                  )}
+
+                  {shareType === 'public' && (
+                    <p style={{ color: '#94a3b8', fontSize: '13px', margin: '0 0 8px 0', lineHeight: 1.5 }}>
+                      Anyone with this link can view your public profile. No email or verification required.
+                    </p>
+                  )}
+
                   <div className="detail-row" style={{ flexDirection: 'column', gap: 6, marginTop: 14 }}>
                     <label style={{ color: '#a78bfa', fontSize: '0.85rem', fontWeight: 600 }}>
                       Link Duration
@@ -742,12 +775,9 @@ const [showAll, setShowAll] = useState(false);
                       style={{
                         background: 'rgba(20,10,40,0.95)',
                         border: '1px solid #a78bfa',
-                        borderRadius: 8,
-                        color: '#fff',
-                        padding: '8px 12px',
-                        fontSize: '14px',
-                        outline: 'none',
-                        width: '100%'
+                        borderRadius: 8, color: '#fff',
+                        padding: '8px 12px', fontSize: '14px',
+                        outline: 'none', width: '100%'
                       }}
                     >
                       <option value="1">1 Day</option>

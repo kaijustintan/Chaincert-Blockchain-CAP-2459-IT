@@ -2189,6 +2189,19 @@ GetRootSubordinateRejectionLogsByRootAuthority: async () => {
   //                                                               PROFILE SHARE LINK - polo
   // ==========================================================================================================================================================================
 
+  // generate public share link (no recipient email, no OTP)
+  generatePublicShareLink: async ({ durationDays }) => {
+    try {
+      const response = await axios.post('/auth/profile-share/generate-public', {
+        durationDays
+      });
+      return response.data;
+    } catch (error) {
+      console.error('Error generating public share link:', error.response?.data?.message || error.message);
+      throw error;
+    }
+  },
+
   generateProfileShareLink: async ({ recipientEmail, durationDays }) => {
     try {
       const response = await axios.post('/auth/profile-share/generate', {

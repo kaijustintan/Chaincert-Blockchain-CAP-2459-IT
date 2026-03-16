@@ -40,7 +40,13 @@ router.post('/profile-share/:token/request-otp', accountController.requestOTP);
 // POST /api/auth/profile-share/:token/verify-otp - Verify OTP + return profile data (public, no auth). - polo
 router.post('/profile-share/:token/verify-otp', accountController.verifyOTP);
 
-// DELETE /api/auth/profile-share/:token/revoke - Revoke a share link (auth required). - polo
+// DELETE /api/auth/profile-share/:token/revoke - Revoke a share link (auth required). 
 router.delete('/profile-share/:token/revoke', accountController.revokeShareLink);
+
+// POST /api/auth/forgot-password - Request password reset OTP. 
+router.post('/forgot-password', accountController.forgotPassword);
+
+// POST /api/auth/reset-password - Verify OTP and set new password. 
+router.post('/reset-password', accountController.resetPassword);
 
 module.exports = router;

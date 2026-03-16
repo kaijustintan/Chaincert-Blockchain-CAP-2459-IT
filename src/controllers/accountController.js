@@ -230,6 +230,123 @@ const accountController = {
     }
   },
 
+  // ============================================================
+  // FORGOT PASSWORD HANDLERS 
+  // ============================================================
+
+  forgotPassword: async (req, res) => {
+    try {
+      const { email } = req.body;
+
+      if (!email) {
+        return res.status(400).json({ success: false, message: 'Email is required.' });
+      }
+
+      // Look up user by email
+      const nano = require('nano')('http://admin:adminpw@localhost:5985');
+      const usersDb = nano.use('users');
+      const result = await usersDb.find({ selector: { email: email.toLowerCase().trim() }, limit: 1 });
+
+      // Always return success to prevent email enumeration 
+      // (don't reveal if email exists or not)
+      if (!result.docs || result.docs.length === 0) {
+        return res.status(200).json({ success: true, message: 'If this email is registered, a reset code has been sent.' });
+      }
+
+      const user = result.docs[0];
+
+      // Generate 6-digit OTP 
+      const otp = String(Math.floor(100000 + Math.random() * 900000));
+      const otpExpiresAt = new Date(Date.now() + 10 * 60 * 1000).toISOString(); // 10 minutes
+
+      // Save OTP to user doc 
+      await couchDB.updateUser(user._id, {
+        resetOtp: otp,
+        resetOtpExpiresAt: otpExpiresAt,
+        resetOtpUsed: false
+      });
+
+      // Send OTP email via Ethereal
+      const testAccount = await nodemailer.createTestAccount();
+      const transporter = nodemailer.createTransport({
+        host: 'smtp.ethereal.email',
+        port: 587,
+        secure: false,
+        auth: {
+          user: testAccount.user,
+          pass: testAccount.pass
+        }
+      });
+
+      const info = await transporter.sendMail({
+        from: '"ChainCert" <noreply@chaincert.com>',
+        to: email,
+        subject: 'ChainCert Password Reset Code',
+        text: `Your password reset code is: ${otp}\n\nThis code expires in 10 minutes.\n\nIf you did not request this, please ignore this email.`
+      });
+
+      console.log('[FORGOT-PW] OTP Preview URL:', nodemailer.getTestMessageUrl(info)); // - polo
+
+      return res.status(200).json({ success: true, message: 'If this email is registered, a reset code has been sent.' });
+    } catch (error) {
+      console.error('[FORGOT-PW] forgotPassword error:', error);
+      return res.status(500).json({ success: false, message: error.message });
+    }
+  },
+
+  resetPassword: async (req, res) => {
+    try {
+      const { email, otp, newPassword } = req.body;
+
+      if (!email || !otp || !newPassword) {
+        return res.status(400).json({ success: false, message: 'Email, OTP, and new password are required.' });
+      }
+
+      if (newPassword.length < 6) {
+        return res.status(400).json({ success: false, message: 'Password must be at least 6 characters.' });
+      }
+
+      // Look up user
+      const nano = require('nano')('http://admin:adminpw@localhost:5985');
+      const usersDb = nano.use('users');
+      const result = await usersDb.find({ selector: { email: email.toLowerCase().trim() }, limit: 1 });
+
+      if (!result.docs || result.docs.length === 0) {
+        return res.status(400).json({ success: false, message: 'Invalid or expired reset code.' });
+      }
+
+      const user = result.docs[0];
+
+      // Validate OTP 
+      if (!user.resetOtp || user.resetOtp !== otp) {
+        return res.status(400).json({ success: false, message: 'Invalid reset code.' });
+      }
+      if (user.resetOtpUsed) {
+        return res.status(400).json({ success: false, message: 'Reset code has already been used.' });
+      }
+      if (!user.resetOtpExpiresAt || new Date() > new Date(user.resetOtpExpiresAt)) {
+        return res.status(400).json({ success: false, message: 'Reset code has expired. Please request a new one.' });
+      }
+
+      // Hash new password
+      const bcrypt = require('bcryptjs');
+      const hashedPassword = await bcrypt.hash(newPassword, 10);
+
+      // Update user doc
+      await couchDB.updateUser(user._id, {
+        password: hashedPassword,
+        resetOtp: null,
+        resetOtpExpiresAt: null,
+        resetOtpUsed: true
+      });
+
+      return res.status(200).json({ success: true, message: 'Password reset successful. You may now log in.' });
+    } catch (error) {
+      console.error('[FORGOT-PW] resetPassword error:', error);
+      return res.status(500).json({ success: false, message: error.message });
+    }
+  },
+
   revokeShareLink: async (req, res) => {
     try {
       const { token } = req.params;

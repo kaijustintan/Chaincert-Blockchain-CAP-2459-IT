@@ -7,8 +7,7 @@ export default function VerifierDashboard() {
   const [query, setQuery] = useState("");
   const [result, setResult] = useState(null);
 
-  // On-chain audit logs from backend/blockchain
-  const [logs, setLogs] = useState([]);
+  // verification logs section removed 
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
@@ -16,13 +15,8 @@ export default function VerifierDashboard() {
   // verifier identity + on-chain log status
   const [verifierName, setVerifierName] = useState("");
   const [verifierEmail, setVerifierEmail] = useState("");
-  const [logSaving, setLogSaving] = useState(false);
-  const [logError, setLogError] = useState(null);
-  const [logSuccess, setLogSuccess] = useState(null);
 
-  // loading state for audit log fetch
-  const [logsLoading, setLogsLoading] = useState(false);
-  const [logsError, setLogsError] = useState(null);
+  // log state removed
 
   // NEW: gate – kailangan muna ma-fill up verifier form
   const [hasVerifierInfo, setHasVerifierInfo] = useState(false);
@@ -39,72 +33,9 @@ export default function VerifierDashboard() {
     }
   }, []);
 
-  // Helper: load verification logs from backend (blockchain audit)
-  const fetchVerificationLogs = async () => {
-    try {
-      setLogsLoading(true);
-      setLogsError(null);
-      const res = await apiService.Get_AllVerificationLogs();
-      setLogs(res.logs || []);
-    } catch (err) {
-      console.error("[VERIFY-LOGS FETCH ERROR]", err);
-      const msg =
-        err.response?.data?.message ||
-        err.response?.data?.error ||
-        err.message ||
-        "Failed to load verification logs.";
-      setLogsError(msg);
-    } finally {
-      setLogsLoading(false);
-    }
-  };
+  // fetchVerificationLogs and its useEffect removed 
 
-  // Initial load of audit logs (after verifier info is set)
-  useEffect(() => {
-    if (hasVerifierInfo) {
-      fetchVerificationLogs();
-    }
-  }, [hasVerifierInfo]);
-
-  // Helper: call backend to write on-chain verification log
-  const saveVerificationLogOnChain = async (credentialId, verifyResponse) => {
-    // Optional: skip if walang name/email (pero in theory di na mangyayari
-    // kasi required na yung form)
-    if (!verifierName.trim() && !verifierEmail.trim()) {
-      return;
-    }
-
-    try {
-      setLogSaving(true);
-      setLogError(null);
-      setLogSuccess(null);
-
-      await apiService.Log_VerificationEvent(
-        credentialId,
-        verifierName,
-        verifierEmail,
-        {
-          valid: verifyResponse.isValid,
-          reason: verifyResponse.reason,
-        }
-      );
-
-      setLogSuccess("Verification event logged on-chain.");
-
-      // Refresh audit logs table after successful write
-      await fetchVerificationLogs();
-    } catch (err) {
-      console.error("[VERIFY-LOG ERROR]", err);
-      const msg =
-        err.response?.data?.message ||
-        err.response?.data?.error ||
-        err.message ||
-        "Failed to log verification on-chain.";
-      setLogError(msg);
-    } finally {
-      setLogSaving(false);
-    }
-  };
+  // saveVerificationLogOnChain removed 
 
   // Handle verification via credential ID
   const handleVerify = async () => {
@@ -116,8 +47,6 @@ export default function VerifierDashboard() {
     setLoading(true);
     setError(null);
     setResult(null);
-    setLogError(null);
-    setLogSuccess(null);
 
     try {
       // Call API to verify credential (CouchDB + optional blockchain)
@@ -126,9 +55,7 @@ export default function VerifierDashboard() {
       if (response.verified && response.success) {
         setResult(response);
 
-        // write on-chain verification log (if verifier info provided)
-        const credIdForLog = response.credentialID || query;
-        await saveVerificationLogOnChain(credIdForLog, response);
+        // on-chain log write removed
       } else {
         const msg = response.reason || "Credential not found or invalid.";
         setResult({ error: msg });
@@ -249,9 +176,9 @@ export default function VerifierDashboard() {
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           onKeyPress={handleKeyPress}
-          disabled={loading || logSaving}
+          disabled={loading}
         />
-        <button onClick={handleVerify} disabled={loading || logSaving}>
+        <button onClick={handleVerify} disabled={loading}>
           {loading ? "Verifying..." : "Verify"}
         </button>
       </div>
@@ -263,17 +190,7 @@ export default function VerifierDashboard() {
         </div>
       )}
 
-      {/* On-chain log status */}
-      {logError && (
-        <div className="error-banner">
-          <p>⚠️ {logError}</p>
-        </div>
-      )}
-      {logSuccess && (
-        <div className="success-banner">
-          <p>✅ {logSuccess}</p>
-        </div>
-      )}
+      {/*log status banners removed*/}
 
       {/* Verification result */}
       {result && (
@@ -321,73 +238,7 @@ export default function VerifierDashboard() {
         </div>
       )}
 
-      {/* Logs (on-chain audit history from backend) */}
-      <div className="verify-logs">
-        <h2>Verification Logs (On-chain Audit)</h2>
-
-        {logsLoading && <p className="empty">Loading verification logs...</p>}
-        {logsError && (
-          <div className="error-banner">
-            <p>⚠️ {logsError}</p>
-          </div>
-        )}
-
-        {!logsLoading && !logsError && logs.length === 0 && (
-          <p className="empty">No verification logs found.</p>
-        )}
-
-        {!logsLoading && !logsError && logs.length > 0 && (
-          <div style={{ overflowX: "auto", width: "100%" }}>
-          <table style={{ minWidth: "900px" }}>
-            <thead>
-              <tr>
-                <th>Verification Log ID</th>
-                <th>Verifier Name</th>
-                <th>Verifier Email</th>
-                <th>Credential ID</th>
-                <th>Holder ID</th>
-                <th>Holder Name</th>
-                <th>Result</th>
-                <th>Timestamp</th>
-              </tr>
-            </thead>
-            <tbody>
-              {logs.map((log) => (
-                <tr key={log.id}>
-                  {/* 1) Verification Log ID */}
-                  <td>{log.id}</td>
-
-                  {/* 2) Verifier Name */}
-                  <td>{log.verifierName || "N/A"}</td>
-
-                  {/* 3) Verifier Email */}
-                  <td>{log.verifierEmail || "N/A"}</td>
-
-                  {/* 4) Credential ID */}
-                  <td>{log.credentialId || log.credentialID || "N/A"}</td>
-
-                  {/* 5) Holder ID */}
-                  <td>{log.holderID || "N/A"}</td>
-
-                  {/* 6) Holder Name */}
-                  <td>{log.holderName || "N/A"}</td>
-
-                  {/* 7) Result */}
-                  <td>
-                    {log.result?.reason ||
-                      log.result?.message ||
-                      (typeof log.result === "string" ? log.result : "N/A")}
-                  </td>
-
-                  {/* 8) Timestamp */}
-                  <td>{log.verifiedAt || log.timestamp || "N/A"}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-          </div>
-        )}
-      </div>
+      {/*verification logs section removed*/}
     </div>
   );
 }

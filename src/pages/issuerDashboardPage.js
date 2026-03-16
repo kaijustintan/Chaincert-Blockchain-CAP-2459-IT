@@ -64,10 +64,7 @@ export default function IssuerDashboard() {
   // View toggle
   const [dashboardView, setDashboardView] = useState("issued"); // 'issued' | 'templates'
 
-    // Root Authority → Pending Subordinate Approval Queue
-  const [pendingSubordinates, setPendingSubordinates] = useState([]);
-  const [pendingSubordinatesLoading, setPendingSubordinatesLoading] = useState(false);
-  const [pendingSubordinatesError, setPendingSubordinatesError] = useState("");
+  // pendingSubordinates state removed — covered by My Subordinates filter
 
     // Root Authority → My Subordinates directory
   const [subordinateDirectory, setSubordinateDirectory] = useState([]);
@@ -98,7 +95,6 @@ export default function IssuerDashboard() {
     useEffect(() => {
     fetchCredentials();
     fetchTemplateOptions();
-    fetchPendingSubordinatesForRoot();
     fetchSubordinateDirectory("all");
     fetchRootSubordinateLogs("all");
   }, []);
@@ -171,31 +167,7 @@ export default function IssuerDashboard() {
     }
   };
 
-    const fetchPendingSubordinatesForRoot = async () => {
-    try {
-      setPendingSubordinatesLoading(true);
-      setPendingSubordinatesError("");
-
-      const response = await apiService.getPendingSubordinatesForRoot();
-      const list = Array.isArray(response?.data)
-        ? response.data
-        : Array.isArray(response)
-        ? response
-        : Array.isArray(response?.subordinates)
-        ? response.subordinates
-        : [];
-
-      setPendingSubordinates(list);
-    } catch (err) {
-      console.error("Error fetching pending subordinates for root:", err);
-      setPendingSubordinates([]);
-      setPendingSubordinatesError(
-        err.response?.data?.message || "Failed to load subordinate approval queue."
-      );
-    } finally {
-      setPendingSubordinatesLoading(false);
-    }
-  };
+    // fetchPendingSubordinatesForRoot removed — covered by fetchSubordinateDirectory("pending") 
 
     const fetchSubordinateDirectory = async (mode = subordinateDirectoryFilter) => {
     try {
@@ -282,7 +254,6 @@ export default function IssuerDashboard() {
     try {
       await apiService.rootApproveSubordinateIssuer(issuerId, "");
       alert("Subordinate issuer approved successfully!");
-      fetchPendingSubordinatesForRoot();
       fetchSubordinateDirectory(subordinateDirectoryFilter);
       fetchRootSubordinateLogs(rootSubordinateLogFilter);
     } catch (err) {
@@ -331,7 +302,6 @@ export default function IssuerDashboard() {
 
       alert("Subordinate issuer rejected successfully!");
       closeRejectSubordinateModal();
-      fetchPendingSubordinatesForRoot();
       fetchSubordinateDirectory(subordinateDirectoryFilter);
       fetchRootSubordinateLogs(rootSubordinateLogFilter);
     } catch (err) {
@@ -763,8 +733,29 @@ export default function IssuerDashboard() {
     <div className="issuer-dashboard">
       <h2>Issuer Dashboard</h2>
 
+      {/* /* CSS-CHANGE: consolidated toolbar row + view toggle*/}
+      {/* Toolbar: Create, Issue, View History */}
+      <div className="issuer-toolbar">
+        <button onClick={openCreateModal} className="action-btn create-btn issuer-toolbar-btn">
+          + Create Template
+        </button>
+        <button onClick={openIssueModal} className="action-btn issue-btn issuer-toolbar-btn">
+          + Issue Credential
+        </button>
+        <button onClick={handleViewHistory} className="action-btn issuer-toolbar-btn issuer-history-btn">
+          📋 Credential History
+        </button>
+      </div>
+
+      {/* No-template warning */}
+      {noTemplateError && (
+        <div className="no-template-warning">
+          ⚠️ {noTemplateError}
+        </div>
+      )}
+
       {/* View Toggle */}
-      <div style={{ display: "flex", gap: 8, margin: "20px 0 0 0" }}>
+      <div className="issuer-view-toggle">
         <button
           onClick={() => setDashboardView("issued")}
           className="action-btn"
@@ -791,66 +782,42 @@ export default function IssuerDashboard() {
         </button>
       </div>
 
-      {/* Create Credential Button */}
-      <div style={{ margin: "20px 0" }}>
-        <button onClick={openCreateModal} className="action-btn create-btn">
-          + Create Credential
-        </button>
-      </div>
-
-      {/* Issue Credential Button */}
-      <div style={{ margin: "20px 0" }}>
-        <button onClick={openIssueModal} className="action-btn issue-btn">
-          + Issue Credential
-        </button>
-        {noTemplateError && (
-          <div style={{
-            marginTop: "10px",
-            padding: "12px 16px",
-            borderRadius: "10px",
-            background: "rgba(255,107,107,0.12)",
-            border: "1px solid rgba(255,107,107,0.3)",
-            color: "#ff6b6b",
-            fontWeight: 600,
-            fontSize: "14px",
-          }}>
-            ⚠️ {noTemplateError}
-          </div>
-        )}
-      </div>
-
-      {/* Create Credential Modal */}
+      {/*CSS-CHANGE: Create Credential modal redesigned with header + 2-col layout*/}
       {showCreateModal && (
         <div className="modal-overlay">
-          <div className="modal">
-            <h3>Create New Credential</h3>
+          <div className="modal modal-wide">
+            <div className="modal-header">
+              <h3>Create Credential Template</h3>
+              <button type="button" className="modal-close" onClick={closeCreateModal}>✕</button>
+            </div>
             <form onSubmit={handleCreateCredential}>
-              <div className="form-group">
-                <label>Credential Type:</label>
-                <input
-                  type="text"
-                  name="credentialType"
-                  value={createForm.credentialType}
-                  onChange={handleCreateFormChange}
-                  placeholder="e.g. Certificate, ID, Award"
-                  required
-                />
+              <div className="modal-two-col">
+                <div className="form-group">
+                  <label>Credential Type <span className="required-star">*</span></label>
+                  <input
+                    type="text"
+                    name="credentialType"
+                    value={createForm.credentialType}
+                    onChange={handleCreateFormChange}
+                    placeholder="e.g. Certificate, ID, Award"
+                    required
+                  />
+                </div>
+                <div className="form-group">
+                  <label>Credential Name <span className="required-star">*</span></label>
+                  <input
+                    type="text"
+                    name="credentialName"
+                    value={createForm.credentialName}
+                    onChange={handleCreateFormChange}
+                    placeholder="e.g. Company Staff Card"
+                    required
+                  />
+                </div>
               </div>
 
               <div className="form-group">
-                <label>Credential Name:</label>
-                <input
-                  type="text"
-                  name="credentialName"
-                  value={createForm.credentialName}
-                  onChange={handleCreateFormChange}
-                  placeholder="e.g. Company Staff Card"
-                  required
-                />
-              </div>
-
-              <div className="form-group">
-                <label>Description:</label>
+                <label>Description</label>
                 <textarea
                   name="description"
                   value={createForm.description}
@@ -861,7 +828,7 @@ export default function IssuerDashboard() {
               </div>
 
               <div className="form-group">
-                <label>Metadata (optional):</label>
+                <label>Metadata <span className="form-label-hint">(optional)</span></label>
                 <input
                   type="text"
                   name="metadata"
@@ -871,9 +838,9 @@ export default function IssuerDashboard() {
                 />
               </div>
 
-              {/* Skills field - polo */}
+              {/* Skills field*/}
               <div className="form-group">
-                <label>Skills (optional):</label>
+                <label>Skills <span className="form-label-hint">(optional — recipients will earn these)</span></label>
                 <div className="skills-input-row">
                   <input
                     type="text"
@@ -883,7 +850,7 @@ export default function IssuerDashboard() {
                     placeholder="e.g. Python, Project Management"
                   />
                   <button type="button" className="add-skill-btn" onClick={handleAddSkill}>
-                    + Add Skill
+                    + Add
                   </button>
                 </div>
                 {skillsList.length > 0 && (
@@ -898,44 +865,32 @@ export default function IssuerDashboard() {
                 )}
               </div>
 
-              {/* Badge image upload - polo */}
+              {/* Badge image upload */}
               <div className="form-group">
-                <label>Badge Image (optional):</label>
+                <label>Badge Image <span className="form-label-hint">(optional)</span></label>
                 <input
                   type="file"
                   accept="image/png, image/jpeg, image/gif"
                   onChange={handleBadgeImageChange}
+                  className="file-input"
                 />
                 {badgeImagePreview && (
                   <div className="badge-preview">
-                    <img src={badgeImagePreview} alt="Badge preview" style={{width: 80, height: 80, objectFit: 'cover', borderRadius: 8, marginTop: 8}} />
-                    <button type="button" onClick={() => { setBadgeImageBase64(""); setBadgeImagePreview(""); }} style={{marginLeft: 8, fontSize: '0.8rem'}}>
-                      Remove
+                    <img src={badgeImagePreview} alt="Badge preview" />
+                    <button type="button" className="badge-remove-btn" onClick={() => { setBadgeImageBase64(""); setBadgeImagePreview(""); }}>
+                      ✕ Remove
                     </button>
                   </div>
                 )}
               </div>
 
-              {createError && (
-                <div className="form-error" style={{ color: "red" }}>
-                  {createError}
-                </div>
-              )}
+              {createError && <div className="form-error">{createError}</div>}
 
-              <div style={{ marginTop: "1em" }}>
-                <button
-                  type="submit"
-                  className="action-btn"
-                  disabled={createLoading}
-                >
-                  {createLoading ? "Creating..." : "Create"}
+              <div className="form-actions">
+                <button type="submit" className="action-btn" disabled={createLoading}>
+                  {createLoading ? "Creating..." : "Create Template"}
                 </button>
-                <button
-                  type="button"
-                  onClick={closeCreateModal}
-                  className="action-btn"
-                  style={{ marginLeft: 8 }}
-                >
+                <button type="button" onClick={closeCreateModal} className="action-btn btn-cancel">
                   Cancel
                 </button>
               </div>
@@ -945,21 +900,43 @@ export default function IssuerDashboard() {
         </div>
       )}
 
-      {/* Issue Credential Modal */}
+      {/* CSS-CHANGE: Issue Credential modal redesigned with step indicators + header */}
       {showIssueModal && (
         <div className="modal-overlay">
-          <div className="modal">
-            <h3>Issue Credential</h3>
+          <div className="modal modal-wide">
+            <div className="modal-header">
+              <h3>Issue Credential</h3>
+              <button type="button" className="modal-close" onClick={closeIssueModal}>✕</button>
+            </div>
+
+            {/* Step indicators */}
+            <div className="issue-steps">
+              <div className={`issue-step ${issueForm.credentialId ? "step-done" : "step-active"}`}>
+                <span className="step-num">1</span>
+                <span className="step-label">Select Template</span>
+              </div>
+              <div className="step-connector" />
+              <div className={`issue-step ${issueForm.credentialId && issueForm.recipientId ? "step-done" : issueForm.credentialId ? "step-active" : "step-inactive"}`}>
+                <span className="step-num">2</span>
+                <span className="step-label">Select Recipient</span>
+              </div>
+              <div className="step-connector" />
+              <div className={`issue-step ${issueForm.recipientId ? "step-active" : "step-inactive"}`}>
+                <span className="step-num">3</span>
+                <span className="step-label">Set Expiry</span>
+              </div>
+            </div>
+
             <form onSubmit={handleIssueCredential}>
               <div className="form-group">
-                <label>Select Credential:</label>
+                <label>Credential Template <span className="required-star">*</span></label>
                 <select
                   name="credentialId"
                   value={issueForm.credentialId}
                   onChange={handleIssueFormChange}
                   required
                 >
-                  <option value="">-- Select a credential --</option>
+                  <option value="">— Select a template —</option>
                   {templateOptions.map((cred) => (
                     <option key={cred.id || cred._id} value={cred.id || cred._id}>
                       {cred.credentialName} ({cred.credentialType})
@@ -969,8 +946,8 @@ export default function IssuerDashboard() {
               </div>
 
               <div className="form-group">
-                <label>Select Recipient:</label>
-               <select
+                <label>Recipient <span className="required-star">*</span></label>
+                <select
                   name="recipientId"
                   value={issueForm.recipientId}
                   onChange={handleIssueFormChange}
@@ -978,9 +955,7 @@ export default function IssuerDashboard() {
                   disabled={!issueForm.credentialId}
                 >
                   <option value="">
-                    {issueForm.credentialId
-                      ? "-- Select a recipient --"
-                      : "Select a credential template first"}
+                    {issueForm.credentialId ? "— Select a recipient —" : "Select a template first"}
                   </option>
                   {availableUsers.map((user) => (
                     <option key={user._id || user.id} value={user._id || user.id}>
@@ -992,7 +967,7 @@ export default function IssuerDashboard() {
               </div>
 
               <div className="form-group">
-                <label>Expiry Date (optional):</label>
+                <label>Expiry Date <span className="form-label-hint">(optional)</span></label>
                 <input
                   type="date"
                   name="expiryDate"
@@ -1002,26 +977,13 @@ export default function IssuerDashboard() {
                 />
               </div>
 
-              {issueError && (
-                <div className="form-error" style={{ color: "red" }}>
-                  {issueError}
-                </div>
-              )}
+              {issueError && <div className="form-error">{issueError}</div>}
 
-              <div style={{ marginTop: "1em" }}>
-                <button
-                  type="submit"
-                  className="action-btn"
-                  disabled={issueLoading}
-                >
-                  {issueLoading ? "Issuing..." : "Issue"}
+              <div className="form-actions">
+                <button type="submit" className="action-btn issue-btn" disabled={issueLoading}>
+                  {issueLoading ? "Issuing..." : "Issue Credential"}
                 </button>
-                <button
-                  type="button"
-                  onClick={closeIssueModal}
-                  className="action-btn"
-                  style={{ marginLeft: 8 }}
-                >
+                <button type="button" onClick={closeIssueModal} className="action-btn btn-cancel">
                   Cancel
                 </button>
               </div>
@@ -1123,15 +1085,7 @@ export default function IssuerDashboard() {
         </div>
       )}
 
-      {/* View History Button */}
-      <div className="dashboard-header">
-        <div className="tabs">
-          <button onClick={handleViewHistory} className="action-btn">
-            📋 View Credential History
-          </button>
-        </div>
-      </div>
-
+      {/*CSS-CHANGE: View History button moved to toolbar above*/}
 
       {/* ROOT AUTHORITY → MY SUBORDINATES */}
       {!isSubordinate && (

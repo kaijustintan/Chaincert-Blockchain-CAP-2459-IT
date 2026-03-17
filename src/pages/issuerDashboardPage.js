@@ -77,6 +77,13 @@ export default function IssuerDashboard() {
   const [rootSubordinateLogsError, setRootSubordinateLogsError] = useState("");
   const [rootSubordinateLogFilter, setRootSubordinateLogFilter] = useState("all");
 
+  // Toast notification state 
+  const [toast, setToast] = useState({ show: false, message: "", type: "success" });
+  const showToast = (message, type = "success") => {
+    setToast({ show: true, message, type });
+    setTimeout(() => setToast({ show: false, message: "", type: "success" }), 3500);
+  };
+
   // Root Authority → Reject subordinate modal
   const [showRejectSubordinateModal, setShowRejectSubordinateModal] = useState(false);
   const [rejectSubordinateTarget, setRejectSubordinateTarget] = useState(null);
@@ -253,14 +260,12 @@ export default function IssuerDashboard() {
   const handleRootApproveSubordinate = async (issuerId) => {
     try {
       await apiService.rootApproveSubordinateIssuer(issuerId, "");
-      alert("Subordinate issuer approved successfully!");
+      showToast("Subordinate issuer approved successfully!");
       fetchSubordinateDirectory(subordinateDirectoryFilter);
       fetchRootSubordinateLogs(rootSubordinateLogFilter);
     } catch (err) {
       console.error("Error approving subordinate issuer:", err);
-      alert(
-        err.response?.data?.message || "Failed to approve subordinate issuer."
-      );
+      showToast(err.response?.data?.message || "Failed to approve subordinate issuer.", "danger"); 
     }
   };
 
@@ -300,7 +305,7 @@ export default function IssuerDashboard() {
 
       await apiService.rootRejectSubordinateIssuer(issuerId, trimmed);
 
-      alert("Subordinate issuer rejected successfully!");
+      showToast("Subordinate issuer rejected successfully!");
       closeRejectSubordinateModal();
       fetchSubordinateDirectory(subordinateDirectoryFilter);
       fetchRootSubordinateLogs(rootSubordinateLogFilter);
@@ -366,11 +371,7 @@ export default function IssuerDashboard() {
         window.URL.revokeObjectURL(blobUrl);
       }, 60000);
     } catch (error) {
-      alert(
-        error.response?.data?.message ||
-          error.message ||
-          "Failed to open document"
-      );
+      showToast(error.response?.data?.message || error.message || "Failed to open document", "danger");
     }
   };
 
@@ -397,11 +398,7 @@ export default function IssuerDashboard() {
         window.URL.revokeObjectURL(blobUrl);
       }, 60000);
     } catch (error) {
-      alert(
-        error.response?.data?.message ||
-          error.message ||
-          "Failed to download document"
-      );
+      showToast(error.response?.data?.message || error.message || "Failed to download document", "danger"); 
     }
   };
 
@@ -501,7 +498,7 @@ export default function IssuerDashboard() {
       }
 
       await apiService.Revoke_Credential(revokeForm.credentialId, revokeForm.rejectionReason); // - polo
-      alert("Credential revoked successfully!");
+      showToast("Credential revoked successfully!");
       closeRevokeModal();
       fetchCredentials();
     } catch (err) {
@@ -517,7 +514,7 @@ export default function IssuerDashboard() {
     const trimmed = skillInput.trim();
     if (!trimmed) return;
     if (skillsList.includes(trimmed)) {
-      alert('Skill already added.');
+      showToast('Skill already added.', 'danger');
       return;
     }
     setSkillsList(prev => [...prev, trimmed]);
@@ -598,7 +595,7 @@ export default function IssuerDashboard() {
         badgeImage: badgeImageBase64, // - polo
       });
 
-      alert("Credential created successfully!");
+      showToast("Credential Template created successfully!");
       closeCreateModal();
       fetchCredentials();
       fetchTemplateOptions();
@@ -696,7 +693,7 @@ export default function IssuerDashboard() {
         issueForm.expiryDate
       );
 
-      alert("Credential issued successfully!");
+      showToast("Credential issued successfully!");
       closeIssueModal();
       fetchCredentials();
     } catch (err) {
@@ -731,6 +728,14 @@ export default function IssuerDashboard() {
 
   return (
     <div className="issuer-dashboard">
+      {toast.show && (
+        <div className={`issuer-toast issuer-toast--${toast.type}`}>
+          <div className="issuer-toast-icon">
+            {toast.type === "success" ? "✓" : "✕"}
+          </div>
+          <div className="issuer-toast-message">{toast.message}</div>
+        </div>
+      )}
       <h2>Issuer Dashboard</h2>
 
       {/* /* CSS-CHANGE: consolidated toolbar row + view toggle*/}

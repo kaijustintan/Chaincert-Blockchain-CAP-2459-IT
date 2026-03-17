@@ -690,34 +690,29 @@ const handleDownloadIssuerDocument = async (doc) => {
       setLogsLoading(true);
       setStatusLogsError(null);
 
+      // Always fetch ALL logs first, then filter locally for partial email match (Task 9 fix)
       let data;
-      const trimmedEmail = email.trim();
-
-      if (trimmedEmail) {
-        if (filter === "issuers") {
-          data = await apiService.Get_IssuerStatusLogs_ByEmail(trimmedEmail);
-        } else if (filter === "users") {
-          data = await apiService.Get_UserStatusLogs_ByEmail(trimmedEmail);
-        } else {
-          const [issuerData, userData] = await Promise.allSettled([
-            apiService.Get_IssuerStatusLogs_ByEmail(trimmedEmail),
-            apiService.Get_UserStatusLogs_ByEmail(trimmedEmail),
-          ]);
-          const issuerLogs = issuerData.status === "fulfilled" ? (issuerData.value?.logs || []) : [];
-          const userLogs = userData.status === "fulfilled" ? (userData.value?.logs || []) : [];
-          data = { logs: [...issuerLogs, ...userLogs] };
-        }
+      if (filter === "issuers") {
+        data = await apiService.Get_AllIssuerStatusLogs();
+      } else if (filter === "users") {
+        data = await apiService.Get_AllUserStatusLogs();
       } else {
-        if (filter === "issuers") {
-          data = await apiService.Get_AllIssuerStatusLogs();
-        } else if (filter === "users") {
-          data = await apiService.Get_AllUserStatusLogs();
-        } else {
-          data = await apiService.Get_AllStatusLogs();
-        }
+        data = await apiService.Get_AllStatusLogs();
       }
 
-      const rows = Array.isArray(data.logs) ? data.logs : [];
+      let rows = Array.isArray(data.logs) ? data.logs : [];
+
+      // Apply partial email search on frontend
+      const trimmedEmail = email.trim().toLowerCase();
+      if (trimmedEmail) {
+        rows = rows.filter((log) => {
+          const logEmail = (
+            log.issuerEmail || log.userEmail || log.targetEmail || log.adminEmail || ""
+          ).toLowerCase();
+          return logEmail.includes(trimmedEmail);
+        });
+      }
+
       const sortedRows = [...rows].sort((a, b) => {
         const ta = new Date(a.timestamp || 0).getTime();
         const tb = new Date(b.timestamp || 0).getTime();

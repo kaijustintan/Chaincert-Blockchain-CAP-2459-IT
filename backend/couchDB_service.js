@@ -229,6 +229,7 @@ async function getAllUsers() {
 async function updateUser(userId, userData) {
   try {
     // ✅ Smart DB logic: Check the ID prefix
+    if (!usersDb || !issuersDB) await initializeDatabases(); // Guard added, same pattern as other functions
     const db = userId.startsWith('issuer_') ? issuersDB : usersDb;
     
     const currentDoc = await db.get(userId); // Get from correct DB
@@ -1769,7 +1770,7 @@ async function Create_CredentialNotification(holderID, notificationData = {}) {
   const notification = {
     _id: `notif_${Date.now()}_${Math.random().toString(36).slice(2, 11)}`,
     type: 'credential_notification',
-    notificationType: 'credential_issued',
+    notificationType: notificationData.notificationType || 'credential_issued', 
     holderID,
     credentialId,
     credentialName,

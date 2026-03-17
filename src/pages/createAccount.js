@@ -754,7 +754,7 @@ const getDocumentDescription = (docKey) => {
 
                     {approvedIssuers.map((root) => (
                       <option key={root.id || root._id} value={root.id || root._id}>
-                        {root.orgName || root.contactName || root.email}
+                        {root.orgName} ({root.email})
                       </option>
                     ))}
                   </select>

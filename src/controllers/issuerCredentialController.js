@@ -17,7 +17,7 @@
 */
 
 const nano = require('nano');
-const couchdbService = require('../couchDB_service');  // UBUNTU DIRECTORY BASED 
+const couchdbService = require('../couchDB_service');  // UBUNTU DIRECTORY BASED
 
 // ==========================================================================================================================================================================
 //                                                             CREDENTIAL TEMPLATE CREATION (BLOCKCHAIN + COUCHDB)
@@ -1333,6 +1333,22 @@ exports.revoke_Credential = async (req, res, getContractAndGateway) => {
       );
 
       console.log(`[REVOKE] ✅ CouchDB revoke successful`);
+
+      // In-app revocation notification to holder
+      try {
+        await couchdbService.Create_CredentialNotification(revokedCredential.holderID, {
+          credentialId: revokedCredential.id,
+          credentialName: revokedCredential.credentialName || revokedCredential.credentialType,
+          issuerId: user.id || null,
+          issuerName: issuerDoc?.orgName || user.email || 'Issuer',
+          issuerEmail: user.email || null,
+          message: `Your credential "${revokedCredential.credentialName || revokedCredential.credentialType}" has been revoked${rejectionReason ? `: ${rejectionReason}` : '.'}`,
+          notificationType: 'credential_revoked'
+        });
+        console.log('[REVOKE] ✅ Revocation notification sent to holder:', revokedCredential.holderID);
+      } catch (notifErr) {
+        console.warn('[REVOKE] Notification failed (non-fatal):', notifErr.message);
+      }
 
       /* Step 8: Return COMPLETE success response (blockchain + CouchDB ok) */
       return res.status(200).json({

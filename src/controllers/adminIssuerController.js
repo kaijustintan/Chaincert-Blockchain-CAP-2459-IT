@@ -1,4 +1,28 @@
 const couchDB = require('../couchDB_service');
+const nodemailer = require('nodemailer'); 
+
+// Inline approval email, same pattern as accountController.js forgotPassword 
+async function sendIssuerApprovalEmail(issuerEmail, orgName) {
+  try {
+    const testAccount = await nodemailer.createTestAccount();
+    const transporter = nodemailer.createTransport({
+      host: 'smtp.ethereal.email',
+      port: 587,
+      secure: false,
+      auth: { user: testAccount.user, pass: testAccount.pass }
+    });
+    const info = await transporter.sendMail({
+      from: '"ChainCert" <noreply@chaincert.com>',
+      to: issuerEmail,
+      subject: 'Your ChainCert Issuer Application Has Been Approved',
+      html: `<p>Dear <strong>${orgName}</strong>,</p><p>Your issuer application on ChainCert has been <strong>approved</strong>. You may now log in and begin issuing credentials.</p>`
+    });
+    console.log(`[APPROVAL EMAIL] Sent to: ${issuerEmail}`);
+    console.log(`[APPROVAL EMAIL] Preview URL: ${nodemailer.getTestMessageUrl(info)}`);
+  } catch (err) {
+    console.error('[APPROVAL EMAIL] Failed to send:', err.message);
+  }
+}
 
 const adminIssuerController = {
   getPendingIssuers: async (req, res) => {
@@ -242,6 +266,9 @@ const adminIssuerController = {
         try { if (gateway) await gateway.disconnect(); } catch (_) {}
         gateway = null;
       }
+
+      // Fire-and-forget approval email
+      sendIssuerApprovalEmail(issuerEmail, orgName).catch(() => {});
 
       return res.status(200).json({
         success: true,

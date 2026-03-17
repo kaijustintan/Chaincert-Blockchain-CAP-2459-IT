@@ -45,6 +45,8 @@ const getNotificationTypeMeta = (notificationType) => {
   switch (notificationType) {
     case "credential_issued":
       return { icon: "✅", label: "Issued" };
+    case "credential_revoked":
+      return { icon: "❌", label: "Revoked" }; 
     default:
       return { icon: "🔔", label: "Notification" };
   }

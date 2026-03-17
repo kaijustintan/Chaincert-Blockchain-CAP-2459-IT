@@ -124,11 +124,10 @@ export default function ProfilePreview() {
       setCredLoading(true);
       try {
         const data = await apiService.Get_UserCredentials(effectiveUserId);
-        // Owner sees ALL credentials, recipient sees only public ones - polo
+        // Owner sees ALL credentials, recipient sees only public ones 
+        // Hide revoked/expired on public preview for all viewers including owner 
         const filtered = Array.isArray(data)
-          ? isOwner
-            ? data.sort((a, b) => (a.currentOrder ?? 0) - (b.currentOrder ?? 0))
-            : data
+          ? data
               .filter(c =>
                 c.visibility === 'public' &&
                 c.status !== 'revoked' &&

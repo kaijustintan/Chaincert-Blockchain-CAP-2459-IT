@@ -49,8 +49,15 @@ const [showAll, setShowAll] = useState(false);
 
   const [loading, setLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
-  const [saveMessage, setSaveMessage] = useState("");
+  const [saveMessage, setSaveMessage] = useState(""); // unused after toast migration 
   const [avatar, setAvatar] = useState("👤");
+
+  // Toast state 
+  const [toast, setToast] = useState({ show: false, message: "", type: "success" });
+  const showToast = (message, type = "success") => {
+    setToast({ show: true, message, type });
+    setTimeout(() => setToast({ show: false, message: "", type: "success" }), 3500);
+  };
 
   // - polo: unified edit profile mode 
   const [isEditingProfile, setIsEditingProfile] = useState(false);
@@ -272,12 +279,10 @@ const [showAll, setShowAll] = useState(false);
       setIsPublic(editIsPublic);
       setEditNameInput(finalName);
       setIsEditingProfile(false);
-      setSaveMessage("✅ Your profile has been updated successfully.");
-      setTimeout(() => setSaveMessage(""), 4000);
+      showToast("Profile updated successfully!");
     } catch (err) {
       console.error("Error saving profile:", err);
-      setSaveMessage("❌ Something went wrong while saving your profile. Please try again."); 
-      setTimeout(() => setSaveMessage(""), 4000);
+      showToast("Something went wrong while saving your profile.", "danger"); 
     } finally {
       setIsSaving(false);
     }
@@ -366,6 +371,15 @@ const [showAll, setShowAll] = useState(false);
 
   return (
   <div className="profile-page">
+    {/* Profile toast render */}
+    {toast.show && (
+      <div className={`profile-toast profile-toast--${toast.type}`}>
+        <div className="profile-toast-icon">
+          {toast.type === "success" ? "✓" : "✕"}
+        </div>
+        <div className="profile-toast-message">{toast.message}</div>
+      </div>
+    )}
     {/* Profile Header */}
     <div className="profile-header">
 
@@ -534,12 +548,6 @@ const [showAll, setShowAll] = useState(false);
                 />
               </div>
             </div>
-            {/* Save/Cancel now in profile header - polo */}
-            {saveMessage && (
-              <div className={`save-message ${saveMessage.includes("✅") ? "success" : "error"}`}>
-                {saveMessage}
-              </div>
-            )}
           </div>
         ) : (
           <div>
@@ -548,12 +556,7 @@ const [showAll, setShowAll] = useState(false);
             ) : (
               <p style={{ color: "#666", fontSize: 14 }}>No summary yet. Click Edit Profile to add one.</p>
             )}
-            {saveMessage && (
-              <div className={`save-message ${saveMessage.includes("✅") ? "success" : "error"}`}>
-                {saveMessage}
-              </div>
-            )}
-          </div>
+            </div>
         )}
       </section>
       )} {/* end Personal Summary — hidden for admin */}

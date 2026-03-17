@@ -743,27 +743,84 @@
 /* =====================================================
    SAVE MESSAGE
    ===================================================== */
-.save-message {
-  margin-top: 14px;
-  padding: 14px 18px;
-  border-radius: 12px;
-  font-size: 13.5px;
+/* Save-message replaced by toast pattern */
+.save-message { display: none; }
+
+/* Profile toast */
+.profile-toast {
+  position: fixed;
+  top: 24px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 99999;
+  padding: 16px 24px;
+  border-radius: 14px;
+  font-size: 14px;
   font-weight: 500;
-  text-align: center;
-  line-height: 1.5;
-  letter-spacing: 0.1px;
+  font-family: 'Poppins', sans-serif;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+  animation: fadeInUp 0.3s ease-out;
+  max-width: 360px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  position: fixed;
 }
 
-.save-message.success {
-  background: rgba(34, 197, 94, 0.1);
-  border: 1px solid rgba(34, 197, 94, 0.25);
+.profile-toast::before {
+  content: '';
+  width: 4px;
+  height: 100%;
+  position: absolute;
+  left: 0;
+  top: 0;
+  border-radius: 14px 0 0 14px;
+}
+
+.profile-toast--success {
+  background: rgba(12, 8, 32, 0.96);
+  border: 1px solid rgba(34, 197, 94, 0.3);
+  color: #e5e5e5;
+}
+
+.profile-toast--success::before { background: #4ade80; }
+
+.profile-toast--danger {
+  background: rgba(12, 8, 32, 0.96);
+  border: 1px solid rgba(239, 68, 68, 0.3);
+  color: #e5e5e5;
+}
+
+.profile-toast--danger::before { background: #f87171; }
+
+.profile-toast-icon {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 15px;
+  font-weight: 700;
+  flex-shrink: 0;
+}
+
+.profile-toast--success .profile-toast-icon {
+  background: rgba(34, 197, 94, 0.15);
   color: #4ade80;
+  border: 1px solid rgba(34, 197, 94, 0.25);
 }
 
-.save-message.error {
-  background: rgba(239, 68, 68, 0.1);
-  border: 1px solid rgba(239, 68, 68, 0.25);
+.profile-toast--danger .profile-toast-icon {
+  background: rgba(239, 68, 68, 0.15);
   color: #f87171;
+  border: 1px solid rgba(239, 68, 68, 0.25);
+}
+
+.profile-toast-message {
+  font-size: 15px;
+  line-height: 1.5;
+  color: #e5e5e5;
 }
 
 /* =====================================================

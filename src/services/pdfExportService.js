@@ -158,6 +158,8 @@ export async function exportCredentialToPDF(credential, templateDetails) {
 */
 export async function exportAllCredentialsToPDF(credentials, studentName) {
   if (!credentials || credentials.length === 0) return;
+  credentials = credentials.filter(c => c.status !== 'revoked' && c.status !== 'expired');
+  if (credentials.length === 0) return;
 
   const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
   const pageW = doc.internal.pageSize.getWidth();
@@ -197,7 +199,7 @@ export async function exportAllCredentialsToPDF(credentials, studentName) {
   doc.setTextColor(136, 136, 136);
   doc.setFontSize(10);
   doc.text(`Generated: ${new Date().toLocaleDateString()}`, pageW / 2, 134, { align: 'center' });
-  doc.text(`Total Credentials: ${credentials.length}`, pageW / 2, 142, { align: 'center' });
+  doc.text(`Total Active Credentials: ${credentials.length}`, pageW / 2, 142, { align: 'center' }); 
 
   // Credential list summary on cover
   let coverY = 160;

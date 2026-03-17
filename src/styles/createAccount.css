@@ -498,9 +498,58 @@
   padding: 24px 16px;
 }
 
-.issuer-message .success-icon {
-  font-size: 48px;
+/* Professional success icon */
+.success-icon-wrapper {
+  display: flex;
+  justify-content: center;
+  margin-bottom: 24px;
+}
+
+.success-icon-circle {
+  width: 72px;
+  height: 72px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #667eea, #764ba2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 32px;
+  color: #fff;
+  font-weight: 700;
+  box-shadow: 0 8px 32px rgba(102, 126, 234, 0.4);
+}
+
+.issuer-message h3 {
+  color: #fff;
+  font-size: 22px;
+  font-weight: 700;
+  margin: 0 0 8px 0;
+}
+
+.issuer-message h3 {
+  margin-bottom: 20px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid rgba(139, 92, 246, 0.15);
+}
+
+.issuer-message-body {
+  background: rgba(139, 92, 246, 0.06);
+  border: 1px solid rgba(139, 92, 246, 0.15);
+  border-radius: 12px;
+  padding: 16px 20px;
   margin-bottom: 16px;
+  text-align: left;
+}
+
+.issuer-message-body p {
+  color: #d4d4d8;
+  font-size: 13.5px;
+  line-height: 1.7;
+  margin: 0 0 10px 0;
+}
+
+.issuer-message-body p:last-child {
+  margin-bottom: 0;
 }
 
 .issuer-message h3 {

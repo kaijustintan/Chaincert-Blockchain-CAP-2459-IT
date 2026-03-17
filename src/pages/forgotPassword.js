@@ -28,8 +28,10 @@ function ForgotPassword() {
       });
       const data = await response.json();
 
-      if (data.success) {
+      if (data.success && data.otpSent) { 
         setStep("reset");
+      } else if (data.success && !data.otpSent) {
+        setError("No account found with that email address.");
       } else {
         setError(data.message || "Something went wrong.");
       }

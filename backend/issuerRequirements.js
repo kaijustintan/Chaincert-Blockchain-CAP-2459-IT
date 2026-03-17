@@ -25,8 +25,13 @@ const ISSUER_CATEGORY_REQUIREMENTS = {
     "industry_or_professional_recognition",
     "documented_certification_scheme_iso17024_aligned",
     "board_resolution_chaincert_and_scheme_approval"
+  ],
+
+  others: [
+    "sec_or_dti_registration",
+    "board_resolution_chaincert_authorization"
   ]
-};
+}; 
 
 const ISSUER_REQUIREMENT_METADATA = {
   // UNIVERSITY / HEI

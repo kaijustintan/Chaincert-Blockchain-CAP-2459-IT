@@ -255,7 +255,7 @@ const accountController = {
       // Always return success to prevent email enumeration 
       // (don't reveal if email exists or not)
       if (!result.docs || result.docs.length === 0) {
-        return res.status(200).json({ success: true, message: 'If this email is registered, a reset code has been sent.' });
+        return res.status(200).json({ success: true, otpSent: false, message: 'If this email is registered, a reset code has been sent.' }); 
       }
 
       const user = result.docs[0];
@@ -292,7 +292,7 @@ const accountController = {
 
       console.log('[FORGOT-PW] OTP Preview URL:', nodemailer.getTestMessageUrl(info)); // - polo
 
-      return res.status(200).json({ success: true, message: 'If this email is registered, a reset code has been sent.' });
+      return res.status(200).json({ success: true, otpSent: true, message: 'If this email is registered, a reset code has been sent.' }); 
     } catch (error) {
       console.error('[FORGOT-PW] forgotPassword error:', error);
       return res.status(500).json({ success: false, message: error.message });

@@ -733,6 +733,7 @@ const getDocumentDescription = (docKey) => {
                     <option value="government">Government</option>
                     <option value="training_provider">Training Provider</option>
                     <option value="industry_certifier">Industry Certifier</option>
+                    <option value="others">Others</option> 
                   </select>
                 </div>
               </div>
@@ -826,15 +827,14 @@ const getDocumentDescription = (docKey) => {
               </button>
             </form>
           ) : (
-            <div className="issuer-message"> {/* CSS-CHANGE: formal submission confirmation - polo */}
-              <div className="success-icon">📋</div>
+            <div className="issuer-message"> 
+              <div className="success-icon-wrapper">
+                <div className="success-icon-circle">✓</div>
+              </div>
               <h3>Application Received</h3>
-              <p className="issuer-message-lead">
-                Thank you for submitting your issuer registration with ChainCert.
-              </p>
 
               {issuer.issuerType === "subordinate" ? (
-                <>
+                <div className="issuer-message-body">
                   <p>
                     Your application has been received and is currently pending review
                     by your selected root authority. Upon their approval, it will be
@@ -844,9 +844,9 @@ const getDocumentDescription = (docKey) => {
                     Please ensure that your submitted documents are complete and accurate
                     to avoid delays in the review process.
                   </p>
-                </>
+                </div>
               ) : (
-                <>
+                <div className="issuer-message-body">
                   <p>
                     Your application has been successfully submitted and is now under
                     review by the ChainCert administration team. You will be notified
@@ -856,8 +856,8 @@ const getDocumentDescription = (docKey) => {
                     Please allow some time for the review process to be completed.
                     Ensure your contact email is active for any correspondence.
                   </p>
-                </>
-              )}
+                </div>
+              )} 
 
               <button className="btn-primary" onClick={() => navigate("/login")}>
                 Return to Login

@@ -79,6 +79,7 @@ const [showAll, setShowAll] = useState(false);
   // Load user profile data on component mount
   useEffect(() => {
     loadUserProfile();
+    if (userRole !== 'admin' && userRole !== 'issuer') fetchMyShareLinks(); 
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -308,7 +309,49 @@ const [showAll, setShowAll] = useState(false);
   // share type toggle — 'specific' or 'public'
   const [shareType, setShareType] = useState('specific');
 
-  // Share Profile handlers - polo
+  // My Share Links state 
+  const [myShareLinks, setMyShareLinks] = useState([]);
+  const [shareLinksLoading, setShareLinksLoading] = useState(false);
+  const [revokingToken, setRevokingToken] = useState(null);
+
+  // Fetch all share links for current user
+  const fetchMyShareLinks = async () => {
+    setShareLinksLoading(true);
+    try {
+      const result = await apiService.getMyShareLinks();
+      if (result.success) setMyShareLinks(result.links || []);
+    } catch (err) {
+      console.error('[PROFILE PAGE] Error fetching share links:', err);
+    } finally {
+      setShareLinksLoading(false);
+    }
+  };
+
+  // Compute status from share link doc fields 
+  const getShareLinkStatus = (link) => {
+    if (!link.isActive) return 'Revoked';
+    if (link.expiresAt && new Date() > new Date(link.expiresAt)) return 'Expired';
+    if (link.viewCount > 0) return 'Viewed';
+    return 'Unused';
+  };
+
+  const handleRevokeShareLink = async (token) => {
+    setRevokingToken(token);
+    try {
+      const result = await apiService.revokeShareLink(token);
+      if (result.success) {
+        showToast('Share link revoked successfully.');
+        fetchMyShareLinks(); // refresh list 
+      }
+    } catch (err) {
+      console.error('[PROFILE PAGE] Error revoking share link:', err);
+      showToast('Failed to revoke link.', 'danger');
+    } finally {
+      setRevokingToken(null);
+    }
+  };
+
+  // Share Profile handlers 
   const handleOpenShareModal = () => {
     setShareRecipientEmail('');
     setShareDuration('7');
@@ -347,6 +390,7 @@ const [showAll, setShowAll] = useState(false);
       }
       if (result.success) {
         setShareGeneratedUrl(result.shareUrl);
+        fetchMyShareLinks(); // Refresh list after generating
       } else {
         setShareError(result.message || 'Failed to generate link.');
       }
@@ -707,7 +751,85 @@ const [showAll, setShowAll] = useState(false);
 
       )} {/* end Skills Wallet — hidden for issuers */}
 
-      {/* Share Profile Modal - polo */}
+      {/* My Share Links Section */}
+      {userRole !== 'admin' && userRole !== 'issuer' && (
+        <section className="profile-section">
+          <div className="section-header">
+            <h3>My Share Links</h3>
+          </div>
+          {shareLinksLoading && <div className="empty-card">Loading share links...</div>}
+          {!shareLinksLoading && myShareLinks.length === 0 && (
+            <div className="empty-card">No share links generated yet.</div>
+          )}
+          {!shareLinksLoading && myShareLinks.length > 0 && (
+            <div style={{ overflowX: 'auto' }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.85rem' }}>
+                <thead>
+                  <tr style={{ borderBottom: '1px solid rgba(139,92,246,0.3)' }}>
+                    {['Recipient', 'Created', 'Expires', 'Views', 'Status', 'Action'].map(h => (
+                      <th key={h} style={{ padding: '8px 12px', color: '#a78bfa', fontWeight: 600, textAlign: 'left', whiteSpace: 'nowrap' }}>{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {myShareLinks.map((link) => {
+                    const status = getShareLinkStatus(link);
+                    const statusColors = {
+                      Unused: { bg: 'rgba(99,102,241,0.15)', color: '#818cf8' },
+                      Viewed: { bg: 'rgba(34,197,94,0.15)', color: '#4ade80' },
+                      Expired: { bg: 'rgba(251,191,36,0.15)', color: '#fbbf24' },
+                      Revoked: { bg: 'rgba(239,68,68,0.15)', color: '#f87171' }
+                    };
+                    const sc = statusColors[status];
+                    return (
+                      <tr key={link._id} style={{ borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
+                        <td style={{ padding: '10px 12px', color: '#d4d4d8' }}>
+                          {link.recipientEmail || <span style={{ color: '#666', fontStyle: 'italic' }}>Anyone</span>}
+                        </td>
+                        <td style={{ padding: '10px 12px', color: '#94a3b8', whiteSpace: 'nowrap' }}>
+                          {link.createdAt ? new Date(link.createdAt).toLocaleDateString() : '—'}
+                        </td>
+                        <td style={{ padding: '10px 12px', color: '#94a3b8', whiteSpace: 'nowrap' }}>
+                          {link.expiresAt ? new Date(link.expiresAt).toLocaleDateString() : 'No Expiry'}
+                        </td>
+                        <td style={{ padding: '10px 12px', color: '#d4d4d8', textAlign: 'center' }}>
+                          {link.viewCount || 0}
+                        </td>
+                        <td style={{ padding: '10px 12px' }}>
+                          <span style={{ background: sc.bg, color: sc.color, borderRadius: 20, padding: '3px 10px', fontSize: '0.78rem', fontWeight: 600 }}>
+                            {status}
+                          </span>
+                        </td>
+                        <td style={{ padding: '10px 12px' }}>
+                          {status !== 'Revoked' ? (
+                            <button
+                              onClick={() => handleRevokeShareLink(link.token)}
+                              disabled={revokingToken === link.token}
+                              style={{
+                                background: 'rgba(239,68,68,0.15)',
+                                border: '1px solid rgba(239,68,68,0.4)',
+                                borderRadius: 6, color: '#f87171',
+                                padding: '4px 10px', fontSize: '0.78rem',
+                                cursor: 'pointer', fontFamily: 'Poppins, sans-serif'
+                              }}
+                            >
+                              {revokingToken === link.token ? 'Revoking...' : 'Revoke'}
+                            </button>
+                          ) : (
+                            <span style={{ color: '#555', fontSize: '0.78rem' }}>—</span>
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </section>
+      )}
+
+      {/* Share Profile Modal */}
       {showShareModal && (
         <div className="modal-overlay" onClick={handleCloseShareModal}>
           <div className="modal detail-modal" onClick={(e) => e.stopPropagation()} style={{ maxWidth: 480 }}>

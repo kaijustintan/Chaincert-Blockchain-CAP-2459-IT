@@ -46,6 +46,9 @@ router.delete('/profile-share/:token/revoke', accountController.revokeShareLink)
 // POST /api/auth/profile-share/generate-public - Generate a public share link (no recipient).
 router.post('/profile-share/generate-public', accountController.generatePublicShareLink);
 
+// GET /api/auth/profile-share/my-links - Get all share links for logged-in user.
+router.get('/profile-share/my-links', accountController.getMyShareLinks);
+
 // POST /api/auth/forgot-password - Request password reset OTP. 
 router.post('/forgot-password', accountController.forgotPassword);
 

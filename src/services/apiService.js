@@ -2255,6 +2255,17 @@ GetRootSubordinateRejectionLogsByRootAuthority: async () => {
     }
   },
 
+  // Fetch all share links for logged-in user
+  getMyShareLinks: async () => {
+    try {
+      const response = await axios.get('/auth/profile-share/my-links');
+      return response.data;
+    } catch (error) {
+      console.error('Error fetching my share links:', error.response?.data?.message || error.message);
+      throw error;
+    }
+  },
+
   getApiBaseUrl: () => {
     return axios.defaults.baseURL || 'http://localhost:4000';
   }

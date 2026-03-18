@@ -3355,7 +3355,12 @@ async function verifyOTPAndGetUserId(token, otp) {
   if (!doc) throw new Error('Share link not found');
   if (doc.otp !== otp) throw new Error('Invalid verification code.');
   if (new Date() > new Date(doc.otpExpiresAt)) throw new Error('Code has expired. Request a new one.');
+  const now = new Date().toISOString();
   doc.otpVerified = true;
+  doc.otpVerifiedAt = now; // OTP verification timestamp
+  doc.viewCount = (doc.viewCount || 0) + 1; // Increment view count
+  if (!doc.firstViewedAt) doc.firstViewedAt = now; // Set only once
+  doc.lastViewedAt = now; // Always update on each verify
   await profileShareLinksDb.insert(doc);
   return doc.userId;
 }
@@ -3363,7 +3368,7 @@ async function verifyOTPAndGetUserId(token, otp) {
 /*
   Function Name: revokeProfileShareLink
   Technical: Sets isActive = false on the share link doc (soft delete).
-  Tropang Ex: Kapag pinindot ni user ang "Revoke", dito nagiging inactive yung link. // - polo
+  Tropang Ex: Kapag pinindot ni user ang "Revoke", dito nagiging inactive yung link. 
 */
 async function revokeProfileShareLink(token, userId) {
   if (!profileShareLinksDb) await initializeDatabases();
@@ -3371,7 +3376,25 @@ async function revokeProfileShareLink(token, userId) {
   if (!doc) throw new Error('Share link not found');
   if (doc.userId !== userId) throw new Error('Unauthorized');
   doc.isActive = false;
+  doc.revokedAt = new Date().toISOString(); // Manual revocation timestamp
   return await profileShareLinksDb.insert(doc);
+}
+
+/*
+  Function Name: getShareLinksByUserId
+  Technical: Fetches all share link docs belonging to a specific userId.
+  Tropang Ex: Ginagamit para ipakita lahat ng generated links ng user sa "My Share Links" section. // - polo
+*/
+async function getShareLinksByUserId(userId) {
+  if (!profileShareLinksDb) await initializeDatabases();
+  const result = await profileShareLinksDb.find({
+    selector: { type: 'profile_share_link', userId },
+    limit: 100
+  });
+  // Sort newest first 
+  return (result.docs || []).sort(
+    (a, b) => new Date(b.createdAt) - new Date(a.createdAt)
+  );
 }
 
 module.exports = {
@@ -3457,11 +3480,12 @@ module.exports = {
   getBlockedHolderIDsByTemplate,
 
   getPendingSubordinatesForRoot,
-  createProfileShareLink,   // - polo
-  getProfileShareLink,      // - polo
-  saveOTPToShareLink,       // - polo
-  verifyOTPAndGetUserId,    // - polo
-  revokeProfileShareLink,   // - polo
+  createProfileShareLink,   
+  getProfileShareLink,      
+  saveOTPToShareLink,       
+  verifyOTPAndGetUserId,    
+  revokeProfileShareLink,  
+  getShareLinksByUserId,    
   getAllSubordinatesForRoot,
   getRootApprovedSubordinatesForRoot,
   getRootRejectedSubordinatesForRoot,

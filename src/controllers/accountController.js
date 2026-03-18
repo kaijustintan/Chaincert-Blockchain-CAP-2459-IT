@@ -410,6 +410,24 @@ const accountController = {
     }
   },
 
+  // ============================================================
+  // GET MY SHARE LINKS 
+  // ============================================================
+
+  getMyShareLinks: async (req, res) => {
+    try {
+      const userId = req.user?.id || req.user?._id;
+      if (!userId) {
+        return res.status(401).json({ success: false, message: 'Unauthorized.' });
+      }
+      const links = await couchDB.getShareLinksByUserId(userId);
+      return res.status(200).json({ success: true, links });
+    } catch (error) {
+      console.error('[SHARE] getMyShareLinks error:', error);
+      return res.status(500).json({ success: false, message: error.message });
+    }
+  },
+
   uploadProfilePicture: async (req, res) => {
     try {
       const { userId } = req.body;

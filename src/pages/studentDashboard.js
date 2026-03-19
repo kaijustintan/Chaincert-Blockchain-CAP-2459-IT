@@ -570,19 +570,16 @@ export default function StudentDashboard() {
           <option value="az">🔤 Name A–Z</option>
           <option value="za">🔤 Name Z–A</option>
         </select>
-      </div>
 
-      {/* CSS-CHANGE: Export All button */}
-      {!loading && !error && credentials.length > 0 && (
-        <div style={{ marginBottom: 16, textAlign: "right" }}>
+        {!loading && !error && credentials.length > 0 && (
           <button
             className="export-all-btn"
             onClick={() => exportAllCredentialsToPDF(credentials, displayName)}
           >
             📄 Export All as PDF
           </button>
-        </div>
-      )}
+        )}
+      </div>
 
       {/* Content */}
       <div className="content">

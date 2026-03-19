@@ -1804,148 +1804,261 @@ const handleDownloadIssuerDocument = async (doc) => {
 
       {/* CREDENTIALS TAB */}
       {tab === "credentials" && (
-        <div className="tab-card">
-          <h2>Credentials (All Issuers)</h2>
-          <p className="tab-subtitle">
-            Unified view of templates + issued credentials across ALL approved issuers.
-          </p>
-
-          <div className="issuer-filter-row" style={{ gap: 12, flexWrap: "wrap" }}>
-            <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-              <label htmlFor="adminIssuerFilter">Issuer:</label>
-              <select
-                id="adminIssuerFilter"
-                value={adminCredIssuerFilter}
-                onChange={(e) => setAdminCredIssuerFilter(e.target.value)}
-              >
-                <option value="all">All</option>
-                {credentialIssuerOptions.map((issuer) => {
-                  const id = issuer._id || issuer.id;
-                  return (
-                    <option key={id} value={id}>
-                      {issuer.orgName || issuer.name || issuer.email || id}
-                    </option>
-                  );
-                })}
-              </select>
+        <>
+          {/* ── Analytics Overview ── */}
+          <div className="admin-stats-grid">
+            <div className="admin-stat-card">
+              <span className="admin-stat-num">{adminCredentials.length}</span>
+              <span className="admin-stat-label">Total Records</span>
             </div>
-
-            <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-              <label htmlFor="adminTypeFilter">Type:</label>
-              <select
-                id="adminTypeFilter"
-                value={adminCredTypeFilter}
-                onChange={(e) => setAdminCredTypeFilter(e.target.value)}
-              >
-                <option value="all">All</option>
-                <option value="issued">Issued</option>
-                <option value="templates">Templates</option>
-              </select>
+            <div className="admin-stat-card stat-green">
+              <span className="admin-stat-num">{adminCredentials.filter(r => r.type === "issued").length}</span>
+              <span className="admin-stat-label">Issued</span>
             </div>
-
-            <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-              <label htmlFor="adminSearchField">Search by:</label>
-              <select
-                id="adminSearchField"
-                value={adminCredSearchField}
-                onChange={(e) => setAdminCredSearchField(e.target.value)}
-              >
-                <option value="holderName">Holder Name</option>
-                <option value="holderID">Holder ID</option>
-                <option value="credentialId">Credential ID</option>
-                <option value="credentialName">Credential Name</option>
-              </select>
+            <div className="admin-stat-card stat-purple">
+              <span className="admin-stat-num">{adminCredentials.filter(r => r.type === "template").length}</span>
+              <span className="admin-stat-label">Templates</span>
             </div>
-
-            <input
-              type="text"
-              value={adminCredSearchQuery}
-              onChange={(e) => setAdminCredSearchQuery(e.target.value)}
-              placeholder="Search..."
-              style={{
-                flex: 1,
-                minWidth: 220,
-                padding: "8px 10px",
-                borderRadius: 10,
-                border: "1px solid rgba(255,255,255,0.18)",
-                background: "rgba(255,255,255,0.06)",
-                color: "#fff",
-                outline: "none",
-              }}
-            />
+            <div className="admin-stat-card stat-blue">
+              <span className="admin-stat-num">{approvedIssuers.length}</span>
+              <span className="admin-stat-label">Active Issuers</span>
+            </div>
+            <div className="admin-stat-card stat-red">
+              <span className="admin-stat-num">{disabledIssuers.length}</span>
+              <span className="admin-stat-label">Disabled Issuers</span>
+            </div>
           </div>
 
-          {adminCredentialsLoading ? (
-            <div className="tab-placeholder">Loading credentials...</div>
-          ) : adminCredentialsError ? (
-            <div className="tab-placeholder">❌ {adminCredentialsError}</div>
-          ) : filteredAdminCredentials.length > 0 ? (
-            <div className="table-wrapper">
-              <table className="admin-table">
-                <thead>
-                  <tr>
-                    <th>Issuer</th>
-                    <th>Credential ID</th>
-                    <th>Type</th>
-                    <th>Credential Name</th>
-                    <th>Holder ID</th>
-                    <th>Holder Name</th>
-                    <th>Status</th>
-                    <th>Created At</th>
-                    <th>Actions</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {filteredAdminCredentials.map((row, idx) => {
-                    const typeLower = String(row.type || "").toLowerCase();
-                    const isIssued = typeLower === "issued";
+          {/* ── Charts Row ── */}
+          <div className="admin-analytics-row">
+            {/* Bar Chart — Credentials by Issuer */}
+            <div className="admin-chart-card">
+              <h3>Credentials by Issuer</h3>
+              <div className="chart-bars" style={{ marginBottom: 28 }}>
+                {(() => {
+                  const issuerCounts = {};
+                  adminCredentials.forEach(r => {
+                    const name = r.issuerName || "Unknown";
+                    issuerCounts[name] = (issuerCounts[name] || 0) + 1;
+                  });
+                  const entries = Object.entries(issuerCounts).sort((a, b) => b[1] - a[1]).slice(0, 6);
+                  const max = Math.max(...entries.map(e => e[1]), 1);
+                  const colors = ["#667eea", "#8b5cf6", "#a78bfa", "#22c55e", "#f59e0b", "#60a5fa"];
+                  return entries.length > 0 ? entries.map(([name, count], i) => (
+                    <div
+                      key={name}
+                      className="chart-bar"
+                      style={{
+                        height: `${(count / max) * 100}%`,
+                        background: `linear-gradient(180deg, ${colors[i % colors.length]}, ${colors[i % colors.length]}88)`,
+                        minHeight: 8,
+                      }}
+                      title={`${name}: ${count}`}
+                    >
+                      <span className="chart-bar-value">{count}</span>
+                      <span className="chart-bar-label">{name.length > 12 ? name.slice(0, 12) + "…" : name}</span>
+                    </div>
+                  )) : (
+                    <div style={{ color: "#888", fontSize: 13, textAlign: "center", width: "100%", paddingTop: 40 }}>No credential data yet</div>
+                  );
+                })()}
+              </div>
+            </div>
 
+            {/* Donut Chart — Status Breakdown */}
+            <div className="admin-chart-card">
+              <h3>Status Breakdown</h3>
+              <div className="chart-donut-wrap">
+                {(() => {
+                  const issued = adminCredentials.filter(r => r.type === "issued");
+                  const active = issued.filter(r => r.status === "issued" || r.status === "active").length;
+                  const revoked = issued.filter(r => r.status === "revoked").length;
+                  const expired = issued.filter(r => r.status === "expired").length;
+                  const templates = adminCredentials.filter(r => r.type === "template").length;
+                  const total = active + revoked + expired + templates || 1;
+
+                  const segments = [
+                    { label: "Active", count: active, color: "#4ade80" },
+                    { label: "Revoked", count: revoked, color: "#f87171" },
+                    { label: "Expired", count: expired, color: "#fbbf24" },
+                    { label: "Templates", count: templates, color: "#a78bfa" },
+                  ];
+
+                  let cumPercent = 0;
+                  const gradientParts = segments.map(s => {
+                    const start = cumPercent;
+                    const pct = (s.count / total) * 100;
+                    cumPercent += pct;
+                    return `${s.color} ${start}% ${cumPercent}%`;
+                  });
+
+                  return (
+                    <>
+                      <div
+                        className="chart-donut"
+                        style={{ background: `conic-gradient(${gradientParts.join(", ")})` }}
+                      >
+                        <div className="chart-donut-center">{issued.length}</div>
+                      </div>
+                      <div className="chart-donut-legend">
+                        {segments.map(s => (
+                          <div key={s.label} className="legend-item">
+                            <span className="legend-dot" style={{ background: s.color }} />
+                            {s.label}: <strong>{s.count}</strong>
+                          </div>
+                        ))}
+                      </div>
+                    </>
+                  );
+                })()}
+              </div>
+            </div>
+          </div>
+
+          {/* ── Credentials Table ── */}
+          <div className="tab-card">
+            <h2>Credentials (All Issuers)</h2>
+            <p className="tab-subtitle">
+              Unified view of templates + issued credentials across ALL approved issuers.
+            </p>
+
+            <div className="issuer-filter-row" style={{ gap: 12, flexWrap: "wrap" }}>
+              <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                <label htmlFor="adminIssuerFilter">Issuer:</label>
+                <select
+                  id="adminIssuerFilter"
+                  value={adminCredIssuerFilter}
+                  onChange={(e) => setAdminCredIssuerFilter(e.target.value)}
+                >
+                  <option value="all">All</option>
+                  {credentialIssuerOptions.map((issuer) => {
+                    const id = issuer._id || issuer.id;
                     return (
-                      <tr key={`${row.credentialId || "row"}_${idx}`}>
-                        <td>{row.issuerName || "Unknown"}</td>
-                        <td style={{ fontFamily: "monospace", fontSize: 12 }}>
-                          {row.credentialId || "N/A"}
-                        </td>
-                        <td>{row.type || "N/A"}</td>
-                        <td>{row.credentialName || row.credentialType || "N/A"}</td>
-                        <td style={{ fontFamily: "monospace", fontSize: 12 }}>
-                          {row.holderID || "—"}
-                        </td>
-                        <td>{row.holderName || "—"}</td>
-                        <td>{row.status || "unknown"}</td>
-                        <td>{formatTimestamp(row.createdAt)}</td>
-                        <td>
-                          {isIssued ? (
-                            <button
-                              type="button"
-                              onClick={() => openHistoryModalForRow(row)}
-                              style={{
-                                padding: "8px 10px",
-                                borderRadius: 10,
-                                border: "1px solid rgba(255,255,255,0.18)",
-                                cursor: "pointer",
-                                background: "rgba(255,255,255,0.06)",
-                                color: "#fff",
-                                fontWeight: 700,
-                              }}
-                              title="View blockchain audit history"
-                            >
-                              View BC History
-                            </button>
-                          ) : (
-                            <span style={{ opacity: 0.65 }}>—</span>
-                          )}
-                        </td>
-                      </tr>
+                      <option key={id} value={id}>
+                        {issuer.orgName || issuer.name || issuer.email || id}
+                      </option>
                     );
                   })}
-                </tbody>
-              </table>
+                </select>
+              </div>
+
+              <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                <label htmlFor="adminTypeFilter">Type:</label>
+                <select
+                  id="adminTypeFilter"
+                  value={adminCredTypeFilter}
+                  onChange={(e) => setAdminCredTypeFilter(e.target.value)}
+                >
+                  <option value="all">All</option>
+                  <option value="issued">Issued</option>
+                  <option value="templates">Templates</option>
+                </select>
+              </div>
+
+              <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                <label htmlFor="adminSearchField">Search by:</label>
+                <select
+                  id="adminSearchField"
+                  value={adminCredSearchField}
+                  onChange={(e) => setAdminCredSearchField(e.target.value)}
+                >
+                  <option value="holderName">Holder Name</option>
+                  <option value="holderID">Holder ID</option>
+                  <option value="credentialId">Credential ID</option>
+                  <option value="credentialName">Credential Name</option>
+                </select>
+              </div>
+
+              <input
+                type="text"
+                value={adminCredSearchQuery}
+                onChange={(e) => setAdminCredSearchQuery(e.target.value)}
+                placeholder="Search..."
+                style={{
+                  flex: 1,
+                  minWidth: 220,
+                  padding: "8px 10px",
+                  borderRadius: 10,
+                  border: "1px solid rgba(255,255,255,0.18)",
+                  background: "rgba(255,255,255,0.06)",
+                  color: "#fff",
+                  outline: "none",
+                }}
+              />
             </div>
-          ) : (
-            <div className="tab-placeholder">No credentials found for selected filters.</div>
-          )}
-        </div>
+
+            {adminCredentialsLoading ? (
+              <div className="tab-placeholder">Loading credentials...</div>
+            ) : adminCredentialsError ? (
+              <div className="tab-placeholder">❌ {adminCredentialsError}</div>
+            ) : filteredAdminCredentials.length > 0 ? (
+              <div className="table-wrapper">
+                <table className="admin-table">
+                  <thead>
+                    <tr>
+                      <th>Issuer</th>
+                      <th>Credential ID</th>
+                      <th>Type</th>
+                      <th>Credential Name</th>
+                      <th>Holder ID</th>
+                      <th>Holder Name</th>
+                      <th>Status</th>
+                      <th>Created At</th>
+                      <th>Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {filteredAdminCredentials.map((row, idx) => {
+                      const typeLower = String(row.type || "").toLowerCase();
+                      const isIssued = typeLower === "issued";
+
+                      return (
+                        <tr key={`${row.credentialId || "row"}_${idx}`}>
+                          <td>{row.issuerName || "Unknown"}</td>
+                          <td style={{ fontFamily: "monospace", fontSize: 12 }}>
+                            {row.credentialId || "N/A"}
+                          </td>
+                          <td>{row.type || "N/A"}</td>
+                          <td>{row.credentialName || row.credentialType || "N/A"}</td>
+                          <td style={{ fontFamily: "monospace", fontSize: 12 }}>
+                            {row.holderID || "—"}
+                          </td>
+                          <td>{row.holderName || "—"}</td>
+                          <td>{row.status || "unknown"}</td>
+                          <td>{formatTimestamp(row.createdAt)}</td>
+                          <td>
+                            {isIssued ? (
+                              <button
+                                type="button"
+                                onClick={() => openHistoryModalForRow(row)}
+                                style={{
+                                  padding: "8px 10px",
+                                  borderRadius: 10,
+                                  border: "1px solid rgba(255,255,255,0.18)",
+                                  cursor: "pointer",
+                                  background: "rgba(255,255,255,0.06)",
+                                  color: "#fff",
+                                  fontWeight: 700,
+                                }}
+                                title="View blockchain audit history"
+                              >
+                                View BC History
+                              </button>
+                            ) : (
+                              <span style={{ opacity: 0.65 }}>—</span>
+                            )}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            ) : (
+              <div className="tab-placeholder">No credentials found for selected filters.</div>
+            )}
+          </div>
+        </>
       )}
 
       {/* ISSUERS TAB */}

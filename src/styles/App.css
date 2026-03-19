@@ -1,3 +1,11 @@
+body {
+  margin: 0;
+  font-family: 'Poppins', sans-serif;
+  background: linear-gradient(rgba(0,0,0,0.55), rgba(0,0,0,0.55)), url("https://i.pinimg.com/originals/82/fe/a8/82fea868e674a7c404f5c1a2f87e4c3b.jpg") no-repeat center/cover fixed;
+  background-color: #0a0a1e;
+  color: #fff;
+}
+
 .App {
   text-align: center;
   /* Make App a column flex container so footer can stick to bottom when content is short */

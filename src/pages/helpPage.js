@@ -1,72 +1,122 @@
-// Help & FAQ page
-// Admin dashboard for credential management
+// helpPage.js
+// CSS-CHANGE: Full redesign with accordion FAQ, quick links, contact card - polo
+import React, { useState } from "react";
+import "../styles/helpPage.css";
 
-import React from 'react';
-import '../styles/helpPage.css';
+function HelpPage() {
+  const [openFaq, setOpenFaq] = useState(null);
 
-function helpPage() {
+  const toggleFaq = (index) => {
+    setOpenFaq(openFaq === index ? null : index);
+  };
+
+  const faqs = [
+    {
+      q: "What is ChainCert?",
+      a: "ChainCert is a blockchain-based credential verification system built on Hyperledger Fabric. It enables institutions to issue tamper-proof digital credentials, students to manage them in a secure wallet, and employers to verify them instantly."
+    },
+    {
+      q: "How do students access their credentials?",
+      a: "After an institution issues a credential, it appears automatically in your Student Dashboard. You can view details, see blockchain history, export as PDF with a QR code, and share via secure verification links."
+    },
+    {
+      q: "How do employers verify credentials?",
+      a: "Employers use the Verifier Dashboard to enter a credential ID or scan a QR code. The system checks the credential's data against the blockchain ledger to confirm authenticity, issuer identity, and current status — all in seconds."
+    },
+    {
+      q: "What if my credential details are incorrect?",
+      a: "Only the issuing institution can update or revoke credentials through their Issuer Dashboard. Contact your school or certifying body directly to request corrections. All changes are permanently recorded on the blockchain."
+    },
+    {
+      q: "How does ChainCert protect my privacy?",
+      a: "Only non-sensitive metadata (hashes, timestamps, issuer IDs) are stored on the blockchain. Full credential documents, badge images, and personal data are stored off-chain in CouchDB with per-organization access control."
+    },
+    {
+      q: "Why blockchain instead of a regular database?",
+      a: "Centralized databases have single points of failure and can be tampered with. ChainCert's permissioned blockchain ensures decentralized validation, immutable records, and transparent audit trails that no single party can alter."
+    },
+    {
+      q: "Can I share my credentials with employers?",
+      a: "Yes. You can share individual credentials via a secure verification link, export a PDF with an embedded QR code, or share your public profile page which displays your credential wallet."
+    },
+    {
+      q: "What types of credentials can be issued?",
+      a: "ChainCert supports any type of digital credential: degrees, diplomas, certificates, micro-credentials, professional licenses, awards, and more. Issuers define the type, skills, and metadata for each template."
+    },
+  ];
+
   return (
     <div className="help-container">
-      <h2 className="help-title">Help & FAQ</h2>
-      <p className="help-subtitle">
-        Here are some common questions about using ChainCert:
-      </p>
 
-      <div className="faq-box">
-        <h4>1. What is ChainCert?</h4>
-        <p>
-          ChainCert is a blockchain-based credential verification system built on
-          Hyperledger Fabric. It ensures secure, transparent, and tamper-proof
-          management of academic and professional credentials.
+      {/* ── HERO ── */}
+      <section className="help-hero">
+        <div className="help-badge">Support Center</div>
+        <h1 className="help-hero-title">How can we help?</h1>
+        <p className="help-hero-desc">
+          Find answers to common questions about using ChainCert, managing credentials,
+          and navigating the platform.
         </p>
-      </div>
+      </section>
 
-      <div className="faq-box">
-        <h4>2. How do students access their credentials?</h4>
-        <p>
-          Students receive their credentials in a secure digital wallet tied to
-          their blockchain identity. They can view, download, and share them via
-          QR codes or secure links, with full control over who can access their data.
-        </p>
-      </div>
+      {/* ── QUICK LINKS ── */}
+      <section className="help-quick-links">
+        <div className="quick-link" onClick={() => setOpenFaq(0)}>
+          <span className="ql-text">For Students</span>
+        </div>
+        <div className="quick-link" onClick={() => setOpenFaq(2)}>
+          <span className="ql-text">For Employers</span>
+        </div>
+        <div className="quick-link" onClick={() => setOpenFaq(5)}>
+          <span className="ql-text">Why Blockchain?</span>
+        </div>
+        <div className="quick-link" onClick={() => setOpenFaq(4)}>
+          <span className="ql-text">Privacy & Security</span>
+        </div>
+      </section>
 
-      <div className="faq-box">
-        <h4>3. How do employers verify credentials?</h4>
-        <p>
-          Employers or verifiers can scan a QR code or click a verification link.
-          The system checks the credential’s hash against the blockchain ledger to
-          confirm authenticity, issuer, and current status — instantly and securely.
-        </p>
-      </div>
+      {/* ── FAQ SECTION ── */}
+      <section className="help-faq-section">
+        <h2 className="help-section-title">Frequently Asked Questions</h2>
 
-      <div className="faq-box">
-        <h4>4. What if my credential details are incorrect?</h4>
-        <p>
-          Only authorized institutions can update or revoke credentials via the
-          Admin Dashboard. Students must contact their school or certifying body
-          for corrections.
-        </p>
-      </div>
+        <div className="faq-list">
+          {faqs.map((faq, index) => (
+            <div
+              key={index}
+              className={`faq-item ${openFaq === index ? "faq-open" : ""}`}
+              onClick={() => toggleFaq(index)}
+            >
+              <div className="faq-question">
+                <span className="faq-num">{String(index + 1).padStart(2, "0")}</span>
+                <h4>{faq.q}</h4>
+                <span className="faq-toggle">{openFaq === index ? "−" : "+"}</span>
+              </div>
+              {openFaq === index && (
+                <div className="faq-answer">
+                  <p>{faq.a}</p>
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+      </section>
 
-      <div className="faq-box">
-        <h4>5. How does ChainCert protect my privacy?</h4>
-        <p>
-          Only non-sensitive data like hashes, timestamps, and issuer information
-          are stored on-chain. Full credential documents are stored off-chain in
-          secure repositories, accessible only by the student and authorized verifiers.
-        </p>
-      </div>
-
-      <div className="faq-box">
-        <h4>6. Why blockchain and not a centralized database?</h4>
-        <p>
-          Traditional centralized systems are prone to fraud, delays, and single
-          points of failure. ChainCert’s blockchain ensures decentralized, immutable
-          verification, enhancing trust and efficiency across institutions.
-        </p>
-      </div>
+      {/* ── CONTACT CARD ── */}
+      <section className="help-contact">
+        <div className="contact-card">
+          <h3>Still need help?</h3>
+          <p>Can't find what you're looking for? Reach out to our support team and we'll get back to you.</p>
+          <div className="contact-info-row">
+            <div className="contact-item">
+              <span>info@chaincert.com</span>
+            </div>
+            <div className="contact-item">
+              <span>+63 912 345 6789</span>
+            </div>
+          </div>
+        </div>
+      </section>
     </div>
   );
 }
 
-export default helpPage;  // Ensure this export is in place
+export default HelpPage;

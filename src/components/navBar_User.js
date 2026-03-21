@@ -94,7 +94,7 @@ function NavBar() {
           </>
         )}
 
-        {isLoggedIn && userRole === 'student' && (
+        {isLoggedIn && (userRole === 'student' || userRole === 'user') && (
           <li className={location.pathname === '/student/dashboard' ? 'active' : ''}>
             <Link to="/student/dashboard">My Dashboard</Link>
           </li>
@@ -148,7 +148,7 @@ function NavBar() {
                   <li className={location.pathname === '/settings' ? 'active' : ''}>
                     <Link to="/settings">Settings</Link>
                   </li>
-                  {userRole === 'student' && (
+                  {(userRole === 'student' || userRole === 'user') && (
                     <li className={location.pathname === '/transcript' ? 'active' : ''}>
                       <Link to="/transcript">Send Transcript</Link>
                     </li>

@@ -121,6 +121,52 @@ const Verify_Credential = async (req, res, getContractAndGateway) => {
       }
     }
 
+    if (mainPayload) {
+      try {
+        const searchId = normalizeCredentialId(credentialId);
+        const adminCouch = nano(COUCHDB_URL);
+        const userWalletDb = adminCouch.use('wallet_user_credentials');
+        const couchResult = await userWalletDb.find({
+          selector: { _id: searchId },
+          limit: 1,
+        });
+
+        if (couchResult.docs && couchResult.docs.length > 0) {
+          const couchCred = couchResult.docs[0];
+          mainPayload.credentialName = mainPayload.credentialName || couchCred.credentialName || undefined;
+          mainPayload.credentialType = mainPayload.credentialType || couchCred.credentialType || undefined;
+          mainPayload.issuerName = couchCred.issuerName || mainPayload.issuerName || undefined;
+          mainPayload.holderName = couchCred.holderName || couchCred.holderID || mainPayload.holderID || undefined;
+          mainPayload.holderID = mainPayload.holderID || couchCred.holderID || undefined;
+          mainPayload.badgeImage = couchCred.badgeImage || undefined;
+          mainPayload.skills = couchCred.skills || [];
+          mainPayload.description = couchCred.description || undefined;
+          mainPayload.savedToUserWalletAt = couchCred.savedToUserWalletAt || undefined;
+        }
+
+        if (mainPayload.holderID && !mainPayload.holderName) {
+          try {
+            const holderUser = await couchdbService.getUser(mainPayload.holderID);
+            if (holderUser) {
+              mainPayload.holderName = holderUser.username || holderUser.fullName || holderUser.name || holderUser.email || mainPayload.holderID;
+            }
+          } catch (e) { /* non-critical */ }
+        }
+
+        const issuerLookupId = mainPayload.issuerID || mainPayload.issuerName;
+        if (issuerLookupId && typeof issuerLookupId === 'string' && issuerLookupId.startsWith('issuer_')) {
+          try {
+            const issuerDoc = await couchdbService.getUser(issuerLookupId);
+            if (issuerDoc) {
+              mainPayload.issuerName = issuerDoc.orgName || issuerDoc.contactName || issuerDoc.username || mainPayload.issuerName;
+            }
+          } catch (e) { /* non-critical */ }
+        }
+      } catch (enrichErr) {
+        console.warn('[VERIFY] CouchDB enrichment failed (non-fatal):', enrichErr.message);
+      }
+    }
+
     // ✅ STEP 2: FALLBACK to CouchDB if blockchain didn't provide an answer
     if (!mainPayload) {
       console.log('[VERIFY] Step 2: Falling back to CouchDB...');
@@ -194,6 +240,10 @@ const Verify_Credential = async (req, res, getContractAndGateway) => {
       credentialName: mainPayload.credentialName,
       issuerName: mainPayload.issuerName,
       holderID: mainPayload.holderID,
+      holderName: mainPayload.holderName || undefined,
+      badgeImage: mainPayload.badgeImage || undefined,
+      skills: mainPayload.skills || [],
+      description: mainPayload.description || undefined,
       status: mainPayload.status,
       isValid: finalIsValid,
       isRevoked: mainPayload.isRevoked,
@@ -320,7 +370,7 @@ const getVerificationStats = async (req, res) => {
 const logVerificationEvent = async (req, res, getContractAndGateway) => {
   try {
     const { credentialId } = req.params;
-    const { verifierName, verifierEmail, verifyResult } = req.body || {};
+    const { verifierName, verifierEmail, verifyResult, name, email, resultJson } = req.body || {};
 
     // Step 0: Basic validation
     if (!credentialId) {
@@ -330,8 +380,8 @@ const logVerificationEvent = async (req, res, getContractAndGateway) => {
       });
     }
 
-    const name = verifierName || '';
-    const email = verifierEmail || '';
+    const resolvedName = verifierName || name || '';
+    const resolvedEmail = verifierEmail || email || '';
 
     // --- Try to resolve holderID + holderName from CouchDB ---
     let holderID = null;
@@ -384,9 +434,11 @@ const logVerificationEvent = async (req, res, getContractAndGateway) => {
 
     // Take result from previous /verify call (backend/chaincode output)
     const resultSummary = verifyResult || {};
-    const resultJson = JSON.stringify({
-      valid: !!resultSummary.valid,
+    const serializedResultJson = resultJson || JSON.stringify({
+      valid: !!(resultSummary.valid ?? resultSummary.isValid),
       reason: resultSummary.reason || '',
+      status: resultSummary.status || '',
+      source: resultSummary.source || '',
     });
 
     console.log('[VERIFY-LOG] Creating verification log for credential:', credentialId);
@@ -402,9 +454,9 @@ const logVerificationEvent = async (req, res, getContractAndGateway) => {
     const logBuffer = await contract.submitTransaction(
       'LogVerification',
       credentialId,
-      name,
-      email,
-      resultJson
+      resolvedName,
+      resolvedEmail,
+      serializedResultJson
     );
 
     await gateway.disconnect();

@@ -3,6 +3,7 @@ import React, { useState, useEffect } from "react";
 import ReactDOM from "react-dom";
 import "../styles/adminDashboard.css";
 import apiService from "../services/apiService";
+import AppToast from "../components/appToast";
 
 export default function AdminDashboard() {
   const [tab, setTab] = useState("credentials");
@@ -13,6 +14,7 @@ export default function AdminDashboard() {
   const [verificationsLoading, setVerificationsLoading] = useState(false);
   const [logsLoading, setLogsLoading] = useState(false);
   const [message, setMessage] = useState("");
+  const [messageType, setMessageType] = useState("success");
 
   const [issuerFilter, setIssuerFilter] = useState("approved");
 
@@ -314,7 +316,8 @@ const handleDownloadIssuerDocument = async (doc) => {
 
       await apiService.Reject_Issuer(Reject_IssuerId, trimmed);
 
-      setMessage("✅ Issuer rejected successfully!");
+      setMessageType("success");
+      setMessage("Issuer rejected successfully.");
       closeRejectIssuerModal();
 
       await fetchPendingIssuers(pendingIssuerFilter);
@@ -369,10 +372,12 @@ const handleDownloadIssuerDocument = async (doc) => {
 
       if (issuerStatusAction === "disable") {
         await apiService.Disable_Issuer(issuerId, trimmed);
-        setMessage("✅ Issuer disabled successfully!");
+        setMessageType("success");
+        setMessage("Issuer disabled successfully.");
       } else {
         await apiService.Enable_Issuer(issuerId, trimmed);
-        setMessage("✅ Issuer enabled successfully!");
+        setMessageType("success");
+        setMessage("Issuer enabled successfully.");
       }
 
       closeIssuerStatusModal();
@@ -473,12 +478,14 @@ const handleDownloadIssuerDocument = async (doc) => {
   const handleApproveIssuer = async (issuerId) => {
     try {
       await apiService.Approve_Issuer(issuerId);
-      setMessage("✅ Issuer approved successfully!");
+      setMessageType("success");
+      setMessage("Issuer approved successfully.");
       await fetchPendingIssuers(pendingIssuerFilter);
       await fetchApprovedIssuers();
     } catch (error) {
       console.error("Error approving issuer:", error);
-      setMessage("❌ Failed to approve issuer");
+      setMessageType("danger");
+      setMessage("Failed to approve issuer.");
     }
   };
 
@@ -544,10 +551,12 @@ const handleDownloadIssuerDocument = async (doc) => {
 
       if (userStatusAction === "disable") {
         await apiService.Disable_User(userId, trimmed);
-        setMessage("✅ User disabled successfully!");
+        setMessageType("success");
+        setMessage("User disabled successfully.");
       } else {
         await apiService.Enable_User(userId, trimmed);
-        setMessage("✅ User enabled successfully!");
+        setMessageType("success");
+        setMessage("User enabled successfully.");
       }
 
       closeUserStatusModal();
@@ -610,10 +619,13 @@ const handleDownloadIssuerDocument = async (doc) => {
 
       const resp = await apiService.Get_AllAdminCredentials(params);
       const rows = Array.isArray(resp.data) ? resp.data : [];
-      const normalizedRows = rows.map((row) => ({
-        ...row,
-        type: String(row.type || "").toLowerCase(),
-      }));
+      const normalizedRows = rows.map((row) => {
+        const normalizedType = String(row.type || row.recordType || "").toLowerCase();
+        return {
+          ...row,
+          type: normalizedType === "templates" ? "template" : normalizedType === "issued" ? "issued" : (row.isTemplate ? "template" : normalizedType),
+        };
+      });
       setAdminCredentials(normalizedRows);
     } catch (error) {
       console.error("Error loading admin credentials:", error);
@@ -916,6 +928,12 @@ const handleDownloadIssuerDocument = async (doc) => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [adminCredIssuerFilter, adminCredTypeFilter]);
 
+  useEffect(() => {
+    if (!message) return undefined;
+    const timeoutId = window.setTimeout(() => setMessage(""), 4200);
+    return () => window.clearTimeout(timeoutId);
+  }, [message]);
+
   // -------------------------------------------------------------------
   // RENDER
   // -------------------------------------------------------------------
@@ -968,7 +986,7 @@ const handleDownloadIssuerDocument = async (doc) => {
         )}
       </div>
 
-      {message && <div className="admin-message">{message}</div>}
+      <AppToast show={!!message} message={message} type={messageType} />
 
       {showHistoryModal &&
         ReactDOM.createPortal(

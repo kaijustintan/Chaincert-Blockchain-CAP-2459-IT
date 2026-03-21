@@ -49,7 +49,6 @@ const [showAll, setShowAll] = useState(false);
 
   const [loading, setLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
-  const [saveMessage, setSaveMessage] = useState(""); // unused after toast migration 
   const [avatar, setAvatar] = useState("👤");
 
   // Toast state 
@@ -70,11 +69,6 @@ const [showAll, setShowAll] = useState(false);
 
   // pending profile picture (not yet uploaded, only on Save Changes)
   const [pendingAvatar, setPendingAvatar] = useState(null); // { file, previewUrl }
-
-  // Generate profile URL based on username
-  const profileUrl = `https://www.chaincert.com/users/${userName
-    .toLowerCase()
-    .replace(/\s+/g, "-")}`;
 
   // Load user profile data on component mount
   useEffect(() => {
@@ -221,7 +215,7 @@ const [showAll, setShowAll] = useState(false);
       );
     } catch (err) {
       console.error('[PROFILE PAGE] Error saving credential order:', err);
-      alert('Failed to save order. Please try again.');
+      showToast('Failed to save order. Please try again.', 'danger');
     } finally {
       setIsSavingOrder(false);
     }
@@ -248,7 +242,6 @@ const [showAll, setShowAll] = useState(false);
 
   const handleSaveEditProfile = async () => {
     setIsSaving(true);
-    setSaveMessage("");
     try {
       const trimmedName = editNameInput.trim();
       console.log("[DEBUG] Saving profile with name:", trimmedName);
@@ -261,6 +254,7 @@ const [showAll, setShowAll] = useState(false);
         const picResponse = await apiService.uploadProfilePicture(formData);
         if (picResponse.success) {
           setAvatar(picResponse.imageUrl);
+          localStorage.setItem('user', JSON.stringify({ ...JSON.parse(localStorage.getItem('user') || '{}'), profilePicture: picResponse.imageUrl }));
         }
         setPendingAvatar(null); // clear pending after upload
       }
@@ -273,7 +267,7 @@ const [showAll, setShowAll] = useState(false);
       });
       // Update localStorage and state immediately - no reload needed - polo
       const finalName = trimmedName || userName;
-      const updatedUser = { ...user, name: finalName, username: finalName };
+      const updatedUser = { ...JSON.parse(localStorage.getItem("user") || "{}"), ...user, name: finalName, username: finalName };
       localStorage.setItem("user", JSON.stringify(updatedUser));
       setDisplayName(finalName); // - polo: update display immediately without reload
       setSummary(editSummaryInput);
@@ -431,7 +425,7 @@ const [showAll, setShowAll] = useState(false);
       <div className="avatar-wrapper">
         {/* THIS IS THE CHANGE */}
         <div className="avatar">
-          {avatar.startsWith('data:') || avatar.startsWith('blob:') ? (
+          {avatar.startsWith('data:') || avatar.startsWith('blob:') || avatar.startsWith('http') || avatar.startsWith('/') ? (
             <img src={avatar} alt="Profile" /> // handle both base64 and blob preview URLs
           ) : (
             avatar
@@ -766,7 +760,7 @@ const [showAll, setShowAll] = useState(false);
               <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.85rem' }}>
                 <thead>
                   <tr style={{ borderBottom: '1px solid rgba(139,92,246,0.3)' }}>
-                    {['Recipient', 'Created', 'Expires', 'Views', 'Status', 'Action'].map(h => (
+                    {['Recipient', 'Created', 'Expires', 'Share Link', 'Views', 'Status', 'Action'].map(h => (
                       <th key={h} style={{ padding: '8px 12px', color: '#a78bfa', fontWeight: 600, textAlign: 'left', whiteSpace: 'nowrap' }}>{h}</th>
                     ))}
                   </tr>
@@ -791,6 +785,14 @@ const [showAll, setShowAll] = useState(false);
                         </td>
                         <td style={{ padding: '10px 12px', color: '#94a3b8', whiteSpace: 'nowrap' }}>
                           {link.expiresAt ? new Date(link.expiresAt).toLocaleDateString() : 'No Expiry'}
+                        </td>
+                        <td style={{ padding: '10px 12px', maxWidth: 320 }}>
+                          <div className="share-link-cell">
+                            <a href={link.shareUrl} target="_blank" rel="noreferrer" title={link.shareUrl}>
+                              {link.shareUrl}
+                            </a>
+                            <button type="button" className="share-link-copy-btn" onClick={() => navigator.clipboard.writeText(link.shareUrl).then(() => showToast('Share link copied.')).catch(() => showToast('Failed to copy share link.', 'danger'))}>Copy</button>
+                          </div>
                         </td>
                         <td style={{ padding: '10px 12px', color: '#d4d4d8', textAlign: 'center' }}>
                           {link.viewCount || 0}
@@ -1032,7 +1034,7 @@ const [showAll, setShowAll] = useState(false);
                         ));
                       } catch (err) {
                         console.error('[PROFILE PAGE] Error updating visibility:', err);
-                        alert('Failed to update visibility. Please try again.');
+                        showToast('Failed to update visibility. Please try again.', 'danger');
                       }
                     }}
                   >

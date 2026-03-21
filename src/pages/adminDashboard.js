@@ -180,11 +180,7 @@ const handleViewIssuerDocument = async (doc) => {
       window.URL.revokeObjectURL(blobUrl);
     }, 60000);
   } catch (error) {
-    alert(
-      error.response?.data?.message ||
-        error.message ||
-        "Failed to open document"
-    );
+    setMessage(error.response?.data?.message || error.message || "Failed to open document");
   }
 };
 
@@ -211,11 +207,7 @@ const handleDownloadIssuerDocument = async (doc) => {
       window.URL.revokeObjectURL(blobUrl);
     }, 60000);
   } catch (error) {
-    alert(
-      error.response?.data?.message ||
-        error.message ||
-        "Failed to download document"
-    );
+    setMessage(error.response?.data?.message || error.message || "Failed to download document");
   }
 };
 
@@ -618,7 +610,11 @@ const handleDownloadIssuerDocument = async (doc) => {
 
       const resp = await apiService.Get_AllAdminCredentials(params);
       const rows = Array.isArray(resp.data) ? resp.data : [];
-      setAdminCredentials(rows);
+      const normalizedRows = rows.map((row) => ({
+        ...row,
+        type: String(row.type || "").toLowerCase(),
+      }));
+      setAdminCredentials(normalizedRows);
     } catch (error) {
       console.error("Error loading admin credentials:", error);
       const msg =

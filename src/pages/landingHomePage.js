@@ -1,17 +1,38 @@
 // landingHomePage.js
 // CSS-CHANGE: Full redesign with hero, features, trust metrics, CTA - polo
-import React from "react";
+import React, { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import "../styles/landingHomePage.css";
+import landingVideo from "../assets/landinghomepage.webm";
 
 function LandingHomePage() {
   const navigate = useNavigate();
+  const [videoReady, setVideoReady] = useState(true);
+  const heroClassName = useMemo(() => `landing-hero ${videoReady ? "has-video" : "video-fallback"}`, [videoReady]);
 
   return (
     <div className="landing-container">
 
       {/* ── HERO SECTION ── */}
-      <section className="landing-hero">
+      <section className={heroClassName}>
+        <div className="hero-media-layer" aria-hidden="true">
+          {videoReady && (
+            <video
+              className="hero-video"
+              autoPlay
+              muted
+              loop
+              playsInline
+              onError={() => setVideoReady(false)}
+            >
+              <source src={landingVideo} type="video/webm" />
+            </video>
+          )}
+          <div className="hero-overlay" />
+          <div className="hero-glow hero-glow-left" />
+          <div className="hero-glow hero-glow-right" />
+        </div>
+        <div className="hero-content">
         <div className="hero-badge">Powered by Hyperledger Fabric</div>
         <h1 className="hero-title">
           The New Standard for<br />
@@ -47,6 +68,7 @@ function LandingHomePage() {
             <span className="metric-num">24/7</span>
             <span className="metric-label">Always Available</span>
           </div>
+        </div>
         </div>
       </section>
 

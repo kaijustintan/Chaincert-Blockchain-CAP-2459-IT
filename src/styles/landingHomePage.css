@@ -29,12 +29,61 @@
 .landing-hero {
   min-height: calc(100vh - 80px);
   display: flex;
-  flex-direction: column;
   align-items: center;
   justify-content: center;
   text-align: center;
   padding: 60px 24px 80px;
   position: relative;
+  isolation: isolate;
+  background: radial-gradient(circle at top, rgba(76, 29, 149, 0.35), transparent 35%), linear-gradient(180deg, #06040f 0%, #090513 48%, #07040f 100%);
+}
+
+.hero-media-layer {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  z-index: -2;
+}
+
+.hero-video {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  opacity: 0.42;
+  filter: saturate(1.05) brightness(0.55);
+}
+
+.hero-overlay {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg, rgba(5, 2, 14, 0.72) 0%, rgba(9, 6, 24, 0.86) 38%, rgba(8, 6, 21, 0.92) 100%);
+}
+
+.hero-glow {
+  position: absolute;
+  width: 36vw;
+  height: 36vw;
+  max-width: 460px;
+  max-height: 460px;
+  border-radius: 999px;
+  filter: blur(42px);
+  opacity: 0.24;
+}
+
+.hero-glow-left { left: -8%; top: 8%; background: rgba(139, 92, 246, 0.72); }
+.hero-glow-right { right: -10%; bottom: 4%; background: rgba(59, 130, 246, 0.5); }
+
+.hero-content {
+  position: relative;
+  z-index: 1;
+  width: min(1100px, 100%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.landing-hero.video-fallback .hero-media-layer {
+  background: radial-gradient(circle at top, rgba(139, 92, 246, 0.22), transparent 32%), linear-gradient(160deg, #06040f 0%, #0b0619 45%, #090513 100%);
 }
 
 .hero-badge {

@@ -29,6 +29,12 @@ export default function ProfilePreview() {
         }
       } catch (err) {
         console.error('[PROFILE PREVIEW] Error checking link type:', err);
+        const status = err.response?.status;
+        const message = err.response?.data?.message || '';
+        if (status === 403 || status === 404) {
+          setGateError(message || 'This link is no longer available.');
+          setGateStage('blocked');
+        }
       }
     };
     checkLinkType();
@@ -240,6 +246,31 @@ export default function ProfilePreview() {
   };
 
   // ── Render gate stages - polo ──────────────────────────────────
+  if (gateStage === 'blocked') {
+    return (
+      <div className="profile-preview">
+        <div style={{ filter: 'blur(6px)', pointerEvents: 'none', userSelect: 'none', opacity: 0.4, minHeight: '100vh' }} />
+        <div style={overlayStyle}>
+          <div style={gateBoxStyle}>
+            <div style={{ textAlign: 'center' }}>
+              <div style={{ fontSize: 36, marginBottom: 8 }}>🚫</div>
+              <h2 style={{ color: '#fca5a5', margin: 0, fontSize: '1.3rem' }}>Link Unavailable</h2>
+              <p style={{ color: '#888', fontSize: '0.88rem', marginTop: 12, lineHeight: 1.6 }}>
+                {gateError || 'This share link is no longer available.'}
+              </p>
+            </div>
+            <button
+              onClick={() => window.location.href = '/'}
+              style={{ ...gateBtnStyle, background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.15)', marginTop: 8 }}
+            >
+              Go to Homepage
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   if (gateStage === 'email') {
     return (
       <div className="profile-preview">

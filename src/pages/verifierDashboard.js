@@ -1,9 +1,11 @@
 // Verifier dashboard for credential verification
 import React, { useState, useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import "../styles/verifierDashboard.css";
 import apiService from "../services/apiService";
 
 export default function VerifierDashboard() {
+  const [searchParams] = useSearchParams();
   const [query, setQuery] = useState("");
   const [result, setResult] = useState(null);
 
@@ -32,6 +34,20 @@ export default function VerifierDashboard() {
       setHasVerifierInfo(true);
     }
   }, []);
+
+  useEffect(() => {
+    const urlCredentialId = searchParams.get('credentialId');
+    if (urlCredentialId && hasVerifierInfo && !query) {
+      setQuery(urlCredentialId);
+    }
+  }, [searchParams, hasVerifierInfo, query]);
+
+  useEffect(() => {
+    const urlCredentialId = searchParams.get('credentialId');
+    if (urlCredentialId && hasVerifierInfo && query === urlCredentialId && !result && !loading) {
+      handleVerify();
+    }
+  }, [query, hasVerifierInfo]);
 
   // fetchVerificationLogs and its useEffect removed 
 

@@ -1,14 +1,16 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import "../styles/navBar.css";
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { logout } from '../services/authenticationService'; // ✅ Import logout function
-import { USER_SYNC_EVENT, buildAvatarUrl, getDisplayName, getRoleLabel } from '../utils/userDisplay';
+import apiService from '../services/apiService';
+import { USER_SYNC_EVENT, buildAvatarUrl, getDisplayName, getRoleLabel, syncStoredUser } from '../utils/userDisplay';
 
 function NavBar() {
   const location = useLocation();
   const navigate = useNavigate();
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [storedUser, setStoredUser] = useState(() => JSON.parse(localStorage.getItem('user') || '{}'));
+  const profileFetchedRef = useRef(false);
 
   useEffect(() => {
     const syncUser = () => setStoredUser(JSON.parse(localStorage.getItem('user') || '{}'));
@@ -19,6 +21,20 @@ function NavBar() {
       window.removeEventListener(USER_SYNC_EVENT, syncUser);
     };
   }, []);
+
+  useEffect(() => {
+    const token = localStorage.getItem('token');
+    const uid = storedUser._id || storedUser.id;
+    if (token && uid && !storedUser.profilePicture && !profileFetchedRef.current) {
+      profileFetchedRef.current = true;
+      apiService.getUserInfo(uid).then(resp => {
+        if (resp?.success && resp.user) {
+          syncStoredUser({ ...resp.user, role: storedUser.role || localStorage.getItem('role') || '' });
+        }
+      }).catch(() => {});
+    }
+    if (!token) profileFetchedRef.current = false;
+  }, [storedUser]);
 
   const token = localStorage.getItem('token');
   const user = storedUser;

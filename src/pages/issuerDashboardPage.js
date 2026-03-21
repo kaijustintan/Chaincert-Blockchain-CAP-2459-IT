@@ -76,6 +76,8 @@ export default function IssuerDashboard() {
   const [noTemplateError, setNoTemplateError] = useState("");
   const [issueTemplateSearch, setIssueTemplateSearch] = useState("");
   const [issueRecipientSearch, setIssueRecipientSearch] = useState("");
+  const [issueTemplateOpen, setIssueTemplateOpen] = useState(false);
+  const [issueRecipientOpen, setIssueRecipientOpen] = useState(false);
   const [revokeSearch, setRevokeSearch] = useState("");
   const [revokeHolderFilter, setRevokeHolderFilter] = useState("all");
   const [revokeTemplateFilter, setRevokeTemplateFilter] = useState("all");
@@ -369,11 +371,13 @@ export default function IssuerDashboard() {
       if (!result?.hasTemplates) { setNoTemplateError("No Credential Template Yet To Issue. Please create a template first."); return; }
       setIssueTemplateSearch("");
       setIssueRecipientSearch("");
+      setIssueTemplateOpen(false);
+      setIssueRecipientOpen(false);
       setAvailableUsers([]);
       setShowIssueModal(true); setIssueForm({ credentialId: "", recipientId: "", expiryDate: "" });
     } catch (err) { setNoTemplateError("Failed to validate credential templates. Please try again."); }
   };
-  const closeIssueModal = () => { setShowIssueModal(false); setIssueError(""); setIssueLoading(false); setIssueTemplateSearch(""); setIssueRecipientSearch(""); setAvailableUsers([]); };
+  const closeIssueModal = () => { setShowIssueModal(false); setIssueError(""); setIssueLoading(false); setIssueTemplateSearch(""); setIssueRecipientSearch(""); setIssueTemplateOpen(false); setIssueRecipientOpen(false); setAvailableUsers([]); };
 
   const handleIssueFormChange = async (e) => {
     const { name, value } = e.target;
@@ -388,6 +392,27 @@ export default function IssuerDashboard() {
         setAvailableUsers(Array.isArray(list) ? list : []);
       } catch (err) { setAvailableUsers([]); setIssueError("Failed to load eligible users for this template."); }
     }
+  };
+
+  const handleSelectTemplate = async (cred) => {
+    const value = cred.id || cred._id;
+    setIssueForm((prev) => ({ ...prev, credentialId: value, recipientId: "" }));
+    setIssueTemplateSearch(cred.credentialName + " (" + cred.credentialType + ")");
+    setIssueTemplateOpen(false);
+    setIssueRecipientSearch("");
+    try {
+      setIssueError("");
+      const result = await apiService.Get_EligibleUsersForTemplate(value);
+      const list = result?.eligibleUsers || [];
+      setAvailableUsers(Array.isArray(list) ? list : []);
+    } catch (err) { setAvailableUsers([]); setIssueError("Failed to load eligible users for this template."); }
+  };
+
+  const handleSelectRecipient = (user) => {
+    const value = user._id || user.id;
+    setIssueForm((prev) => ({ ...prev, recipientId: value }));
+    setIssueRecipientSearch((user.name || user.fullName || user.username || user.email) + (user.email ? ` (${user.email})` : ""));
+    setIssueRecipientOpen(false);
   };
 
   const handleIssueCredential = async (e) => {
@@ -799,23 +824,90 @@ export default function IssuerDashboard() {
             <div className="modal-header"><h3>Issue Credential</h3><button type="button" className="modal-close" onClick={closeIssueModal}>✕</button></div>
             <form onSubmit={handleIssueCredential}>
               <div className="modal-section-heading">Choose a template and recipient to issue a credential quickly.</div>
-              <div className="modal-two-col issue-modal-grid">
-                <div className="form-group">
-                  <label>Search Templates</label>
-                  <input type="text" value={issueTemplateSearch} onChange={(e) => setIssueTemplateSearch(e.target.value)} placeholder="Search by template name, type, or ID" className="search-select-input" />
-                </div>
-                <div className="form-group">
-                  <label>Credential Template <span className="required-star">*</span></label>
-                  <select name="credentialId" value={issueForm.credentialId} onChange={handleIssueFormChange} required>
-                    <option value="">— Select a template —</option>
-                    {filteredTemplateOptions.map((cred) => <option key={cred.id || cred._id} value={cred.id || cred._id}>{cred.credentialName} ({cred.credentialType})</option>)}
-                  </select>
-                  {issueTemplateSearch && filteredTemplateOptions.length === 0 && <div className="field-helper">No templates match your search.</div>}
+              <div className="form-group">
+                <label>Credential Template <span className="required-star">*</span></label>
+                <div className="searchable-select-wrapper">
+                  <input
+                    type="text"
+                    value={issueTemplateSearch}
+                    onChange={(e) => {
+                      setIssueTemplateSearch(e.target.value);
+                      setIssueTemplateOpen(true);
+                      if (issueForm.credentialId) {
+                        setIssueForm((prev) => ({ ...prev, credentialId: "", recipientId: "" }));
+                        setAvailableUsers([]);
+                        setIssueRecipientSearch("");
+                      }
+                    }}
+                    onFocus={() => setIssueTemplateOpen(true)}
+                    onBlur={() => setTimeout(() => setIssueTemplateOpen(false), 180)}
+                    placeholder="Type to search templates..."
+                    className="search-select-input"
+                    autoComplete="off"
+                  />
+                  {issueForm.credentialId && (
+                    <button type="button" className="searchable-select-clear" onClick={() => {
+                      setIssueTemplateSearch("");
+                      setIssueForm((prev) => ({ ...prev, credentialId: "", recipientId: "" }));
+                      setAvailableUsers([]);
+                      setIssueRecipientSearch("");
+                      setIssueTemplateOpen(true);
+                    }} aria-label="Clear selection">✕</button>
+                  )}
+                  {issueTemplateOpen && !issueForm.credentialId && (
+                    <ul className="searchable-select-list">
+                      {filteredTemplateOptions.length > 0 ? filteredTemplateOptions.map((cred) => (
+                        <li key={cred.id || cred._id} className="searchable-select-item" onMouseDown={() => handleSelectTemplate(cred)}>
+                          <span className="searchable-item-name">{cred.credentialName}</span>
+                          <span className="searchable-item-meta">{cred.credentialType}</span>
+                        </li>
+                      )) : (
+                        <li className="searchable-select-empty">{issueTemplateSearch ? "No templates match your search." : "No templates available."}</li>
+                      )}
+                    </ul>
+                  )}
                 </div>
               </div>
-              <div className="modal-two-col issue-modal-grid">
-                <div className="form-group"><label>Search Recipients</label><input type="text" value={issueRecipientSearch} onChange={(e) => setIssueRecipientSearch(e.target.value)} placeholder="Search by recipient name, email, or ID" className="search-select-input" disabled={!issueForm.credentialId} /></div>
-                <div className="form-group"><label>Recipient <span className="required-star">*</span></label><select name="recipientId" value={issueForm.recipientId} onChange={handleIssueFormChange} required disabled={!issueForm.credentialId}><option value="">{issueForm.credentialId ? "— Select a recipient —" : "Select a template first"}</option>{filteredAvailableUsers.map((user) => <option key={user._id || user.id} value={user._id || user.id}>{user.name || user.fullName || user.username || user.email}{user.email && ` (${user.email})`}</option>)}</select>{issueForm.credentialId && issueRecipientSearch && filteredAvailableUsers.length === 0 && <div className="field-helper">No recipients match your search for this template.</div>}</div>
+              <div className="form-group">
+                <label>Recipient <span className="required-star">*</span></label>
+                <div className="searchable-select-wrapper">
+                  <input
+                    type="text"
+                    value={issueRecipientSearch}
+                    onChange={(e) => {
+                      setIssueRecipientSearch(e.target.value);
+                      setIssueRecipientOpen(true);
+                      if (issueForm.recipientId) {
+                        setIssueForm((prev) => ({ ...prev, recipientId: "" }));
+                      }
+                    }}
+                    onFocus={() => { if (issueForm.credentialId) setIssueRecipientOpen(true); }}
+                    onBlur={() => setTimeout(() => setIssueRecipientOpen(false), 180)}
+                    placeholder={issueForm.credentialId ? "Type to search recipients..." : "Select a template first"}
+                    className="search-select-input"
+                    disabled={!issueForm.credentialId}
+                    autoComplete="off"
+                  />
+                  {issueForm.recipientId && (
+                    <button type="button" className="searchable-select-clear" onClick={() => {
+                      setIssueRecipientSearch("");
+                      setIssueForm((prev) => ({ ...prev, recipientId: "" }));
+                      setIssueRecipientOpen(true);
+                    }} aria-label="Clear selection">✕</button>
+                  )}
+                  {issueRecipientOpen && issueForm.credentialId && !issueForm.recipientId && (
+                    <ul className="searchable-select-list">
+                      {filteredAvailableUsers.length > 0 ? filteredAvailableUsers.map((user) => (
+                        <li key={user._id || user.id} className="searchable-select-item" onMouseDown={() => handleSelectRecipient(user)}>
+                          <span className="searchable-item-name">{user.name || user.fullName || user.username || user.email}</span>
+                          {user.email && <span className="searchable-item-meta">{user.email}</span>}
+                        </li>
+                      )) : (
+                        <li className="searchable-select-empty">{issueRecipientSearch ? "No recipients match your search." : "No eligible recipients for this template."}</li>
+                      )}
+                    </ul>
+                  )}
+                </div>
               </div>
               <div className="form-group compact-form-group"><label>Expiry Date <span className="form-label-hint">(optional)</span></label><input type="date" name="expiryDate" value={issueForm.expiryDate} onChange={handleIssueFormChange} min={new Date().toISOString().split("T")[0]} /></div>
               {issueError && <div className="form-error">{issueError}</div>}

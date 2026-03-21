@@ -3366,6 +3366,25 @@ async function verifyOTPAndGetUserId(token, otp) {
 }
 
 /*
+  Function Name: recordShareLinkView
+  Technical: Increments viewCount on a share link doc without requiring OTP.
+  Tropang Ex: Para sa public links — pag binuksan ng visitor, dito ini-increment yung view count.
+*/
+async function recordShareLinkView(token) {
+  if (!profileShareLinksDb) await initializeDatabases();
+  const doc = await getProfileShareLink(token);
+  if (!doc) throw new Error('Share link not found');
+  if (!doc.isActive) throw new Error('This link has been revoked.');
+  if (doc.expiresAt && new Date() > new Date(doc.expiresAt)) throw new Error('This link has expired.');
+  const now = new Date().toISOString();
+  doc.viewCount = (doc.viewCount || 0) + 1;
+  if (!doc.firstViewedAt) doc.firstViewedAt = now;
+  doc.lastViewedAt = now;
+  await profileShareLinksDb.insert(doc);
+  return doc.viewCount;
+}
+
+/*
   Function Name: revokeProfileShareLink
   Technical: Sets isActive = false on the share link doc (soft delete).
   Tropang Ex: Kapag pinindot ni user ang "Revoke", dito nagiging inactive yung link. 
@@ -3484,6 +3503,7 @@ module.exports = {
   getProfileShareLink,      
   saveOTPToShareLink,       
   verifyOTPAndGetUserId,    
+  recordShareLinkView,
   revokeProfileShareLink,  
   getShareLinksByUserId,    
   getAllSubordinatesForRoot,

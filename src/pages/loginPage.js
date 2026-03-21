@@ -3,6 +3,7 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import apiService from '../services/apiService';
 import { login } from '../services/authenticationService';
+import { syncStoredUser } from '../utils/userDisplay';
 import "../styles/loginPage.css";
 
 
@@ -36,6 +37,18 @@ function LoginPage() {
           'issuer',
           issuerResponse.user?.email || email
         );
+        const issuerUid = issuerResponse.user?._id || issuerResponse.user?.id;
+        if (issuerUid) {
+          apiService.getUserInfo(issuerUid).then(resp => {
+            if (resp?.success && resp.user) {
+              syncStoredUser({
+                ...resp.user,
+                role: 'issuer',
+                issuerType: issuerResponse.user?.issuerType || issuerResponse.issuerType || 'root',
+              });
+            }
+          }).catch(() => {});
+        }
         setLoading(false);
         navigate('/issuer/dashboard');
         return; // ✅ Exit - no need for fallback
@@ -65,6 +78,14 @@ function LoginPage() {
         console.log('✅ User login successful!');
         const userRole = userResponse.user.role || 'student';
         login(userResponse.token, { ...userResponse.user, role: userRole }, userRole, userResponse.user?.email || email);
+        const userUid = userResponse.user?._id || userResponse.user?.id;
+        if (userUid) {
+          apiService.getUserInfo(userUid).then(resp => {
+            if (resp?.success && resp.user) {
+              syncStoredUser({ ...resp.user, role: userRole });
+            }
+          }).catch(() => {});
+        }
         
         // Route based on role
         if (userRole === 'admin') {

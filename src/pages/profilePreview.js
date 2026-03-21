@@ -228,8 +228,8 @@ export default function ProfilePreview() {
     background: 'rgba(255,255,255,0.07)',
     border: '1px solid #a78bfa',
     borderRadius: 12, color: '#fff',
-    padding: '0 16px', fontSize: '15px', lineHeight: 1.5,
-    outline: 'none', width: '100%', minHeight: '50px', boxSizing: 'border-box'
+    padding: '12px 16px', fontSize: '15px', lineHeight: 1.5,
+    outline: 'none', width: '100%', minHeight: '48px', boxSizing: 'border-box'
   };
   const gateBtnStyle = {
     background: 'linear-gradient(135deg, #667eea, #764ba2)',

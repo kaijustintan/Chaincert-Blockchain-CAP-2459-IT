@@ -34,15 +34,15 @@
   text-align: center;
   padding: 60px 24px 80px;
   position: relative;
-  isolation: isolate;
-  background: radial-gradient(circle at top, rgba(76, 29, 149, 0.35), transparent 35%), linear-gradient(180deg, #06040f 0%, #090513 48%, #07040f 100%);
+  overflow: hidden;
+  background: #06040f;
 }
 
 .hero-media-layer {
   position: absolute;
   inset: 0;
   overflow: hidden;
-  z-index: -2;
+  z-index: 0;
 }
 
 .hero-video {
@@ -83,7 +83,7 @@
 }
 
 .landing-hero.video-fallback .hero-media-layer {
-  background: radial-gradient(circle at top, rgba(139, 92, 246, 0.22), transparent 32%), linear-gradient(160deg, #06040f 0%, #0b0619 45%, #090513 100%);
+  background: radial-gradient(circle at top, rgba(139, 92, 246, 0.22), transparent 32%), radial-gradient(circle at top, rgba(76, 29, 149, 0.35), transparent 35%), linear-gradient(180deg, #06040f 0%, #090513 48%, #07040f 100%);
 }
 
 .hero-badge {

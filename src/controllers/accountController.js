@@ -140,6 +140,20 @@ const accountController = {
     }
   },
 
+  recordView: async (req, res) => {
+    try {
+      const { token } = req.params;
+      const viewCount = await couchDB.recordShareLinkView(token);
+      return res.status(200).json({ success: true, viewCount });
+    } catch (error) {
+      console.error('[SHARE] recordView error:', error);
+      const status = error.message.includes('not found') ? 404
+                   : error.message.includes('revoked') || error.message.includes('expired') ? 403
+                   : 500;
+      return res.status(status).json({ success: false, message: error.message });
+    }
+  },
+
   requestOTP: async (req, res) => {
     try {
       const { token } = req.params;

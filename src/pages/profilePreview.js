@@ -25,6 +25,7 @@ export default function ProfilePreview() {
         if (result.success && result.valid && result.recipientEmail === null) {
           setIsPublicLink(true);
           setGateStage('verified');
+          apiService.recordShareLinkView(token).catch(() => {});
         }
       } catch (err) {
         console.error('[PROFILE PREVIEW] Error checking link type:', err);

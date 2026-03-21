@@ -2225,6 +2225,16 @@ GetRootSubordinateRejectionLogsByRootAuthority: async () => {
     }
   },
 
+  recordShareLinkView: async (token) => {
+    try {
+      const response = await axios.post(`/auth/profile-share/${token}/record-view`);
+      return response.data;
+    } catch (error) {
+      console.error('Error recording share link view:', error.response?.data?.message || error.message);
+      throw error;
+    }
+  },
+
   requestShareLinkOTP: async (token, email) => {
     try {
       const response = await axios.post(`/auth/profile-share/${token}/request-otp`, { email });

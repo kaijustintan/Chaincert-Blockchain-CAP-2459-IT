@@ -34,6 +34,9 @@ router.post('/profile-share/generate', accountController.generateShareLink);
 // GET /api/auth/profile-share/:token/info - Check token validity (public, no auth). - polo
 router.get('/profile-share/:token/info', accountController.getShareLinkInfo);
 
+// POST /api/auth/profile-share/:token/record-view - Record a view on a public share link (no auth required).
+router.post('/profile-share/:token/record-view', accountController.recordView);
+
 // POST /api/auth/profile-share/:token/request-otp - Validate email + send OTP (public, no auth). - polo
 router.post('/profile-share/:token/request-otp', accountController.requestOTP);
 

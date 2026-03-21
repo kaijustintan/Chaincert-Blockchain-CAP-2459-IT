@@ -74,6 +74,7 @@ export default function IssuerDashboard() {
   const [issueLoading, setIssueLoading] = useState(false);
   const [availableUsers, setAvailableUsers] = useState([]);
   const [noTemplateError, setNoTemplateError] = useState("");
+  const [issueTemplateSearch, setIssueTemplateSearch] = useState("");
   const [issueRecipientSearch, setIssueRecipientSearch] = useState("");
   const [revokeSearch, setRevokeSearch] = useState("");
   const [revokeHolderFilter, setRevokeHolderFilter] = useState("all");
@@ -295,7 +296,11 @@ export default function IssuerDashboard() {
 
 
   const searchableIssuedCredentials = useMemo(() => credentials.filter((c) => c.status === "issued" || !c.status || c.status === "active"), [credentials]);
-  const filteredTemplateOptions = useMemo(() => templateOptions, [templateOptions]);
+  const filteredTemplateOptions = useMemo(() => {
+    const query = issueTemplateSearch.trim().toLowerCase();
+    if (!query) return templateOptions;
+    return templateOptions.filter((template) => [template.credentialName, template.credentialType, template.description, template.id, template._id].filter(Boolean).join(" ").toLowerCase().includes(query));
+  }, [templateOptions, issueTemplateSearch]);
 
   const filteredAvailableUsers = useMemo(() => {
     const query = issueRecipientSearch.trim().toLowerCase();
@@ -362,12 +367,13 @@ export default function IssuerDashboard() {
       setIssueError(""); setNoTemplateError("");
       const result = await apiService.Check_IssuerHasTemplates();
       if (!result?.hasTemplates) { setNoTemplateError("No Credential Template Yet To Issue. Please create a template first."); return; }
+      setIssueTemplateSearch("");
       setIssueRecipientSearch("");
       setAvailableUsers([]);
       setShowIssueModal(true); setIssueForm({ credentialId: "", recipientId: "", expiryDate: "" });
     } catch (err) { setNoTemplateError("Failed to validate credential templates. Please try again."); }
   };
-  const closeIssueModal = () => { setShowIssueModal(false); setIssueError(""); setIssueLoading(false); setIssueRecipientSearch(""); setAvailableUsers([]); };
+  const closeIssueModal = () => { setShowIssueModal(false); setIssueError(""); setIssueLoading(false); setIssueTemplateSearch(""); setIssueRecipientSearch(""); setAvailableUsers([]); };
 
   const handleIssueFormChange = async (e) => {
     const { name, value } = e.target;
@@ -792,10 +798,26 @@ export default function IssuerDashboard() {
           <div className="modal modal-wide">
             <div className="modal-header"><h3>Issue Credential</h3><button type="button" className="modal-close" onClick={closeIssueModal}>✕</button></div>
             <form onSubmit={handleIssueCredential}>
-              <div className="form-group"><label>Credential Template <span className="required-star">*</span></label><select name="credentialId" value={issueForm.credentialId} onChange={handleIssueFormChange} required><option value="">— Select a template —</option>{filteredTemplateOptions.map((cred) => <option key={cred.id || cred._id} value={cred.id || cred._id}>{cred.credentialName} ({cred.credentialType})</option>)}</select></div>
-              <div className="form-group"><label>Find Recipient</label><input type="text" value={issueRecipientSearch} onChange={(e) => setIssueRecipientSearch(e.target.value)} placeholder="Search by recipient name or email" className="search-select-input" disabled={!issueForm.credentialId} /></div>
-              <div className="form-group"><label>Recipient <span className="required-star">*</span></label><select name="recipientId" value={issueForm.recipientId} onChange={handleIssueFormChange} required disabled={!issueForm.credentialId}><option value="">{issueForm.credentialId ? "— Select a recipient —" : "Select a template first"}</option>{filteredAvailableUsers.map((user) => <option key={user._id || user.id} value={user._id || user.id}>{user.name || user.fullName || user.username || user.email}{user.email && ` (${user.email})`}</option>)}</select>{issueForm.credentialId && issueRecipientSearch && filteredAvailableUsers.length === 0 && <div className="field-helper">No recipients match your search for this template.</div>}</div>
-              <div className="form-group"><label>Expiry Date <span className="form-label-hint">(optional)</span></label><input type="date" name="expiryDate" value={issueForm.expiryDate} onChange={handleIssueFormChange} min={new Date().toISOString().split("T")[0]} /></div>
+              <div className="modal-section-heading">Choose a template and recipient to issue a credential quickly.</div>
+              <div className="modal-two-col issue-modal-grid">
+                <div className="form-group">
+                  <label>Search Templates</label>
+                  <input type="text" value={issueTemplateSearch} onChange={(e) => setIssueTemplateSearch(e.target.value)} placeholder="Search by template name, type, or ID" className="search-select-input" />
+                </div>
+                <div className="form-group">
+                  <label>Credential Template <span className="required-star">*</span></label>
+                  <select name="credentialId" value={issueForm.credentialId} onChange={handleIssueFormChange} required>
+                    <option value="">— Select a template —</option>
+                    {filteredTemplateOptions.map((cred) => <option key={cred.id || cred._id} value={cred.id || cred._id}>{cred.credentialName} ({cred.credentialType})</option>)}
+                  </select>
+                  {issueTemplateSearch && filteredTemplateOptions.length === 0 && <div className="field-helper">No templates match your search.</div>}
+                </div>
+              </div>
+              <div className="modal-two-col issue-modal-grid">
+                <div className="form-group"><label>Search Recipients</label><input type="text" value={issueRecipientSearch} onChange={(e) => setIssueRecipientSearch(e.target.value)} placeholder="Search by recipient name, email, or ID" className="search-select-input" disabled={!issueForm.credentialId} /></div>
+                <div className="form-group"><label>Recipient <span className="required-star">*</span></label><select name="recipientId" value={issueForm.recipientId} onChange={handleIssueFormChange} required disabled={!issueForm.credentialId}><option value="">{issueForm.credentialId ? "— Select a recipient —" : "Select a template first"}</option>{filteredAvailableUsers.map((user) => <option key={user._id || user.id} value={user._id || user.id}>{user.name || user.fullName || user.username || user.email}{user.email && ` (${user.email})`}</option>)}</select>{issueForm.credentialId && issueRecipientSearch && filteredAvailableUsers.length === 0 && <div className="field-helper">No recipients match your search for this template.</div>}</div>
+              </div>
+              <div className="form-group compact-form-group"><label>Expiry Date <span className="form-label-hint">(optional)</span></label><input type="date" name="expiryDate" value={issueForm.expiryDate} onChange={handleIssueFormChange} min={new Date().toISOString().split("T")[0]} /></div>
               {issueError && <div className="form-error">{issueError}</div>}
               <div className="form-actions"><button type="submit" className="action-btn issue-btn" disabled={issueLoading}>{issueLoading ? "Issuing..." : "Issue Credential"}</button><button type="button" onClick={closeIssueModal} className="action-btn btn-cancel">Cancel</button></div>
             </form>
@@ -810,9 +832,10 @@ export default function IssuerDashboard() {
           <div className="modal">
             <h3>Revoke Credential</h3>
             <form onSubmit={handleRevokeSubmit}>
+              <div className="modal-section-heading">Narrow down issued credentials, then confirm the one you want to revoke.</div>
               <div className="form-group">
                 <label>Search</label>
-                <input type="text" value={revokeSearch} onChange={(e) => setRevokeSearch(e.target.value)} placeholder="Search holder, credential name, or credential ID" className="search-select-input" />
+                <input type="text" value={revokeSearch} onChange={(e) => setRevokeSearch(e.target.value)} placeholder="Search holder, credential name, template, or credential ID" className="search-select-input" />
               </div>
               <div className="modal-two-col revoke-filter-grid">
                 <div className="form-group">
@@ -830,7 +853,19 @@ export default function IssuerDashboard() {
               </div>
               <div className="form-group">
                 <label>Credential</label>
-                {revokeForm.credentialId ? (
+                <select name="credentialId" value={revokeForm.credentialId} onChange={handleRevokeFormChange} required>
+                  <option value="">-- Select issued credential --</option>
+                  {filteredRevokableCredentials.map((cred) => {
+                    const blockchainId = cred.blockchainId || cred.id;
+                    return (
+                      <option key={blockchainId} value={blockchainId}>
+                        {cred.holderName || cred.holderID || "Unknown Holder"} — {cred.credentialName || "Untitled"} — {(blockchainId || "").slice(0, 16)}…
+                      </option>
+                    );
+                  })}
+                </select>
+                {revokeSearch && filteredRevokableCredentials.length === 0 && <div className="field-helper">No issued credentials match your search.</div>}
+                {revokeForm.credentialId && (
                   <div className="selected-credential-card">
                     {(() => {
                       const found = credentials.find((c) => (c.blockchainId || c.id) === revokeForm.credentialId);
@@ -839,21 +874,6 @@ export default function IssuerDashboard() {
                         : revokeForm.credentialId;
                     })()}
                   </div>
-                ) : (
-                  <>
-                    <select name="credentialId" value={revokeForm.credentialId} onChange={handleRevokeFormChange} required>
-                      <option value="">-- Select issued credential --</option>
-                      {filteredRevokableCredentials.map((cred) => {
-                        const blockchainId = cred.blockchainId || cred.id;
-                        return (
-                          <option key={blockchainId} value={blockchainId}>
-                            {cred.holderName || cred.holderID || "Unknown Holder"} — {cred.credentialName || "Untitled"} — {(blockchainId || "").slice(0, 16)}…
-                          </option>
-                        );
-                      })}
-                    </select>
-                    {revokeSearch && filteredRevokableCredentials.length === 0 && <div className="field-helper">No issued credentials match your search.</div>}
-                  </>
                 )}
               </div>
               <div className="form-group"><label>Rejection Reason:</label><textarea name="rejectionReason" value={revokeForm.rejectionReason} onChange={handleRevokeFormChange} rows={3} placeholder="State the reason for revoking this credential..." required /></div>

@@ -227,9 +227,9 @@ export default function ProfilePreview() {
   const gateInputStyle = {
     background: 'rgba(255,255,255,0.07)',
     border: '1px solid #a78bfa',
-    borderRadius: 8, color: '#fff',
-    padding: '10px 14px', fontSize: '15px',
-    outline: 'none', width: '100%'
+    borderRadius: 12, color: '#fff',
+    padding: '0 16px', fontSize: '15px', lineHeight: 1.5,
+    outline: 'none', width: '100%', minHeight: '50px', boxSizing: 'border-box'
   };
   const gateBtnStyle = {
     background: 'linear-gradient(135deg, #667eea, #764ba2)',
@@ -252,6 +252,7 @@ export default function ProfilePreview() {
                 Enter your email to access this profile
               </p>
             </div>
+            <div className="gate-input-shell">
             <input
               type="email"
               placeholder="your@email.com"
@@ -260,6 +261,7 @@ export default function ProfilePreview() {
               onKeyDown={(e) => e.key === 'Enter' && handleRequestOTP()}
               style={gateInputStyle}
             />
+            </div>
             {gateError && <p style={{ color: '#ff6b6b', fontSize: '0.85rem', margin: 0 }}>{gateError}</p>}
             <button onClick={handleRequestOTP} disabled={gateLoading} style={gateBtnStyle}>
               {gateLoading ? 'Sending...' : 'Send Verification Code'}
@@ -283,15 +285,17 @@ export default function ProfilePreview() {
                 Enter the 6-digit code sent to <strong style={{ color: '#fff' }}>{gateEmail}</strong>
               </p>
             </div>
+            <div className="gate-input-shell otp-shell">
             <input
               type="text"
               placeholder="000000"
               value={gateOtp}
               onChange={(e) => setGateOtp(e.target.value.replace(/\D/g, '').slice(0, 6))}
               onKeyDown={(e) => e.key === 'Enter' && handleVerifyOTP()}
-              style={{ ...gateInputStyle, letterSpacing: '0.3em', textAlign: 'center', fontSize: '1.4rem' }}
+              style={{ ...gateInputStyle, letterSpacing: '0.28em', textAlign: 'center', fontSize: '1.25rem', fontVariantNumeric: 'tabular-nums' }}
               maxLength={6}
             />
+            </div>
             {gateError && <p style={{ color: '#ff6b6b', fontSize: '0.85rem', margin: 0 }}>{gateError}</p>}
             <button onClick={handleVerifyOTP} disabled={gateLoading} style={gateBtnStyle}>
               {gateLoading ? 'Verifying...' : 'Verify'}

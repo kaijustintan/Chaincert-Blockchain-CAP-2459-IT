@@ -26,6 +26,8 @@ export default function ProfilePreview() {
           setIsPublicLink(true);
           setGateStage('verified');
           apiService.recordShareLinkView(token).catch(() => {});
+        } else if (result.success && result.valid) {
+          setGateStage('email');
         }
       } catch (err) {
         console.error('[PROFILE PREVIEW] Error checking link type:', err);
@@ -41,7 +43,7 @@ export default function ProfilePreview() {
   }, [token, isOwner]); 
 
   // ── Gate state ──────────────────────────────────────────
-  const [gateStage, setGateStage] = useState(isOwner ? 'verified' : 'email'); // 'email' | 'otp' | 'verified'
+  const [gateStage, setGateStage] = useState(isOwner ? 'verified' : 'loading'); // 'loading' | 'email' | 'otp' | 'verified'
   const [gateEmail, setGateEmail] = useState('');
   const [gateOtp, setGateOtp] = useState('');
   const [gateError, setGateError] = useState('');
@@ -246,6 +248,16 @@ export default function ProfilePreview() {
   };
 
   // ── Render gate stages - polo ──────────────────────────────────
+  if (gateStage === 'loading') {
+    return (
+      <div className="profile-preview">
+        <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <div style={{ color: '#a78bfa', fontSize: '1rem' }}>Loading...</div>
+        </div>
+      </div>
+    );
+  }
+
   if (gateStage === 'blocked') {
     return (
       <div className="profile-preview">

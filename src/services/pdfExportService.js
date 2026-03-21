@@ -5,6 +5,7 @@
 // ==========================================================================================================================================================================
 
 import { jsPDF } from 'jspdf';
+import QRCode from 'qrcode';
 
 /*
   Function: exportCredentialToPDF
@@ -124,6 +125,12 @@ export async function exportCredentialToPDF(credential, templateDetails) {
   const verifyLines = doc.splitTextToSize(verifyUrl, pageW - margin * 2);
   doc.textWithLink(verifyLines.join('\n'), margin, y, { url: verifyUrl });
   y += verifyLines.length * 4 + 4;
+  try {
+    const qrDataUrl = await QRCode.toDataURL(verifyUrl, { width: 200, margin: 1, color: { dark: '#000000', light: '#ffffff' } });
+    const qrSize = 30;
+    doc.addImage(qrDataUrl, 'PNG', pageW / 2 - qrSize / 2, y, qrSize, qrSize);
+    y += qrSize + 4;
+  } catch (e) { console.warn('[PDF] QR failed:', e); }
 
   // ── Footer ───────────────────────────────────────────────────────────────
   doc.setFillColor(102, 126, 234);
@@ -231,6 +238,15 @@ export async function exportAllCredentialsToPDF(credentials, studentName) {
 
     y = 30;
 
+    const badgeImage = credential.badgeImage || null;
+    if (badgeImage && badgeImage.startsWith('data:image')) {
+      try {
+        const imgFormat = badgeImage.includes('png') ? 'PNG' : 'JPEG';
+        doc.addImage(badgeImage, imgFormat, pageW / 2 - 18, y, 36, 36);
+        y += 44;
+      } catch (e) { y += 4; }
+    }
+
     // Credential name
     doc.setTextColor(102, 126, 234);
     doc.setFontSize(15);
@@ -302,6 +318,13 @@ export async function exportAllCredentialsToPDF(credentials, studentName) {
     doc.setTextColor(102, 126, 234);
     const verifyLines = doc.splitTextToSize(verifyUrl, pageW - margin * 2);
     doc.textWithLink(verifyLines.join('\n'), margin, y, { url: verifyUrl });
+    y += verifyLines.length * 4 + 4;
+    try {
+      const qrDataUrl = await QRCode.toDataURL(verifyUrl, { width: 200, margin: 1, color: { dark: '#000000', light: '#ffffff' } });
+      const qrSize = 30;
+      doc.addImage(qrDataUrl, 'PNG', pageW / 2 - qrSize / 2, y, qrSize, qrSize);
+      y += qrSize + 4;
+    } catch (e) { console.warn('[PDF] QR failed:', e); }
 
     // Footer
     doc.setFillColor(102, 126, 234);

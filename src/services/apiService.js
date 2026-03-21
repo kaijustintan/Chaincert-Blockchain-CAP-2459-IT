@@ -1377,6 +1377,20 @@ Check_IssuerHasTemplates: async () => {
       - anong credential ang chineck,
       - ano ang naging result.
   */
+  logVerificationOnChain: async (credentialId, name, email, resultJson) => {
+    try {
+      const response = await axios.post(`/credentials/${credentialId}/log-verification`, {
+        name,
+        email,
+        resultJson
+      });
+      return response.data;
+    } catch (error) {
+      console.error('Error logging verification on-chain:', error.response?.data?.message || error.message);
+      throw error;
+    }
+  },
+
   Log_VerificationEvent: async (credentialId, verifierName, verifierEmail, verifyResult) => {
     try {
       const response = await axios.post(

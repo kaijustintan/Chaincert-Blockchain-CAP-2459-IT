@@ -27,7 +27,8 @@ export const buildAvatarUrl = (src, version) => {
 
 export const syncStoredUser = (updates = {}) => {
   const current = JSON.parse(localStorage.getItem("user") || "{}");
-  const nextUser = { ...current, ...updates };
+  const cleanUpdates = Object.fromEntries(Object.entries(updates).filter(([, value]) => value !== undefined));
+  const nextUser = { ...current, ...cleanUpdates };
   localStorage.setItem("user", JSON.stringify(nextUser));
   window.dispatchEvent(new CustomEvent(USER_SYNC_EVENT, { detail: nextUser }));
   return nextUser;

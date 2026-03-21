@@ -44,8 +44,11 @@ export const logout = () => {
 
 // ✅ LOGIN FUNCTION - Store user data
 export const login = (token, user, role, email) => {
+  const currentUser = JSON.parse(localStorage.getItem('user') || '{}');
+  const cleanUser = Object.fromEntries(Object.entries(user || {}).filter(([, value]) => value !== undefined));
+  const storedUser = { ...currentUser, ...cleanUser, role: role || cleanUser.role || currentUser.role };
   localStorage.setItem('token', token);
-  localStorage.setItem('user', JSON.stringify(user));
+  localStorage.setItem('user', JSON.stringify(storedUser));
   localStorage.setItem('role', role);
   localStorage.setItem('email', email);
   localStorage.setItem('userEmail', email);

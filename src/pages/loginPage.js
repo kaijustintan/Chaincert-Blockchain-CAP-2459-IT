@@ -27,29 +27,34 @@ function LoginPage() {
       
       if (issuerResponse.success) {
         console.log('✅ Issuer login successful!');
-        login(
-          issuerResponse.token,
-          {
-            ...issuerResponse.user,
-            role: 'issuer',
-            issuerType: issuerResponse.user?.issuerType || issuerResponse.issuerType || 'root',
-          },
-          'issuer',
-          issuerResponse.user?.email || email
-        );
+        const issuerRole = 'issuer';
+        const issuerType = issuerResponse.user?.issuerType || issuerResponse.issuerType || 'root';
+        let nextIssuerUser = {
+          ...issuerResponse.user,
+          role: issuerRole,
+          issuerType,
+        };
         const issuerUid = issuerResponse.user?._id || issuerResponse.user?.id;
         if (issuerUid) {
           try {
             const profileResp = await apiService.getUserInfo(issuerUid);
             if (profileResp?.success && profileResp.user) {
-              syncStoredUser({
+              nextIssuerUser = {
+                ...nextIssuerUser,
                 ...profileResp.user,
-                role: 'issuer',
-                issuerType: issuerResponse.user?.issuerType || issuerResponse.issuerType || 'root',
-              });
+                role: issuerRole,
+                issuerType,
+              };
             }
           } catch (e) { /* non-critical */ }
         }
+        login(
+          issuerResponse.token,
+          nextIssuerUser,
+          issuerRole,
+          nextIssuerUser?.email || issuerResponse.user?.email || email
+        );
+        syncStoredUser(nextIssuerUser);
         setLoading(false);
         navigate('/issuer/dashboard');
         return; // ✅ Exit - no need for fallback
@@ -78,16 +83,18 @@ function LoginPage() {
       if (userResponse.success) {
         console.log('✅ User login successful!');
         const userRole = userResponse.user.role || 'student';
-        login(userResponse.token, { ...userResponse.user, role: userRole }, userRole, userResponse.user?.email || email);
+        let nextUser = { ...userResponse.user, role: userRole };
         const userUid = userResponse.user?._id || userResponse.user?.id;
         if (userUid) {
           try {
             const profileResp = await apiService.getUserInfo(userUid);
             if (profileResp?.success && profileResp.user) {
-              syncStoredUser({ ...profileResp.user, role: userRole });
+              nextUser = { ...nextUser, ...profileResp.user, role: userRole };
             }
           } catch (e) { /* non-critical */ }
         }
+        login(userResponse.token, nextUser, userRole, nextUser?.email || userResponse.user?.email || email);
+        syncStoredUser(nextUser);
         
         // Route based on role
         if (userRole === 'admin') {

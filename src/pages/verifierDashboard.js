@@ -70,8 +70,22 @@ export default function VerifierDashboard() {
 
       if (response.verified && response.success) {
         setResult(response);
-
-        // on-chain log write removed
+        try {
+          await apiService.logVerificationOnChain(
+            response.credentialID || query,
+            verifierName,
+            verifierEmail,
+            JSON.stringify({
+              isValid: response.isValid,
+              reason: response.reason,
+              status: response.status,
+              source: response.sources?.primarySource || 'unknown'
+            })
+          );
+          console.log('[VERIFY] On-chain log written successfully');
+        } catch (logErr) {
+          console.warn('[VERIFY] On-chain log write failed (non-fatal):', logErr.message);
+        }
       } else {
         const msg = response.reason || "Credential not found or invalid.";
         setResult({ error: msg });
@@ -209,48 +223,48 @@ export default function VerifierDashboard() {
       {/*log status banners removed*/}
 
       {/* Verification result */}
-      {result && (
-        <div
-          className={`verify-result ${
-            result.error ? "error" : result.isValid ? "success" : "error"
-          }`}
-        >
-          {result.error ? (
-            <p className="error">{result.error}</p>
-          ) : (
-            <div>
-              <h3>
-                {result.isValid ? "✅ Credential Valid" : "⚠️ Credential Invalid"}
-              </h3>
-              {result.reason && (
-                <p>
-                  <strong>Reason:</strong> {result.reason}
-                </p>
+      {result && result.error && (
+        <div className="verify-result error">
+          <p className="error">{result.error}</p>
+        </div>
+      )}
+
+      {result && !result.error && (
+        <div className={`verify-result ${result.isValid ? "success" : "error"}`}>
+          <h3>{result.isValid ? "✅ Credential Valid" : "⚠️ Credential Invalid"}</h3>
+          {result.reason && <p><strong>Reason:</strong> {result.reason}</p>}
+          <p><strong>Credential ID:</strong> {result.credentialID || "N/A"}</p>
+
+          <div className="verify-detail-card">
+            {result.badgeImage && (
+              <div className="verify-badge-image">
+                <img src={result.badgeImage} alt="Badge" style={{ maxWidth: '120px', maxHeight: '120px', objectFit: 'contain', borderRadius: '12px' }} />
+              </div>
+            )}
+            <div className="verify-detail-rows">
+              {result.credentialName && <p><strong>Credential:</strong> {result.credentialName}</p>}
+              {result.credentialType && <p><strong>Type:</strong> {result.credentialType}</p>}
+              <p><strong>Issued To:</strong> {result.holderName || result.holderID || "N/A"}</p>
+              <p><strong>Holder ID:</strong> {result.holderID || "N/A"}</p>
+              <p><strong>Issued By:</strong> {result.issuerName || "N/A"}</p>
+              <p><strong>Status:</strong> {result.status === 'issued' ? 'Active' : (result.status || "unknown")}</p>
+              {result.expiryDate && <p><strong>Expires:</strong> {new Date(result.expiryDate).toLocaleDateString()}</p>}
+              {result.skills && result.skills.length > 0 && (
+                <div className="verify-skills-row">
+                  <strong>Skills:</strong>
+                  <div className="verify-skill-pills">
+                    {result.skills.map((skill) => (
+                      <span key={skill} className="verify-skill-pill">{skill}</span>
+                    ))}
+                  </div>
+                </div>
               )}
-              <p>
-                <strong>Credential ID:</strong> {result.credentialID || "N/A"}
+              {result.description && <p><strong>Description:</strong> {result.description}</p>}
+              <p className="verify-source-info">
+                Verified via: {result.sources?.primarySource || 'unknown'} • {new Date(result.verifiedAt).toLocaleString()}
               </p>
-              <p>
-                <strong>Title:</strong>{" "}
-                {result.credentialName || result.credentialType || "N/A"}
-              </p>
-              <p>
-                <strong>Owner:</strong> {result.holderID || "N/A"}
-              </p>
-              <p>
-                <strong>Issuer:</strong> {result.issuerName || "N/A"}
-              </p>
-              <p>
-                <strong>Status:</strong> {result.status || "unknown"}
-              </p>
-              {result.expiryDate && (
-                <p>
-                  <strong>Expires:</strong>{" "}
-                  {new Date(result.expiryDate).toLocaleDateString()}
-                </p>
-              )}
             </div>
-          )}
+          </div>
         </div>
       )}
 

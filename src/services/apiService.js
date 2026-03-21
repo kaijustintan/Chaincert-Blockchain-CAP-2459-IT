@@ -1203,7 +1203,7 @@ Check_IssuerHasTemplates: async () => {
 
 
   /*
-    Function Name: Issue_CredentialInstance
+    Function Name: Issue_Credential
 
 
     Technical:

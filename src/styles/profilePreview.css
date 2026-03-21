@@ -475,3 +475,17 @@ html {
   font-size: 0.78rem;
   color: rgba(255, 255, 255, 0.4);
 }
+
+.gate-input-shell {
+  width: 100%;
+  display: flex;
+  align-items: center;
+}
+
+.gate-input-shell input::placeholder {
+  color: rgba(255, 255, 255, 0.45);
+}
+
+.otp-shell input::placeholder {
+  letter-spacing: 0.28em;
+}

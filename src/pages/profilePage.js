@@ -14,7 +14,7 @@ export default function ProfilePage() {
   const isAdmin = userRole === "admin";
   // - polo: displayName as state so it updates without full reload
   const [displayName, setDisplayName] = useState(getDisplayName({ ...user, role: userRole }));
-  const userName = displayName;
+  const userName = isIssuer ? (user.orgName || user.organizationName || displayName) : displayName;
 
   const [summary, setSummary] = useState("");
   const [isPublic, setIsPublic] = useState(true);

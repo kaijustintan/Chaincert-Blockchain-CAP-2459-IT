@@ -1,6 +1,13 @@
 // frontend/src/services/authenticationService.js
 // ✅ FRONTEND VERSION - Uses ES6 export syntax for React
 
+import { USER_SYNC_EVENT } from '../utils/userDisplay';
+
+const emitAuthSync = () => {
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new CustomEvent(USER_SYNC_EVENT));
+  }
+};
 
 // ✅ COMPLETE LOGOUT FUNCTION WITH FULL CLEANUP
 export const logout = () => {
@@ -31,6 +38,7 @@ export const logout = () => {
   console.log('🗑️  Cleared sessionStorage');
   
   console.log('✅ All authentication data cleared successfully!');
+  emitAuthSync();
 };
 
 
@@ -44,6 +52,7 @@ export const login = (token, user, role, email) => {
   localStorage.setItem('userRole', role);
   localStorage.setItem('isAuthenticated', 'true');
   console.log('✅ User authenticated and stored');
+  emitAuthSync();
 };
 
 

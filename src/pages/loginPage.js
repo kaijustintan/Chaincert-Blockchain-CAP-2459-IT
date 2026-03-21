@@ -2,6 +2,7 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import apiService from '../services/apiService';
+import { login } from '../services/authenticationService';
 import "../styles/loginPage.css";
 
 
@@ -25,13 +26,16 @@ function LoginPage() {
       
       if (issuerResponse.success) {
         console.log('✅ Issuer login successful!');
-        localStorage.setItem('token', issuerResponse.token);
-        // - polo: include issuerType so subordinate dashboard can hide root-only sections
-        localStorage.setItem('user', JSON.stringify({
-          ...issuerResponse.user,
-          issuerType: issuerResponse.user?.issuerType || issuerResponse.issuerType || 'root',
-        }));
-        localStorage.setItem('role', 'issuer');
+        login(
+          issuerResponse.token,
+          {
+            ...issuerResponse.user,
+            role: 'issuer',
+            issuerType: issuerResponse.user?.issuerType || issuerResponse.issuerType || 'root',
+          },
+          'issuer',
+          issuerResponse.user?.email || email
+        );
         setLoading(false);
         navigate('/issuer/dashboard');
         return; // ✅ Exit - no need for fallback
@@ -59,10 +63,8 @@ function LoginPage() {
       
       if (userResponse.success) {
         console.log('✅ User login successful!');
-        localStorage.setItem('token', userResponse.token);
-        localStorage.setItem('user', JSON.stringify(userResponse.user));
         const userRole = userResponse.user.role || 'student';
-        localStorage.setItem('role', userRole);
+        login(userResponse.token, { ...userResponse.user, role: userRole }, userRole, userResponse.user?.email || email);
         
         // Route based on role
         if (userRole === 'admin') {

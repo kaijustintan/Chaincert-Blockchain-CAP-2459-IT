@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import apiService from "../services/apiService";
 import "../styles/createAccount.css";
+import AppToast from "../components/appToast";
 
 export default function CreateAccount() {
   const navigate = useNavigate();
@@ -43,6 +44,12 @@ export default function CreateAccount() {
   const [issuerError, setIssuerError] = useState("");
   const [userLoading, setUserLoading] = useState(false);
   const [issuerLoading, setIssuerLoading] = useState(false);
+  const [toast, setToast] = useState({ show: false, message: "", type: "success" });
+
+  const showToast = (message, type = "success") => {
+    setToast({ show: true, message, type });
+    setTimeout(() => setToast({ show: false, message: "", type: "success" }), 3500);
+  };
 
   // ========== ROLE SELECTION HANDLERS ==========
   const handleRoleSelection = (role) => {
@@ -107,8 +114,8 @@ export default function CreateAccount() {
       });
 
       if (response.success) {
-        alert("User registration successful!");
-        navigate("/login"); /* CSS-CHANGE: redirect to login after success - polo */
+        showToast("Account created successfully! Redirecting to login...");
+        setTimeout(() => navigate("/login"), 900); /* CSS-CHANGE: redirect to login after success - polo */
       } else {
         setUserError(
           response.message || response.error || "Registration failed."
@@ -504,7 +511,9 @@ const getDocumentDescription = (docKey) => {
   // ========== ROLE SELECTION SCREEN ==========
   if (step === "roleSelection") {
     return (
-      <div className="create-account-wrapper role-selection-wrapper">
+      <>
+        <AppToast show={toast.show} message={toast.message} type={toast.type} />
+        <div className="create-account-wrapper role-selection-wrapper">
         <div className="role-selection-container">
           {/* CSS-CHANGE: added brand name and improved heading - polo */}
           <h1 className="register-brand">ChainCert</h1>
@@ -540,13 +549,16 @@ const getDocumentDescription = (docKey) => {
           </div>
         </div>
       </div>
+      </>
     );
   }
 
   // ========== USER REGISTRATION FORM ==========
   if (step === "userForm") {
     return (
-      <div className="create-account-wrapper">
+      <>
+        <AppToast show={toast.show} message={toast.message} type={toast.type} />
+        <div className="create-account-wrapper">
         <div className="form-card">
           {/* CSS-CHANGE: brand + heading inside form card - polo */}
           <div className="form-card-header">
@@ -621,13 +633,16 @@ const getDocumentDescription = (docKey) => {
           </div>
         </div>
       </div>
+      </>
     );
   }
 
   // ========== ISSUER REGISTRATION FORM ==========
   if (step === "issuerForm") {
     return (
-      <div className="create-account-wrapper">
+      <>
+        <AppToast show={toast.show} message={toast.message} type={toast.type} />
+        <div className="create-account-wrapper">
         <div className="form-card form-card-wide">
           {/* CSS-CHANGE: brand + heading inside form card - polo */}
           <div className="form-card-header">
@@ -874,6 +889,7 @@ const getDocumentDescription = (docKey) => {
           )}
         </div>
       </div>
+      </>
     );
   }
 

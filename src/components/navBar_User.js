@@ -1,65 +1,59 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import "../styles/navBar.css";
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { logout } from '../services/authenticationService'; // ✅ Import logout function
-
+import { USER_SYNC_EVENT, buildAvatarUrl, getDisplayName, getRoleLabel } from '../utils/userDisplay';
 
 function NavBar() {
   const location = useLocation();
   const navigate = useNavigate();
   const [dropdownOpen, setDropdownOpen] = useState(false);
+  const [storedUser, setStoredUser] = useState(() => JSON.parse(localStorage.getItem('user') || '{}'));
 
-  // Get user info from localStorage
+  useEffect(() => {
+    const syncUser = () => setStoredUser(JSON.parse(localStorage.getItem('user') || '{}'));
+    window.addEventListener('storage', syncUser);
+    window.addEventListener(USER_SYNC_EVENT, syncUser);
+    return () => {
+      window.removeEventListener('storage', syncUser);
+      window.removeEventListener(USER_SYNC_EVENT, syncUser);
+    };
+  }, []);
+
   const token = localStorage.getItem('token');
-  const user = JSON.parse(localStorage.getItem('user') || '{}');
+  const user = storedUser;
   const isLoggedIn = !!token;
-  const userRole = user.role || '';
-  const userName = useMemo(() => (
-    user.contactName ||
-    user.fullName ||
-    user.displayName ||
-    user.name ||
-    user.username ||
-    user.orgName ||
-    user.email ||
-    'User'
-  ), [user]);
-  const profileImage = user.profilePicture || user.avatar || '';
+  const userRole = user.role || localStorage.getItem('role') || '';
+  const userName = useMemo(() => getDisplayName({ ...user, role: userRole }), [user, userRole]);
+  const profileImage = buildAvatarUrl(user.profilePicture || user.avatar || '', user.profilePictureUpdatedAt || user.updatedAt || '');
   const profileInitial = (userName || userRole || 'U').trim().charAt(0).toUpperCase();
-  // ✅ IMPROVED LOGOUT HANDLER - Now calls the centralized logout function
+
   const handleLogout = () => {
     console.log('🔄 Starting logout process...');
-    
-    logout(); // ✅ This clears ALL localStorage/sessionStorage
-    
+    logout();
     setDropdownOpen(false);
     console.log('✅ Logout complete - redirecting to login');
-    
-    navigate('/login'); // Redirect to login page
+    navigate('/login');
   };
 
-  // Map role to correct dashboard route (handles "user" → student dashboard)
-  // - polo
   const getDashboardRoute = (role) => {
     const routes = {
-      'student': '/student/dashboard',
-      'user': '/student/dashboard',
-      'admin': '/admin/dashboard',
-      'issuer': '/issuer/dashboard',
-      'verifier': '/verifier/dashboard'
+      student: '/student/dashboard',
+      user: '/student/dashboard',
+      admin: '/admin/dashboard',
+      issuer: '/issuer/dashboard',
+      verifier: '/verifier/dashboard'
     };
     return routes[role] || '/student/dashboard';
   };
 
   return (
     <nav className="navbar">
-      {/* Logo */}
       <h2 className="logo">
         <Link to="/" className="logo-link">ChainCert</Link>
       </h2>
 
       <ul className="nav-links">
-        {/* PUBLIC LINKS - Always Visible */}
         <li className={location.pathname === '/' ? 'active' : ''}>
           <Link to="/">Home</Link>
         </li>
@@ -73,9 +67,6 @@ function NavBar() {
           <Link to="/verifier/dashboard">Verifier Dashboard</Link>
         </li>
 
-
-
-        {/* LOGIN & CREATE ACCOUNT - Only if NOT logged in */}
         {!isLoggedIn && (
           <>
             <li className={location.pathname === '/login' ? 'active' : ''}>
@@ -87,7 +78,6 @@ function NavBar() {
           </>
         )}
 
-        {/* ROLE-SPECIFIC DASHBOARDS - Only if logged in */}
         {isLoggedIn && userRole === 'student' && (
           <li className={location.pathname === '/student/dashboard' ? 'active' : ''}>
             <Link to="/student/dashboard">My Dashboard</Link>
@@ -105,8 +95,7 @@ function NavBar() {
             <Link to="/issuer/dashboard">Issuer Dashboard</Link>
           </li>
         )}
-        
-        {/* PROFILE DROPDOWN - Only if logged in */}
+
         {isLoggedIn && (
           <div className="profile-dropdown-container">
             <button
@@ -129,36 +118,26 @@ function NavBar() {
             {dropdownOpen && (
               <div className="profile-dropdown">
                 <ul>
-                  {/* User Info Header */}
                   <li className="user-info">
                     <strong>{userName}</strong>
-                    <small>{userRole.charAt(0).toUpperCase() + userRole.slice(1)}</small>
+                    <small>{getRoleLabel(userRole)}</small>
                   </li>
                   <li className="divider"></li>
-
-                  {/* Dashboard Link */}
                   <li>
                     <Link to={getDashboardRoute(userRole)}>Dashboard</Link>
                   </li>
-
-                  {/* Profile & Settings */}
                   <li className={location.pathname === '/profile' ? 'active' : ''}>
                     <Link to="/profile">Profile</Link>
                   </li>
                   <li className={location.pathname === '/settings' ? 'active' : ''}>
                     <Link to="/settings">Settings</Link>
                   </li>
-
-                  {/* Student-only options */}
                   {userRole === 'student' && (
                     <li className={location.pathname === '/transcript' ? 'active' : ''}>
                       <Link to="/transcript">Send Transcript</Link>
                     </li>
                   )}
-
                   <li className="divider"></li>
-
-                  {/* Sign Out */}
                   <li>
                     <button onClick={handleLogout} className="signout-btn">
                       Sign Out

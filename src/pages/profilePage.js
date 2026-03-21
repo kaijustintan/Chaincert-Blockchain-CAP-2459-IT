@@ -1,5 +1,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import apiService from "../services/apiService";
+import AppToast from "../components/appToast";
+import { buildAvatarUrl, getDisplayName, syncStoredUser } from "../utils/userDisplay";
 import "../styles/profilePage.css";
 
 export default function ProfilePage() {
@@ -8,8 +10,10 @@ export default function ProfilePage() {
   const userEmail = user.email || localStorage.getItem("email") || "";
   const userRole = user.role || localStorage.getItem("role") || "student";
   const userId = user._id || user.id || "";
+  const isIssuer = userRole === "issuer";
+  const isAdmin = userRole === "admin";
   // - polo: displayName as state so it updates without full reload
-  const [displayName, setDisplayName] = useState(user.username || user.name || user.fullName || "User");
+  const [displayName, setDisplayName] = useState(getDisplayName({ ...user, role: userRole }));
   const userName = displayName;
 
   const [summary, setSummary] = useState("");
@@ -49,7 +53,7 @@ const [showAll, setShowAll] = useState(false);
 
   const [loading, setLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
-  const [avatar, setAvatar] = useState("👤");
+  const [avatar, setAvatar] = useState(buildAvatarUrl(user.profilePicture || user.avatar || "", user.profilePictureUpdatedAt || user.updatedAt || "") || "👤");
 
   // Toast state 
   const [toast, setToast] = useState({ show: false, message: "", type: "success" });
@@ -81,11 +85,15 @@ const [showAll, setShowAll] = useState(false);
     try {
       const response = await apiService.getUserInfo(userId);
       if (response.success && response.user) {
-        setSummary(response.user.summary || '');
+        const resolvedName = getDisplayName({ ...response.user, ...user, role: userRole });
+        setDisplayName(resolvedName);
+        setEditNameInput(resolvedName);
+        setSummary(response.user.summary || "");
         setIsPublic(response.user.isPublic !== undefined ? response.user.isPublic : true);
-        if (response.user.profilePicture) { // ✅ <-- ADD THIS
-          setAvatar(response.user.profilePicture); // ✅ <-- ADD THIS
+        if (response.user.profilePicture) {
+          setAvatar(buildAvatarUrl(response.user.profilePicture, response.user.profilePictureUpdatedAt || response.user.updatedAt || Date.now()));
         }
+        syncStoredUser({ ...response.user, role: userRole, username: resolvedName, name: resolvedName });
       }
     } catch (error) {
       console.error("Error loading profile:", error);
@@ -233,7 +241,7 @@ const [showAll, setShowAll] = useState(false);
     // revert preview if picture was not saved
     if (pendingAvatar) {
       setAvatar(
-        JSON.parse(localStorage.getItem('user') || '{}').profilePicture || '👤'
+        buildAvatarUrl(JSON.parse(localStorage.getItem('user') || '{}').profilePicture || '', JSON.parse(localStorage.getItem('user') || '{}').profilePictureUpdatedAt || '') || '👤'
       );
       setPendingAvatar(null);
     }
@@ -253,8 +261,9 @@ const [showAll, setShowAll] = useState(false);
         formData.append('userId', userId);
         const picResponse = await apiService.uploadProfilePicture(formData);
         if (picResponse.success) {
-          setAvatar(picResponse.imageUrl);
-          localStorage.setItem('user', JSON.stringify({ ...JSON.parse(localStorage.getItem('user') || '{}'), profilePicture: picResponse.imageUrl }));
+          const profilePictureUpdatedAt = Date.now();
+          setAvatar(buildAvatarUrl(picResponse.imageUrl, profilePictureUpdatedAt));
+          syncStoredUser({ profilePicture: picResponse.imageUrl, profilePictureUpdatedAt });
         }
         setPendingAvatar(null); // clear pending after upload
       }
@@ -267,8 +276,7 @@ const [showAll, setShowAll] = useState(false);
       });
       // Update localStorage and state immediately - no reload needed - polo
       const finalName = trimmedName || userName;
-      const updatedUser = { ...JSON.parse(localStorage.getItem("user") || "{}"), ...user, name: finalName, username: finalName };
-      localStorage.setItem("user", JSON.stringify(updatedUser));
+      syncStoredUser({ ...user, role: userRole, name: finalName, username: finalName, fullName: isIssuer ? (user.fullName || finalName) : finalName });
       setDisplayName(finalName); // - polo: update display immediately without reload
       setSummary(editSummaryInput);
       setIsPublic(editIsPublic);
@@ -410,14 +418,7 @@ const [showAll, setShowAll] = useState(false);
   return (
   <div className="profile-page">
     {/* Profile toast render */}
-    {toast.show && (
-      <div className={`profile-toast profile-toast--${toast.type}`}>
-        <div className="profile-toast-icon">
-          {toast.type === "success" ? "✓" : "✕"}
-        </div>
-        <div className="profile-toast-message">{toast.message}</div>
-      </div>
-    )}
+    <AppToast show={toast.show} message={toast.message} type={toast.type} />
     {/* Profile Header */}
     <div className="profile-header">
 
@@ -425,8 +426,8 @@ const [showAll, setShowAll] = useState(false);
       <div className="avatar-wrapper">
         {/* THIS IS THE CHANGE */}
         <div className="avatar">
-          {avatar.startsWith('data:') || avatar.startsWith('blob:') || avatar.startsWith('http') || avatar.startsWith('/') ? (
-            <img src={avatar} alt="Profile" /> // handle both base64 and blob preview URLs
+          {typeof avatar === 'string' && (avatar.startsWith('data:') || avatar.startsWith('blob:') || avatar.startsWith('http') || avatar.startsWith('/')) ? (
+            <img src={avatar} alt="Profile" />
           ) : (
             avatar
           )}
@@ -455,7 +456,7 @@ const [showAll, setShowAll] = useState(false);
         <div className="profile-info">
           <h2>{userName}</h2>       
           {/* Hide profile actions for admin role */}
-          {userRole !== "admin" && (
+          {!isAdmin && (
             <div className="profile-actions">
               <button
                 className="link-btn"
@@ -478,30 +479,32 @@ const [showAll, setShowAll] = useState(false);
         </div>
         {/* Edit Profile / Save / Cancel buttons - polo */}
         <div className="edit-btn">
-          {!isEditingProfile ? (
-            <button type="button" onClick={handleOpenEditProfile}>Edit Profile</button>
-          ) : (
-            <div style={{ display: "flex", gap: 8 }}>
-              <button
-                type="button"
-                onClick={handleSaveEditProfile}
-                disabled={isSaving}
-              >
-                {isSaving ? "Saving..." : "Save Changes"}
-              </button>
-              <button
-                type="button"
-                onClick={handleCancelEditProfile}
-                disabled={isSaving}
-                style={{
-                  background: "transparent",
-                  border: "1px solid rgba(255,255,255,0.2)",
-                  color: "#aaa",
-                }}
-              >
-                Cancel
-              </button>
-            </div>
+          {!isAdmin && (
+            !isEditingProfile ? (
+              <button type="button" onClick={handleOpenEditProfile}>Edit Profile</button>
+            ) : (
+              <div style={{ display: "flex", gap: 8 }}>
+                <button
+                  type="button"
+                  onClick={handleSaveEditProfile}
+                  disabled={isSaving}
+                >
+                  {isSaving ? "Saving..." : "Save Changes"}
+                </button>
+                <button
+                  type="button"
+                  onClick={handleCancelEditProfile}
+                  disabled={isSaving}
+                  style={{
+                    background: "transparent",
+                    border: "1px solid rgba(255,255,255,0.2)",
+                    color: "#aaa",
+                  }}
+                >
+                  Cancel
+                </button>
+              </div>
+            )
           )}
         </div>
       </div>
@@ -513,7 +516,7 @@ const [showAll, setShowAll] = useState(false);
 
           {/* Full Name — editable in edit mode, read-only otherwise - polo */}
           <div className="info-item">
-            <label>Full Name</label>
+            <label>{isIssuer ? "Organization Name" : "Full Name"}</label>
             {isEditingProfile ? (
               <input
                 type="text"
@@ -563,7 +566,7 @@ const [showAll, setShowAll] = useState(false);
       </section>
 
       {/* Hide Personal Summary for admin) */}
-      {userRole !== "admin" && (
+      {!isAdmin && (
       <section className="profile-section">
         <h3>Personal Summary</h3>
         {isEditingProfile ? (
@@ -600,7 +603,7 @@ const [showAll, setShowAll] = useState(false);
       )} {/* end Personal Summary — hidden for admin */}
 
       {/* Credential Wallet — hidden for issuers and admin */}
-      {userRole !== "issuer" && userRole !== "admin" && (
+      {!isIssuer && !isAdmin && (
       <section className="profile-section">
         <div className="section-header">
           <h3>Credential Wallet</h3>
@@ -657,7 +660,7 @@ const [showAll, setShowAll] = useState(false);
       )} {/* end Credential Wallet — hidden for issuers */}
 
       {/* Skills Wallet — hidden for issuers and admin */}
-      {userRole !== "issuer" && userRole !== "admin" && (
+      {!isIssuer && !isAdmin && (
       <section className="profile-section">
         <div className="section-header">
           <h3>Skills Wallet</h3>
@@ -746,7 +749,7 @@ const [showAll, setShowAll] = useState(false);
       )} {/* end Skills Wallet — hidden for issuers */}
 
       {/* My Share Links Section */}
-      {userRole !== 'admin' && userRole !== 'issuer' && (
+      {!isAdmin && !isIssuer && (
         <section className="profile-section">
           <div className="section-header">
             <h3>My Share Links</h3>
@@ -788,10 +791,10 @@ const [showAll, setShowAll] = useState(false);
                         </td>
                         <td style={{ padding: '10px 12px', maxWidth: 320 }}>
                           <div className="share-link-cell">
-                            <a href={link.shareUrl} target="_blank" rel="noreferrer" title={link.shareUrl}>
-                              {link.shareUrl}
+                            <a href={(link.shareUrl || `${window.location.origin}/profile/${link.token}`)} target="_blank" rel="noreferrer" title={link.shareUrl || `${window.location.origin}/profile/${link.token}`}>
+                              {link.shareUrl || `${window.location.origin}/profile/${link.token}`}
                             </a>
-                            <button type="button" className="share-link-copy-btn" onClick={() => navigator.clipboard.writeText(link.shareUrl).then(() => showToast('Share link copied.')).catch(() => showToast('Failed to copy share link.', 'danger'))}>Copy</button>
+                            <button type="button" className="share-link-copy-btn" onClick={() => navigator.clipboard.writeText(link.shareUrl || `${window.location.origin}/profile/${link.token}`).then(() => showToast('Share link copied.')).catch(() => showToast('Failed to copy share link.', 'danger'))}>Copy</button>
                           </div>
                         </td>
                         <td style={{ padding: '10px 12px', color: '#d4d4d8', textAlign: 'center' }}>

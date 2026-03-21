@@ -410,3 +410,13 @@
   .greeting-header-row { align-items: center; }
   .notification-panel { right: -6px; }
 }
+
+.greeting-section { background: rgba(12, 8, 32, 0.76); border: 1px solid rgba(139, 92, 246, 0.16); border-radius: 22px; padding: 28px 28px 24px; box-shadow: 0 16px 42px rgba(0,0,0,0.2); }
+.greeting-header-row { align-items: flex-start; }
+.notification-panel-header { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
+.notification-list { padding: 8px; max-height: 460px; }
+.notification-item { border-radius: 14px; margin-bottom: 10px; border: 1px solid rgba(139,92,246,0.08); padding: 16px 16px 14px; }
+.notification-item-meta { display: flex; flex-wrap: wrap; gap: 8px 14px; line-height: 1.5; }
+.notification-item-time { border-top: none; padding-top: 0; margin-top: 0; }
+.stats-bar, .controls, .card-grid { position: relative; z-index: 1; }
+@media (max-width: 768px) { .greeting-section { padding: 22px 18px; } .greeting-header-row { justify-content: center; padding-top: 52px; } .notification-bell-wrap { right: 50%; transform: translateX(50%); } .notification-panel { right: 50%; transform: translateX(50%); width: min(92vw, 420px); } }

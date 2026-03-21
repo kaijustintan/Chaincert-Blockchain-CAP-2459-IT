@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import "../styles/navBar.css";
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { logout } from '../services/authenticationService'; // ✅ Import logout function
@@ -14,7 +14,18 @@ function NavBar() {
   const user = JSON.parse(localStorage.getItem('user') || '{}');
   const isLoggedIn = !!token;
   const userRole = user.role || '';
-  const userName = user.username || user.name || user.fullName || 'User';
+  const userName = useMemo(() => (
+    user.contactName ||
+    user.fullName ||
+    user.displayName ||
+    user.name ||
+    user.username ||
+    user.orgName ||
+    user.email ||
+    'User'
+  ), [user]);
+  const profileImage = user.profilePicture || user.avatar || '';
+  const profileInitial = (userName || userRole || 'U').trim().charAt(0).toUpperCase();
   // ✅ IMPROVED LOGOUT HANDLER - Now calls the centralized logout function
   const handleLogout = () => {
     console.log('🔄 Starting logout process...');
@@ -103,11 +114,17 @@ function NavBar() {
               onClick={() => setDropdownOpen(!dropdownOpen)}
               title={`${userName} (${userRole})`}
             >
-              <img
-                src="https://png.pngtree.com/png-clipart/20200224/original/pngtree-avatar-icon-profile-icon-member-login-vector-isolated-png-image_5247852.jpg"
-                alt="Profile"
-                className="profile-icon"
-              />
+              {profileImage ? (
+                <img
+                  src={profileImage}
+                  alt={userName}
+                  className="profile-icon"
+                />
+              ) : (
+                <span className="profile-icon profile-icon-fallback" aria-hidden="true">
+                  {profileInitial}
+                </span>
+              )}
             </button>
             {dropdownOpen && (
               <div className="profile-dropdown">

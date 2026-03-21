@@ -116,7 +116,7 @@ export default function StudentDashboard() {
 
   /* CSS-CHANGE: Read username from localStorage for greeting display - polo */
   const user = JSON.parse(localStorage.getItem("user") || "{}");
-  const displayName = user.fullName || user.username || user.email || "Student";
+  const displayName = user.fullName || user.name || user.username || user.email || "Student";
 
   // ── Fetch credentials + notifications on mount ────────────────────────────
 

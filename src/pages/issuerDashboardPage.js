@@ -81,6 +81,8 @@ export default function IssuerDashboard() {
   const [revokeSearch, setRevokeSearch] = useState("");
   const [revokeHolderFilter, setRevokeHolderFilter] = useState("all");
   const [revokeTemplateFilter, setRevokeTemplateFilter] = useState("all");
+  const [revokeCredentialOpen, setRevokeCredentialOpen] = useState(false);
+  const [revokeCredentialSearch, setRevokeCredentialSearch] = useState("");
 
   // Revoke Credential Modal State
   const [showRevokeModal, setShowRevokeModal] = useState(false);
@@ -326,9 +328,18 @@ export default function IssuerDashboard() {
   }, [revokeHolderFilter, revokeSearch, revokeTemplateFilter, searchableIssuedCredentials]);
 
   // Revoke Modal handlers
-  const openRevokeModal = () => { setShowRevokeModal(true); setRevokeError(""); setRevokeSearch(""); setRevokeHolderFilter("all"); setRevokeTemplateFilter("all"); setRevokeForm({ credentialId: "", rejectionReason: "" }); };
-  const closeRevokeModal = () => { setShowRevokeModal(false); setRevokeError(""); setRevokeLoading(false); setRevokeSearch(""); setRevokeHolderFilter("all"); setRevokeTemplateFilter("all"); };
+  const openRevokeModal = () => { setShowRevokeModal(true); setRevokeError(""); setRevokeSearch(""); setRevokeHolderFilter("all"); setRevokeTemplateFilter("all"); setRevokeCredentialOpen(false); setRevokeCredentialSearch(""); setRevokeForm({ credentialId: "", rejectionReason: "" }); };
+  const closeRevokeModal = () => { setShowRevokeModal(false); setRevokeError(""); setRevokeLoading(false); setRevokeSearch(""); setRevokeHolderFilter("all"); setRevokeTemplateFilter("all"); setRevokeCredentialOpen(false); setRevokeCredentialSearch(""); };
   const handleRevokeFormChange = (e) => { const { name, value } = e.target; setRevokeForm((prev) => ({ ...prev, [name]: value })); };
+
+  const handleSelectRevokeCredential = (cred) => {
+    const blockchainId = cred.blockchainId || cred.id;
+    setRevokeForm((prev) => ({ ...prev, credentialId: blockchainId }));
+    setRevokeCredentialSearch(
+      `${cred.holderName || cred.holderID || "Unknown"} — ${cred.credentialName || "Untitled"} — ${(blockchainId || "").slice(0, 16)}…`
+    );
+    setRevokeCredentialOpen(false);
+  };
 
   const handleRevokeSubmit = async (e) => {
     e.preventDefault(); setRevokeLoading(true); setRevokeError("");
@@ -944,19 +955,47 @@ export default function IssuerDashboard() {
                 </div>
               </div>
               <div className="form-group">
-                <label>Credential</label>
-                <select name="credentialId" value={revokeForm.credentialId} onChange={handleRevokeFormChange} required>
-                  <option value="">-- Select issued credential --</option>
-                  {filteredRevokableCredentials.map((cred) => {
-                    const blockchainId = cred.blockchainId || cred.id;
-                    return (
-                      <option key={blockchainId} value={blockchainId}>
-                        {cred.holderName || cred.holderID || "Unknown Holder"} — {cred.credentialName || "Untitled"} — {(blockchainId || "").slice(0, 16)}…
-                      </option>
-                    );
-                  })}
-                </select>
-                {revokeSearch && filteredRevokableCredentials.length === 0 && <div className="field-helper">No issued credentials match your search.</div>}
+                <label>Credential to Revoke <span className="required-star">*</span></label>
+                <div className="searchable-select-wrapper">
+                  <input
+                    type="text"
+                    value={revokeCredentialSearch}
+                    onChange={(e) => {
+                      setRevokeCredentialSearch(e.target.value);
+                      setRevokeCredentialOpen(true);
+                      if (revokeForm.credentialId) {
+                        setRevokeForm((prev) => ({ ...prev, credentialId: "" }));
+                      }
+                    }}
+                    onFocus={() => setRevokeCredentialOpen(true)}
+                    onBlur={() => setTimeout(() => setRevokeCredentialOpen(false), 180)}
+                    placeholder="Type to search credentials..."
+                    className="search-select-input"
+                    autoComplete="off"
+                  />
+                  {revokeForm.credentialId && (
+                    <button type="button" className="searchable-select-clear" onClick={() => {
+                      setRevokeCredentialSearch("");
+                      setRevokeForm((prev) => ({ ...prev, credentialId: "" }));
+                      setRevokeCredentialOpen(true);
+                    }} aria-label="Clear selection">✕</button>
+                  )}
+                  {revokeCredentialOpen && !revokeForm.credentialId && (
+                    <ul className="searchable-select-list">
+                      {filteredRevokableCredentials.length > 0 ? filteredRevokableCredentials.map((cred) => {
+                        const blockchainId = cred.blockchainId || cred.id;
+                        return (
+                          <li key={blockchainId} className="searchable-select-item" onMouseDown={() => handleSelectRevokeCredential(cred)}>
+                            <span className="searchable-item-name">{cred.holderName || cred.holderID || "Unknown Holder"} — {cred.credentialName || "Untitled"}</span>
+                            <span className="searchable-item-meta">{(blockchainId || "").slice(0, 24)}…</span>
+                          </li>
+                        );
+                      }) : (
+                        <li className="searchable-select-empty">{revokeCredentialSearch || revokeSearch ? "No credentials match your filters." : "No revokable credentials."}</li>
+                      )}
+                    </ul>
+                  )}
+                </div>
                 {revokeForm.credentialId && (
                   <div className="selected-credential-card">
                     {(() => {

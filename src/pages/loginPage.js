@@ -39,15 +39,16 @@ function LoginPage() {
         );
         const issuerUid = issuerResponse.user?._id || issuerResponse.user?.id;
         if (issuerUid) {
-          apiService.getUserInfo(issuerUid).then(resp => {
-            if (resp?.success && resp.user) {
+          try {
+            const profileResp = await apiService.getUserInfo(issuerUid);
+            if (profileResp?.success && profileResp.user) {
               syncStoredUser({
-                ...resp.user,
+                ...profileResp.user,
                 role: 'issuer',
                 issuerType: issuerResponse.user?.issuerType || issuerResponse.issuerType || 'root',
               });
             }
-          }).catch(() => {});
+          } catch (e) { /* non-critical */ }
         }
         setLoading(false);
         navigate('/issuer/dashboard');
@@ -80,11 +81,12 @@ function LoginPage() {
         login(userResponse.token, { ...userResponse.user, role: userRole }, userRole, userResponse.user?.email || email);
         const userUid = userResponse.user?._id || userResponse.user?.id;
         if (userUid) {
-          apiService.getUserInfo(userUid).then(resp => {
-            if (resp?.success && resp.user) {
-              syncStoredUser({ ...resp.user, role: userRole });
+          try {
+            const profileResp = await apiService.getUserInfo(userUid);
+            if (profileResp?.success && profileResp.user) {
+              syncStoredUser({ ...profileResp.user, role: userRole });
             }
-          }).catch(() => {});
+          } catch (e) { /* non-critical */ }
         }
         
         // Route based on role

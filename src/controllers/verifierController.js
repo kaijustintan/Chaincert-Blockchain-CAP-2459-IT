@@ -61,7 +61,6 @@ const Verify_Credential = async (req, res, getContractAndGateway) => {
   try {
     const { credentialId } = req.params;
 
-    // Step 0: Validate input (credentialId must be provided)
     if (!credentialId) {
       return res.status(400).json({
         success: false,
@@ -70,210 +69,142 @@ const Verify_Credential = async (req, res, getContractAndGateway) => {
     }
     console.log(`[VERIFY] Querying credential: ${credentialId}`);
 
-    // Normalize ID for CouchDB
-    const searchId = normalizeCredentialId(credentialId);
-    console.log(`[VERIFY] Normalized CouchDB ID: ${searchId}`);
+    let mainPayload = null;
+    let finalIsValid = false;
+    let finalReason = 'Credential not found';
+    let sourceUsed = 'none';
+    let blockchainError = null;
 
-    // ✅ STEP 1: Query CouchDB FIRST (faster, local check)
-    console.log('[VERIFY] Step 1: Checking CouchDB wallet...');
-    const adminCouch = nano(COUCHDB_URL);
-    const userWalletDb = adminCouch.use('wallet_user_credentials');
-
-    let couchResult;
-    try {
-      couchResult = await userWalletDb.find({
-        selector: { _id: searchId },
-        limit: 1,
-      });
-    } catch (couchErr) {
-      console.log('[VERIFY] CouchDB query error (non-fatal):', couchErr.message);
-      couchResult = { docs: [] };
-    }
-
-    // Prepare base response fields
-    let couchPayload = null;
-    let isValid = false;
-    let isRevoked = false;
-    let isExpired = false;
-    let status = 'unknown';
-    let reason = 'Credential not found in CouchDB';
-
-    if (couchResult.docs && couchResult.docs.length > 0) {
-      const credential = couchResult.docs[0];
-
-      console.log('[VERIFY] ✅ Found in CouchDB wallet');
-
-      status = credential.status || 'unknown';
-      const now = new Date();
-
-      isRevoked =
-        status === 'revoked' ||
-        credential.isRevoked === true ||
-        credential.revoked === true;
-
-      isExpired = credential.expiryDate
-        ? new Date(credential.expiryDate) < now
-        : false;
-
-      const isStatusValid = status === 'active' || status === 'issued';
-      isValid = !isRevoked && !isExpired && isStatusValid;
-
-      if (isRevoked) {
-        reason = 'Credential has been revoked (CouchDB)';
-      } else if (isExpired) {
-        reason = 'Credential has expired (CouchDB)';
-      } else if (!isStatusValid) {
-        reason = `Credential is not in a valid status (${status}) (CouchDB)`;
-      } else {
-        reason = 'Credential is valid (CouchDB)';
-      }
-
-      couchPayload = {
-        credentialID: credentialId, // field name kept as credentialID for API compatibility
-        credentialType: credential.credentialType,
-        credentialName: credential.credentialName,
-        issuerName: credential.issuerName || 'Unknown',
-        holderID: credential.holderID,
-        status,
-        isValid,
-        isRevoked,
-        isExpired,
-        expiryDate: credential.expiryDate,
-        verifiedAt: new Date().toISOString(),
-        source: 'wallet_cache',
-      };
-    }
-
-    // At this point:
-    // - If couchPayload is null => not found in CouchDB.
-    // - If couchPayload exists => we have local validity flags.
-
-    // ✅ STEP 2: Optional blockchain VerifyCredential() cross-check
-    // Only run if we have a working getContractAndGateway and we want to test on-chain verify.
-    let blockchainCheck = null;
-
+    // ✅ STEP 1: Try BLOCKCHAIN FIRST (trust anchor)
     if (getContractAndGateway) {
       try {
-        console.log('[VERIFY] Step 2: Running blockchain VerifyCredential()...');
-
-        // For generic verifier: use Org1 admin identity (same pattern as history endpoint).
+        console.log('[VERIFY] Step 1: Running blockchain VerifyCredential() (primary)...');
         const identityName = 'admin';
         const orgName = 'Org1';
-
         const { gateway, contract } = await getContractAndGateway(identityName, orgName);
-
-        // NOTE: On-chain VerifyCredential expects the *on-chain* credential ID.
-        // For now, we assume credentialId coming from client is already the ledger key.
         const bcResultBuffer = await contract.evaluateTransaction('VerifyCredential', credentialId);
         const bcResult = JSON.parse(bcResultBuffer.toString());
-
         await gateway.disconnect();
 
-        // bcResult shape per chaincode:
-        // - If not found: { valid: false, reason: 'Credential not found' }
-        // - If revoked:   { valid: false, reason: 'Credential has been revoked' }
-        // - If expired:   { valid: false, reason: 'Credential has expired' }
-        // - If bad status:{ valid: false, reason: 'Credential is not in a valid status <status>' }
-        // - Else:         { valid: true, credential: { ...full credential object... } }
-        blockchainCheck = {
-          valid: bcResult.valid,
-          reason: bcResult.reason || (bcResult.valid ? 'Credential is valid on-chain' : 'Invalid on-chain'),
-          credential: bcResult.credential || null,
-        };
+        console.log('[VERIFY] Blockchain result:', bcResult);
 
-        console.log('[VERIFY] Blockchain verify result:', blockchainCheck);
+        if (bcResult.valid !== undefined) {
+          // Blockchain returned a definitive answer
+          const c = bcResult.credential || {};
+          const now = new Date();
+          const chainStatus = c.status || (bcResult.valid ? 'active' : 'unknown');
+          const chainIsRevoked = chainStatus === 'revoked' || (!bcResult.valid && (bcResult.reason || '').toLowerCase().includes('revoked'));
+          const chainIsExpired = c.expiryDate ? new Date(c.expiryDate) < now : (!bcResult.valid && (bcResult.reason || '').toLowerCase().includes('expired'));
+
+          mainPayload = {
+            credentialID: credentialId,
+            credentialType: c.credentialType || undefined,
+            credentialName: c.credentialName || undefined,
+            issuerName: c.issuerID || c.issuerName || undefined,
+            holderID: c.holderID || undefined,
+            status: chainStatus,
+            isValid: bcResult.valid,
+            isRevoked: chainIsRevoked,
+            isExpired: chainIsExpired,
+            expiryDate: c.expiryDate || undefined,
+            verifiedAt: new Date().toISOString(),
+            source: 'blockchain',
+          };
+          finalIsValid = bcResult.valid;
+          finalReason = bcResult.reason || (bcResult.valid ? 'Credential is valid (blockchain-verified)' : 'Credential is invalid (blockchain)');
+          sourceUsed = 'blockchain';
+        }
       } catch (bcErr) {
-        console.error('[VERIFY] Blockchain VerifyCredential failed (non-fatal):', bcErr.message);
-        blockchainCheck = {
-          error: bcErr.message,
-        };
+        console.error('[VERIFY] Blockchain VerifyCredential failed:', bcErr.message);
+        blockchainError = bcErr.message;
+        // Fall through to CouchDB
       }
     }
 
-    // ✅ STEP 3: Compose final response
+    // ✅ STEP 2: FALLBACK to CouchDB if blockchain didn't provide an answer
+    if (!mainPayload) {
+      console.log('[VERIFY] Step 2: Falling back to CouchDB...');
+      const searchId = normalizeCredentialId(credentialId);
+      const adminCouch = nano(COUCHDB_URL);
+      const userWalletDb = adminCouch.use('wallet_user_credentials');
 
-    // Case A: Nothing in CouchDB and no blockchain success
-    if (
-      !couchPayload &&
-      (!blockchainCheck ||
-        (blockchainCheck && blockchainCheck.valid === undefined && !blockchainCheck.credential))
-    ) {
+      let couchResult;
+      try {
+        couchResult = await userWalletDb.find({
+          selector: { _id: searchId },
+          limit: 1,
+        });
+      } catch (couchErr) {
+        console.log('[VERIFY] CouchDB query error:', couchErr.message);
+        couchResult = { docs: [] };
+      }
+
+      if (couchResult.docs && couchResult.docs.length > 0) {
+        const credential = couchResult.docs[0];
+        const now = new Date();
+        const status = credential.status || 'unknown';
+        const isRevoked = status === 'revoked' || credential.isRevoked === true || credential.revoked === true;
+        const isExpired = credential.expiryDate ? new Date(credential.expiryDate) < now : false;
+        const isStatusValid = status === 'active' || status === 'issued';
+        const isValid = !isRevoked && !isExpired && isStatusValid;
+
+        let reason;
+        if (isRevoked) reason = 'Credential has been revoked';
+        else if (isExpired) reason = 'Credential has expired';
+        else if (!isStatusValid) reason = `Credential is not in a valid status (${status})`;
+        else reason = 'Credential is valid (CouchDB fallback — blockchain unavailable)';
+
+        mainPayload = {
+          credentialID: credentialId,
+          credentialType: credential.credentialType,
+          credentialName: credential.credentialName,
+          issuerName: credential.issuerName || 'Unknown',
+          holderID: credential.holderID,
+          status,
+          isValid,
+          isRevoked,
+          isExpired,
+          expiryDate: credential.expiryDate,
+          verifiedAt: new Date().toISOString(),
+          source: 'couchdb_fallback',
+        };
+        finalIsValid = isValid;
+        finalReason = reason;
+        sourceUsed = 'couchdb_fallback';
+      }
+    }
+
+    // ✅ STEP 3: Return response
+    if (!mainPayload) {
       return res.status(404).json({
         success: false,
         verified: false,
-        message: 'Credential not found in CouchDB or blockchain',
+        message: 'Credential not found',
         credentialID: credentialId,
         verifiedAt: new Date().toISOString(),
+        sources: { blockchain: sourceUsed === 'blockchain', couchDB: sourceUsed === 'couchdb_fallback', blockchainError },
       });
-    }
-
-    // Decide final validity, preferring strict (any invalid source wins)
-    let finalIsValid = isValid;
-    let finalReason = reason;
-    let onChainStatus = null;
-
-    if (blockchainCheck && blockchainCheck.valid !== undefined) {
-      // If blockchain says invalid, override to invalid; if valid and CouchDB says valid, keep valid.
-      if (!blockchainCheck.valid) {
-        finalIsValid = false;
-        finalReason = blockchainCheck.reason || 'Invalid on-chain';
-      } else if (blockchainCheck.valid && couchPayload && isValid) {
-        finalIsValid = true;
-        finalReason = blockchainCheck.reason || reason || 'Credential is valid (CouchDB + blockchain)';
-      }
-      onChainStatus = blockchainCheck.valid ? 'valid' : 'invalid';
-    }
-
-    // If we have CouchDB data, use it as main payload; else, fall back to on-chain credential
-    let mainPayload = couchPayload;
-
-    if (!mainPayload && blockchainCheck && blockchainCheck.credential) {
-      const c = blockchainCheck.credential;
-      const now = new Date();
-      const chainStatus = c.status || 'unknown';
-      const chainIsRevoked = chainStatus === 'revoked';
-      const chainIsExpired = c.expiryDate ? new Date(c.expiryDate) < now : false;
-      const chainStatusValid = chainStatus === 'active' || chainStatus === 'issued';
-
-      mainPayload = {
-        credentialID: c.id,
-        credentialType: c.credentialType,
-        credentialName: c.credentialName,
-        issuerName: c.issuerID || 'Unknown',
-        holderID: c.holderID,
-        status: chainStatus,
-        isValid: blockchainCheck.valid && chainStatusValid && !chainIsRevoked && !chainIsExpired,
-        isRevoked: chainIsRevoked,
-        isExpired: chainIsExpired,
-        expiryDate: c.expiryDate,
-        verifiedAt: new Date().toISOString(),
-        source: 'blockchain_only',
-      };
-
-      // If CouchDB had nothing, sync our local flags from on-chain
-      finalIsValid = mainPayload.isValid;
-      finalReason = blockchainCheck.reason || finalReason;
     }
 
     return res.status(200).json({
       success: true,
-      verified: !!mainPayload,
-      credentialID: mainPayload ? mainPayload.credentialID : credentialId,
-      credentialType: mainPayload ? mainPayload.credentialType : undefined,
-      credentialName: mainPayload ? mainPayload.credentialName : undefined,
-      issuerName: mainPayload ? mainPayload.issuerName : undefined,
-      holderID: mainPayload ? mainPayload.holderID : undefined,
-      status: mainPayload ? mainPayload.status : status,
+      verified: true,
+      credentialID: mainPayload.credentialID,
+      credentialType: mainPayload.credentialType,
+      credentialName: mainPayload.credentialName,
+      issuerName: mainPayload.issuerName,
+      holderID: mainPayload.holderID,
+      status: mainPayload.status,
       isValid: finalIsValid,
-      isRevoked: mainPayload ? mainPayload.isRevoked : isRevoked,
-      isExpired: mainPayload ? mainPayload.isExpired : isExpired,
-      expiryDate: mainPayload ? mainPayload.expiryDate : undefined,
+      isRevoked: mainPayload.isRevoked,
+      isExpired: mainPayload.isExpired,
+      expiryDate: mainPayload.expiryDate,
       reason: finalReason,
       sources: {
-        couchDB: !!couchPayload,
-        blockchain: !!blockchainCheck && blockchainCheck.valid !== undefined,
-        blockchainError: blockchainCheck && blockchainCheck.error ? blockchainCheck.error : null,
-        onChainStatus,
+        blockchain: sourceUsed === 'blockchain',
+        couchDB: sourceUsed === 'couchdb_fallback',
+        blockchainError,
+        primarySource: sourceUsed,
       },
       verifiedAt: new Date().toISOString(),
     });

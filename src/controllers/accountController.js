@@ -19,12 +19,18 @@ const accountController = {
         success: true,
         user: {
           id: user._id,
-          name: user.username,
+          name: user.username || user.orgName || user.contactName || user.name || '',
+          username: user.username || '',
+          orgName: user.orgName || '',
+          organizationName: user.organizationName || user.orgName || '',
+          contactName: user.contactName || '',
+          fullName: user.fullName || user.username || user.orgName || '',
           email: user.email,
           role: user.role,
           summary: user.summary || '',
           isPublic: user.isPublic,
-          profilePicture: user.profilePicture || null
+          profilePicture: user.profilePicture || user.avatar || null,
+          profilePictureUpdatedAt: user.profilePictureUpdatedAt || user.updatedAt || null
         }
       });
     } catch (error) {

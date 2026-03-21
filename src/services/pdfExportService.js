@@ -1,15 +1,14 @@
 // ==========================================================================================================================================================================
 //                                                               pdfExportService.js
-//  Technical: Handles PDF generation for credential export. Uses jsPDF + qrcode. - polo
+//  Technical: Handles PDF generation for credential export. Uses jsPDF. - polo
 //  Tropang Ex: Dito ginagawa yung PDF ng credential. Pure frontend, walang backend call.
 // ==========================================================================================================================================================================
 
 import { jsPDF } from 'jspdf';
-import QRCode from 'qrcode';
 
 /*
   Function: exportCredentialToPDF
-  Technical: Generates a styled PDF for a credential with badge image, details, and QR code.
+  Technical: Generates a styled PDF for a credential with badge image, details, and verification link.
   Tropang Ex: Kapag pinindot ni student yung Export, dito nag-ge-generate yung PDF file. - polo
 */
 export async function exportCredentialToPDF(credential, templateDetails) {
@@ -47,10 +46,12 @@ export async function exportCredentialToPDF(credential, templateDetails) {
   }
 
   // ── Credential Name ──────────────────────────────────────────────────────
-  doc.setTextColor(196, 181, 253);
+  const credentialTitle = credential.credentialName || 'Credential';
+  const verifyUrl = `http://localhost:3000/verifier/dashboard?credentialId=${credential.blockchainId || ''}`;
+  doc.setTextColor(102, 126, 234);
   doc.setFontSize(18);
   doc.setFont('helvetica', 'bold');
-  doc.text(credential.credentialName || 'Credential', pageW / 2, y, { align: 'center' });
+  doc.textWithLink(credentialTitle, pageW / 2, y, { align: 'center', url: verifyUrl });
   y += 10;
 
   // ── Divider ──────────────────────────────────────────────────────────────
@@ -105,38 +106,24 @@ export async function exportCredentialToPDF(credential, templateDetails) {
     y += skillLines.length * 5 + 4;
   }
 
-  // ── QR Code ──────────────────────────────────────────────────────────────
-  const verifyUrl = `http://localhost:3000/verify?credentialId=${credential.blockchainId || ''}`;
-  try {
-    const qrDataUrl = await QRCode.toDataURL(verifyUrl, {
-      width: 200,
-      margin: 1,
-      color: { dark: '#ffffff', light: '#0c0820' }
-    });
+  // ── Verification Link ─────────────────────────────────────────
+  y += 4;
+  doc.setDrawColor(139, 92, 246);
+  doc.line(margin, y, pageW - margin, y);
+  y += 8;
 
-    y += 4;
-    doc.setDrawColor(139, 92, 246);
-    doc.line(margin, y, pageW - margin, y);
-    y += 8;
+  doc.setFontSize(9);
+  doc.setFont('helvetica', 'bold');
+  doc.setTextColor(167, 139, 250);
+  doc.text('Verify this credential:', margin, y);
+  y += 6;
 
-    doc.setFontSize(9);
-    doc.setFont('helvetica', 'bold');
-    doc.setTextColor(167, 139, 250);
-    doc.text('Verify this credential:', pageW / 2, y, { align: 'center' });
-    y += 4;
-
-    const qrSize = 36;
-    doc.addImage(qrDataUrl, 'PNG', pageW / 2 - qrSize / 2, y, qrSize, qrSize);
-    y += qrSize + 4;
-
-    doc.setFontSize(7);
-    doc.setFont('helvetica', 'normal');
-    doc.setTextColor(139, 92, 246);
-    doc.text(verifyUrl, pageW / 2, y, { align: 'center' });
-    y += 6;
-  } catch (e) {
-    console.warn('[PDF EXPORT] QR generation failed:', e);
-  }
+  doc.setFontSize(8);
+  doc.setFont('helvetica', 'normal');
+  doc.setTextColor(102, 126, 234);
+  const verifyLines = doc.splitTextToSize(verifyUrl, pageW - margin * 2);
+  doc.textWithLink(verifyLines.join('\n'), margin, y, { url: verifyUrl });
+  y += verifyLines.length * 4 + 4;
 
   // ── Footer ───────────────────────────────────────────────────────────────
   doc.setFillColor(102, 126, 234);
@@ -153,12 +140,13 @@ export async function exportCredentialToPDF(credential, templateDetails) {
 
 /*
   Function: exportAllCredentialsToPDF
-  Technical: Generates a multi-page PDF with all credentials. Cover page + one page per credential.
+  Technical: Generates a multi-page PDF with all credentials. Cover page + compact credential pages.
   Tropang Ex: Kapag pinindot ni student yung "Export All", lalabas isang PDF na may lahat ng creds. - polo (Task 3)
 */
 export async function exportAllCredentialsToPDF(credentials, studentName) {
   if (!credentials || credentials.length === 0) return;
   credentials = credentials.filter(c => c.status !== 'revoked' && c.status !== 'expired');
+  credentials.sort((a, b) => (a.currentOrder ?? Infinity) - (b.currentOrder ?? Infinity));
   if (credentials.length === 0) return;
 
   const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
@@ -224,6 +212,7 @@ export async function exportAllCredentialsToPDF(credentials, studentName) {
   // ── ONE PAGE PER CREDENTIAL ───────────────────────────────────────────────
   for (let i = 0; i < credentials.length; i++) {
     const credential = credentials[i];
+    const verifyUrl = `http://localhost:3000/verifier/dashboard?credentialId=${credential.blockchainId || ''}`;
     doc.addPage();
 
     let y = 20;
@@ -242,99 +231,77 @@ export async function exportAllCredentialsToPDF(credentials, studentName) {
 
     y = 30;
 
-    // Badge image
-    const badgeImage = credential.badgeImage || null;
-    if (badgeImage && badgeImage.startsWith('data:image')) {
-      try {
-        const imgFormat = badgeImage.includes('png') ? 'PNG' : 'JPEG';
-        doc.addImage(badgeImage, imgFormat, pageW / 2 - 18, y, 36, 36);
-        y += 44;
-      } catch (e) {
-        y += 4;
-      }
-    }
-
     // Credential name
-    doc.setTextColor(196, 181, 253);
-    doc.setFontSize(16);
+    doc.setTextColor(102, 126, 234);
+    doc.setFontSize(15);
     doc.setFont('helvetica', 'bold');
-    doc.text(credential.credentialName || 'Credential', pageW / 2, y, { align: 'center' });
-    y += 10;
+    doc.textWithLink(credential.credentialName || 'Credential', margin, y, { url: verifyUrl });
+    y += 8;
 
     // Divider
     doc.setDrawColor(139, 92, 246);
     doc.setLineWidth(0.5);
     doc.line(margin, y, pageW - margin, y);
-    y += 8;
+    y += 6;
 
     // Detail rows
     const details = [
       { label: 'Credential Type', value: credential.credentialType || 'N/A' },
-      { label: 'Issued By',       value: credential.issuerName || 'N/A' },
-      { label: 'Status',          value: credential.status === 'issued' ? 'Active' : (credential.status || 'N/A') },
-      { label: 'Date Issued',     value: credential.savedToUserWalletAt ? new Date(credential.savedToUserWalletAt).toLocaleDateString() : 'N/A' },
-      { label: 'Expiry Date',     value: credential.expiryDate ? new Date(credential.expiryDate).toLocaleDateString() : 'No Expiry' },
-      { label: 'Blockchain ID',   value: credential.blockchainId || 'N/A' },
+      { label: 'Issued By', value: credential.issuerName || 'N/A' },
+      { label: 'Status', value: credential.status === 'issued' ? 'Active' : (credential.status || 'N/A') },
+      { label: 'Date Issued', value: credential.savedToUserWalletAt ? new Date(credential.savedToUserWalletAt).toLocaleDateString() : 'N/A' },
+      { label: 'Expiry Date', value: credential.expiryDate ? new Date(credential.expiryDate).toLocaleDateString() : 'No Expiry' },
+      { label: 'Blockchain ID', value: credential.blockchainId || 'N/A' },
     ];
 
     details.forEach(({ label, value }) => {
-      doc.setFontSize(9);
+      doc.setFontSize(8.5);
       doc.setFont('helvetica', 'bold');
       doc.setTextColor(167, 139, 250);
-      doc.text(label + ':', margin, y);
+      doc.text(`${label}:`, margin, y);
 
       doc.setFont('helvetica', 'normal');
       doc.setTextColor(255, 255, 255);
-      const lines = doc.splitTextToSize(value, pageW - margin - 60);
-      doc.text(lines, margin + 42, y);
-      y += lines.length > 1 ? lines.length * 5 + 2 : 7;
+      const lines = doc.splitTextToSize(value, pageW - margin - 50);
+      doc.text(lines, margin + 36, y);
+      y += lines.length > 1 ? lines.length * 4 + 1 : 5;
     });
 
-    // Skills
     const skills = credential.skills || [];
     if (skills.length > 0) {
-      y += 2;
+      y += 1;
       doc.setDrawColor(139, 92, 246);
       doc.line(margin, y, pageW - margin, y);
-      y += 6;
-      doc.setFontSize(9);
+      y += 5;
+      doc.setFontSize(8.5);
       doc.setFont('helvetica', 'bold');
       doc.setTextColor(167, 139, 250);
       doc.text('Skills:', margin, y);
-      y += 6;
+      y += 5;
       doc.setFont('helvetica', 'normal');
       doc.setTextColor(255, 255, 255);
       const skillLines = doc.splitTextToSize(skills.join('  •  '), pageW - margin * 2);
       doc.text(skillLines, margin, y);
-      y += skillLines.length * 5 + 4;
+      y += skillLines.length * 4 + 3;
     }
 
-    // QR Code
-    const verifyUrl = `http://localhost:3000/verify?credentialId=${credential.blockchainId || ''}`;
-    try {
-      const qrDataUrl = await QRCode.toDataURL(verifyUrl, {
-        width: 200, margin: 1,
-        color: { dark: '#ffffff', light: '#0c0820' }
-      });
-      y += 4;
-      doc.setDrawColor(139, 92, 246);
-      doc.line(margin, y, pageW - margin, y);
-      y += 8;
-      doc.setFontSize(9);
-      doc.setFont('helvetica', 'bold');
-      doc.setTextColor(167, 139, 250);
-      doc.text('Verify this credential:', pageW / 2, y, { align: 'center' });
-      y += 4;
-      const qrSize = 32;
-      doc.addImage(qrDataUrl, 'PNG', pageW / 2 - qrSize / 2, y, qrSize, qrSize);
-      y += qrSize + 4;
-      doc.setFontSize(7);
-      doc.setFont('helvetica', 'normal');
-      doc.setTextColor(139, 92, 246);
-      doc.text(verifyUrl, pageW / 2, y, { align: 'center' });
-    } catch (e) {
-      console.warn('[PDF EXPORT ALL] QR failed for credential', i, e);
-    }
+    // ── Verification Link ─────────────────────────────────────────
+    y += 4;
+    doc.setDrawColor(139, 92, 246);
+    doc.line(margin, y, pageW - margin, y);
+    y += 8;
+
+    doc.setFontSize(9);
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(167, 139, 250);
+    doc.text('Verify this credential:', margin, y);
+    y += 6;
+
+    doc.setFontSize(8);
+    doc.setFont('helvetica', 'normal');
+    doc.setTextColor(102, 126, 234);
+    const verifyLines = doc.splitTextToSize(verifyUrl, pageW - margin * 2);
+    doc.textWithLink(verifyLines.join('\n'), margin, y, { url: verifyUrl });
 
     // Footer
     doc.setFillColor(102, 126, 234);

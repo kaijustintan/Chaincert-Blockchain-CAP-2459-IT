@@ -267,7 +267,16 @@ const handleDownloadIssuerDocument = async (doc) => {
       const resp = await apiService.Get_CredentialHistory(row.credentialId);
 
       const list = Array.isArray(resp.history) ? resp.history : [];
-      const sorted = [...list].sort(
+      const cleanHistory = list.filter((entry) => {
+        const id = entry?.credentialId || entry?.id || entry?.key || entry?.value?.credentialId || "";
+        const action = String(entry?.action || "").toLowerCase();
+        const status = String(entry?.status || entry?.value?.status || "").toLowerCase();
+        if (String(id).startsWith("vlog_")) return false;
+        if (action === "updated" && (status === "status unknown" || status === "unknown")) return false;
+        if (!action && status === "status unknown") return false;
+        return true;
+      });
+      const sorted = [...cleanHistory].sort(
         (a, b) => new Date(b.timestamp) - new Date(a.timestamp)
       );
 
@@ -1055,10 +1064,7 @@ const handleDownloadIssuerDocument = async (doc) => {
                     </div>
                     <div>
                       <strong>Holder:</strong>{" "}
-                      {selectedCredentialRow?.holderName || "—"}{" "}
-                      <span style={{ opacity: 0.8 }}>
-                        ({selectedCredentialRow?.holderID || "—"})
-                      </span>
+                      {selectedCredentialRow?.holderName || selectedCredentialRow?.holderID || "—"}
                     </div>
                   </div>
                 </div>
@@ -1185,7 +1191,7 @@ const handleDownloadIssuerDocument = async (doc) => {
                                     {" | "}
                                     Holder:{" "}
                                     <span style={{ fontFamily: "monospace" }}>
-                                      {entry.value?.holderID || "—"}
+                                      {entry.value?.holderName || entry.holderName || entry.value?.holderID || entry.holderID || "—"}
                                     </span>
                                     {entry.value?.revokedAt ? (
                                       <>

@@ -159,7 +159,16 @@ const [showAll, setShowAll] = useState(false);
       }
       console.log("[PROFILE PAGE] Fetching history for:", blockchainId);
       const result = await apiService.Get_CredentialHistory(blockchainId);
-      setHistoryData(result);
+      const cleanHistory = (Array.isArray(result?.history) ? result.history : []).filter((entry) => {
+        const id = entry?.credentialId || entry?.id || entry?.key || entry?.value?.credentialId || "";
+        const action = String(entry?.action || "").toLowerCase();
+        const status = String(entry?.status || entry?.value?.status || "").toLowerCase();
+        if (String(id).startsWith("vlog_")) return false;
+        if (action === "updated" && (status === "status unknown" || status === "unknown")) return false;
+        if (!action && status === "status unknown") return false;
+        return true;
+      });
+      setHistoryData({ ...result, history: cleanHistory });
     } catch (err) {
       console.error("[PROFILE PAGE] History fetch error:", err);
       setHistoryError("Failed to load credential history.");

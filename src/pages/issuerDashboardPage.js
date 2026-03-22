@@ -133,6 +133,12 @@ export default function IssuerDashboard() {
   const [issuerDocumentsLoading, setIssuerDocumentsLoading] = useState(false);
   const [issuerDocumentsError, setIssuerDocumentsError] = useState("");
 
+  const [historyData, setHistoryData] = useState(null);
+  const [historyLoading, setHistoryLoading] = useState(false);
+  const [historyError, setHistoryError] = useState(null);
+  const [historyOpen, setHistoryOpen] = useState(false);
+  const [historyCredential, setHistoryCredential] = useState(null);
+
   // -------------------------------------------------------------------
   // EFFECTS (unchanged)
   // -------------------------------------------------------------------
@@ -283,6 +289,36 @@ export default function IssuerDashboard() {
     } catch (error) { showToast(error.response?.data?.message || error.message || "Failed to download document", "danger"); }
   };
 
+  const handleSeeHistory = async (cred) => {
+    try {
+      setHistoryLoading(true);
+      setHistoryError(null);
+      setHistoryData(null);
+      setHistoryCredential(cred);
+      setHistoryOpen(true);
+      const blockchainId = cred?.blockchainId || cred?.id;
+      if (!blockchainId) {
+        setHistoryError("No blockchain ID found for this credential.");
+        setHistoryLoading(false);
+        return;
+      }
+      const result = await apiService.Get_CredentialHistory(blockchainId);
+      setHistoryData({ ...result, history: filterHistoryEntries(result?.history) });
+    } catch (err) {
+      console.error("[ISSUER DASHBOARD] History fetch error:", err);
+      setHistoryError("Failed to load credential history.");
+    } finally {
+      setHistoryLoading(false);
+    }
+  };
+
+  const closeHistory = () => {
+    setHistoryOpen(false);
+    setHistoryData(null);
+    setHistoryError(null);
+    setHistoryCredential(null);
+  };
+
   const applySorting = (array, sortOption) => {
     const sorted = [...array];
     switch (sortOption) {
@@ -332,6 +368,39 @@ export default function IssuerDashboard() {
       return matchesHolder && matchesSearch;
     });
   }, [revokeCredentialSearch, revokeSelectedHolder, searchableIssuedCredentials]);
+
+  const filterHistoryEntries = useCallback((history) => (Array.isArray(history) ? history : []).filter((entry) => {
+    const id = entry?.credentialId || entry?.id || entry?.key || entry?.value?.credentialId || "";
+    const action = String(entry?.action || "").toLowerCase();
+    const derivedAction = entry?.value?.status === "revoked" || entry?.value?.revokedAt
+      ? "revoked"
+      : entry?.value?.assignedDate && entry?.value?.holderID
+        ? "issued"
+        : entry?.value?.isTemplate === true || entry?.value?.holderID === ""
+          ? "created template"
+          : "updated";
+    const status = String(entry?.status || entry?.value?.status || "").toLowerCase();
+    const credentialType = String(entry?.credentialType || entry?.value?.credentialType || "").toLowerCase();
+
+    if (String(id).startsWith("vlog_")) return false;
+    if ((action === "updated" || derivedAction === "updated") && (status === "status unknown" || status === "unknown")) return false;
+    if ((action === "updated" || derivedAction === "updated") && (credentialType === "n/a" || credentialType === "")) return false;
+
+    return true;
+  }), []);
+
+  const getHistoryActionLabel = useCallback((entry) => {
+    if (!entry) return "Unknown";
+    if (entry.isDelete) return "Deleted";
+    if (entry.action) return entry.action;
+
+    const value = entry.value || {};
+    if (value.status === "revoked" || value.revokedAt) return "Revoked";
+    if (value.assignedDate && value.holderID) return "Issued";
+    if (value.isTemplate === true || value.holderID === "") return "Created Template";
+
+    return "Updated";
+  }, []);
 
   // Revoke Modal handlers
   const openRevokeModal = () => { setShowRevokeModal(true); setRevokeError(""); setRevokeHolderOpen(false); setRevokeHolderSearch(""); setRevokeSelectedHolder(""); setRevokeCredentialOpen(false); setRevokeCredentialSearch(""); setRevokeForm({ credentialId: "", rejectionReason: "" }); };
@@ -633,7 +702,7 @@ export default function IssuerDashboard() {
           ) : (
             <div className="table-container">
               <table className="template-table">
-                <thead><tr><th>Credential ID</th><th>Type</th><th>Name</th><th>Holder Name</th><th>Description</th><th>Created Date</th><th>Status</th><th>Expiry Date</th></tr></thead>
+                <thead><tr><th>Credential ID</th><th>Type</th><th>Name</th><th>Holder Name</th><th>Description</th><th>Created Date</th><th>Status</th><th>Expiry Date</th><th>Actions</th></tr></thead>
                 <tbody>
                   {filteredCredentials.map((credential) => {
                     const blockchainId = credential.blockchainId || credential.id;
@@ -647,6 +716,16 @@ export default function IssuerDashboard() {
                         <td>{credential.issuedDate ? new Date(credential.issuedDate).toLocaleDateString() : "N/A"}</td>
                         <td><span className={`status-badge status-${credential.status || "active"}`}>{credential.status || "active"}</span></td>
                         <td>{credential.expiryDate ? new Date(credential.expiryDate).toLocaleDateString() : "N/A"}</td>
+                        <td>
+                          <button
+                            type="button"
+                            className="action-btn"
+                            onClick={() => handleSeeHistory(credential)}
+                            style={{ padding: "6px 10px", fontSize: "12px", background: "rgba(139,92,246,0.15)", color: "#a78bfa", border: "1px solid rgba(255,255,255,0.18)", borderRadius: "8px", cursor: "pointer" }}
+                          >
+                            View BC History
+                          </button>
+                        </td>
                       </tr>
                     );
                   })}
@@ -676,7 +755,7 @@ export default function IssuerDashboard() {
               <div className="no-results"><p>📭 No issued credentials found.</p></div>
             ) : (
               <table className="template-table">
-                <thead><tr><th>Credential ID</th><th>Name</th><th>Holder</th><th>Status</th><th>Issued Date</th></tr></thead>
+                <thead><tr><th>Credential ID</th><th>Name</th><th>Holder</th><th>Status</th><th>Issued Date</th><th>Actions</th></tr></thead>
                 <tbody>
                   {credentials.map((credential) => {
                     const blockchainId = credential.blockchainId || credential.id;
@@ -687,6 +766,17 @@ export default function IssuerDashboard() {
                         <td>{credential.holderName || credential.holderID || "N/A"}</td>
                         <td><span className={`status-badge status-${credential.status || "active"}`}>{credential.status || "active"}</span></td>
                         <td>{credential.issuedDate ? new Date(credential.issuedDate).toLocaleDateString() : "N/A"}</td>
+                        <td>
+                          <button
+                            type="button"
+                            className="action-btn"
+                            onClick={() => handleSeeHistory(credential)}
+                            style={{ padding: "6px 10px", fontSize: "12px", background: "rgba(139,92,246,0.15)", color: "#a78bfa", border: "1px solid rgba(255,255,255,0.18)", borderRadius: "8px", cursor: "pointer", marginRight: "8px" }}
+                          >
+                            View BC History
+                          </button>
+                          <button onClick={() => { setRevokeForm({ credentialId: credential.blockchainId || credential.id, rejectionReason: "" }); setShowRevokeModal(true); }} className="action-btn revoke-btn">Revoke</button>
+                        </td>
                       </tr>
                     );
                   })}
@@ -1028,12 +1118,87 @@ export default function IssuerDashboard() {
                   </div>
                 )}
               </div>
-              <div className="form-group"><label>Rejection Reason:</label><textarea name="rejectionReason" value={revokeForm.rejectionReason} onChange={handleRevokeFormChange} rows={3} placeholder="State the reason for revoking this credential..." required /></div>
+              <div className="form-group"><label>Revocation Reason:</label><textarea name="rejectionReason" value={revokeForm.rejectionReason} onChange={handleRevokeFormChange} rows={3} placeholder="State the reason for revoking this credential..." required /></div>
               {revokeError && <div className="form-error">{revokeError}</div>}
               <div className="form-actions"><button type="submit" className="action-btn revoke-btn" disabled={revokeLoading}>{revokeLoading ? "Revoking..." : "Revoke"}</button><button type="button" onClick={closeRevokeModal} className="action-btn btn-cancel">Cancel</button></div>
             </form>
           </div>
           <div className="modal-backdrop" onClick={closeRevokeModal}></div>
+        </div>
+      )}
+
+      {historyOpen && (
+        <div className="modal-overlay">
+          <div className="modal modal-wide" style={{ maxWidth: "900px" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "16px" }}>
+              <div>
+                <h3 style={{ margin: 0 }}>Credential History (Blockchain Audit Trail)</h3>
+                {historyCredential && (
+                  <div style={{ fontSize: "13px", opacity: 0.85, marginTop: "8px" }}>
+                    <div><strong>Credential:</strong> {historyCredential.credentialName || "N/A"}</div>
+                    <div><strong>Blockchain ID:</strong> {historyCredential.blockchainId || historyCredential.id || "N/A"}</div>
+                    {historyCredential.holderName && <div><strong>Holder:</strong> {historyCredential.holderName}</div>}
+                    {historyCredential.issuerName && <div><strong>Issuer:</strong> {historyCredential.issuerName}</div>}
+                  </div>
+                )}
+              </div>
+              <button type="button" className="modal-close" onClick={closeHistory}>✕</button>
+            </div>
+
+            {historyLoading && <div style={{ padding: "20px", opacity: 0.8 }}>Loading blockchain history...</div>}
+            {historyError && <div className="form-error">{historyError}</div>}
+
+            {historyData && (() => {
+              const cleanHistory = filterHistoryEntries(historyData.history);
+
+              return cleanHistory.length > 0 ? (
+                <div>
+                  <div style={{ fontSize: "13px", color: "#a78bfa", marginBottom: "12px" }}>
+                    Showing {cleanHistory.length} history record(s)
+                  </div>
+                  <div className="table-wrapper">
+                    <table className="template-table">
+                      <thead>
+                        <tr>
+                          <th>Timestamp</th>
+                          <th>Action</th>
+                          <th>Status</th>
+                          <th>TX ID</th>
+                          <th>Snapshot</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {cleanHistory.map((entry, idx) => {
+                          const action = getHistoryActionLabel(entry);
+                          return (
+                            <tr key={entry.txId || idx}>
+                              <td>{entry.timestamp ? new Date(entry.timestamp).toLocaleString() : "N/A"}</td>
+                              <td>
+                                <span className={`badge ${action === "Issued" ? "green" : action === "Revoked" ? "red" : "blue"}`}>
+                                  {action || "N/A"}
+                                </span>
+                              </td>
+                              <td>{entry.value?.status || entry.status || "N/A"}</td>
+                              <td style={{ fontFamily: "monospace", fontSize: "11px" }}>
+                                {entry.txId ? `${String(entry.txId).slice(0, 16)}...` : "N/A"}
+                              </td>
+                              <td style={{ fontSize: "12px" }}>
+                                {entry.value?.credentialName || entry.credentialName || entry.value?.credentialType || entry.credentialType || "N/A"}
+                                {(entry.value?.holderName || entry.holderName || entry.value?.holderID || entry.holderID) ? ` | Holder: ${entry.value?.holderName || entry.holderName || entry.value?.holderID || entry.holderID}` : ""}
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              ) : (
+                <div style={{ padding: "20px", opacity: 0.7 }}>No history records found for this credential.</div>
+              );
+            })()}
+          </div>
+          <div className="modal-backdrop" onClick={closeHistory}></div>
         </div>
       )}
 

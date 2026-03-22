@@ -24,15 +24,12 @@ export default function VerifierDashboard() {
   const [hasVerifierInfo, setHasVerifierInfo] = useState(false);
   const [verifierFormError, setVerifierFormError] = useState("");
 
-  // Optional: load saved verifier info from localStorage
+  // Optional: prefill saved verifier info from localStorage, but always require confirmation first
   useEffect(() => {
     const savedName = localStorage.getItem("verifierName") || "";
     const savedEmail = localStorage.getItem("verifierEmail") || "";
-    if (savedName || savedEmail) {
-      setVerifierName(savedName);
-      setVerifierEmail(savedEmail);
-      setHasVerifierInfo(true);
-    }
+    if (savedName) setVerifierName(savedName);
+    if (savedEmail) setVerifierEmail(savedEmail);
   }, []);
 
   useEffect(() => {

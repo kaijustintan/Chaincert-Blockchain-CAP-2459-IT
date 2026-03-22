@@ -108,7 +108,25 @@ export default function CredentialHistoryPage() {
 
       console.log("Fetched history response:", response);
 
-      setAllHistory(response.data || []);
+      const rawHistory = Array.isArray(response.data) ? response.data : [];
+      const cleanHistory = rawHistory.filter((entry) => {
+        const id = entry?.credentialId || entry?.id || entry?.key || entry?.value?.credentialId || "";
+        const action = String(entry?.action || "").toLowerCase();
+        const derivedAction = entry?.value?.status?.toLowerCase() === "revoked" || entry?.value?.revokedAt
+          ? "revoked"
+          : entry?.value?.assignedDate && entry?.value?.holderID
+            ? "issued"
+            : entry?.value?.isTemplate === true || entry?.value?.holderID === "" || !entry?.value?.holderID
+              ? "created template"
+              : "updated";
+        const status = String(entry?.status || entry?.value?.status || "").toLowerCase();
+        const credentialType = String(entry?.credentialType || entry?.value?.credentialType || "").toLowerCase();
+        if (String(id).startsWith("vlog_")) return false;
+        if ((action === "updated" || derivedAction === "updated") && (status === "status unknown" || status === "unknown") && (credentialType === "n/a" || credentialType === "")) return false;
+        if ((action === "updated" || derivedAction === "updated") && (status === "status unknown" || status === "unknown")) return false;
+        return true;
+      });
+      setAllHistory(cleanHistory);
       setTotalCount(response.count || 0);
       setIsFiltered(response.isFiltered || false);
       setSearchId("");
@@ -137,7 +155,25 @@ export default function CredentialHistoryPage() {
 
         console.log("Search result:", response);
 
-        setAllHistory(response.data || []);
+        const rawHistory = Array.isArray(response.data) ? response.data : [];
+      const cleanHistory = rawHistory.filter((entry) => {
+        const id = entry?.credentialId || entry?.id || entry?.key || entry?.value?.credentialId || "";
+        const action = String(entry?.action || "").toLowerCase();
+        const derivedAction = entry?.value?.status?.toLowerCase() === "revoked" || entry?.value?.revokedAt
+          ? "revoked"
+          : entry?.value?.assignedDate && entry?.value?.holderID
+            ? "issued"
+            : entry?.value?.isTemplate === true || entry?.value?.holderID === "" || !entry?.value?.holderID
+              ? "created template"
+              : "updated";
+        const status = String(entry?.status || entry?.value?.status || "").toLowerCase();
+        const credentialType = String(entry?.credentialType || entry?.value?.credentialType || "").toLowerCase();
+        if (String(id).startsWith("vlog_")) return false;
+        if ((action === "updated" || derivedAction === "updated") && (status === "status unknown" || status === "unknown") && (credentialType === "n/a" || credentialType === "")) return false;
+        if ((action === "updated" || derivedAction === "updated") && (status === "status unknown" || status === "unknown")) return false;
+        return true;
+      });
+      setAllHistory(cleanHistory);
         setTotalCount(response.count || 0);
         setIsFiltered(response.isFiltered || false);
       } catch (err) {
@@ -347,8 +383,7 @@ export default function CredentialHistoryPage() {
                 <option value="Created Template">✅ Created Template</option>
                 <option value="Issued">📝 Issued</option>
                 <option value="Revoked">❌ Revoked</option>
-                <option value="Updated">🔄 Updated</option>
-              </select>
+                              </select>
             </div>
 
             {/* Status Filter */}
@@ -483,7 +518,7 @@ export default function CredentialHistoryPage() {
             </span>
           </td>
 
-          <td>{record.holderName || "N/A"}</td>
+          <td>{record.holderName || record.value?.holderID || "N/A"}</td>
 
           {/* /Full Holder ID — no truncation */}
           <td className="history-mono-cell" style={{ whiteSpace: "nowrap" }}>

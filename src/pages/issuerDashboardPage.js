@@ -551,21 +551,6 @@ export default function IssuerDashboard() {
     return "inherit";
   };
 
-  const handleToggleCredentialVisibility = async (credential) => {
-    try {
-      const credentialKey = credential?._id || credential?.id || credential?.blockchainId;
-      if (!credentialKey) return;
-      const newVisibility = credential.visibility === 'public' ? 'private' : 'public';
-      await apiService.Update_CredentialVisibility(credentialKey, newVisibility);
-      setCredentials((prev) => prev.map((item) => ((item._id || item.id || item.blockchainId) === credentialKey ? { ...item, visibility: newVisibility } : item)));
-      setTemplateOptions((prev) => prev.map((item) => ((item._id || item.id || item.blockchainId) === credentialKey ? { ...item, visibility: newVisibility } : item)));
-      showToast(`Credential visibility updated to ${newVisibility}.`);
-    } catch (err) {
-      console.error('[ISSUER DASHBOARD] Failed to update credential visibility:', err);
-      showToast(err.response?.data?.message || 'Failed to update credential visibility.', 'danger');
-    }
-  };
-
   // Revoke Modal handlers
   const openRevokeModal = () => { setShowRevokeModal(true); setRevokeError(""); setRevokeHolderOpen(false); setRevokeHolderSearch(""); setRevokeSelectedHolder(""); setRevokeCredentialOpen(false); setRevokeCredentialSearch(""); setRevokeForm({ credentialId: "", rejectionReason: "" }); };
   const closeRevokeModal = () => { setShowRevokeModal(false); setRevokeError(""); setRevokeLoading(false); setRevokeHolderOpen(false); setRevokeHolderSearch(""); setRevokeSelectedHolder(""); setRevokeCredentialOpen(false); setRevokeCredentialSearch(""); };
@@ -910,7 +895,7 @@ export default function IssuerDashboard() {
                         <td>{credential.credentialType || "N/A"}</td>
                         <td>{credential.issuedDate ? new Date(credential.issuedDate).toLocaleDateString() : "N/A"}</td>
                         <td><span className={`status-badge status-${credential.status || "active"}`}>{credential.status || "active"}</span></td>
-                        <td><button type="button" onClick={() => handleToggleCredentialVisibility(credential)} className="action-btn" style={{ padding: "4px 12px", fontSize: "11px", background: credential.visibility === "public" ? "rgba(34,197,94,0.12)" : "rgba(245,158,11,0.12)", color: credential.visibility === "public" ? "#22c55e" : "#f59e0b", border: "1px solid rgba(255,255,255,0.18)", borderRadius: "999px" }}>{credential.visibility === "public" ? "🌐 Public" : "🔒 Private"}</button></td>
+                        <td>{credential.visibility === "public" ? "🌐 Public" : "🔒 Private"}</td>
                         <td>{getRevokedDateValue(credential) ? new Date(getRevokedDateValue(credential)).toLocaleDateString() : "—"}</td>
                         <td>{credential.expiryDate ? new Date(credential.expiryDate).toLocaleDateString() : "N/A"}</td>
                         <td className="actions-cell">
@@ -962,7 +947,7 @@ export default function IssuerDashboard() {
                       <td>{row.source?.visibility === "public" ? "🌐 Public" : "🔒 Private"}</td>
                       <td>{row.createdDate ? new Date(row.createdDate).toLocaleDateString() : "N/A"}</td>
                       <td>{row.expiryDate ? new Date(row.expiryDate).toLocaleDateString() : "—"}</td>
-                      <td className="actions-cell"><button type="button" className="action-btn" onClick={() => handleToggleCredentialVisibility(row.source)} style={{ padding: "4px 12px", fontSize: "11px", background: row.source?.visibility === "public" ? "rgba(34,197,94,0.12)" : "rgba(245,158,11,0.12)", color: row.source?.visibility === "public" ? "#22c55e" : "#f59e0b", border: "1px solid rgba(255,255,255,0.18)", borderRadius: "999px", cursor: "pointer" }}>{row.source?.visibility === "public" ? "🌐 Public" : "🔒 Private"}</button>{row.rowType === "template" ? renderDescriptionCell(row.source, false) : <><button type="button" className="action-btn" onClick={() => handleSeeHistory(row.source)} style={{ padding: "6px 10px", fontSize: "12px", background: "rgba(139,92,246,0.15)", color: "#a78bfa", border: "1px solid rgba(255,255,255,0.18)", borderRadius: "8px", cursor: "pointer" }}>View BC History</button>{renderDescriptionCell(row.source, false)}</>}</td>
+                      <td className="actions-cell">{row.rowType === "template" ? <><button type="button" className="action-btn" onClick={() => handleToggleTemplateVisibility(row.source)} style={{ padding: "4px 12px", fontSize: "11px", background: row.source?.visibility === "public" ? "rgba(34,197,94,0.12)" : "rgba(245,158,11,0.12)", color: row.source?.visibility === "public" ? "#22c55e" : "#f59e0b", border: "1px solid rgba(255,255,255,0.18)", borderRadius: "999px", cursor: "pointer" }}>{row.source?.visibility === "public" ? "🌐 Public" : "🔒 Private"}</button>{renderDescriptionCell(row.source, false)}</> : <><button type="button" className="action-btn" onClick={() => handleSeeHistory(row.source)} style={{ padding: "6px 10px", fontSize: "12px", background: "rgba(139,92,246,0.15)", color: "#a78bfa", border: "1px solid rgba(255,255,255,0.18)", borderRadius: "8px", cursor: "pointer" }}>View BC History</button>{renderDescriptionCell(row.source, false)}</>}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -1402,7 +1387,7 @@ export default function IssuerDashboard() {
                     {historyCredential?.blockchainId || historyCredential?.id || "N/A"}
                   </div>
                   {historyCredential?.holderName && <div><strong>Holder:</strong> {historyCredential.holderName}</div>}
-                  {historyCredential?.issuerName && <div><strong>Issuer:</strong> {historyCredential.issuerName}</div>}
+                  {historyCredential?.issuerName && historyCredential.issuerName !== "N/A" && historyCredential?.holderName && <div><strong>Issuer:</strong> {historyCredential.issuerName}</div>}
                   {String(historyCredential?.status || "").toLowerCase() === "revoked" && getRevokedDateValue(historyCredential) && <div><strong>Revoked On:</strong> <span style={{ color: "#ef4444" }}>{new Date(getRevokedDateValue(historyCredential)).toLocaleDateString()}</span></div>}
                 </div>
               </div>

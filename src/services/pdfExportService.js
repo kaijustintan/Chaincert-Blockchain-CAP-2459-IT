@@ -33,11 +33,22 @@ export async function exportCredentialToPDF(credential, templateDetails) {
   let y = 20;
   const verifyUrl = `http://localhost:3000/verifier/dashboard?credentialId=${credential.blockchainId || ''}`;
   let profileShareUrl = null;
+  let pdfExportNumber = 1;
+
+  try {
+    const linksResult = await apiService.getMyShareLinks();
+    if (linksResult?.success && linksResult?.links) {
+      const pdfLinks = linksResult.links.filter((link) => link.source === 'pdf_export');
+      pdfExportNumber = pdfLinks.length + 1;
+    }
+  } catch (e) {
+    console.warn('[PDF] Failed to count previous PDF exports:', e);
+  }
 
   try {
     const shareResult = await apiService.generatePublicShareLink({
       source: 'pdf_export',
-      description: `Auto-generated for PDF export on ${new Date().toLocaleDateString('en-PH', PH_TIMEZONE)}`
+      description: `PDF Export #${pdfExportNumber} — Generated on ${new Date().toLocaleDateString('en-PH', PH_TIMEZONE)}`
     });
     if (shareResult?.success && shareResult?.shareUrl) {
       profileShareUrl = shareResult.shareUrl;
@@ -216,11 +227,22 @@ export async function exportAllCredentialsToPDF(credentials, studentName) {
   const pageW = doc.internal.pageSize.getWidth();
   const margin = 20;
   let profileShareUrl = null;
+  let pdfExportNumber = 1;
+
+  try {
+    const linksResult = await apiService.getMyShareLinks();
+    if (linksResult?.success && linksResult?.links) {
+      const pdfLinks = linksResult.links.filter((link) => link.source === 'pdf_export');
+      pdfExportNumber = pdfLinks.length + 1;
+    }
+  } catch (e) {
+    console.warn('[PDF] Failed to count previous PDF exports:', e);
+  }
 
   try {
     const shareResult = await apiService.generatePublicShareLink({
       source: 'pdf_export',
-      description: `Auto-generated for portfolio PDF export on ${new Date().toLocaleDateString('en-PH', PH_TIMEZONE)}`
+      description: `PDF Export #${pdfExportNumber} — Generated on ${new Date().toLocaleDateString('en-PH', PH_TIMEZONE)}`
     });
     if (shareResult?.success && shareResult?.shareUrl) {
       profileShareUrl = shareResult.shareUrl;
@@ -260,13 +282,22 @@ export async function exportAllCredentialsToPDF(credentials, studentName) {
   doc.setFont('helvetica', 'normal');
   doc.text(studentName || 'Credential Holder', pageW / 2, 124, { align: 'center' });
 
+  let coverY = 134;
+  if (profileShareUrl) {
+    doc.setFontSize(8);
+    doc.setFont('helvetica', 'normal');
+    doc.setTextColor(102, 126, 234);
+    doc.textWithLink('View Profile', pageW / 2, coverY, { align: 'center', url: profileShareUrl });
+    coverY += 8;
+  }
+
   doc.setTextColor(136, 136, 136);
   doc.setFontSize(10);
-  doc.text(`Generated: ${new Date().toLocaleDateString('en-PH', PH_TIMEZONE)}`, pageW / 2, 134, { align: 'center' });
-  doc.text(`Total Active Credentials: ${credentials.length}`, pageW / 2, 142, { align: 'center' }); 
+  doc.text(`Generated: ${new Date().toLocaleDateString('en-PH', PH_TIMEZONE)}`, pageW / 2, coverY, { align: 'center' });
+  doc.text(`Total Active Credentials: ${credentials.length}`, pageW / 2, coverY + 8, { align: 'center' }); 
 
   // Credential list summary on cover
-  let coverY = 160;
+  coverY += 26;
   doc.setFontSize(9);
   credentials.forEach((cred, idx) => {
     if (coverY > 270) return; // stop if too long
@@ -409,21 +440,6 @@ export async function exportAllCredentialsToPDF(credentials, studentName) {
       doc.addImage(qrDataUrl, 'PNG', pageW / 2 - qrSize / 2, y, qrSize, qrSize);
       y += qrSize + 4;
     } catch (e) { console.warn('[PDF] QR failed:', e); }
-
-    if (profileShareUrl) {
-      y += 6;
-      doc.setFontSize(9);
-      doc.setFont('helvetica', 'bold');
-      doc.setTextColor(167, 139, 250);
-      doc.text('View holder profile:', margin, y);
-      y += 6;
-      doc.setFontSize(8);
-      doc.setFont('helvetica', 'normal');
-      doc.setTextColor(102, 126, 234);
-      const profileLines = doc.splitTextToSize(profileShareUrl, pageW - margin * 2);
-      doc.textWithLink(profileLines.join('\n'), margin, y, { url: profileShareUrl });
-      y += profileLines.length * 4 + 4;
-    }
 
     // Footer
     doc.setFillColor(102, 126, 234);

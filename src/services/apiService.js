@@ -2281,6 +2281,16 @@ GetRootSubordinateRejectionLogsByRootAuthority: async () => {
     }
   },
 
+  forceExpireShareLink: async (token) => {
+    try {
+      const response = await axios.post(`/auth/profile-share/${token}/force-expire`);
+      return response.data;
+    } catch (error) {
+      console.error('Error force-expiring share link:', error.response?.data?.message || error.message);
+      throw error;
+    }
+  },
+
   // Fetch all share links for logged-in user
   getMyShareLinks: async () => {
     try {

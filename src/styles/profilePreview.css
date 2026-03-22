@@ -320,9 +320,29 @@
 
 .skills-grid {
   display: flex;
-  flex-wrap: wrap;
+  flex-direction: column;
   gap: 10px;
   justify-content: center;
+}
+
+.skill-group {
+  background: rgba(139, 92, 246, 0.06);
+  border: 1px solid rgba(139, 92, 246, 0.18);
+  border-radius: 14px;
+  padding: 14px 16px;
+}
+
+.skill-group-label {
+  margin: 0 0 10px 0;
+  color: #a78bfa;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.skill-group-pills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
 }
 
 .skill-badge {
@@ -488,4 +508,90 @@ html {
 
 .otp-shell input::placeholder {
   letter-spacing: 0.28em;
+}
+
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(8, 4, 20, 0.82);
+  backdrop-filter: blur(10px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1200;
+  padding: 20px;
+}
+
+.modal.detail-modal.preview-detail-modal {
+  width: 100%;
+  max-width: 560px;
+  background: rgba(12, 8, 32, 0.96);
+  border: 1px solid rgba(139, 92, 246, 0.28);
+  border-radius: 20px;
+  box-shadow: 0 18px 48px rgba(0, 0, 0, 0.45);
+  color: #fff;
+}
+
+.modal-header,
+.modal-body {
+  padding: 20px 24px;
+}
+
+.modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 1px solid rgba(139, 92, 246, 0.14);
+}
+
+.modal-body {
+  text-align: left;
+}
+
+.close-btn {
+  background: transparent;
+  border: none;
+  color: #c4b5fd;
+  cursor: pointer;
+  font-size: 20px;
+}
+
+.preview-modal-badge {
+  text-align: center;
+  margin-bottom: 16px;
+}
+
+.preview-modal-badge img {
+  max-width: 120px;
+  max-height: 120px;
+  object-fit: contain;
+  border-radius: 12px;
+}
+
+.detail-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 0;
+  border-bottom: 1px solid rgba(139, 92, 246, 0.08);
+}
+
+.detail-label {
+  color: #a78bfa;
+  font-weight: 600;
+}
+
+.detail-value {
+  color: #e5e7eb;
+  text-align: right;
+}
+
+.detail-value.mono {
+  font-family: monospace;
+  word-break: break-all;
+}
+
+.preview-modal-skills {
+  padding-top: 14px;
 }

@@ -3382,8 +3382,16 @@ async function recordShareLinkView(token) {
   if (!profileShareLinksDb) await initializeDatabases();
   const doc = await getProfileShareLink(token);
   if (!doc) throw new Error('Share link not found');
-  if (!doc.isActive) throw new Error('This link has been revoked.');
-  if (doc.expiresAt && new Date() > new Date(doc.expiresAt)) throw new Error('This link has expired.');
+  if (!doc.isActive || doc.status === 'revoked') throw new Error('This link has been revoked.');
+  if (doc.status === 'expired') throw new Error('This link has expired.');
+  if (doc.expiresAt) {
+    const expiresAt = new Date(doc.expiresAt);
+    if (Number.isNaN(expiresAt.getTime()) || new Date() > expiresAt) {
+      doc.status = 'expired';
+      await profileShareLinksDb.insert(doc);
+      throw new Error('This link has expired.');
+    }
+  }
   const now = new Date().toISOString();
   doc.viewCount = (doc.viewCount || 0) + 1;
   if (!doc.firstViewedAt) doc.firstViewedAt = now;
@@ -3404,6 +3412,22 @@ async function revokeProfileShareLink(token, userId) {
   if (doc.userId !== userId) throw new Error('Unauthorized');
   doc.isActive = false;
   doc.revokedAt = new Date().toISOString(); // Manual revocation timestamp
+  return await profileShareLinksDb.insert(doc);
+}
+
+async function updateShareLinkStatus(docId, newStatus) {
+  if (!profileShareLinksDb) await initializeDatabases();
+  const doc = await profileShareLinksDb.get(docId);
+  doc.status = newStatus;
+  return await profileShareLinksDb.insert(doc);
+}
+
+async function forceExpireShareLink(token) {
+  if (!profileShareLinksDb) await initializeDatabases();
+  const doc = await getProfileShareLink(token);
+  if (!doc) throw new Error('Share link not found');
+  doc.status = 'expired';
+  doc.expiresAt = new Date(Date.now() - 60000).toISOString();
   return await profileShareLinksDb.insert(doc);
 }
 
@@ -3513,6 +3537,8 @@ module.exports = {
   verifyOTPAndGetUserId,    
   recordShareLinkView,
   revokeProfileShareLink,  
+  updateShareLinkStatus,
+  forceExpireShareLink,
   getShareLinksByUserId,    
   getAllSubordinatesForRoot,
   getRootApprovedSubordinatesForRoot,

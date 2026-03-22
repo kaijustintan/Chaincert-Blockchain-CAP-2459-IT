@@ -228,38 +228,30 @@ export default function VerifierDashboard() {
 
       {result && !result.error && (
         <div className={`verify-result ${result.isValid ? "success" : "error"}`}>
-          <h3>{result.isValid ? "✅ Credential Valid" : "⚠️ Credential Invalid"}</h3>
-          {result.reason && <p><strong>Reason:</strong> {result.reason}</p>}
-          <p><strong>Credential ID:</strong> {result.credentialID || "N/A"}</p>
+          <h3 style={{ textAlign: 'left' }}>{result.isValid ? "✅ Credential Valid" : "⚠️ Credential Invalid"}</h3>
+          {result.reason && <p style={{ textAlign: 'left', marginBottom: '16px' }}><strong>Reason:</strong> {result.reason}</p>}
 
-          <div className="verify-detail-card">
+          <div className="verify-detail-card" style={{ flexDirection: 'row', alignItems: 'flex-start', textAlign: 'left' }}>
             {result.badgeImage && (
               <div className="verify-badge-image">
-                <img src={result.badgeImage} alt="Badge" style={{ maxWidth: '120px', maxHeight: '120px', objectFit: 'contain', borderRadius: '12px' }} />
+                <img src={result.badgeImage} alt="Badge" style={{ width: '150px', height: '150px', objectFit: 'contain', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.1)', background: 'rgba(255,255,255,0.03)', padding: '8px' }} />
               </div>
             )}
-            <div className="verify-detail-rows">
-              {result.credentialName && <p><strong>Credential:</strong> {result.credentialName}</p>}
-              {result.credentialType && <p><strong>Type:</strong> {result.credentialType}</p>}
-              <p><strong>Issued To:</strong> {result.holderName || result.holderID || "N/A"}</p>
-              <p><strong>Holder ID:</strong> {result.holderID || "N/A"}</p>
-              <p><strong>Issued By:</strong> {result.issuerName || "N/A"}</p>
-              <p><strong>Status:</strong> {result.status === 'issued' ? 'Active' : (result.status || "unknown")}</p>
+            <div className="verify-detail-rows" style={{ textAlign: 'left' }}>
+              {result.credentialName && <p style={{ fontSize: '20px', fontWeight: 700, marginBottom: '12px' }}>{result.credentialName}</p>}
+              <p><strong>Issued To:</strong> {result.holderName || 'N/A'}</p>
+              <p><strong>Issued By:</strong> {result.issuerName || 'N/A'}</p>
+              <p><strong>Status:</strong> <span style={{ color: result.status === 'issued' || result.status === 'active' ? '#22c55e' : result.status === 'revoked' ? '#ef4444' : '#f59e0b', fontWeight: 600 }}>{result.status === 'issued' ? 'Active' : (result.status || 'unknown')}</span></p>
               {result.expiryDate && <p><strong>Expires:</strong> {new Date(result.expiryDate).toLocaleDateString()}</p>}
-              {result.skills && result.skills.length > 0 && (
-                <div className="verify-skills-row">
-                  <strong>Skills:</strong>
-                  <div className="verify-skill-pills">
-                    {result.skills.map((skill) => (
-                      <span key={skill} className="verify-skill-pill">{skill}</span>
-                    ))}
-                  </div>
-                </div>
-              )}
-              {result.description && <p><strong>Description:</strong> {result.description}</p>}
-              <p className="verify-source-info">
-                Verified via: {result.sources?.primarySource || 'unknown'} • {new Date(result.verifiedAt).toLocaleString()}
-              </p>
+
+              <div style={{ marginTop: '16px', paddingTop: '12px', borderTop: '1px solid rgba(255,255,255,0.08)' }}>
+                <p style={{ fontSize: '11px', opacity: 0.5, wordBreak: 'break-all', fontFamily: 'monospace' }}>
+                  Credential ID: {result.credentialID || 'N/A'}
+                </p>
+                <p style={{ fontSize: '11px', opacity: 0.5, marginTop: '4px' }}>
+                  Verified via: {result.sources?.primarySource || 'unknown'} • {result.verifiedAt ? new Date(result.verifiedAt).toLocaleString() : 'Unknown time'}
+                </p>
+              </div>
             </div>
           </div>
         </div>

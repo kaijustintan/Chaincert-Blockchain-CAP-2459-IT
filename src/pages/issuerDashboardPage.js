@@ -370,6 +370,11 @@ export default function IssuerDashboard() {
     [credentials]
   );
 
+  const approvedSubordinatesCount = useMemo(
+    () => subordinateDirectory.filter((subordinate) => String(subordinate?.status || "").toLowerCase() === "approved").length,
+    [subordinateDirectory]
+  );
+
   const filteredRevokableCredentials = useMemo(() => {
     const query = revokeCredentialSearch.trim().toLowerCase();
     return searchableIssuedCredentials.filter((cred) => {
@@ -401,6 +406,16 @@ export default function IssuerDashboard() {
 
     return true;
   }), []);
+
+  const getStatusColor = (status) => {
+    const s = String(status || "").toLowerCase();
+    if (["issued", "active", "approved", "enabled"].includes(s)) return "#22c55e";
+    if (["revoked", "disabled", "rejected"].includes(s)) return "#ef4444";
+    if (["expired"].includes(s)) return "#f59e0b";
+    if (["pending"].includes(s)) return "#eab308";
+    if (["template"].includes(s)) return "#3b82f6";
+    return "inherit";
+  };
 
   const getHistoryActionLabel = useCallback((entry) => {
     if (!entry) return "Unknown";
@@ -597,7 +612,7 @@ export default function IssuerDashboard() {
             </div>
             {!isSubordinate && (
               <div className="issuer-stat-card">
-                <span className="issuer-stat-num">{subordinateDirectory.length}</span>
+                <span className="issuer-stat-num">{approvedSubordinatesCount}</span>
                 <span className="issuer-stat-label">Subordinates</span>
               </div>
             )}
@@ -1152,7 +1167,7 @@ export default function IssuerDashboard() {
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "16px", gap: "16px" }}>
               <div style={{ flex: 1, minWidth: 0, marginBottom: "20px" }}>
                 <h3 style={{ margin: "0 0 16px 0", fontSize: "20px", whiteSpace: "nowrap" }}>Credential History (Blockchain Audit Trail)</h3>
-                <div style={{ display: "grid", gridTemplateColumns: "1fr", gap: "6px", fontSize: "13px", lineHeight: "1.6" }}>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr", gap: "6px", fontSize: "13px", lineHeight: "1.6", textAlign: "left" }}>
                   <div><strong>Credential:</strong> {historyCredential?.credentialName || "N/A"}</div>
                   <div style={{ wordBreak: "break-all", fontFamily: "monospace", fontSize: "11px" }}>
                     <strong style={{ fontFamily: "inherit", fontSize: "13px" }}>Blockchain ID:</strong>{" "}
@@ -1198,13 +1213,13 @@ export default function IssuerDashboard() {
                                   {action || "N/A"}
                                 </span>
                               </td>
-                              <td>{entry.value?.status || entry.status || "N/A"}</td>
+                              <td style={{ color: getStatusColor(entry.value?.status || entry.status), fontWeight: 600 }}>{entry.value?.status || entry.status || "N/A"}</td>
                               <td style={{ fontFamily: "monospace", fontSize: "11px" }}>
                                 {entry.txId ? `${String(entry.txId).slice(0, 16)}...` : "N/A"}
                               </td>
                               <td style={{ fontSize: "12px" }}>
                                 {entry.value?.credentialName || entry.credentialName || entry.value?.credentialType || entry.credentialType || "N/A"}
-                                {(entry.value?.holderName || entry.holderName || entry.value?.holderID || entry.holderID) ? ` | Holder: ${entry.value?.holderName || entry.holderName || entry.value?.holderID || entry.holderID}` : ""}
+                                {(entry.value?.holderName || entry.holderName) ? ` | Holder: ${entry.value?.holderName || entry.holderName}` : ""}
                               </td>
                             </tr>
                           );

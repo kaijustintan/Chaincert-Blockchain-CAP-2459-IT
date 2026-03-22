@@ -1,5 +1,5 @@
 // Admin dashboard for credential management
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import ReactDOM from "react-dom";
 import "../styles/adminDashboard.css";
 import apiService from "../services/apiService";
@@ -27,18 +27,22 @@ export default function AdminDashboard() {
 
   const [logCategory, setLogCategory] = useState("verification");
   const [verificationLogs, setVerificationLogs] = useState([]);
+  const [verificationLogsCount, setVerificationLogsCount] = useState(0);
   const [verificationLogsError, setVerificationLogsError] = useState(null);
   const [statusLogs, setStatusLogs] = useState([]);
+  const [statusLogsCount, setStatusLogsCount] = useState(0);
   const [statusLogsError, setStatusLogsError] = useState(null);
   const [statusLogFilter, setStatusLogFilter] = useState("all"); // 'all' | 'issuers' | 'users'
   const [statusLogEmailSearch, setStatusLogEmailSearch] = useState("");
 
   // Issuer Decision Logs
   const [issuerDecisionLogs, setIssuerDecisionLogs] = useState([]);
+  const [issuerDecisionLogsCount, setIssuerDecisionLogsCount] = useState(0);
   const [issuerDecisionLogsError, setIssuerDecisionLogsError] = useState(null);
   const [issuerDecisionFilter, setIssuerDecisionFilter] = useState("all"); // 'all' | 'approved' | 'rejected'
 
   const [rootSubordinateLogs, setRootSubordinateLogs] = useState([]);
+  const [rootSubordinateLogsCount, setRootSubordinateLogsCount] = useState(0);
   const [rootSubordinateLogsError, setRootSubordinateLogsError] = useState(null);
   const [rootSubordinateDecisionFilter, setRootSubordinateDecisionFilter] = useState("all");
   const [rootSubordinateSearchQuery, setRootSubordinateSearchQuery] = useState("");
@@ -79,6 +83,7 @@ export default function AdminDashboard() {
   // ADDED
   const [rejectedIssuers, setRejectedIssuers] = useState([]);
   const [disabledIssuers, setDisabledIssuers] = useState([]);
+  const [pendingIssuerCount, setPendingIssuerCount] = useState(0);
 
   // ✅ NEW: Disable/Enable Issuer modal state (required reason)
   const [showIssuerStatusModal, setShowIssuerStatusModal] = useState(false);
@@ -116,6 +121,32 @@ const [issuerDocumentsError, setIssuerDocumentsError] = useState(null);
       return ts;
     }
   };
+
+
+  const getStatusColor = (status) => {
+    const s = String(status || "").toLowerCase();
+    if (["issued", "active", "approved", "enabled"].includes(s)) return "#22c55e";
+    if (["revoked", "disabled", "rejected"].includes(s)) return "#ef4444";
+    if (["expired"].includes(s)) return "#f59e0b";
+    if (["pending"].includes(s)) return "#eab308";
+    if (["template"].includes(s)) return "#3b82f6";
+    return "inherit";
+  };
+
+  const renderStatusText = (status, fallback = "N/A") => (
+    <span className="status-value" style={{ color: getStatusColor(status), fontWeight: 600 }}>
+      {status || fallback}
+    </span>
+  );
+
+  const refreshIssuerCollections = useCallback(async () => {
+    await Promise.all([
+      fetchApprovedIssuers(),
+      fetchPendingIssuers("all_pending"),
+      fetchRejectedIssuers(),
+      fetchDisabledIssuers(),
+    ]);
+  }, []);
 
   const renderCell = (v) => {
     if (v === null || v === undefined) return "N/A";
@@ -379,29 +410,34 @@ const handleDownloadIssuerDocument = async (doc) => {
       setIssuerStatusLoading(true);
       setIssuerStatusError("");
 
+      const issuerName = issuerStatusTarget?.orgName || issuerStatusTarget?.name || issuerStatusTarget?.email || "Issuer";
+
       if (issuerStatusAction === "disable") {
         await apiService.Disable_Issuer(issuerId, trimmed);
         setMessageType("success");
-        setMessage("Issuer disabled successfully.");
+        setMessage(`Issuer "${issuerName}" has been disabled.`);
       } else {
         await apiService.Enable_Issuer(issuerId, trimmed);
         setMessageType("success");
-        setMessage("Issuer enabled successfully.");
+        setMessage(`Issuer "${issuerName}" has been enabled.`);
       }
 
       closeIssuerStatusModal();
 
-      await fetchApprovedIssuers();
-      await fetchPendingIssuers(pendingIssuerFilter);
-      await fetchRejectedIssuers();
-      await fetchDisabledIssuers();
+      await refreshIssuerCollections();
+      if (issuerFilter === "pending") {
+        await fetchPendingIssuers(pendingIssuerFilter);
+      }
     } catch (error) {
       console.error("Error updating issuer status:", error);
-      setIssuerStatusError(
+      const errorMessage =
         error.response?.data?.message ||
-          error.response?.data?.error ||
-          "❌ Failed to update issuer status"
-      );
+        error.response?.data?.error ||
+        error.message ||
+        "❌ Failed to update issuer status";
+      setIssuerStatusError(errorMessage);
+      setMessageType("danger");
+      setMessage(`Failed to update issuer: ${errorMessage}`);
     } finally {
       setIssuerStatusLoading(false);
     }
@@ -410,7 +446,8 @@ const handleDownloadIssuerDocument = async (doc) => {
   // -------------------------------------------------------------------
   // ISSUERS
   // -------------------------------------------------------------------
-  const fetchPendingIssuers = async (mode = pendingIssuerFilter) => {
+  const fetchPendingIssuers = async (mode = pendingIssuerFilter, options = {}) => {
+    const { updateCount = mode === "all_pending" } = options;
     try {
       setLoading(true);
 
@@ -431,11 +468,13 @@ const handleDownloadIssuerDocument = async (doc) => {
       }
 
       const pending = Array.isArray(response.data) ? response.data : [];
+      if (updateCount) setPendingIssuerCount(pending.length);
       setPendingIssuers(pending);
       setMessage("");
     } catch (error) {
       console.error("Error fetching pending issuers:", error);
       setMessage("Failed to load pending issuers");
+      if (updateCount) setPendingIssuerCount(0);
       setPendingIssuers([]);
     } finally {
       setLoading(false);
@@ -687,6 +726,7 @@ const handleDownloadIssuerDocument = async (doc) => {
       const data = await apiService.Get_AllVerificationLogs();
       const logsArray = Array.isArray(data.logs) ? data.logs : [];
       setVerificationLogs(logsArray);
+      setVerificationLogsCount(logsArray.length);
     } catch (error) {
       console.error("Error fetching verification logs:", error);
       const raw =
@@ -696,13 +736,15 @@ const handleDownloadIssuerDocument = async (doc) => {
         "Failed to load verification logs";
       const msg = typeof raw === "string" ? raw : JSON.stringify(raw);
       setVerificationLogs([]);
+      setVerificationLogsCount(0);
       setVerificationLogsError(msg);
     } finally {
       setLogsLoading(false);
     }
   };
 
-  const fetchStatusLogs = async (filter = "all", email = "") => {
+  const fetchStatusLogs = async (filter = "all", email = "", options = {}) => {
+    const { updateCount = filter === "all" && !email.trim() } = options;
     try {
       setLogsLoading(true);
       setStatusLogsError(null);
@@ -718,6 +760,7 @@ const handleDownloadIssuerDocument = async (doc) => {
       }
 
       let rows = Array.isArray(data.logs) ? data.logs : [];
+      if (updateCount) setStatusLogsCount(rows.length);
 
       // Apply partial email search on frontend
       const trimmedEmail = email.trim().toLowerCase();
@@ -740,6 +783,7 @@ const handleDownloadIssuerDocument = async (doc) => {
     } catch (error) {
       console.error("Error fetching status logs:", error);
       setStatusLogs([]);
+      if (updateCount) setStatusLogsCount(0);
       setStatusLogsError(
         error?.response?.data?.message ||
           error?.response?.data?.error ||
@@ -751,7 +795,8 @@ const handleDownloadIssuerDocument = async (doc) => {
     }
   };
 
-  const fetchIssuerDecisionLogs = async (filter = issuerDecisionFilter) => {
+  const fetchIssuerDecisionLogs = async (filter = issuerDecisionFilter, options = {}) => {
+    const { updateCount = filter === "all" } = options;
     try {
       setLogsLoading(true);
       setIssuerDecisionLogsError(null);
@@ -766,6 +811,7 @@ const handleDownloadIssuerDocument = async (doc) => {
       }
 
       const rows = Array.isArray(data.logs) ? data.logs : [];
+      if (updateCount) setIssuerDecisionLogsCount(rows.length);
       const sortedRows = [...rows].sort((a, b) => {
         const ta = new Date(a.timestamp || 0).getTime();
         const tb = new Date(b.timestamp || 0).getTime();
@@ -776,6 +822,7 @@ const handleDownloadIssuerDocument = async (doc) => {
     } catch (error) {
       console.error("Error fetching issuer decision logs:", error);
       setIssuerDecisionLogs([]);
+      if (updateCount) setIssuerDecisionLogsCount(0);
       setIssuerDecisionLogsError(
         error?.response?.data?.message ||
           error?.response?.data?.error ||
@@ -788,8 +835,10 @@ const handleDownloadIssuerDocument = async (doc) => {
   };
 
   const fetchRootSubordinateDecisionLogs = async (
-    filter = rootSubordinateDecisionFilter
+    filter = rootSubordinateDecisionFilter,
+    options = {}
   ) => {
+    const { updateCount = filter === "all" } = options;
     try {
       setLogsLoading(true);
       setRootSubordinateLogsError(null);
@@ -804,6 +853,7 @@ const handleDownloadIssuerDocument = async (doc) => {
       }
 
       const rows = Array.isArray(data.logs) ? data.logs : [];
+      if (updateCount) setRootSubordinateLogsCount(rows.length);
       const sortedRows = [...rows].sort((a, b) => {
         const ta = new Date(a.timestamp || 0).getTime();
         const tb = new Date(b.timestamp || 0).getTime();
@@ -814,6 +864,7 @@ const handleDownloadIssuerDocument = async (doc) => {
     } catch (error) {
       console.error("Error fetching root subordinate decision logs:", error);
       setRootSubordinateLogs([]);
+      if (updateCount) setRootSubordinateLogsCount(0);
       setRootSubordinateLogsError(
         error?.response?.data?.message ||
           error?.response?.data?.error ||
@@ -908,7 +959,7 @@ const handleDownloadIssuerDocument = async (doc) => {
   const issuerStats = [
     {
       label: "Total Issuers",
-      value: getStatDisplayValue(loading, approvedIssuers.length + disabledIssuers.length + pendingIssuers.length),
+      value: getStatDisplayValue(loading, approvedIssuers.length + disabledIssuers.length + pendingIssuerCount + rejectedIssuers.length),
     },
     {
       label: "Active Issuers",
@@ -922,8 +973,13 @@ const handleDownloadIssuerDocument = async (doc) => {
     },
     {
       label: "Pending Issuers",
-      value: getStatDisplayValue(loading, pendingIssuers.length),
+      value: getStatDisplayValue(loading, pendingIssuerCount),
       className: "stat-blue",
+    },
+    {
+      label: "Rejected Issuers",
+      value: getStatDisplayValue(loading, rejectedIssuers.length),
+      className: "stat-red",
     },
   ];
 
@@ -947,23 +1003,23 @@ const handleDownloadIssuerDocument = async (doc) => {
   const logStats = [
     {
       label: "Verification Logs",
-      value: getStatDisplayValue(logsLoading && logCategory === "verification", verificationLogs.length),
+      value: getStatDisplayValue(logsLoading, verificationLogsCount),
     },
     {
       label: "Status Logs",
-      value: getStatDisplayValue(logsLoading && logCategory === "status", statusLogs.length),
+      value: getStatDisplayValue(logsLoading, statusLogsCount),
       className: "stat-blue",
     },
     {
       label: "Issuer Decisions",
-      value: getStatDisplayValue(logsLoading && logCategory === "decision", issuerDecisionLogs.length),
+      value: getStatDisplayValue(logsLoading, issuerDecisionLogsCount),
       className: "stat-purple",
     },
     {
       label: "Root Decisions",
       value: getStatDisplayValue(
-        logsLoading && logCategory === "root_subordinate_decision",
-        rootSubordinateLogs.length
+        logsLoading,
+        rootSubordinateLogsCount
       ),
       className: "stat-green",
     },
@@ -988,9 +1044,7 @@ const handleDownloadIssuerDocument = async (doc) => {
   // -------------------------------------------------------------------
   useEffect(() => {
     if (tab === "issuers") {
-      fetchApprovedIssuers();
-      fetchRejectedIssuers();
-      fetchDisabledIssuers();
+      refreshIssuerCollections();
 
       setIssuerFilter("approved");
       setPendingIssuerFilter("admin_actionable");
@@ -999,15 +1053,10 @@ const handleDownloadIssuerDocument = async (doc) => {
       fetchDisabledIssuers();
       fetchAdminCredentials();
     } else if (tab === "logs") {
-      if (logCategory === "verification") {
-        fetchVerificationLogs();
-      } else if (logCategory === "status") {
-        fetchStatusLogs();
-      } else if (logCategory === "decision") {
-        fetchIssuerDecisionLogs();
-      } else {
-        fetchRootSubordinateDecisionLogs();
-      }
+      fetchVerificationLogs();
+      fetchStatusLogs(statusLogFilter, statusLogEmailSearch);
+      fetchIssuerDecisionLogs();
+      fetchRootSubordinateDecisionLogs(rootSubordinateDecisionFilter);
     } else if (tab === "users") {
       fetchUsers();
       setUserFilter("active");
@@ -1134,13 +1183,14 @@ const handleDownloadIssuerDocument = async (doc) => {
             <div
               onClick={(e) => e.stopPropagation()}
               style={{
-                width: "min(1000px, 95vw)",
-                maxHeight: "85vh",
-                overflow: "auto",
+                width: "90vw",
+                maxWidth: "900px",
+                maxHeight: "80vh",
+                overflowY: "auto",
                 background: "#101018",
                 borderRadius: "12px",
                 border: "1px solid rgba(255,255,255,0.15)",
-                padding: "18px",
+                padding: "28px",
                 boxShadow: "0 10px 40px rgba(0,0,0,0.4)",
                 color: "#fff",
               }}
@@ -1154,8 +1204,8 @@ const handleDownloadIssuerDocument = async (doc) => {
                   marginBottom: "12px",
                 }}
               >
-                <div>
-                  <h3 style={{ margin: 0 }}>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <h3 style={{ margin: "0 0 16px 0" }}>
                     Credential History (Blockchain Audit Trail)
                   </h3>
                   <div
@@ -1163,11 +1213,14 @@ const handleDownloadIssuerDocument = async (doc) => {
                       fontSize: "13px",
                       opacity: 0.85,
                       marginTop: "6px",
+                      textAlign: "left",
+                      display: "grid",
+                      gap: "6px",
                     }}
                   >
                     <div>
-                      <strong>Credential ID:</strong>{" "}
-                      <span style={{ fontFamily: "monospace" }}>
+                      <strong>Blockchain ID:</strong>{" "}
+                      <span style={{ fontFamily: "monospace", wordBreak: "break-all" }}>
                         {selectedCredentialRow?.credentialId || "N/A"}
                       </span>
                     </div>
@@ -1183,7 +1236,7 @@ const handleDownloadIssuerDocument = async (doc) => {
                     </div>
                     <div>
                       <strong>Holder:</strong>{" "}
-                      {selectedCredentialRow?.holderName || selectedCredentialRow?.holderID || "—"}
+                      {selectedCredentialRow?.holderName || "—"}
                     </div>
                   </div>
                 </div>
@@ -1233,7 +1286,7 @@ const handleDownloadIssuerDocument = async (doc) => {
                   </div>
 
                   <div className="table-wrapper">
-                    <table className="admin-table">
+                    <table className="admin-table history-modal-table">
                       <thead>
                         <tr>
                           <th>Timestamp</th>
@@ -1261,17 +1314,21 @@ const handleDownloadIssuerDocument = async (doc) => {
 
                           return (
                             <tr key={entry.txId || idx}>
-                              <td>{formatTimestamp(entry.timestamp)}</td>
+                              <td style={{ padding: "12px 16px" }}>{formatTimestamp(entry.timestamp)}</td>
 
-                              <td>{action}</td>
-
-                              <td>
+                              <td style={{ padding: "12px 16px" }}>
                                 <span
-                                  style={
-                                    isRevoked
-                                      ? { color: "#ff6b6b", fontWeight: 700 }
-                                      : { fontWeight: 600 }
-                                  }
+                                  className={`history-action-badge ${(action || "").toLowerCase().replace(/\s+/g, "-")}`}
+                                  style={{ background: `${getStatusColor(action) === "inherit" ? "rgba(139,92,246,0.18)" : getStatusColor(action)}22`, color: getStatusColor(action) === "inherit" ? "#c4b5fd" : getStatusColor(action), border: `1px solid ${getStatusColor(action) === "inherit" ? "rgba(139,92,246,0.35)" : `${getStatusColor(action)}55`}` }}
+                                >
+                                  {action}
+                                </span>
+                              </td>
+
+                              <td style={{ padding: "12px 16px" }}>
+                                <span
+                                  className="status-value"
+                                  style={{ color: getStatusColor(status), fontWeight: 700 }}
                                 >
                                   {String(status)}
                                 </span>
@@ -1292,6 +1349,7 @@ const handleDownloadIssuerDocument = async (doc) => {
 
                               <td
                                 style={{
+                                  padding: "12px 16px",
                                   fontFamily: "monospace",
                                   fontSize: "12px",
                                 }}
@@ -1299,7 +1357,7 @@ const handleDownloadIssuerDocument = async (doc) => {
                                 {String(entry.txId || "N/A").slice(0, 18)}...
                               </td>
 
-                              <td style={{ fontSize: "12px", opacity: 0.95 }}>
+                              <td style={{ padding: "12px 16px", fontSize: "12px", opacity: 0.95 }}>
                                 {entry.isDelete ? (
                                   <span>Record deleted</span>
                                 ) : (
@@ -1309,8 +1367,8 @@ const handleDownloadIssuerDocument = async (doc) => {
                                       "—"}
                                     {" | "}
                                     Holder:{" "}
-                                    <span style={{ fontFamily: "monospace" }}>
-                                      {entry.value?.holderName || entry.holderName || entry.value?.holderID || entry.holderID || "—"}
+                                    <span>
+                                      {entry.value?.holderName || entry.holderName || "—"}
                                     </span>
                                     {entry.value?.revokedAt ? (
                                       <>
@@ -1753,16 +1811,9 @@ const handleDownloadIssuerDocument = async (doc) => {
                     <tbody>
                       {historyStatusLogs.map((log, idx) => (
                         <tr key={log.txId || idx}>
-                          <td>{log.previousStatus || "N/A"}</td>
+                          <td>{renderStatusText(log.previousStatus)}</td>
                           <td>
-                            <span style={{
-                              fontWeight: 700,
-                              color: (log.newStatus || "").toLowerCase() === "disabled"
-                                ? "#ff6b6b"
-                                : "#4ade80",
-                            }}>
-                              {log.newStatus || "N/A"}
-                            </span>
+                            {renderStatusText(log.newStatus)}
                           </td>
                           <td>{log.reason || "—"}</td>
                           <td style={{ fontFamily: "monospace", fontSize: "12px" }}>
@@ -2142,7 +2193,7 @@ const handleDownloadIssuerDocument = async (doc) => {
                             {row.holderID || "—"}
                           </td>
                           <td>{row.holderName || "—"}</td>
-                          <td>{row.status || "unknown"}</td>
+                          <td>{renderStatusText(row.status || "unknown", "unknown")}</td>
                           <td>{formatTimestamp(row.createdAt)}</td>
                           <td>
                             {isIssued ? (
@@ -2305,19 +2356,7 @@ const handleDownloadIssuerDocument = async (doc) => {
                         </td>
 
                         <td>
-                          <span
-                            className={
-                              issuer.status === "approved"
-                                ? "badge green"
-                                : issuer.status === "rejected"
-                                ? "badge red"
-                                : issuer.status === "disabled"
-                                ? "badge gray"
-                                : "badge purple"
-                            }
-                          >
-                            {issuer.status || (isDisabled ? "disabled" : "approved")}
-                          </span>
+                          {renderStatusText(issuer.status || (isDisabled ? "disabled" : "approved"), isDisabled ? "disabled" : "approved")}
                         </td>
 
                         <td style={{ fontFamily: "monospace", fontSize: "12px" }}>
@@ -2915,15 +2954,9 @@ const handleDownloadIssuerDocument = async (doc) => {
                           <td style={{ fontFamily: "monospace", fontSize: "12px" }}>
                             {log.issuerEmail || log.userEmail || log.targetEmail || "N/A"}
                           </td>
-                          <td>{log.previousStatus || "N/A"}</td>
+                          <td>{renderStatusText(log.previousStatus)}</td>
                           <td>
-                            <span style={{
-                              fontWeight: 700,
-                              color: (log.newStatus || "").toLowerCase() === "disabled"
-                                ? "#ff6b6b" : "#4ade80"
-                            }}>
-                              {log.newStatus || "N/A"}
-                            </span>
+                            {renderStatusText(log.newStatus)}
                           </td>
                           <td>{log.reason || "N/A"}</td>
                           <td style={{ fontFamily: "monospace", fontSize: "12px" }}>

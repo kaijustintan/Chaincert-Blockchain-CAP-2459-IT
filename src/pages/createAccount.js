@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import apiService from "../services/apiService";
 import "../styles/createAccount.css";
@@ -37,6 +37,20 @@ export default function CreateAccount() {
   const [approvedIssuers, setApprovedIssuers] = useState([]);
   const [requirementsLoading, setRequirementsLoading] = useState(false);
   const [rootIssuersLoading, setRootIssuersLoading] = useState(false);
+  const [rootAuthorityOpen, setRootAuthorityOpen] = useState(false);
+  const [rootAuthoritySearch, setRootAuthoritySearch] = useState("");
+
+  const filteredRootAuthorities = useMemo(() => {
+    const query = rootAuthoritySearch.trim().toLowerCase();
+    if (!query) return approvedIssuers;
+    return approvedIssuers.filter((root) =>
+      [root?.orgName, root?.email]
+        .filter(Boolean)
+        .join(" ")
+        .toLowerCase()
+        .includes(query)
+    );
+  }, [approvedIssuers, rootAuthoritySearch]);
 
   // State to track if issuer submitted
   const [issuerSubmitted, setIssuerSubmitted] = useState(false);
@@ -81,6 +95,8 @@ export default function CreateAccount() {
       documentsByType: {},
     });
     setIssuerSubmitted(false);
+    setRootAuthorityOpen(false);
+    setRootAuthoritySearch("");
   };
 
   // ========== USER FORM HANDLERS ==========
@@ -350,6 +366,8 @@ const getDocumentDescription = (docKey) => {
       fetchApprovedIssuers();
     } else {
       setApprovedIssuers([]);
+      setRootAuthorityOpen(false);
+      setRootAuthoritySearch("");
       setIssuer((prev) => ({ ...prev, rootAuthorityId: "" }));
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -364,6 +382,8 @@ const getDocumentDescription = (docKey) => {
 
       if (name === "issuerType" && value !== "subordinate") {
         updated.rootAuthorityId = "";
+        setRootAuthoritySearch("");
+        setRootAuthorityOpen(false);
       }
 
       return updated;
@@ -759,24 +779,67 @@ const getDocumentDescription = (docKey) => {
               {issuer.issuerType === "subordinate" && (
                 <div className="input-group">
                   <label>Root Authority</label>
-                  <select
-                    name="rootAuthorityId"
-                    value={issuer.rootAuthorityId}
-                    onChange={handleIssuerChange}
-                    required
-                  >
-                    <option value="">
-                      {rootIssuersLoading
-                        ? "Loading root authorities..."
-                        : "-- Select root authority --"}
-                    </option>
-
-                    {approvedIssuers.map((root) => (
-                      <option key={root.id || root._id} value={root.id || root._id}>
-                        {root.orgName} ({root.email})
-                      </option>
-                    ))}
-                  </select>
+                  <div className="searchable-select-wrapper">
+                    <input
+                      type="text"
+                      name="rootAuthorityId"
+                      value={rootAuthoritySearch}
+                      onChange={(e) => {
+                        setRootAuthoritySearch(e.target.value);
+                        setRootAuthorityOpen(true);
+                        if (issuer.rootAuthorityId) {
+                          setIssuer((prev) => ({ ...prev, rootAuthorityId: "" }));
+                        }
+                      }}
+                      onFocus={() => setRootAuthorityOpen(true)}
+                      onBlur={() => setTimeout(() => setRootAuthorityOpen(false), 180)}
+                      placeholder={rootIssuersLoading ? "Loading root authorities..." : "Type to search root authorities..."}
+                      className="search-select-input"
+                      autoComplete="off"
+                      required
+                    />
+                    {issuer.rootAuthorityId && (
+                      <button
+                        type="button"
+                        className="searchable-select-clear"
+                        onClick={() => {
+                          setRootAuthoritySearch("");
+                          setIssuer((prev) => ({ ...prev, rootAuthorityId: "" }));
+                          setRootAuthorityOpen(true);
+                        }}
+                        aria-label="Clear selection"
+                      >
+                        ✕
+                      </button>
+                    )}
+                    {rootAuthorityOpen && !issuer.rootAuthorityId && (
+                      <ul className="searchable-select-list">
+                        {filteredRootAuthorities.length > 0 ? (
+                          filteredRootAuthorities.map((root) => {
+                            const rootId = root.id || root._id;
+                            return (
+                              <li
+                                key={rootId}
+                                className="searchable-select-item"
+                                onMouseDown={() => {
+                                  setIssuer((prev) => ({ ...prev, rootAuthorityId: rootId }));
+                                  setRootAuthoritySearch(`${root.orgName} (${root.email})`);
+                                  setRootAuthorityOpen(false);
+                                }}
+                              >
+                                <span className="searchable-item-name">{root.orgName}</span>
+                                <span className="searchable-item-meta">{root.email}</span>
+                              </li>
+                            );
+                          })
+                        ) : (
+                          <li className="searchable-select-empty">
+                            {rootIssuersLoading ? "Loading root authorities..." : "No root authorities found."}
+                          </li>
+                        )}
+                      </ul>
+                    )}
+                  </div>
                 </div>
               )}
 

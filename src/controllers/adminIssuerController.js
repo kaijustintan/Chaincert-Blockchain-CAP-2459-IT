@@ -53,7 +53,7 @@ const getExpectedIssuerIdentityName = (issuerDoc) => {
 
 const ensureIssuerFabricIdentityExists = async (issuerDoc) => {
   const identityName = getExpectedIssuerIdentityName(issuerDoc);
-  const walletPath = path.join(__dirname, '../../backend/wallet');
+  const walletPath = path.join(__dirname, '../../chaincert-api/wallet');
   const identityFilePath = path.join(walletPath, `${identityName}.id`);
   const identityDirPath = path.join(walletPath, identityName);
 

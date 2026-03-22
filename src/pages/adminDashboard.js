@@ -864,6 +864,125 @@ const handleDownloadIssuerDocument = async (doc) => {
     setHistoryStatusLoading(false);
   };
 
+  const getStatDisplayValue = (isLoading, value) => (isLoading ? "—" : value);
+
+  const credentialStats = [
+    {
+      label: "Total Records",
+      value: getStatDisplayValue(adminCredentialsLoading, adminCredentials.length),
+    },
+    {
+      label: "Issued",
+      value: getStatDisplayValue(
+        adminCredentialsLoading,
+        adminCredentials.filter((r) => (r.type || "").toLowerCase() === "issued").length
+      ),
+      className: "stat-green",
+    },
+    {
+      label: "Revoked",
+      value: getStatDisplayValue(
+        adminCredentialsLoading,
+        adminCredentials.filter((r) => (r.status || "").toLowerCase() === "revoked").length
+      ),
+      className: "stat-red",
+    },
+    {
+      label: "Expired",
+      value: getStatDisplayValue(
+        adminCredentialsLoading,
+        adminCredentials.filter((r) => (r.status || "").toLowerCase() === "expired").length
+      ),
+      className: "stat-blue",
+    },
+    {
+      label: "Templates",
+      value: getStatDisplayValue(
+        adminCredentialsLoading,
+        adminCredentials.filter((r) => (r.type || "").toLowerCase() === "template").length
+      ),
+      className: "stat-purple",
+    },
+  ];
+
+  const issuerStats = [
+    {
+      label: "Total Issuers",
+      value: getStatDisplayValue(loading, approvedIssuers.length + disabledIssuers.length + pendingIssuers.length),
+    },
+    {
+      label: "Active Issuers",
+      value: getStatDisplayValue(loading, approvedIssuers.length),
+      className: "stat-green",
+    },
+    {
+      label: "Disabled Issuers",
+      value: getStatDisplayValue(loading, disabledIssuers.length),
+      className: "stat-red",
+    },
+    {
+      label: "Pending Issuers",
+      value: getStatDisplayValue(loading, pendingIssuers.length),
+      className: "stat-blue",
+    },
+  ];
+
+  const userStats = [
+    {
+      label: "Total Users",
+      value: getStatDisplayValue(usersLoading, users.length),
+    },
+    {
+      label: "Active Users",
+      value: getStatDisplayValue(usersLoading, users.filter((u) => u.isActive !== false).length),
+      className: "stat-green",
+    },
+    {
+      label: "Disabled Users",
+      value: getStatDisplayValue(usersLoading, users.filter((u) => u.isActive === false).length),
+      className: "stat-red",
+    },
+  ];
+
+  const logStats = [
+    {
+      label: "Verification Logs",
+      value: getStatDisplayValue(logsLoading && logCategory === "verification", verificationLogs.length),
+    },
+    {
+      label: "Status Logs",
+      value: getStatDisplayValue(logsLoading && logCategory === "status", statusLogs.length),
+      className: "stat-blue",
+    },
+    {
+      label: "Issuer Decisions",
+      value: getStatDisplayValue(logsLoading && logCategory === "decision", issuerDecisionLogs.length),
+      className: "stat-purple",
+    },
+    {
+      label: "Root Decisions",
+      value: getStatDisplayValue(
+        logsLoading && logCategory === "root_subordinate_decision",
+        rootSubordinateLogs.length
+      ),
+      className: "stat-green",
+    },
+  ];
+
+  const renderStatsGrid = (stats) => (
+    <div className="admin-stats-grid">
+      {stats.map((stat) => (
+        <div
+          key={stat.label}
+          className={`admin-stat-card${stat.className ? ` ${stat.className}` : ""}`}
+        >
+          <span className="admin-stat-num">{stat.value}</span>
+          <span className="admin-stat-label">{stat.label}</span>
+        </div>
+      ))}
+    </div>
+  );
+
   // -------------------------------------------------------------------
   // EFFECTS
   // -------------------------------------------------------------------
@@ -1826,28 +1945,7 @@ const handleDownloadIssuerDocument = async (doc) => {
       {tab === "credentials" && (
         <>
           {/* ── Analytics Overview ── */}
-          <div className="admin-stats-grid">
-            <div className="admin-stat-card">
-              <span className="admin-stat-num">{adminCredentials.length}</span>
-              <span className="admin-stat-label">Total Records</span>
-            </div>
-            <div className="admin-stat-card stat-green">
-              <span className="admin-stat-num">{adminCredentials.filter(r => r.type === "issued").length}</span>
-              <span className="admin-stat-label">Issued</span>
-            </div>
-            <div className="admin-stat-card stat-purple">
-              <span className="admin-stat-num">{adminCredentials.filter(r => r.type === "template").length}</span>
-              <span className="admin-stat-label">Templates</span>
-            </div>
-            <div className="admin-stat-card stat-blue">
-              <span className="admin-stat-num">{approvedIssuers.length}</span>
-              <span className="admin-stat-label">Active Issuers</span>
-            </div>
-            <div className="admin-stat-card stat-red">
-              <span className="admin-stat-num">{disabledIssuers.length}</span>
-              <span className="admin-stat-label">Disabled Issuers</span>
-            </div>
-          </div>
+          {renderStatsGrid(credentialStats)}
 
           {/* ── Charts Row ── */}
           <div className="admin-analytics-row">
@@ -2085,6 +2183,7 @@ const handleDownloadIssuerDocument = async (doc) => {
       {tab === "issuers" && (
         <div className="tab-card">
           <h2>Issuer Management</h2>
+          {renderStatsGrid(issuerStats)}
 
           <div className="issuer-filter-row">
             <label htmlFor="issuerFilter">View:</label>
@@ -2345,6 +2444,7 @@ const handleDownloadIssuerDocument = async (doc) => {
           <p className="tab-subtitle">
             View all registered users (holders and admins) in the system.
           </p>
+          {renderStatsGrid(userStats)}
 
           <div className="issuer-filter-row">
             <label htmlFor="userFilter">View:</label>
@@ -2489,6 +2589,7 @@ const handleDownloadIssuerDocument = async (doc) => {
           <p className="tab-subtitle">
             Blockchain audit logs for verification events and issuer/user status changes.
           </p>
+          {renderStatsGrid(logStats)}
 
           <div className="issuer-filter-row" style={{ gap: 12, flexWrap: "wrap" }}>
             <label htmlFor="logCategory">Category:</label>

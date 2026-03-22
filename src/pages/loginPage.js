@@ -1,6 +1,6 @@
 // frontend/src/pages/loginPage.js
 import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import apiService from '../services/apiService';
 import { login } from '../services/authenticationService';
 import { syncStoredUser } from '../utils/userDisplay';
@@ -13,6 +13,8 @@ function LoginPage() {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
+  const location = useLocation();
+  const successMessage = location.state?.successMessage || '';
 
 
   const handleLogin = async (e) => {
@@ -142,6 +144,11 @@ function LoginPage() {
 
 
           <form className="login-form" onSubmit={handleLogin}>
+            {successMessage && !error && (
+              <div className="success-banner" style={{ marginBottom: '16px', padding: '12px 14px', borderRadius: '10px', background: 'rgba(74, 222, 128, 0.12)', border: '1px solid rgba(74, 222, 128, 0.24)', color: '#86efac', fontWeight: 600 }}>
+                ✅ {successMessage}
+              </div>
+            )}
             {error && (
               <div className="error-banner">
                 <span>⚠️</span> {error}

@@ -319,6 +319,14 @@ export default function IssuerDashboard() {
     setHistoryCredential(null);
   };
 
+  const openRevokeForCredential = (credential) => {
+    setRevokeForm({
+      credentialId: credential?.blockchainId || credential?.id || "",
+      rejectionReason: "",
+    });
+    setShowRevokeModal(true);
+  };
+
   const applySorting = (array, sortOption) => {
     const sorted = [...array];
     switch (sortOption) {
@@ -356,6 +364,11 @@ export default function IssuerDashboard() {
     if (!query) return allHolders;
     return allHolders.filter((holder) => holder.toLowerCase().includes(query));
   }, [revokeHolderOptions, revokeHolderSearch]);
+
+  const revokableCount = useMemo(
+    () => credentials.filter((c) => c.status === "issued" || c.status === "active").length,
+    [credentials]
+  );
 
   const filteredRevokableCredentials = useMemo(() => {
     const query = revokeCredentialSearch.trim().toLowerCase();
@@ -750,7 +763,7 @@ export default function IssuerDashboard() {
 
           {/* Revokable credentials list */}
           <div className="table-container">
-            <h3 style={{ marginBottom: 12 }}>Issued Credentials ({credentials.filter(c => c.status === "issued" || c.status === "active" || !c.status).length} revokable)</h3>
+            <h3 style={{ marginBottom: 12 }}>Issued Credentials ({revokableCount} revokable)</h3>
             {credentials.length === 0 ? (
               <div className="no-results"><p>📭 No issued credentials found.</p></div>
             ) : (
@@ -775,7 +788,13 @@ export default function IssuerDashboard() {
                           >
                             View BC History
                           </button>
-                          <button onClick={() => { setRevokeForm({ credentialId: credential.blockchainId || credential.id, rejectionReason: "" }); setShowRevokeModal(true); }} className="action-btn revoke-btn">Revoke</button>
+                          {(credential.status === "issued" || credential.status === "active") ? (
+                            <button onClick={() => openRevokeForCredential(credential)} className="action-btn revoke-btn">Revoke</button>
+                          ) : (
+                            <span style={{ opacity: 0.5, fontSize: "12px", fontStyle: "italic" }}>
+                              {credential.status === "revoked" ? "Revoked" : credential.status === "expired" ? "Expired" : (credential.status || "Unknown")}
+                            </span>
+                          )}
                         </td>
                       </tr>
                     );
@@ -1129,20 +1148,21 @@ export default function IssuerDashboard() {
 
       {historyOpen && (
         <div className="modal-overlay">
-          <div className="modal modal-wide" style={{ maxWidth: "900px" }}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "16px" }}>
-              <div>
-                <h3 style={{ margin: 0 }}>Credential History (Blockchain Audit Trail)</h3>
-                {historyCredential && (
-                  <div style={{ fontSize: "13px", opacity: 0.85, marginTop: "8px" }}>
-                    <div><strong>Credential:</strong> {historyCredential.credentialName || "N/A"}</div>
-                    <div><strong>Blockchain ID:</strong> {historyCredential.blockchainId || historyCredential.id || "N/A"}</div>
-                    {historyCredential.holderName && <div><strong>Holder:</strong> {historyCredential.holderName}</div>}
-                    {historyCredential.issuerName && <div><strong>Issuer:</strong> {historyCredential.issuerName}</div>}
+          <div className="modal modal-wide history-modal" style={{ maxWidth: "900px", width: "90vw", padding: "28px", maxHeight: "80vh", overflowY: "auto" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "16px", gap: "16px" }}>
+              <div style={{ flex: 1, minWidth: 0, marginBottom: "20px" }}>
+                <h3 style={{ margin: "0 0 16px 0", fontSize: "20px", whiteSpace: "nowrap" }}>Credential History (Blockchain Audit Trail)</h3>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr", gap: "6px", fontSize: "13px", lineHeight: "1.6" }}>
+                  <div><strong>Credential:</strong> {historyCredential?.credentialName || "N/A"}</div>
+                  <div style={{ wordBreak: "break-all", fontFamily: "monospace", fontSize: "11px" }}>
+                    <strong style={{ fontFamily: "inherit", fontSize: "13px" }}>Blockchain ID:</strong>{" "}
+                    {historyCredential?.blockchainId || historyCredential?.id || "N/A"}
                   </div>
-                )}
+                  {historyCredential?.holderName && <div><strong>Holder:</strong> {historyCredential.holderName}</div>}
+                  {historyCredential?.issuerName && <div><strong>Issuer:</strong> {historyCredential.issuerName}</div>}
+                </div>
               </div>
-              <button type="button" className="modal-close" onClick={closeHistory}>✕</button>
+              <button type="button" className="modal-close history-modal-close" onClick={closeHistory}>✕</button>
             </div>
 
             {historyLoading && <div style={{ padding: "20px", opacity: 0.8 }}>Loading blockchain history...</div>}
@@ -1157,7 +1177,7 @@ export default function IssuerDashboard() {
                     Showing {cleanHistory.length} history record(s)
                   </div>
                   <div className="table-wrapper">
-                    <table className="template-table">
+                    <table className="template-table history-modal-table">
                       <thead>
                         <tr>
                           <th>Timestamp</th>
@@ -1174,7 +1194,7 @@ export default function IssuerDashboard() {
                             <tr key={entry.txId || idx}>
                               <td>{entry.timestamp ? new Date(entry.timestamp).toLocaleString() : "N/A"}</td>
                               <td>
-                                <span className={`badge ${action === "Issued" ? "green" : action === "Revoked" ? "red" : "blue"}`}>
+                                <span className={`history-action-badge ${(action || "").toLowerCase().replace(/\s+/g, "-")}`}>
                                   {action || "N/A"}
                                 </span>
                               </td>

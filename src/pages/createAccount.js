@@ -44,7 +44,7 @@ export default function CreateAccount() {
     const query = rootAuthoritySearch.trim().toLowerCase();
     if (!query) return approvedIssuers;
     return approvedIssuers.filter((root) =>
-      [root?.orgName, root?.email]
+      [root?.orgName]
         .filter(Boolean)
         .join(" ")
         .toLowerCase()
@@ -823,12 +823,11 @@ const getDocumentDescription = (docKey) => {
                                 className="searchable-select-item"
                                 onMouseDown={() => {
                                   setIssuer((prev) => ({ ...prev, rootAuthorityId: rootId }));
-                                  setRootAuthoritySearch(`${root.orgName} (${root.email})`);
+                                  setRootAuthoritySearch(root.orgName);
                                   setRootAuthorityOpen(false);
                                 }}
                               >
                                 <span className="searchable-item-name">{root.orgName}</span>
-                                <span className="searchable-item-meta">{root.email}</span>
                               </li>
                             );
                           })

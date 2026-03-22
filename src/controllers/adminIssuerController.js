@@ -53,12 +53,12 @@ const getExpectedIssuerIdentityName = (issuerDoc) => {
 
 const ensureIssuerFabricIdentityExists = async (issuerDoc) => {
   const identityName = getExpectedIssuerIdentityName(issuerDoc);
-  const walletPath = path.resolve(__dirname, '../../backend/wallet');
+  const walletPath = path.join(__dirname, '../../backend/wallet');
   const identityFilePath = path.join(walletPath, `${identityName}.id`);
   const identityDirPath = path.join(walletPath, identityName);
 
   console.log('[Approve_Issuer][FabricCheck] Checking identity:', identityName);
-  console.log('[Approve_Issuer][FabricCheck] Wallet path:', walletPath);
+  console.log('[Approve_Issuer][FabricCheck] Resolved wallet path:', walletPath);
   console.log('[Approve_Issuer][FabricCheck] File exists:', fs.existsSync(identityFilePath), identityFilePath);
   console.log('[Approve_Issuer][FabricCheck] Directory exists:', fs.existsSync(identityDirPath), identityDirPath);
 

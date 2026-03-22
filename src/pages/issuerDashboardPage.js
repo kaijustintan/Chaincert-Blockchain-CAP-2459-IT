@@ -613,7 +613,7 @@ export default function IssuerDashboard() {
     try {
       if (!createForm.credentialType || !createForm.credentialName) { setCreateError("Please fill in Credential Type and Name"); setCreateLoading(false); return; }
       const credentialId = `cred_${Date.now()}_${Math.random().toString(36).substring(2, 17)}`;
-      await apiService.Create_CredentialTemplate({ id: credentialId, credentialType: createForm.credentialType, credentialName: createForm.credentialName, description: createForm.description, metadata: createForm.metadata, skills: skillsList, badgeImage: badgeImageBase64 });
+      await apiService.Create_CredentialTemplate({ id: credentialId, credentialType: createForm.credentialType, credentialName: createForm.credentialName, description: createForm.description, metadata: createForm.metadata, skills: skillsList, badgeImage: badgeImageBase64, visibility: 'private' });
       showToast("Credential Template created successfully!"); closeCreateModal(); fetchCredentials(); fetchTemplateOptions();
     } catch (err) { setCreateError(err?.message || "Failed to create credential"); }
     finally { setCreateLoading(false); }
@@ -669,6 +669,23 @@ export default function IssuerDashboard() {
     setIssueForm((prev) => ({ ...prev, recipientId: value }));
     setIssueRecipientSearch(user.name || user.fullName || user.username || user.email || "");
     setIssueRecipientOpen(false);
+  };
+
+
+  const handleToggleTemplateVisibility = async (template) => {
+    const credentialKey = template?.id || template?._id;
+    if (!credentialKey) return;
+
+    const newVisibility = template.visibility === "public" ? "private" : "public";
+
+    try {
+      await apiService.Update_IssuerTemplateVisibility(credentialKey, newVisibility);
+      setTemplateOptions((prev) => prev.map((item) => ((item.id || item._id) === credentialKey ? { ...item, visibility: newVisibility } : item)));
+      showToast(`Template is now ${newVisibility}.`);
+    } catch (err) {
+      console.error("[ISSUER DASHBOARD] Failed to update template visibility:", err);
+      showToast(err.response?.data?.message || "Failed to update template visibility.", "danger");
+    }
   };
 
   const handleIssueCredential = async (e) => {
@@ -804,7 +821,7 @@ export default function IssuerDashboard() {
               <div className="no-results"><p>{templateOptions.length === 0 ? "📭 No credential templates found. Create your first template!" : "❌ No templates match your filters."}</p></div>
             ) : (
               <table className="template-table">
-                <thead><tr><th>Name</th><th>Type</th><th>Template ID</th><th>Description</th><th>Skills</th><th>Created Date</th></tr></thead>
+                <thead><tr><th>Name</th><th>Type</th><th>Template ID</th><th>Description</th><th>Skills</th><th>Visibility</th><th>Created Date</th></tr></thead>
                 <tbody>
                   {filteredTemplates.map((template) => {
                     const id = template.id || template._id;
@@ -815,6 +832,23 @@ export default function IssuerDashboard() {
                         <td style={{ fontFamily: "monospace", fontSize: 12 }}>{id || "N/A"}</td>
                         <td>{template.description || "—"}</td>
                         <td>{Array.isArray(template.skills) && template.skills.length > 0 ? template.skills.join(", ") : "—"}</td>
+                        <td>
+                          <button
+                            type="button"
+                            onClick={() => handleToggleTemplateVisibility(template)}
+                            style={{
+                              padding: "6px 12px",
+                              borderRadius: "999px",
+                              border: `1px solid ${template.visibility === "public" ? "rgba(34,197,94,0.35)" : "rgba(245,158,11,0.35)"}` ,
+                              background: template.visibility === "public" ? "rgba(34,197,94,0.12)" : "rgba(245,158,11,0.12)",
+                              color: template.visibility === "public" ? "#22c55e" : "#f59e0b",
+                              cursor: "pointer",
+                              fontWeight: 700
+                            }}
+                          >
+                            {template.visibility === "public" ? "🌐 Public" : "🔒 Private"}
+                          </button>
+                        </td>
                         <td>{template.createdAt ? new Date(template.createdAt).toLocaleDateString() : "N/A"}</td>
                       </tr>
                     );

@@ -152,18 +152,24 @@ export default function ProfilePreview() {
     const fetchCredentials = async () => {
       setCredLoading(true);
       try {
-        const data = await apiService.Get_UserCredentials(effectiveUserId);
-        // Owner sees ALL credentials, recipient sees only public ones 
-        // Hide revoked/expired on public preview for all viewers including owner 
+        const data = userRole === 'issuer'
+          ? await apiService.Get_IssuerTemplatesByID(effectiveUserId)
+          : await apiService.Get_UserCredentials(effectiveUserId);
+
         const filtered = Array.isArray(data)
           ? data
-              .filter(c =>
-                c.visibility === 'public' &&
-                c.status !== 'revoked' &&
-                c.status !== 'expired' &&
-                c.status !== 'REVOKED' &&
-                c.status !== 'EXPIRED'
-              )
+              .filter((c) => {
+                if (c.visibility !== 'public') return false;
+
+                const status = String(c.status || '');
+                if (['revoked', 'expired', 'REVOKED', 'EXPIRED'].includes(status)) return false;
+
+                if (userRole === 'issuer') {
+                  return c.isTemplate === true || c.type === 'credential_template' || c.holderID === '';
+                }
+
+                return true;
+              })
               .sort((a, b) => (a.currentOrder ?? 0) - (b.currentOrder ?? 0))
           : [];
         setCredentials(filtered);
@@ -174,7 +180,7 @@ export default function ProfilePreview() {
       }
     };
     fetchCredentials();
-  }, [gateStage, userId, isOwner, previewUserId]); 
+  }, [gateStage, userId, isOwner, previewUserId, userRole]); 
 
   // ── Gate handlers - polo ───────────────────────────────────────
   const handleRequestOTP = async () => {

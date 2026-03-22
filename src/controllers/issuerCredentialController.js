@@ -240,6 +240,7 @@ exports.Create_CredentialTemplate = async (req, res, getContractAndGateway) => {
         skills: skills || [],           // - polo
         badgeImage: badgeImage || '',   // - polo (base64, CouchDB only)
         status: 'active',
+        visibility: 'private',
         isTemplate: true,
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),

@@ -16,6 +16,10 @@ router.get('/credentials/:holderID', walletController.getUserCredentials);
 // Update credential visibility state.
 router.patch('/visibility/:credentialId', walletController.updateCredentialVisibility);
 
+// PATCH /api/wallet/issuer/template-visibility/:credentialId
+// Update issuer template visibility state.
+router.patch('/issuer/template-visibility/:credentialId', walletController.updateIssuerTemplateVisibility);
+
 // PATCH /api/wallet/order/:credentialId
 // Update credential display order.
 router.patch('/order/:credentialId', walletController.updateCredentialOrder);

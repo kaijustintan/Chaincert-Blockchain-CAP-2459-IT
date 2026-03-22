@@ -8,7 +8,6 @@ const INTEGRITY_FIELDS = [
   'credentialName',
   'credentialType',
   'holderID',
-  'holderName',
   'status',
   'issuedDate',
   'expiryDate',

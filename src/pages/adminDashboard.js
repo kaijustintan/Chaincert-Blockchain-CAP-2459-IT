@@ -1,5 +1,5 @@
 // Admin dashboard for credential management
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useRef } from "react";
 import ReactDOM from "react-dom";
 import "../styles/adminDashboard.css";
 import apiService from "../services/apiService";
@@ -11,10 +11,27 @@ export default function AdminDashboard() {
   const [approvedIssuers, setApprovedIssuers] = useState([]);
   const [verifications, setVerifications] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [issuerStatsLoaded, setIssuerStatsLoaded] = useState(false);
+  const [logsLoaded, setLogsLoaded] = useState(false);
   const [verificationsLoading, setVerificationsLoading] = useState(false);
   const [logsLoading, setLogsLoading] = useState(false);
   const [message, setMessage] = useState("");
   const [messageType, setMessageType] = useState("success");
+  const feedbackTimerRef = useRef(null);
+
+  const showFeedback = useCallback((type, feedbackMessage) => {
+    if (feedbackTimerRef.current) {
+      window.clearTimeout(feedbackTimerRef.current);
+    }
+
+    setMessageType(type);
+    setMessage(feedbackMessage);
+
+    feedbackTimerRef.current = window.setTimeout(() => {
+      setMessage("");
+      feedbackTimerRef.current = null;
+    }, 5000);
+  }, []);
 
   const [issuerFilter, setIssuerFilter] = useState("approved");
 
@@ -146,6 +163,7 @@ const [issuerDocumentsError, setIssuerDocumentsError] = useState(null);
       fetchRejectedIssuers(),
       fetchDisabledIssuers(),
     ]);
+    setIssuerStatsLoaded(true);
   }, []);
 
   const renderCell = (v) => {
@@ -213,7 +231,7 @@ const handleViewIssuerDocument = async (doc) => {
       window.URL.revokeObjectURL(blobUrl);
     }, 60000);
   } catch (error) {
-    setMessage(error.response?.data?.message || error.message || "Failed to open document");
+    showFeedback("danger", `Failed to open document: ${error.response?.data?.message || error.message || "Unknown error"}`);
   }
 };
 
@@ -240,7 +258,7 @@ const handleDownloadIssuerDocument = async (doc) => {
       window.URL.revokeObjectURL(blobUrl);
     }, 60000);
   } catch (error) {
-    setMessage(error.response?.data?.message || error.message || "Failed to download document");
+    showFeedback("danger", `Failed to download document: ${error.response?.data?.message || error.message || "Unknown error"}`);
   }
 };
 
@@ -356,8 +374,7 @@ const handleDownloadIssuerDocument = async (doc) => {
 
       await apiService.Reject_Issuer(Reject_IssuerId, trimmed);
 
-      setMessageType("success");
-      setMessage("Issuer rejected successfully.");
+      showFeedback("success", "Reject issuer successful.");
       closeRejectIssuerModal();
 
       await fetchPendingIssuers(pendingIssuerFilter);
@@ -366,9 +383,9 @@ const handleDownloadIssuerDocument = async (doc) => {
       await fetchDisabledIssuers();
     } catch (error) {
       console.error("Error rejecting issuer:", error);
-      setRejectIssuerError(
-        error.response?.data?.message || "❌ Failed to reject issuer"
-      );
+      const errorMessage = error.response?.data?.message || error.message || "Unknown error";
+      setRejectIssuerError(`Failed to reject issuer: ${errorMessage}`);
+      showFeedback("danger", `Failed to reject issuer: ${errorMessage}`);
     } finally {
       setRejectIssuerLoading(false);
     }
@@ -410,16 +427,13 @@ const handleDownloadIssuerDocument = async (doc) => {
       setIssuerStatusLoading(true);
       setIssuerStatusError("");
 
-      const issuerName = issuerStatusTarget?.orgName || issuerStatusTarget?.name || issuerStatusTarget?.email || "Issuer";
 
       if (issuerStatusAction === "disable") {
         await apiService.Disable_Issuer(issuerId, trimmed);
-        setMessageType("success");
-        setMessage(`Issuer "${issuerName}" has been disabled.`);
+        showFeedback("success", "Disable issuer successful.");
       } else {
         await apiService.Enable_Issuer(issuerId, trimmed);
-        setMessageType("success");
-        setMessage(`Issuer "${issuerName}" has been enabled.`);
+        showFeedback("success", "Enable issuer successful.");
       }
 
       closeIssuerStatusModal();
@@ -436,8 +450,7 @@ const handleDownloadIssuerDocument = async (doc) => {
         error.message ||
         "❌ Failed to update issuer status";
       setIssuerStatusError(errorMessage);
-      setMessageType("danger");
-      setMessage(`Failed to update issuer: ${errorMessage}`);
+      showFeedback("danger", `Failed to ${issuerStatusAction} issuer: ${errorMessage}`);
     } finally {
       setIssuerStatusLoading(false);
     }
@@ -470,10 +483,10 @@ const handleDownloadIssuerDocument = async (doc) => {
       const pending = Array.isArray(response.data) ? response.data : [];
       if (updateCount) setPendingIssuerCount(pending.length);
       setPendingIssuers(pending);
-      setMessage("");
+
     } catch (error) {
       console.error("Error fetching pending issuers:", error);
-      setMessage("Failed to load pending issuers");
+      showFeedback("danger", `Failed to load pending issuers: ${error.response?.data?.message || error.message || "Unknown error"}`);
       if (updateCount) setPendingIssuerCount(0);
       setPendingIssuers([]);
     } finally {
@@ -526,14 +539,12 @@ const handleDownloadIssuerDocument = async (doc) => {
   const handleApproveIssuer = async (issuerId) => {
     try {
       await apiService.Approve_Issuer(issuerId);
-      setMessageType("success");
-      setMessage("Issuer approved successfully.");
+      showFeedback("success", "Approve issuer successful.");
       await fetchPendingIssuers(pendingIssuerFilter);
       await fetchApprovedIssuers();
     } catch (error) {
       console.error("Error approving issuer:", error);
-      setMessageType("danger");
-      setMessage("Failed to approve issuer.");
+      showFeedback("danger", `Failed to approve issuer: ${error.response?.data?.message || error.message || "Unknown error"}`);
     }
   };
 
@@ -599,23 +610,23 @@ const handleDownloadIssuerDocument = async (doc) => {
 
       if (userStatusAction === "disable") {
         await apiService.Disable_User(userId, trimmed);
-        setMessageType("success");
-        setMessage("User disabled successfully.");
+        showFeedback("success", "Disable user successful.");
       } else {
         await apiService.Enable_User(userId, trimmed);
-        setMessageType("success");
-        setMessage("User enabled successfully.");
+        showFeedback("success", "Enable user successful.");
       }
 
       closeUserStatusModal();
       await fetchUsers();
     } catch (error) {
       console.error("Error updating user status:", error);
-      setUserStatusError(
+      const errorMessage =
         error.response?.data?.message ||
-          error.response?.data?.error ||
-          "❌ Failed to update user status"
-      );
+        error.response?.data?.error ||
+        error.message ||
+        "Unknown error";
+      setUserStatusError(`Failed to ${userStatusAction} user: ${errorMessage}`);
+      showFeedback("danger", `Failed to ${userStatusAction} user: ${errorMessage}`);
     } finally {
       setUserStatusLoading(false);
     }
@@ -1043,25 +1054,32 @@ const handleDownloadIssuerDocument = async (doc) => {
   // EFFECTS
   // -------------------------------------------------------------------
   useEffect(() => {
-    if (tab === "issuers") {
-      refreshIssuerCollections();
-
+    if (tab === "issuers" && !issuerStatsLoaded) {
       setIssuerFilter("approved");
       setPendingIssuerFilter("admin_actionable");
+      refreshIssuerCollections();
     } else if (tab === "credentials") {
       fetchApprovedIssuers();
       fetchDisabledIssuers();
       fetchAdminCredentials();
-    } else if (tab === "logs") {
-      fetchVerificationLogs();
-      fetchStatusLogs(statusLogFilter, statusLogEmailSearch);
-      fetchIssuerDecisionLogs();
-      fetchRootSubordinateDecisionLogs(rootSubordinateDecisionFilter);
+    } else if (tab === "logs" && !logsLoaded) {
+      Promise.all([
+        fetchVerificationLogs(),
+        fetchStatusLogs(statusLogFilter, statusLogEmailSearch, { updateCount: true }),
+        fetchIssuerDecisionLogs(issuerDecisionFilter, { updateCount: true }),
+        fetchRootSubordinateDecisionLogs(rootSubordinateDecisionFilter, { updateCount: true }),
+      ]).then(() => setLogsLoaded(true));
     } else if (tab === "users") {
       fetchUsers();
       setUserFilter("active");
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tab, issuerStatsLoaded, logsLoaded, issuerDecisionFilter, refreshIssuerCollections, rootSubordinateDecisionFilter, statusLogEmailSearch, statusLogFilter]);
+
+  useEffect(() => {
+    if (tab !== "issuers") {
+      setIssuerStatsLoaded(false);
+    }
   }, [tab]);
 
   // ✅ NEW: when pending sub-filter changes, refetch only pending list
@@ -1074,18 +1092,10 @@ const handleDownloadIssuerDocument = async (doc) => {
   }, [pendingIssuerFilter, issuerFilter, tab]);
 
   useEffect(() => {
-    if (tab !== "logs") return;
-    if (logCategory === "verification") {
-      fetchVerificationLogs();
-    } else if (logCategory === "status") {
-      fetchStatusLogs(statusLogFilter, statusLogEmailSearch);
-    } else if (logCategory === "decision") {
-      fetchIssuerDecisionLogs();
-    } else if (logCategory === "root_subordinate_decision") {
-      fetchRootSubordinateDecisionLogs();
+    if (tab !== "logs") {
+      setLogsLoaded(false);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [logCategory]);
+  }, [tab]);
 
   useEffect(() => {
     if (tab !== "logs" || logCategory !== "status") return;
@@ -1105,11 +1115,11 @@ const handleDownloadIssuerDocument = async (doc) => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [adminCredIssuerFilter, adminCredTypeFilter]);
 
-  useEffect(() => {
-    if (!message) return undefined;
-    const timeoutId = window.setTimeout(() => setMessage(""), 4200);
-    return () => window.clearTimeout(timeoutId);
-  }, [message]);
+  useEffect(() => () => {
+    if (feedbackTimerRef.current) {
+      window.clearTimeout(feedbackTimerRef.current);
+    }
+  }, []);
 
   // -------------------------------------------------------------------
   // RENDER
@@ -2104,7 +2114,7 @@ const handleDownloadIssuerDocument = async (doc) => {
                     const id = issuer._id || issuer.id;
                     return (
                       <option key={id} value={id}>
-                        {issuer.orgName || issuer.name || issuer.email || id}
+                        {issuer.orgName || issuer.name || id}
                       </option>
                     );
                   })}
@@ -2247,7 +2257,6 @@ const handleDownloadIssuerDocument = async (doc) => {
 
                 if (value === "pending") {
                   setPendingIssuerFilter("admin_actionable");
-                  await fetchPendingIssuers("admin_actionable");
                 }
               }}
             >
@@ -2321,7 +2330,7 @@ const handleDownloadIssuerDocument = async (doc) => {
 
   <td>
   {issuer.issuerType === "subordinate"
-    ? (issuer.rootAuthorityName || issuer.rootAuthorityId || "N/A")
+    ? (issuer.rootAuthorityName || "N/A")
     : "—"}
 </td>
 
@@ -2650,8 +2659,7 @@ const handleDownloadIssuerDocument = async (doc) => {
                   id="statusLogFilter"
                   value={statusLogFilter}
                   onChange={(e) => {
-                    setStatusLogFilter(e.target.value);
-                    fetchStatusLogs(e.target.value, statusLogEmailSearch); // pass current email on filter change
+                    setStatusLogFilter(e.target.value)
                   }}
                 >
                   <option value="all">All</option>
@@ -2709,7 +2717,7 @@ const handleDownloadIssuerDocument = async (doc) => {
                   type="text"
                   value={rootSubordinateSearchQuery}
                   onChange={(e) => setRootSubordinateSearchQuery(e.target.value)}
-                  placeholder="Search root authority name or ID..."
+                  placeholder="Search root authority name..."
                   style={{
                     padding: "8px 10px",
                     borderRadius: 10,
@@ -2735,7 +2743,7 @@ const handleDownloadIssuerDocument = async (doc) => {
                   value={issuerDecisionFilter}
                   onChange={(e) => {
                     setIssuerDecisionFilter(e.target.value);
-                    fetchIssuerDecisionLogs(e.target.value);
+                    if (logsLoaded) fetchIssuerDecisionLogs(e.target.value);
                   }}
                 >
                   <option value="all">All</option>
@@ -2815,7 +2823,6 @@ const handleDownloadIssuerDocument = async (doc) => {
                   ? rootSubordinateLogs.filter((log) => {
                       const searchable = [
                         log.rootAuthorityName,
-                        log.rootAuthorityId,
                         log.issuerEmail,
                         log.orgName,
                       ]
@@ -2832,7 +2839,6 @@ const handleDownloadIssuerDocument = async (doc) => {
                       <thead>
                         <tr>
                           <th>Root Authority Name</th>
-                          <th>Root Authority ID</th>
                           <th>Subordinate Issuer Email</th>
                           <th>Organization Name</th>
                           <th>Decision</th>
@@ -2847,11 +2853,8 @@ const handleDownloadIssuerDocument = async (doc) => {
                           const isApproved =
                             String(log.decision || "").toLowerCase() === "approved";
                           return (
-                            <tr key={log.txId || `${log.rootAuthorityId || "root"}-${index}`}>
+                            <tr key={log.txId || `${log.rootAuthorityName || "root"}-${index}`}>
                               <td>{log.rootAuthorityName || "N/A"}</td>
-                              <td style={{ fontFamily: "monospace", fontSize: "12px" }}>
-                                {log.rootAuthorityId || "N/A"}
-                              </td>
                               <td>{log.issuerEmail || "N/A"}</td>
                               <td>{log.orgName || "N/A"}</td>
                               <td>

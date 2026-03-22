@@ -447,7 +447,7 @@ export default function IssuerDashboard() {
     const blockchainId = cred.blockchainId || cred.id;
     setRevokeForm((prev) => ({ ...prev, credentialId: blockchainId }));
     setRevokeCredentialSearch(
-      `${cred.holderName || cred.holderID || "Unknown"} — ${cred.credentialName || "Untitled"} — ${(blockchainId || "").slice(0, 16)}…`
+      `${cred.holderName || "Unknown"} — ${cred.credentialName || "Untitled"}`
     );
     setRevokeCredentialOpen(false);
   };
@@ -533,7 +533,7 @@ export default function IssuerDashboard() {
   const handleSelectRecipient = (user) => {
     const value = user._id || user.id;
     setIssueForm((prev) => ({ ...prev, recipientId: value }));
-    setIssueRecipientSearch((user.name || user.fullName || user.username || user.email) + (user.email ? ` (${user.email})` : ""));
+    setIssueRecipientSearch(user.name || user.fullName || user.username || user.email || "");
     setIssueRecipientOpen(false);
   };
 
@@ -739,7 +739,7 @@ export default function IssuerDashboard() {
                         <td>{blockchainId || "N/A"}</td>
                         <td>{credential.credentialType || "N/A"}</td>
                         <td>{credential.credentialName || "N/A"}</td>
-                        <td>{credential.holderName || credential.holderID || "N/A"}</td>
+                        <td>{credential.holderName || "N/A"}</td>
                         <td>{credential.description || "N/A"}</td>
                         <td>{credential.issuedDate ? new Date(credential.issuedDate).toLocaleDateString() : "N/A"}</td>
                         <td><span className={`status-badge status-${credential.status || "active"}`}>{credential.status || "active"}</span></td>
@@ -791,7 +791,7 @@ export default function IssuerDashboard() {
                       <tr key={blockchainId}>
                         <td>{blockchainId || "N/A"}</td>
                         <td>{credential.credentialName || "N/A"}</td>
-                        <td>{credential.holderName || credential.holderID || "N/A"}</td>
+                        <td>{credential.holderName || "N/A"}</td>
                         <td><span className={`status-badge status-${credential.status || "active"}`}>{credential.status || "active"}</span></td>
                         <td>{credential.issuedDate ? new Date(credential.issuedDate).toLocaleDateString() : "N/A"}</td>
                         <td>
@@ -1049,7 +1049,6 @@ export default function IssuerDashboard() {
                       {filteredAvailableUsers.length > 0 ? filteredAvailableUsers.map((user) => (
                         <li key={user._id || user.id} className="searchable-select-item" onMouseDown={() => handleSelectRecipient(user)}>
                           <span className="searchable-item-name">{user.name || user.fullName || user.username || user.email}</span>
-                          {user.email && <span className="searchable-item-meta">{user.email}</span>}
                         </li>
                       )) : (
                         <li className="searchable-select-empty">{issueRecipientSearch ? "No recipients match your search." : "No eligible recipients for this template."}</li>
@@ -1131,8 +1130,8 @@ export default function IssuerDashboard() {
                         const blockchainId = cred.blockchainId || cred.id;
                         return (
                           <li key={blockchainId} className="searchable-select-item" onMouseDown={() => handleSelectRevokeCredential(cred)}>
-                            <span className="searchable-item-name">{cred.credentialName || "Untitled"} — {cred.holderName || cred.holderID || "Unknown"}</span>
-                            <span className="searchable-item-meta">{cred.credentialType || ""} • {(blockchainId || "").slice(0, 20)}…</span>
+                            <span className="searchable-item-name">{cred.credentialName || "Untitled"} — {cred.holderName || "Unknown"}</span>
+                            <span className="searchable-item-meta">{cred.credentialType || ""}</span>
                           </li>
                         );
                       }) : (
@@ -1146,7 +1145,7 @@ export default function IssuerDashboard() {
                     {(() => {
                       const found = credentials.find((c) => (c.blockchainId || c.id) === revokeForm.credentialId);
                       return found
-                        ? `${found.credentialName || "Untitled"} (${found.credentialType || "N/A"}) • ${found.holderName || found.holderID || "No holder"} • ${revokeForm.credentialId.slice(0, 20)}…`
+                        ? `${found.credentialName || "Untitled"} (${found.credentialType || "N/A"}) • ${found.holderName || "No holder"}`
                         : revokeForm.credentialId;
                     })()}
                   </div>

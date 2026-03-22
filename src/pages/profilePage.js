@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useMemo } from "react";
 import apiService from "../services/apiService";
 import AppToast from "../components/appToast";
 import { buildAvatarUrl, getDisplayName, syncStoredUser } from "../utils/userDisplay";
@@ -325,7 +325,9 @@ const [showAll, setShowAll] = useState(false);
   const [myShareLinks, setMyShareLinks] = useState([]);
   const [shareLinksLoading, setShareLinksLoading] = useState(false);
   const [revokingToken, setRevokingToken] = useState(null);
-  const [expiringToken, setExpiringToken] = useState(null);
+  const [linkSortBy, setLinkSortBy] = useState('newest');
+  const [linkStatusFilter, setLinkStatusFilter] = useState('all');
+  const [linkSourceFilter, setLinkSourceFilter] = useState('all');
 
   // Fetch all share links for current user
   const fetchMyShareLinks = async () => {
@@ -352,6 +354,40 @@ const [showAll, setShowAll] = useState(false);
     return 'Unused';
   };
 
+  const filteredLinks = useMemo(() => {
+    let result = [...(myShareLinks || [])];
+
+    if (linkStatusFilter !== 'all') {
+      if (linkStatusFilter === 'active') {
+        result = result.filter((link) => {
+          const status = getShareLinkStatus(link);
+          return status !== 'Revoked' && status !== 'Expired';
+        });
+      } else {
+        const targetStatus = linkStatusFilter.toLowerCase();
+        result = result.filter((link) => getShareLinkStatus(link).toLowerCase() === targetStatus);
+      }
+    }
+
+    if (linkSourceFilter !== 'all') {
+      if (linkSourceFilter === 'manual') {
+        result = result.filter((link) => !link.source || link.source === 'manual');
+      } else if (linkSourceFilter === 'pdf') {
+        result = result.filter((link) => link.source === 'pdf_export' || link.source === 'pdf_single_export');
+      } else if (linkSourceFilter === 'single') {
+        result = result.filter((link) => link.source === 'pdf_single_export');
+      }
+    }
+
+    result.sort((a, b) => {
+      const left = new Date(a.createdAt || 0).getTime() || 0;
+      const right = new Date(b.createdAt || 0).getTime() || 0;
+      return linkSortBy === 'oldest' ? left - right : right - left;
+    });
+
+    return result;
+  }, [myShareLinks, linkSortBy, linkStatusFilter, linkSourceFilter]);
+
   const handleRevokeShareLink = async (token) => {
     setRevokingToken(token);
     try {
@@ -368,20 +404,6 @@ const [showAll, setShowAll] = useState(false);
     }
   };
 
-  const handleForceExpireLink = async (token) => {
-    if (!window.confirm('Force expire this link? It will become immediately inaccessible.')) return;
-    setExpiringToken(token);
-    try {
-      await apiService.forceExpireShareLink(token);
-      showToast('Share link expired successfully.');
-      fetchMyShareLinks();
-    } catch (err) {
-      console.error('[PROFILE PAGE] Error force-expiring share link:', err);
-      showToast('Failed to force expire link.', 'danger');
-    } finally {
-      setExpiringToken(null);
-    }
-  };
 
   // Share Profile handlers 
   const handleOpenShareModal = () => {
@@ -795,7 +817,35 @@ const [showAll, setShowAll] = useState(false);
             <div className="empty-card">No share links generated yet.</div>
           )}
           {!shareLinksLoading && myShareLinks.length > 0 && (
-            <div style={{ overflowX: 'auto' }}>
+            <>
+              <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', marginBottom: '16px', alignItems: 'center' }}>
+                <div>
+                  <label style={{ fontSize: '12px', marginRight: '6px' }}>Sort:</label>
+                  <select value={linkSortBy} onChange={(e) => setLinkSortBy(e.target.value)}>
+                    <option value="newest">Most Recent</option>
+                    <option value="oldest">Oldest First</option>
+                  </select>
+                </div>
+                <div>
+                  <label style={{ fontSize: '12px', marginRight: '6px' }}>Status:</label>
+                  <select value={linkStatusFilter} onChange={(e) => setLinkStatusFilter(e.target.value)}>
+                    <option value="all">All Status</option>
+                    <option value="active">Active</option>
+                    <option value="expired">Expired</option>
+                    <option value="revoked">Revoked</option>
+                  </select>
+                </div>
+                <div>
+                  <label style={{ fontSize: '12px', marginRight: '6px' }}>Source:</label>
+                  <select value={linkSourceFilter} onChange={(e) => setLinkSourceFilter(e.target.value)}>
+                    <option value="all">All Sources</option>
+                    <option value="manual">Manual</option>
+                    <option value="pdf">PDF Export</option>
+                    <option value="single">Single Export</option>
+                  </select>
+                </div>
+              </div>
+              <div style={{ overflowX: 'auto' }}>
               <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.85rem' }}>
                 <thead>
                   <tr style={{ borderBottom: '1px solid rgba(139,92,246,0.3)' }}>
@@ -805,7 +855,7 @@ const [showAll, setShowAll] = useState(false);
                   </tr>
                 </thead>
                 <tbody>
-                  {myShareLinks.map((link) => {
+                  {filteredLinks.map((link) => {
                     const status = getShareLinkStatus(link);
                     const statusColors = {
                       Unused: { bg: 'rgba(99,102,241,0.15)', color: '#818cf8' },
@@ -825,10 +875,10 @@ const [showAll, setShowAll] = useState(false);
                             borderRadius: '10px',
                             fontSize: '11px',
                             fontWeight: 600,
-                            background: link.source === 'pdf_export' ? 'rgba(59,130,246,0.12)' : 'rgba(139,92,246,0.12)',
-                            color: link.source === 'pdf_export' ? '#3b82f6' : '#a78bfa'
+                            background: link.source === 'pdf_export' ? 'rgba(59,130,246,0.12)' : link.source === 'pdf_single_export' ? 'rgba(14,165,233,0.12)' : 'rgba(139,92,246,0.12)',
+                            color: link.source === 'pdf_export' ? '#3b82f6' : link.source === 'pdf_single_export' ? '#38bdf8' : '#a78bfa'
                           }}>
-                            {link.source === 'pdf_export' ? 'PDF Export' : 'Manual'}
+                            {link.source === 'pdf_export' ? 'Portfolio Export' : link.source === 'pdf_single_export' ? 'Single Export' : 'Manual'}
                           </span>
                         </td>
                         <td style={{ padding: '10px 12px', fontSize: '12px', maxWidth: '200px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: '#d4d4d8' }}>
@@ -872,13 +922,6 @@ const [showAll, setShowAll] = useState(false);
                               >
                                 {revokingToken === link.token ? 'Revoking...' : 'Revoke'}
                               </button>
-                              <button
-                                onClick={() => handleForceExpireLink(link.token)}
-                                disabled={expiringToken === link.token}
-                                style={{ padding: '4px 8px', fontSize: '11px', background: 'rgba(245,158,11,0.12)', color: '#f59e0b', border: '1px solid rgba(245,158,11,0.25)', borderRadius: '6px', cursor: 'pointer', marginLeft: '4px' }}
-                              >
-                                {expiringToken === link.token ? 'Expiring...' : 'Force Expire'}
-                              </button>
                             </>
                           ) : (
                             <span style={{ color: '#555', fontSize: '0.78rem' }}>—</span>
@@ -889,7 +932,8 @@ const [showAll, setShowAll] = useState(false);
                   })}
                 </tbody>
               </table>
-            </div>
+              </div>
+            </>
           )}
         </section>
       )}

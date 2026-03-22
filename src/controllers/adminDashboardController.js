@@ -100,6 +100,93 @@ async function getAllIssuerCredentialsAdminController(req, res) {
   }
 }
 
+
+async function runIntegrityCheck(getContractAndGateway) {
+  console.log('[INTEGRITY] Running CouchDB vs Blockchain integrity check...');
+  const nano = require('nano');
+  const adminCouch = nano('http://admin:adminpw@localhost:5985');
+  const userWalletDb = adminCouch.use('wallet_user_credentials');
+
+  const allDocs = await userWalletDb.find({
+    selector: { type: 'credential' },
+    limit: 999,
+  });
+
+  if (!allDocs.docs || allDocs.docs.length === 0) {
+    return { checked: 0, mismatches: [], mismatchCount: 0, message: 'No credentials found in CouchDB.' };
+  }
+
+  const mismatches = [];
+  let checked = 0;
+  let gateway = null;
+
+  for (const doc of allDocs.docs) {
+    const blockchainId = doc.blockchainId || doc._id;
+    if (!blockchainId || String(blockchainId).startsWith('user_cred_template_')) continue;
+
+    try {
+      const { gateway: gw, contract } = await getContractAndGateway('chaincert-admin', 'Org1');
+      gateway = gw;
+
+      const bcResultBuffer = await contract.evaluateTransaction('VerifyCredential', blockchainId);
+      const bcResult = JSON.parse(bcResultBuffer.toString());
+      const bcCredential = bcResult.credential || {};
+      const couchStatus = String(doc.status || '').toLowerCase();
+      const blockchainStatus = String(bcCredential.status || '').toLowerCase();
+      const blockchainHolderId = bcCredential.holderID || '';
+      const blockchainIssuerId = bcCredential.issuerID || bcCredential.issuerName || '';
+
+      checked += 1;
+
+      const fieldMismatches = [];
+      if (couchStatus !== blockchainStatus) {
+        fieldMismatches.push({ field: 'status', couchDB: couchStatus || 'unknown', blockchain: blockchainStatus || 'unknown' });
+      }
+      if (String(doc.holderID || '') !== String(blockchainHolderId || '')) {
+        fieldMismatches.push({ field: 'holderID', couchDB: doc.holderID || '', blockchain: blockchainHolderId || '' });
+      }
+      if (String(doc.issuerID || doc.issuerName || '') !== String(blockchainIssuerId || '')) {
+        fieldMismatches.push({ field: 'issuerID', couchDB: doc.issuerID || doc.issuerName || '', blockchain: blockchainIssuerId || '' });
+      }
+
+      if (fieldMismatches.length > 0) {
+        mismatches.push({
+          credentialId: blockchainId,
+          credentialName: doc.credentialName || bcCredential.credentialName || 'Unknown',
+          couchDBStatus: couchStatus || 'unknown',
+          blockchainValid: bcResult.valid,
+          blockchainStatus: blockchainStatus || 'unknown',
+          blockchainReason: bcResult.reason || '',
+          fieldMismatches,
+        });
+      }
+    } catch (bcErr) {
+      console.warn(`[INTEGRITY] Failed to check ${blockchainId}:`, bcErr.message);
+    } finally {
+      try { if (gateway) await gateway.disconnect(); } catch (_) {}
+      gateway = null;
+    }
+  }
+
+  console.log(`[INTEGRITY] Check complete. ${checked} checked, ${mismatches.length} mismatches.`);
+  return { checked, mismatches, mismatchCount: mismatches.length };
+}
+
+async function triggerIntegrityCheck(req, res, getContractAndGateway) {
+  try {
+    const result = await runIntegrityCheck(getContractAndGateway);
+    return res.status(200).json({
+      success: true,
+      message: `Integrity check complete. ${result.checked} credentials checked, ${result.mismatchCount} mismatches found.`,
+      ...result,
+      timestamp: new Date().toISOString(),
+    });
+  } catch (error) {
+    console.error('[INTEGRITY] Check failed:', error.message);
+    return res.status(500).json({ success: false, message: error.message });
+  }
+}
+
 // ==========================================================================================================================================================================
 // AUTO EXPIRY LOGIC - polo
 // ==========================================================================================================================================================================
@@ -196,6 +283,8 @@ function initExpiryCron(getContractAndGateway) {
 
 module.exports = {
   getAllIssuerCredentialsAdminController,
+  runIntegrityCheck,
+  triggerIntegrityCheck,
   runExpiryCheck,
   triggerExpiryCheck,
   initExpiryCron

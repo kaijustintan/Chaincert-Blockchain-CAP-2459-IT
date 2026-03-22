@@ -3422,14 +3422,6 @@ async function updateShareLinkStatus(docId, newStatus) {
   return await profileShareLinksDb.insert(doc);
 }
 
-async function forceExpireShareLink(token) {
-  if (!profileShareLinksDb) await initializeDatabases();
-  const doc = await getProfileShareLink(token);
-  if (!doc) throw new Error('Share link not found');
-  doc.status = 'expired';
-  doc.expiresAt = new Date(Date.now() - 60000).toISOString();
-  return await profileShareLinksDb.insert(doc);
-}
 
 /*
   Function Name: getShareLinksByUserId
@@ -3538,7 +3530,6 @@ module.exports = {
   recordShareLinkView,
   revokeProfileShareLink,  
   updateShareLinkStatus,
-  forceExpireShareLink,
   getShareLinksByUserId,    
   getAllSubordinatesForRoot,
   getRootApprovedSubordinatesForRoot,

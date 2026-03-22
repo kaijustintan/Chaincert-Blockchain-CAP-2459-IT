@@ -98,6 +98,8 @@ export default function AdminDashboard() {
   const [credentialHistoryLoading, setCredentialHistoryLoading] = useState(false);
   const [credentialHistoryError, setCredentialHistoryError] = useState(null);
   const [descriptionModal, setDescriptionModal] = useState(null);
+  const [integrityLoading, setIntegrityLoading] = useState(false);
+  const [integrityResult, setIntegrityResult] = useState(null);
 
   // ✅ NEW: Reject Issuer modal state (required rejection reason)
   const [showRejectIssuerModal, setShowRejectIssuerModal] = useState(false);
@@ -765,6 +767,20 @@ const handleDownloadIssuerDocument = async (doc) => {
   // -------------------------------------------------------------------
   // NEW: ADMIN GLOBAL CREDENTIALS VIEW (across all issuers)
   // -------------------------------------------------------------------
+  const handleIntegrityCheck = async () => {
+    setIntegrityLoading(true);
+    setIntegrityResult(null);
+    try {
+      const result = await apiService.triggerIntegrityCheck();
+      setIntegrityResult(result);
+      showFeedback('success', result.message);
+    } catch (error) {
+      showFeedback('danger', `Integrity check failed: ${error.response?.data?.message || error.message || 'Unknown error'}`);
+    } finally {
+      setIntegrityLoading(false);
+    }
+  };
+
   const fetchAdminCredentials = async () => {
     try {
       setAdminCredentialsLoading(true);
@@ -2256,6 +2272,42 @@ const handleDownloadIssuerDocument = async (doc) => {
             <p className="tab-subtitle">
               Unified view of templates + issued credentials across ALL approved issuers.
             </p>
+
+            <div style={{ marginBottom: 16 }}>
+              <button
+                onClick={handleIntegrityCheck}
+                disabled={integrityLoading}
+                className="action-btn"
+              >
+                {integrityLoading ? 'Checking...' : '🔍 Run Integrity Check'}
+              </button>
+            </div>
+
+            {integrityResult && integrityResult.mismatches && integrityResult.mismatches.length > 0 && (
+              <div style={{ marginBottom: '16px', padding: '16px', background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.2)', borderRadius: '12px' }}>
+                <h4 style={{ color: '#ef4444', margin: '0 0 12px' }}>⚠️ {integrityResult.mismatchCount} Mismatch(es) Found</h4>
+                {integrityResult.mismatches.map((m, idx) => (
+                  <div key={idx} style={{ marginBottom: '8px', fontSize: '13px', padding: '8px', background: 'rgba(0,0,0,0.2)', borderRadius: '8px' }}>
+                    <strong>{m.credentialName}</strong> ({String(m.credentialId || '').slice(0, 30)}...)
+                    <br />CouchDB: {m.couchDBStatus} | Blockchain: {m.blockchainValid ? 'valid' : 'invalid'} ({m.blockchainReason || m.blockchainStatus})
+                    {Array.isArray(m.fieldMismatches) && m.fieldMismatches.length > 0 && (
+                      <div style={{ marginTop: '6px', color: '#fca5a5' }}>
+                        {m.fieldMismatches.map((fieldMismatch, mismatchIndex) => (
+                          <div key={mismatchIndex}>
+                            • {fieldMismatch.field}: CouchDB={fieldMismatch.couchDB || '—'} | Blockchain={fieldMismatch.blockchain || '—'}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+            {integrityResult && integrityResult.mismatches && integrityResult.mismatches.length === 0 && (
+              <div style={{ marginBottom: '16px', padding: '16px', background: 'rgba(34,197,94,0.08)', border: '1px solid rgba(34,197,94,0.2)', borderRadius: '12px', color: '#22c55e' }}>
+                ✅ All {integrityResult.checked} credentials match between CouchDB and blockchain.
+              </div>
+            )}
 
             <div className="issuer-filter-row" style={{ gap: 12, flexWrap: "wrap" }}>
               <div style={{ display: "flex", gap: 8, alignItems: "center" }}>

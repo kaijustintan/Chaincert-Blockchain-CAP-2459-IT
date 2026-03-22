@@ -241,7 +241,7 @@ export default function VerifierDashboard() {
               {result.credentialName && <p style={{ fontSize: '20px', fontWeight: 700, marginBottom: '12px' }}>{result.credentialName}</p>}
               <p><strong>Issued To:</strong> {result.holderName || 'N/A'}</p>
               <p><strong>Issued By:</strong> {result.issuerName || 'N/A'}</p>
-              <p><strong>Status:</strong> <span style={{ color: result.status === 'issued' || result.status === 'active' ? '#22c55e' : result.status === 'revoked' ? '#ef4444' : '#f59e0b', fontWeight: 600 }}>{result.status === 'issued' ? 'Active' : (result.status || 'unknown')}</span></p>
+              <p><strong>Status:</strong>{' '}<span style={{ color: result.status === 'issued' || result.status === 'active' ? '#22c55e' : result.status === 'revoked' ? '#ef4444' : result.status === 'expired' ? '#f59e0b' : 'inherit', fontWeight: 600 }}>{result.status === 'issued' || result.status === 'active' ? 'Active' : result.status === 'revoked' ? 'Revoked' : result.status === 'expired' ? 'Expired' : (result.status || 'Unknown')}</span></p>
               {result.expiryDate && <p><strong>Expires:</strong> {new Date(result.expiryDate).toLocaleDateString()}</p>}
 
               <div style={{ marginTop: '16px', paddingTop: '12px', borderTop: '1px solid rgba(255,255,255,0.08)' }}>

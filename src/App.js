@@ -24,7 +24,6 @@ import BadgeDetails from './pages/badgeDetailsPage';
 import BadgeDetailsProfilePreviewPage from './pages/BadgeDetailsProfilePreviewPage';
 import ShareCredentialPage from './pages/shareCredentialPage';
 import CredentialHistoryPage from './pages/credentialHistoryPage';
-import Transcript from './pages/transcript';
 
 import './styles/App.css';
 
@@ -61,7 +60,6 @@ function App() {
             <Route path="/issuer/history" element={<CredentialHistoryPage />} />
             <Route path="/settings" element={<SettingsPage />} />
             <Route path="/profile" element={<ProfilePage />} />
-            <Route path="/transcript" element={<Transcript />} />
             <Route path="/badge-details/:id" element={<BadgeDetails />} />
             <Route path="/profile-preview/badge-details/:id" element={<BadgeDetailsProfilePreviewPage />} />
             <Route path="/share-credential/:id" element={<ShareCredentialPage />} />

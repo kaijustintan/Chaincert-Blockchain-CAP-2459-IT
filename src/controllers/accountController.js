@@ -82,7 +82,7 @@ const accountController = {
 
   generateShareLink: async (req, res) => {
     try {
-      const { recipientEmail, durationDays } = req.body;
+      const { recipientEmail, durationDays, source, description } = req.body;
       const userId = req.user?.id || req.user?._id;
 
       if (!userId) {
@@ -103,7 +103,10 @@ const accountController = {
       // Generate unique token - polo
       const token = crypto.randomBytes(24).toString('hex');
 
-      await couchDB.createProfileShareLink(userId, token, recipientEmail, expiresAt);
+      await couchDB.createProfileShareLink(userId, token, recipientEmail, expiresAt, {
+        source,
+        description
+      });
 
       const shareUrl = `http://localhost:3000/profile/${token}`;
 
@@ -382,7 +385,7 @@ const accountController = {
 
   generatePublicShareLink: async (req, res) => {
     try {
-      const { durationDays } = req.body;
+      const { durationDays, source, description } = req.body;
       const userId = req.user?.id || req.user?._id;
 
       if (!userId) {
@@ -400,7 +403,10 @@ const accountController = {
       // Generate unique token 
       const token = crypto.randomBytes(24).toString('hex');
 
-      await couchDB.createProfileShareLink(userId, token, null, expiresAt);
+      await couchDB.createProfileShareLink(userId, token, null, expiresAt, {
+        source,
+        description
+      });
 
       const shareUrl = `http://localhost:3000/profile/${token}`;
 

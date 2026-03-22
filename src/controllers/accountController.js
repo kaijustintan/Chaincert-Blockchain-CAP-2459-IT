@@ -8,14 +8,12 @@ const buildShareProfilePayload = async (ownerId) => {
 
   const role = String(user.role || (String(ownerId || '').startsWith('issuer_') ? 'issuer' : 'student')).toLowerCase();
   const sharedCredentials = role === 'issuer'
-    ? [
-        ...(await couchDB.getIssuerTemplatesByIssuerId(ownerId)),
-        ...(await couchDB.getIssuerIssuedByIssuerId(ownerId))
-      ]
+    ? await couchDB.getIssuerTemplatesByIssuerId(ownerId)
     : await couchDB.getUserCredentialsByHolderId(ownerId);
 
   const visibleCredentials = (Array.isArray(sharedCredentials) ? sharedCredentials : []).filter((cred) => (
     cred?.visibility === 'public' &&
+    (role !== 'issuer' || cred?.isTemplate === true || String(cred?.type || '').toLowerCase() === 'credential_template') &&
     String(cred?.status || '').toLowerCase() !== 'revoked' &&
     String(cred?.status || '').toLowerCase() !== 'expired'
   ));

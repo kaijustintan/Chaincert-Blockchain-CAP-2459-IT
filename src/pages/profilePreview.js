@@ -3,6 +3,24 @@ import { useParams } from "react-router-dom";
 import apiService from "../services/apiService";
 import '../styles/profilePreview.css';
 
+const filterVisibleProfileCredentials = (items, role) => {
+  const normalizedRole = String(role || '').toLowerCase();
+
+  return (Array.isArray(items) ? items : [])
+    .filter((cred) => {
+      const status = String(cred?.status || '').toLowerCase();
+      const isTemplate = cred?.isTemplate === true || String(cred?.type || '').toLowerCase() === 'credential_template';
+      const isPublic = cred?.visibility === 'public';
+      const isVisibleStatus = status !== 'revoked' && status !== 'expired';
+
+      if (!isPublic || !isVisibleStatus) return false;
+      if (normalizedRole === 'issuer') return isTemplate;
+      return true;
+    })
+    .sort((a, b) => (a.currentOrder ?? 0) - (b.currentOrder ?? 0));
+};
+
+
 export default function ProfilePreview() {
   const { token } = useParams(); // token from URL /profile/:token
 
@@ -133,7 +151,7 @@ export default function ProfilePreview() {
           setSummary(doc.profile.summary || '');
           if (doc.profile.profilePicture) setAvatar(doc.profile.profilePicture);
           if (Array.isArray(doc.profile.sharedCredentials)) {
-            setCredentials(doc.profile.sharedCredentials);
+            setCredentials(filterVisibleProfileCredentials(doc.profile.sharedCredentials, doc.profile.role));
           }
           return;
         }
@@ -170,17 +188,7 @@ export default function ProfilePreview() {
         const data = await apiService.Get_UserCredentials(effectiveUserId);
         // Owner sees ALL credentials, recipient sees only public ones 
         // Hide revoked/expired on public preview for all viewers including owner 
-        const filtered = Array.isArray(data)
-          ? data
-              .filter(c =>
-                c.visibility === 'public' &&
-                c.status !== 'revoked' &&
-                c.status !== 'expired' &&
-                c.status !== 'REVOKED' &&
-                c.status !== 'EXPIRED'
-              )
-              .sort((a, b) => (a.currentOrder ?? 0) - (b.currentOrder ?? 0))
-          : [];
+        const filtered = filterVisibleProfileCredentials(data, profileData?.role || loggedInUser?.role);
         setCredentials(filtered);
       } catch (err) {
         console.error('[PROFILE PREVIEW] Error fetching credentials:', err);
@@ -228,7 +236,7 @@ export default function ProfilePreview() {
         setSummary(result.profile?.summary || '');
         if (result.profile?.profilePicture) setAvatar(result.profile.profilePicture);
         if (Array.isArray(result.profile?.sharedCredentials)) {
-          setCredentials(result.profile.sharedCredentials);
+          setCredentials(filterVisibleProfileCredentials(result.profile.sharedCredentials, result.profile?.role));
         }
         setGateStage('verified');
       } else {

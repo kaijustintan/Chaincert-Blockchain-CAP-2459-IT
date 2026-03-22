@@ -20,6 +20,10 @@ router.patch('/visibility/:credentialId', walletController.updateCredentialVisib
 // Update credential display order.
 router.patch('/order/:credentialId', walletController.updateCredentialOrder);
 
+// PATCH /api/wallet/issuer-template-visibility/:credentialId
+// Update issuer template visibility state.
+router.patch('/issuer-template-visibility/:credentialId', walletController.updateIssuerTemplateVisibility);
+
 // GET /api/wallet/notifications/:holderID
 router.get('/notifications/:holderID', walletController.getUserNotifications);
 

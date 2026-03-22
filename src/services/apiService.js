@@ -1698,6 +1698,28 @@ Get_VerificationLogById: async (logId) => {
   },
 
   /*
+    Function Name: Update_IssuerTemplateVisibility
+    Technical:
+    Updates visibility of an issuer template in wallet_issuer_credentials via:
+      PATCH /api/wallet/issuer-template-visibility/:credentialId
+  */
+  Update_IssuerTemplateVisibility: async (credentialId, visibility) => {
+    try {
+      if (!credentialId) throw new Error('credentialId is required');
+      if (!['public', 'private'].includes(visibility)) throw new Error('visibility must be public or private');
+
+      const response = await axios.patch(
+        `/wallet/issuer-template-visibility/${credentialId}`,
+        { visibility }
+      );
+      return response.data;
+    } catch (error) {
+      console.error('Error updating issuer template visibility:', error.response?.data?.message || error.message);
+      throw error;
+    }
+  },
+
+  /*
     Function Name: Update_CredentialOrder
     Technical:
     Updates currentOrder of a credential in CouchDB via:

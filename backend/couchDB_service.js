@@ -2262,6 +2262,72 @@ async function updateCredentialVisibility(credentialId, newVisibility) {
   }
 }
 
+async function updateIssuerTemplateVisibility(issuerId, credentialId, newVisibility) {
+  try {
+    if (!issuerId) throw new Error('issuerId is required');
+    if (!credentialId) throw new Error('credentialId is required');
+    if (!['public', 'private'].includes(newVisibility)) {
+      throw new Error('visibility must be "public" or "private"');
+    }
+
+    if (!issuersDB) await initializeDatabases();
+
+    const issuer = await getIssuerById(issuerId);
+    if (!issuer || !issuer.couchDBUrl) {
+      throw new Error(`Issuer ${issuerId} has no CouchDB URL configured`);
+    }
+
+    const issuerCouch = require('nano')(issuer.couchDBUrl);
+    const walletDb = issuerCouch.use('wallet_issuer_credentials');
+    const normalizedId = String(credentialId || '').replace(/^issuer_cred_/, '');
+    const candidateIds = [credentialId, normalizedId, `issuer_cred_${normalizedId}`].filter(Boolean);
+
+    for (const docId of [...new Set(candidateIds)]) {
+      try {
+        const doc = await walletDb.get(docId);
+        const isTemplateDoc = doc?.isTemplate === true || String(doc?.type || '').toLowerCase() === 'credential_template';
+        if (!isTemplateDoc) continue;
+        doc.visibility = newVisibility;
+        doc.updatedAt = new Date().toISOString();
+        const result = await walletDb.insert(doc);
+        return { ...result, doc: { ...doc, _rev: result.rev } };
+      } catch (error) {
+        if (error.statusCode !== 404) throw error;
+      }
+    }
+
+    const queryResult = await walletDb.find({
+      selector: {
+        $or: [
+          { _id: credentialId },
+          { id: credentialId },
+          { credentialId: credentialId },
+          { _id: normalizedId },
+          { id: normalizedId },
+          { credentialId: normalizedId }
+        ],
+        $and: [
+          { $or: [{ isTemplate: true }, { type: 'credential_template' }] }
+        ]
+      },
+      limit: 1
+    });
+
+    const templateDoc = Array.isArray(queryResult?.docs) ? queryResult.docs[0] : null;
+    if (!templateDoc) {
+      throw new Error(`Issuer template ${credentialId} not found for visibility update`);
+    }
+
+    templateDoc.visibility = newVisibility;
+    templateDoc.updatedAt = new Date().toISOString();
+    const result = await walletDb.insert(templateDoc);
+    return { ...result, doc: { ...templateDoc, _rev: result.rev } };
+  } catch (error) {
+    console.error('[COUCHDB] ❌ Error updating issuer template visibility:', error.message);
+    throw error;
+  }
+}
+
 /*
   Function Name: updateCredentialOrder
   Technical: Updates the currentOrder field of a credential in wallet_user_credentials.
@@ -3586,6 +3652,7 @@ module.exports = {
   updateProfilePicture,
   getAllUsers,
   updateCredentialVisibility, // - Newly added - olops
+  updateIssuerTemplateVisibility,
   updateCredentialOrder,     // - polo
   isEmailAlreadyUsed,
   deleteIssuerDoc,

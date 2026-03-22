@@ -108,7 +108,10 @@ async function runIntegrityCheck(getContractAndGateway) {
   const userWalletDb = adminCouch.use('wallet_user_credentials');
 
   const allDocs = await userWalletDb.find({
-    selector: { type: 'credential' },
+    selector: {
+      blockchainId: { $exists: true },
+      _id: { $gt: 'user_cred_', $lt: 'user_cred_￰' },
+    },
     limit: 999,
   });
 
@@ -122,7 +125,7 @@ async function runIntegrityCheck(getContractAndGateway) {
 
   for (const doc of allDocs.docs) {
     const blockchainId = doc.blockchainId || doc._id;
-    if (!blockchainId || String(blockchainId).startsWith('user_cred_template_')) continue;
+    if (!blockchainId || String(blockchainId).includes('template')) continue;
 
     try {
       const { gateway: gw, contract } = await getContractAndGateway('chaincert-admin', 'Org1');

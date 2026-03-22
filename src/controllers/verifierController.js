@@ -92,7 +92,18 @@ const Verify_Credential = async (req, res, getContractAndGateway) => {
           // Blockchain returned a definitive answer
           const c = bcResult.credential || {};
           const now = new Date();
-          const chainStatus = c.status || (bcResult.valid ? 'active' : 'unknown');
+          let chainStatus = c.status || '';
+          if (!chainStatus || String(chainStatus).toLowerCase() === 'unknown') {
+            if (bcResult.valid) {
+              chainStatus = 'active';
+            } else {
+              const reasonLower = (bcResult.reason || '').toLowerCase();
+              if (reasonLower.includes('revoked')) chainStatus = 'revoked';
+              else if (reasonLower.includes('expired')) chainStatus = 'expired';
+              else chainStatus = 'invalid';
+            }
+          }
+          chainStatus = String(chainStatus).toLowerCase();
           const chainIsRevoked = chainStatus === 'revoked' || (!bcResult.valid && (bcResult.reason || '').toLowerCase().includes('revoked'));
           const chainIsExpired = c.expiryDate ? new Date(c.expiryDate) < now : (!bcResult.valid && (bcResult.reason || '').toLowerCase().includes('expired'));
 
@@ -189,7 +200,14 @@ const Verify_Credential = async (req, res, getContractAndGateway) => {
       if (couchResult.docs && couchResult.docs.length > 0) {
         const credential = couchResult.docs[0];
         const now = new Date();
-        const status = credential.status || 'unknown';
+        let status = credential.status || '';
+        if (!status || String(status).toLowerCase() === 'unknown') {
+          if (credential.isRevoked === true || credential.revoked === true) status = 'revoked';
+          else if (credential.expiryDate && new Date(credential.expiryDate) < now) status = 'expired';
+          else if (credential.blockchainId || credential._id) status = 'active';
+          else status = 'invalid';
+        }
+        status = String(status).toLowerCase();
         const isRevoked = status === 'revoked' || credential.isRevoked === true || credential.revoked === true;
         const isExpired = credential.expiryDate ? new Date(credential.expiryDate) < now : false;
         const isStatusValid = status === 'active' || status === 'issued';

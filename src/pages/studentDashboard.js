@@ -86,6 +86,7 @@ export default function StudentDashboard() {
   const [notificationsLoading, setNotificationsLoading] = useState(true);
   const [notificationsError, setNotificationsError] = useState(null);
   const [unreadCount, setUnreadCount] = useState(0);
+  const unreadNotifications = useMemo(() => notifications.filter((n) => !n.read), [notifications]);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const notificationPanelRef = useRef(null);
 
@@ -382,6 +383,30 @@ export default function StudentDashboard() {
     setHistoryError(null);
   };
 
+  const handleMarkAllRead = async () => {
+    try {
+      await Promise.all(unreadNotifications.map((notification) => apiService.markNotificationAsRead(notification._id)));
+      setNotifications((prev) => prev.map((notification) => ({ ...notification, read: true, readAt: notification.readAt || new Date().toISOString() })));
+      setUnreadCount(0);
+    } catch (err) {
+      console.error('[STUDENT DASHBOARD] Failed to mark all notifications as read:', err);
+    }
+  };
+
+  const handleToggleVisibility = async () => {
+    if (!selectedCred) return;
+    const credentialKey = selectedCred.blockchainId || selectedCred._id;
+    const newVisibility = selectedCred.visibility === 'public' ? 'private' : 'public';
+
+    try {
+      await apiService.Update_CredentialVisibility(credentialKey, newVisibility);
+      setCredentials((prev) => prev.map((cred) => ((cred.blockchainId || cred._id) === credentialKey ? { ...cred, visibility: newVisibility } : cred)));
+      setSelectedCred((prev) => (prev ? { ...prev, visibility: newVisibility } : prev));
+    } catch (err) {
+      console.error('[STUDENT DASHBOARD] Failed to update credential visibility:', err);
+    }
+  };
+
   // ── Render ─────────────────────────────────────────────────────────────────
 
   return (
@@ -411,6 +436,15 @@ export default function StudentDashboard() {
               <div className="notification-panel">
                 <div className="notification-panel-header">
                   <h3>Notifications</h3>
+                  {unreadNotifications.length > 0 && (
+                    <button
+                      type="button"
+                      onClick={handleMarkAllRead}
+                      style={{ padding: "6px 14px", fontSize: "12px", background: "rgba(139,92,246,0.12)", color: "#a78bfa", border: "1px solid rgba(139,92,246,0.25)", borderRadius: "8px", cursor: "pointer" }}
+                    >
+                      Mark All as Read
+                    </button>
+                  )}
                 </div>
 
                 {notificationsLoading && (
@@ -738,6 +772,29 @@ export default function StudentDashboard() {
                 <span className="detail-label">Status</span>
                 <span className="detail-value">
                   <StatusPill status={selectedCred.status} />
+                </span>
+              </div>
+
+              <div className="detail-row">
+                <span className="detail-label">Visibility</span>
+                <span className="detail-value">
+                  <button
+                    type="button"
+                    onClick={handleToggleVisibility}
+                    style={{
+                      padding: '4px 14px',
+                      borderRadius: '20px',
+                      fontSize: '12px',
+                      fontWeight: 600,
+                      cursor: 'pointer',
+                      border: '1px solid',
+                      borderColor: selectedCred.visibility === 'public' ? '#22c55e' : '#f59e0b',
+                      background: selectedCred.visibility === 'public' ? 'rgba(34,197,94,0.12)' : 'rgba(245,158,11,0.12)',
+                      color: selectedCred.visibility === 'public' ? '#22c55e' : '#f59e0b',
+                    }}
+                  >
+                    {selectedCred.visibility === 'public' ? '🌐 Public' : '🔒 Private'} — Click to toggle
+                  </button>
                 </span>
               </div>
 

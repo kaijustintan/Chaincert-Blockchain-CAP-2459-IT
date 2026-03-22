@@ -12,7 +12,6 @@ export default function CredentialHistoryPage() {
 
   // 🔧 FILTER STATES
   const [sortBy, setSortBy] = useState("timestamp-desc");
-  const [filterAction, setFilterAction] = useState("all");
   const [filterStatus, setFilterStatus] = useState("all");
   const [filterType, setFilterType] = useState("all");
 
@@ -31,11 +30,6 @@ export default function CredentialHistoryPage() {
   // 🔧 APPLY LOCAL FILTERS WHENEVER ANY FILTER CHANGES
   useEffect(() => {
     let result = [...allHistory];
-
-    // Filter by action
-    if (filterAction !== "all") {
-      result = result.filter((record) => getActionType(record) === filterAction);
-    }
 
     // Filter by status
     if (filterStatus !== "all") {
@@ -91,7 +85,6 @@ export default function CredentialHistoryPage() {
   }, [
     allHistory,
     sortBy,
-    filterAction,
     filterStatus,
     filterType,
     searchId,      // NEW dep
@@ -259,26 +252,6 @@ export default function CredentialHistoryPage() {
     return Array.from(names).sort();
   };
 
-  /* CSS-CHANGE: helper to get action badge class name based on action type */
-  const getActionBadgeClass = (action) => {
-    switch (action) {
-      case "Created Template": return "history-action-badge history-action-badge--created";
-      case "Issued": return "history-action-badge history-action-badge--issued";
-      case "Revoked": return "history-action-badge history-action-badge--revoked";
-      default: return "history-action-badge history-action-badge--updated";
-    }
-  };
-
-  /* CSS-CHANGE: helper to get action display text */
-  const getActionDisplayText = (action) => {
-    switch (action) {
-      case "Created Template": return "✅ Created Template";
-      case "Issued": return "📝 Issued";
-      case "Revoked": return "❌ Revoked";
-      default: return "🔄 Updated";
-    }
-  };
-
   /* CSS-CHANGE: helper to get status class and text */
   const getStatusInfo = (record) => {
   const rawStatus = record.value?.status || record.currentStatus || "";
@@ -368,24 +341,6 @@ export default function CredentialHistoryPage() {
             🔎 Filter & Sort History
           </h4>
           <div className="history-filter-grid">
-            {/* Action Filter */}
-            <div className="history-filter-group">
-              <label className="history-filter-label">
-                Action
-              </label>
-              {/* CSS-CHANGE: replaced inline style with className */}
-              <select
-                value={filterAction}
-                onChange={(e) => setFilterAction(e.target.value)}
-                className="history-filter-select"
-              >
-                <option value="all">All Actions</option>
-                <option value="Created Template">✅ Created Template</option>
-                <option value="Issued">📝 Issued</option>
-                <option value="Revoked">❌ Revoked</option>
-                              </select>
-            </div>
-
             {/* Status Filter */}
             <div className="history-filter-group">
               <label className="history-filter-label">
@@ -480,8 +435,7 @@ export default function CredentialHistoryPage() {
   <thead>
     <tr>
       <th>Timestamp</th>
-      <th>Action</th>
-      <th>Credential Name</th>
+            <th>Credential Name</th>
       <th>Credential Type</th>
       <th>Status</th>
       <th>Holder Name</th>
@@ -493,18 +447,11 @@ export default function CredentialHistoryPage() {
 
   <tbody>
     {filteredHistory.map((record, index) => {
-      const action = getActionType(record);
       const statusInfo = getStatusInfo(record);
 
       return (
         <tr key={`${record.credentialId}-${record.txId}-${index}`}>
           <td style={{ whiteSpace: "nowrap" }}>{formatDate(record.timestamp)}</td>
-
-          <td>
-            <span className={getActionBadgeClass(action)}>
-              {getActionDisplayText(action)}
-            </span>
-          </td>
 
           <td>
             <strong>{record.credentialName || "N/A"}</strong>

@@ -4,6 +4,8 @@ import apiService from "../services/apiService";
 import "../styles/createAccount.css";
 import AppToast from "../components/appToast";
 
+const VALID_EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
+
 export default function CreateAccount() {
   const navigate = useNavigate();
 
@@ -115,6 +117,10 @@ export default function CreateAccount() {
     }
     if (!user.email) {
       setUserError("Email is required.");
+      return;
+    }
+    if (!VALID_EMAIL_REGEX.test(String(user.email).trim())) {
+      setUserError("Please enter a valid email address (e.g., name@example.com).");
       return;
     }
 
@@ -420,6 +426,12 @@ const getDocumentDescription = (docKey) => {
       !issuer.confirmPassword
     ) {
       setIssuerError("All basic fields are required.");
+      setIssuerLoading(false);
+      return;
+    }
+
+    if (!VALID_EMAIL_REGEX.test(String(issuer.email).trim())) {
+      setIssuerError("Please enter a valid email address (e.g., name@example.com).");
       setIssuerLoading(false);
       return;
     }

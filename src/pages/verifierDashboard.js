@@ -4,6 +4,9 @@ import { useSearchParams } from 'react-router-dom';
 import "../styles/verifierDashboard.css";
 import apiService from "../services/apiService";
 
+const VALID_EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
+
+
 export default function VerifierDashboard() {
   const [searchParams] = useSearchParams();
   const [query, setQuery] = useState("");
@@ -116,6 +119,11 @@ export default function VerifierDashboard() {
 
     if (!trimmedName || !trimmedEmail) {
       setVerifierFormError("Please provide both your name and email to continue.");
+      return;
+    }
+
+    if (!VALID_EMAIL_REGEX.test(trimmedEmail)) {
+      setVerifierFormError("Please enter a valid email address (e.g., name@example.com).");
       return;
     }
 

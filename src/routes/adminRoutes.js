@@ -112,12 +112,29 @@ router.post('/root-reject-subordinate/:issuerId', (req, res) => {
 // ADMIN DASHBOARD DATA
 // =========================
 
+// GET /api/admin/notifications
+router.get('/notifications', adminDashboardController.getAdminNotificationsController);
+
+// GET /api/admin/notifications/unread
+router.get('/notifications/unread', adminDashboardController.getUnreadAdminNotificationsController);
+
+// PATCH /api/admin/notifications/:notificationId/read
+router.patch('/notifications/:notificationId/read', adminDashboardController.markAdminNotificationAsReadController);
+
+// PATCH /api/admin/notifications/read-all
+router.patch('/notifications/read-all', adminDashboardController.markAllAdminNotificationsAsReadController);
+
 // GET /api/admin/credentials/all
 router.get('/credentials/all', adminDashboardController.getAllIssuerCredentialsAdminController);
 
 // POST /api/admin/trigger-expiry-check
 router.post('/trigger-expiry-check', (req, res) => {
   adminDashboardController.triggerExpiryCheck(req, res, req.app.locals.getContractAndGateway);
+});
+
+// POST /api/admin/integrity-check
+router.post('/integrity-check', (req, res) => {
+  adminDashboardController.triggerIntegrityCheck(req, res, req.app.locals.getContractAndGateway);
 });
 
 // POST /api/admin/trigger-integrity-check

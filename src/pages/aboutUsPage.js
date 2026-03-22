@@ -10,6 +10,7 @@ function AboutUsPage() {
       {/* ── HERO ── */}
       <section className="about-hero">
         <div className="about-badge">About the Platform</div>
+        <div className="about-badge about-powered-badge">Powered by Hyperledger Fabric</div>
         <h1 className="about-hero-title">
           Built for Trust.<br />
           <span className="about-gradient">Powered by Blockchain.</span>

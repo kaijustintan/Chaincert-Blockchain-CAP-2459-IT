@@ -252,3 +252,5 @@
   .faq-question { padding: 14px 16px; }
   .quick-link { padding: 8px 14px; }
 }
+.help-container { background: linear-gradient(180deg, rgba(4,3,10,0.94) 0%, rgba(9,6,24,0.92) 100%); }
+.quick-link, .faq-item, .contact-card { box-shadow: 0 8px 28px rgba(0,0,0,0.18); }

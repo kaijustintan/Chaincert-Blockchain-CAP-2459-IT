@@ -75,6 +75,7 @@ export default function IssuerDashboard() {
   const [availableUsers, setAvailableUsers] = useState([]);
   const [noTemplateError, setNoTemplateError] = useState("");
   const [issueTemplateSearch, setIssueTemplateSearch] = useState("");
+  const [issueTemplateTypeFilter, setIssueTemplateTypeFilter] = useState("all");
   const [issueRecipientSearch, setIssueRecipientSearch] = useState("");
   const [issueTemplateOpen, setIssueTemplateOpen] = useState(false);
   const [issueRecipientOpen, setIssueRecipientOpen] = useState(false);
@@ -108,6 +109,7 @@ export default function IssuerDashboard() {
   const [revokeTypeFilter, setRevokeTypeFilter] = useState("all");
   const [revokeSectionSearch, setRevokeSectionSearch] = useState("");
   const [revokeSortBy, setRevokeSortBy] = useState("newest");
+  const [filterRecordKind, setFilterRecordKind] = useState("all");
   const [viewAllTypeFilter, setViewAllTypeFilter] = useState("all");
   const [viewAllSearch, setViewAllSearch] = useState("");
   const [viewAllSortBy, setViewAllSortBy] = useState("newest");
@@ -117,6 +119,7 @@ export default function IssuerDashboard() {
   const [subordinateDirectoryLoading, setSubordinateDirectoryLoading] = useState(false);
   const [subordinateDirectoryError, setSubordinateDirectoryError] = useState("");
   const [subordinateDirectoryFilter, setSubordinateDirectoryFilter] = useState("all");
+  const [totalSubordinateCount, setTotalSubordinateCount] = useState(0);
 
   const [rootSubordinateLogs, setRootSubordinateLogs] = useState([]);
   const [rootSubordinateLogsLoading, setRootSubordinateLogsLoading] = useState(false);
@@ -215,6 +218,7 @@ export default function IssuerDashboard() {
       else if (mode === "pending") response = await apiService.getPendingSubordinatesForRoot();
       else response = await apiService.getAllSubordinatesForRoot();
       const list = Array.isArray(response?.data) ? response.data : Array.isArray(response) ? response : [];
+      if (mode === "all") setTotalSubordinateCount(list.length);
       setSubordinateDirectory(list);
     } catch (err) {
       console.error("Error fetching subordinate directory:", err);
@@ -362,11 +366,17 @@ export default function IssuerDashboard() {
 
 
   const searchableIssuedCredentials = useMemo(() => credentials.filter((c) => c.status === "issued" || !c.status || c.status === "active"), [credentials]);
+  const issueTemplateTypeOptions = useMemo(() => Array.from(new Set(templateOptions.map((template) => template.credentialType).filter(Boolean))).sort((a, b) => a.localeCompare(b)), [templateOptions]);
+
   const filteredTemplateOptions = useMemo(() => {
     const query = issueTemplateSearch.trim().toLowerCase();
-    if (!query) return templateOptions;
-    return templateOptions.filter((template) => [template.credentialName, template.credentialType, template.description, template.id, template._id].filter(Boolean).join(" ").toLowerCase().includes(query));
-  }, [templateOptions, issueTemplateSearch]);
+    let result = [...templateOptions];
+    if (issueTemplateTypeFilter !== "all") {
+      result = result.filter((template) => String(template.credentialType || "").toLowerCase() === issueTemplateTypeFilter.toLowerCase());
+    }
+    if (!query) return result;
+    return result.filter((template) => [template.credentialName, template.credentialType, template.description, template.id, template._id].filter(Boolean).join(" ").toLowerCase().includes(query));
+  }, [templateOptions, issueTemplateSearch, issueTemplateTypeFilter]);
 
   const filteredAvailableUsers = useMemo(() => {
     const query = issueRecipientSearch.trim().toLowerCase();
@@ -477,7 +487,10 @@ export default function IssuerDashboard() {
 
   const filteredAllCredentialRows = useMemo(() => {
     let result = [...allCredentialRows];
-    if (viewAllTypeFilter !== "all") result = result.filter((row) => row.rowType === viewAllTypeFilter);
+    if (filterRecordKind !== "all") {
+      result = result.filter((row) => filterRecordKind === "templates" ? row.rowType === "template" : row.rowType !== "template");
+    }
+    if (viewAllTypeFilter !== "all") result = result.filter((row) => String(row.type || "").toLowerCase() === viewAllTypeFilter.toLowerCase());
     const query = viewAllSearch.trim().toLowerCase();
     if (query) result = result.filter((row) => [row.name, row.type, row.status, row.holderName, row.source?.blockchainId, row.source?.id].filter(Boolean).join(" ").toLowerCase().includes(query));
     switch (viewAllSortBy) {
@@ -488,17 +501,13 @@ export default function IssuerDashboard() {
       default: result.sort((a, b) => new Date(b.createdDate || 0) - new Date(a.createdDate || 0)); break;
     }
     return result;
-  }, [allCredentialRows, viewAllTypeFilter, viewAllSearch, viewAllSortBy]);
+  }, [allCredentialRows, filterRecordKind, viewAllTypeFilter, viewAllSearch, viewAllSortBy]);
 
   const revokableCount = useMemo(
     () => credentials.filter((c) => c.status === "issued" || c.status === "active").length,
     [credentials]
   );
 
-  const approvedSubordinatesCount = useMemo(
-    () => subordinateDirectory.filter((subordinate) => String(subordinate?.status || "").toLowerCase() === "approved").length,
-    [subordinateDirectory]
-  );
 
   const filteredRevokableCredentials = useMemo(() => {
     const query = revokeCredentialSearch.trim().toLowerCase();
@@ -678,7 +687,7 @@ export default function IssuerDashboard() {
   const resetCreateViewFilters = () => { setTemplateSearch(""); setTemplateTypeFilter("all"); setTemplateSortBy("newest"); };
   const resetIssueViewFilters = () => { setSortBy("issuedDate-desc"); setFilterType("all"); setFilterStatus("all"); setIssueSearch(""); };
   const resetRevokeViewFilters = () => { setRevokeStatusFilter("all"); setRevokeTypeFilter("all"); setRevokeSectionSearch(""); setRevokeSortBy("newest"); };
-  const resetViewAllFilters = () => { setViewAllTypeFilter("all"); setViewAllSearch(""); setViewAllSortBy("newest"); };
+  const resetViewAllFilters = () => { setFilterRecordKind("all"); setViewAllTypeFilter("all"); setViewAllSearch(""); setViewAllSortBy("newest"); };
 
   const openDashboardView = (view) => {
     if (view === "create") resetCreateViewFilters();
@@ -688,7 +697,7 @@ export default function IssuerDashboard() {
     setActiveView(view);
   };
 
-  const goHome = () => setActiveView("home");
+  const goHome = () => { setSubordinateDirectoryFilter("all"); setActiveView("home"); };
 
   // -------------------------------------------------------------------
   // LOADING / ERROR STATES
@@ -747,7 +756,7 @@ export default function IssuerDashboard() {
             </div>
             {!isSubordinate && (
               <div className="issuer-stat-card">
-                <span className="issuer-stat-num">{approvedSubordinatesCount}</span>
+                <span className="issuer-stat-num">{totalSubordinateCount}</span>
                 <span className="issuer-stat-label">Subordinates</span>
               </div>
             )}
@@ -914,7 +923,7 @@ export default function IssuerDashboard() {
           <h2>View Credentials</h2>
           <div className="table-container">
             <div className="filter-row">
-              <div className="filter-group"><label>Type:</label><select value={viewAllTypeFilter} onChange={(e) => setViewAllTypeFilter(e.target.value)} className="filter-select"><option value="all">All</option><option value="template">Template</option><option value="issued">Issued</option><option value="revoked">Revoked</option><option value="expired">Expired</option></select></div>
+              <div className="filter-group"><label>Record Kind:</label><select value={filterRecordKind} onChange={(e) => setFilterRecordKind(e.target.value)} className="filter-select"><option value="all">All</option><option value="templates">Templates</option><option value="issued">Issued Credentials</option></select></div><div className="filter-group"><label>Type:</label><select value={viewAllTypeFilter} onChange={(e) => setViewAllTypeFilter(e.target.value)} className="filter-select"><option value="all">All Types</option>{getUniqueCredentialTypes().map((type) => <option key={type} value={type}>{type}</option>)}</select></div>
               <div className="filter-group"><label>Search:</label><input value={viewAllSearch} onChange={(e) => setViewAllSearch(e.target.value)} placeholder="Search credentials..." className="filter-select" /></div>
               <div className="filter-group"><label>Sort by:</label><select value={viewAllSortBy} onChange={(e) => setViewAllSortBy(e.target.value)} className="filter-select"><option value="newest">Most Recent</option><option value="oldest">Oldest First</option><option value="name-asc">Name A-Z</option><option value="name-desc">Name Z-A</option></select></div>
             </div>
@@ -1022,7 +1031,7 @@ export default function IssuerDashboard() {
               <h3 style={{ margin: 0 }}>My Subordinates</h3>
               <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
                 <label htmlFor="subordinateDirectoryFilter">View:</label>
-                <select id="subordinateDirectoryFilter" value={subordinateDirectoryFilter} onChange={(e) => setSubordinateDirectoryFilter(e.target.value)}>
+                <select id="subordinateDirectoryFilter" value={subordinateDirectoryFilter} onChange={(e) => setSubordinateDirectoryFilter(e.target.value)} className="filter-select">
                   <option value="all">All Subordinates</option>
                   <option value="pending">Pending Root Approval</option>
                   <option value="root_approved">Root Approved</option>
@@ -1079,7 +1088,7 @@ export default function IssuerDashboard() {
               <h3 style={{ margin: 0 }}>Subordinate Decision Logs</h3>
               <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
                 <label htmlFor="rootSubordinateLogFilter">View:</label>
-                <select id="rootSubordinateLogFilter" value={rootSubordinateLogFilter} onChange={(e) => setRootSubordinateLogFilter(e.target.value)}>
+                <select id="rootSubordinateLogFilter" value={rootSubordinateLogFilter} onChange={(e) => setRootSubordinateLogFilter(e.target.value)} className="filter-select">
                   <option value="all">All</option>
                   <option value="approved">Approved</option>
                   <option value="rejected">Rejected</option>
@@ -1162,7 +1171,16 @@ export default function IssuerDashboard() {
           <div className="modal modal-wide">
             <div className="modal-header"><h3>Issue Credential</h3><button type="button" className="modal-close" onClick={closeIssueModal}>✕</button></div>
             <form onSubmit={handleIssueCredential}>
-              <div className="modal-section-heading">Choose a template and recipient to issue a credential quickly.</div>
+              <div className="modal-section-heading" style={{ marginTop: "12px" }}>Choose a template and recipient to issue a credential quickly.</div>
+              <div className="issue-modal-grid">
+                <div className="form-group compact-form-group">
+                  <label>Template Type</label>
+                  <select className="filter-select" value={issueTemplateTypeFilter} onChange={(e) => setIssueTemplateTypeFilter(e.target.value)}>
+                    <option value="all">All Types</option>
+                    {issueTemplateTypeOptions.map((type) => <option key={type} value={type}>{type}</option>)}
+                  </select>
+                </div>
+              </div>
               <div className="form-group">
                 <label>Credential Template <span className="required-star">*</span></label>
                 <div className="searchable-select-wrapper">

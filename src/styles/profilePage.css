@@ -397,3 +397,22 @@
   text-transform: uppercase;
   letter-spacing: 0.5px;
 }
+
+
+.filter-select {
+  min-height: 42px;
+  padding: 10px 14px;
+  border-radius: 12px;
+  border: 1px solid rgba(139,92,246,0.24);
+  background: rgba(14,10,34,0.92);
+  color: #f5f3ff;
+  font-size: 13px;
+  font-family: 'Poppins', sans-serif;
+  outline: none;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.filter-select:focus {
+  border-color: #8b5cf6;
+  box-shadow: 0 0 0 3px rgba(139,92,246,0.18);
+}

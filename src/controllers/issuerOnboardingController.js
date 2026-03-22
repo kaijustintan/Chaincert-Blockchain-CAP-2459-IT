@@ -53,6 +53,10 @@ const issuerOnboardingController = {
         });
       }
 
+      if (dupCheck?.previouslyRejected && dupCheck?.rejectedDocId && dupCheck?.rejectedDocRev) {
+        await couchDB.deleteIssuerDoc(dupCheck.rejectedDocId, dupCheck.rejectedDocRev);
+      }
+
       const normalizedIssuerType = String(issuerType || 'root').trim().toLowerCase();
       if (!['root', 'subordinate'].includes(normalizedIssuerType)) {
         return res.status(400).json({
@@ -135,16 +139,6 @@ const issuerOnboardingController = {
         });
       }
 
-      let accreditationCheck = null;
-      try {
-        console.log(`[ACCREDITATION] (Optional) Checking accreditation for "${orgName}"...`);
-        accreditationCheck = await couchDB.checkIfOrgAccredited(orgName);
-        console.log('[ACCREDITATION] Result (non-blocking):', accreditationCheck);
-      } catch (accErr) {
-        console.warn('[ACCREDITATION] Check failed (proceeding anyway):', accErr.message);
-        accreditationCheck = null;
-      }
-
       console.log('[HASH] Hashing password...');
       const hashedPassword = await bcrypt.hash(password, 10);
 
@@ -172,7 +166,7 @@ const issuerOnboardingController = {
 
       let result;
       try {
-        result = await couchDB.createIssuerRegistration(issuerData, accreditationCheck);
+        result = await couchDB.createIssuerRegistration(issuerData, null);
       } catch (err) {
         if (err.statusCode === 409) {
           return res.status(409).json({
@@ -182,6 +176,18 @@ const issuerOnboardingController = {
           });
         }
         throw err;
+      }
+
+      try {
+        await couchDB.createAdminNotification({
+          category: 'issuer_registration',
+          title: 'New Issuer Registration',
+          message: `${issuerData.orgName} has registered and is pending approval.`,
+          issuerId: result.id,
+          issuerEmail: issuerData.email
+        });
+      } catch (notificationError) {
+        console.warn('[ADMIN NOTIFICATION] Failed to create issuer registration notification:', notificationError.message);
       }
 
       console.log('[REGISTER ISSUER] ✅ Result:', result);
@@ -195,9 +201,7 @@ const issuerOnboardingController = {
         rootAuthorityId: issuerData.rootAuthorityId,
         rootAuthorityName: issuerData.rootAuthorityName,
         category: issuerData.category,
-        requiredDocumentsValidated: true,
-        accredited: accreditationCheck?.isAccredited ?? false,
-        accreditedType: accreditationCheck?.accreditedType ?? null
+        requiredDocumentsValidated: true
       });
     } catch (error) {
       console.error('Issuer registration error:', error);

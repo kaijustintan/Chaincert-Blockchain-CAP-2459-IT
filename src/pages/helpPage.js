@@ -43,6 +43,18 @@ function HelpPage() {
       q: "What types of credentials can be issued?",
       a: "ChainCert supports any type of digital credential: degrees, diplomas, certificates, micro-credentials, professional licenses, awards, and more. Issuers define the type, skills, and metadata for each template."
     },
+    {
+      q: "How do issuers get approved?",
+      a: "Issuer applications go through document review and approval workflows. Root authorities review subordinate issuers first when applicable, then administrators complete the final approval before credential issuance is enabled."
+    },
+    {
+      q: "What happens when a credential is revoked?",
+      a: "A revoked credential remains in the audit trail, but its status changes immediately. Verifiers will see that the credential is no longer valid, and the blockchain history preserves when and why the change happened."
+    },
+    {
+      q: "Can I export my credentials?",
+      a: "Yes. Holders can export credentials as PDF documents with verification data and QR support, while still keeping the original blockchain-backed record available for future checks."
+    },
   ];
 
   return (
@@ -61,16 +73,16 @@ function HelpPage() {
       {/* ── QUICK LINKS ── */}
       <section className="help-quick-links">
         <div className="quick-link" onClick={() => setOpenFaq(0)}>
-          <span className="ql-text">For Students</span>
+          <span className="ql-text">🎓 For Students</span>
         </div>
         <div className="quick-link" onClick={() => setOpenFaq(2)}>
-          <span className="ql-text">For Employers</span>
+          <span className="ql-text">✅ For Employers</span>
         </div>
         <div className="quick-link" onClick={() => setOpenFaq(5)}>
-          <span className="ql-text">Why Blockchain?</span>
+          <span className="ql-text">⛓️ Why Blockchain?</span>
         </div>
         <div className="quick-link" onClick={() => setOpenFaq(4)}>
-          <span className="ql-text">Privacy & Security</span>
+          <span className="ql-text">🔒 Privacy & Security</span>
         </div>
       </section>
 

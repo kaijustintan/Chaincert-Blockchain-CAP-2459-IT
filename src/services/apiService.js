@@ -660,7 +660,6 @@ getAdminActionablePendingIssuers: async () => {
     Technical:
     Retrieves all APPROVED issuers from backend.
     Tropang Ex: Admin dashboard list ng lahat ng currently approved issuers
-    / accredited organizations.
   */
   getApprovedIssuers: async () => {
     try {
@@ -1773,6 +1772,68 @@ Get_VerificationLogById: async (logId) => {
     }
   },
 
+
+  /*
+    Function Name: getAdminNotifications
+    Technical: Fetches all admin notifications for the admin dashboard bell panel.
+    Tropang Ex: Ito yung full notif list ni admin.
+  */
+  getAdminNotifications: async () => {
+    try {
+      const response = await axios.get('/admin/notifications');
+      return response.data;
+    } catch (error) {
+      console.error('Error fetching admin notifications:', error.response?.data?.message || error.message);
+      throw error;
+    }
+  },
+
+  /*
+    Function Name: getUnreadAdminNotifications
+    Technical: Fetches unread admin notifications for badge count.
+    Tropang Ex: Ito yung pang-red badge sa admin bell.
+  */
+  getUnreadAdminNotifications: async () => {
+    try {
+      const response = await axios.get('/admin/notifications/unread');
+      return response.data;
+    } catch (error) {
+      console.error('Error fetching unread admin notifications:', error.response?.data?.message || error.message);
+      throw error;
+    }
+  },
+
+  /*
+    Function Name: markAdminNotificationAsRead
+    Technical: Marks a single admin notification as read.
+    Tropang Ex: Pag clinick ni admin yung notif, dito siya nagiging read.
+  */
+  markAdminNotificationAsRead: async (notificationId) => {
+    try {
+      if (!notificationId) throw new Error('notificationId is required');
+      const response = await axios.patch(`/admin/notifications/${notificationId}/read`);
+      return response.data;
+    } catch (error) {
+      console.error('Error marking admin notification as read:', error.response?.data?.message || error.message);
+      throw error;
+    }
+  },
+
+  /*
+    Function Name: markAllAdminNotificationsAsRead
+    Technical: Marks all unread admin notifications as read.
+    Tropang Ex: Isang pindot, read na lahat ng admin notifications.
+  */
+  markAllAdminNotificationsAsRead: async () => {
+    try {
+      const response = await axios.patch('/admin/notifications/read-all');
+      return response.data;
+    } catch (error) {
+      console.error('Error marking all admin notifications as read:', error.response?.data?.message || error.message);
+      throw error;
+    }
+  },
+
   // =============================================================================================================
 // ADMIN / SETTINGS - CHANGE PASSWORD
 // =============================================================================================================
@@ -2284,7 +2345,7 @@ GetRootSubordinateRejectionLogsByRootAuthority: async () => {
   // Fetch all share links for logged-in user
   triggerIntegrityCheck: async () => {
     try {
-      const response = await axios.post('/admin/trigger-integrity-check');
+      const response = await axios.post('/admin/integrity-check');
       return response.data;
     } catch (error) {
       console.error('Error running integrity check:', error.response?.data?.message || error.message);

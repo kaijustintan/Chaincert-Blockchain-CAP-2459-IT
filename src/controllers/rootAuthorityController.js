@@ -186,6 +186,18 @@ const rootAuthorityController = {
         gateway = null;
       }
 
+      try {
+        await couchDB.createAdminNotification({
+          category: 'subordinate_root_approved',
+          title: 'Subordinate Approved by Root',
+          message: `${subordinateDoc?.orgName || issuerId} was approved by root authority ${rootAuthorityDoc.orgName || rootAuthorityDoc.email}.`,
+          issuerId,
+          issuerEmail: subordinateDoc?.email || null
+        });
+      } catch (notificationError) {
+        console.warn('[ADMIN NOTIFICATION] Failed to create root approval notification:', notificationError.message);
+      }
+
       return res.status(200).json({
         success: true,
         message: blockchainWarning
@@ -267,6 +279,18 @@ const rootAuthorityController = {
       } finally {
         try { if (gateway) await gateway.disconnect(); } catch (_) {}
         gateway = null;
+      }
+
+      try {
+        await couchDB.createAdminNotification({
+          category: 'subordinate_root_rejected',
+          title: 'Subordinate Rejected by Root',
+          message: `${subordinateDoc?.orgName || issuerId} was rejected by root authority ${rootAuthorityDoc.orgName || rootAuthorityDoc.email}.`,
+          issuerId,
+          issuerEmail: subordinateDoc?.email || null
+        });
+      } catch (notificationError) {
+        console.warn('[ADMIN NOTIFICATION] Failed to create root rejection notification:', notificationError.message);
       }
 
       return res.status(200).json({

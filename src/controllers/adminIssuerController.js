@@ -159,8 +159,6 @@ const adminIssuerController = {
         contactName: doc.contactName,
         email: doc.email,
         status: doc.status,
-        accredited: doc.accredited,
-        accreditedType: doc.accreditedType,
         createdAt: doc.createdAt,
         approvedAt: doc.approvedAt,
         approvedBy: doc.approvedBy,
@@ -196,8 +194,6 @@ const adminIssuerController = {
         contactName: doc.contactName,
         email: doc.email,
         status: doc.status,
-        accredited: doc.accredited,
-        accreditedType: doc.accreditedType,
         createdAt: doc.createdAt,
         rejectedAt: doc.rejectedAt || null,
         rejectedBy: doc.rejectedBy || null,
@@ -236,8 +232,6 @@ const adminIssuerController = {
         contactName: doc.contactName,
         email: doc.email,
         status: doc.status,
-        accredited: doc.accredited,
-        accreditedType: doc.accreditedType,
         createdAt: doc.createdAt,
         approvedAt: doc.approvedAt || null,
         approvedBy: doc.approvedBy || null,
@@ -328,6 +322,18 @@ const adminIssuerController = {
         gateway = null;
       }
 
+      try {
+        await couchDB.createAdminNotification({
+          category: 'issuer_approved',
+          title: 'Issuer Approved',
+          message: `${orgName} was approved by admin ${adminEmail}.`,
+          issuerId,
+          issuerEmail
+        });
+      } catch (notificationError) {
+        console.warn('[ADMIN NOTIFICATION] Failed to create issuer approval notification:', notificationError.message);
+      }
+
       // Fire-and-forget approval email
       sendIssuerApprovalEmail(issuerEmail, orgName).catch(() => {});
 
@@ -405,6 +411,18 @@ const adminIssuerController = {
       } finally {
         try { if (gateway) await gateway.disconnect(); } catch (_) {}
         gateway = null;
+      }
+
+      try {
+        await couchDB.createAdminNotification({
+          category: 'issuer_rejected',
+          title: 'Issuer Rejected',
+          message: `${orgName || issuerEmail || issuerId} was rejected by admin ${adminEmail}.`,
+          issuerId,
+          issuerEmail
+        });
+      } catch (notificationError) {
+        console.warn('[ADMIN NOTIFICATION] Failed to create issuer rejection notification:', notificationError.message);
       }
 
       return res.status(200).json({
@@ -504,6 +522,18 @@ const adminIssuerController = {
       } finally {
         try { if (gateway) await gateway.disconnect(); } catch (_) {}
         gateway = null;
+      }
+
+      try {
+        await couchDB.createAdminNotification({
+          category: 'issuer_disabled',
+          title: 'Issuer Disabled',
+          message: `${issuer.orgName || issuer.email || issuerId} was disabled by admin ${adminEmail}.`,
+          issuerId,
+          issuerEmail: issuer.email || null
+        });
+      } catch (notificationError) {
+        console.warn('[ADMIN NOTIFICATION] Failed to create issuer disable notification:', notificationError.message);
       }
 
       return res.status(200).json({

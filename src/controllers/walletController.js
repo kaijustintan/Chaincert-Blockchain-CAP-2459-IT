@@ -56,6 +56,39 @@ const walletController = {
     }
   },
 
+  updateIssuerTemplateVisibility: async (req, res) => {
+    try {
+      const { credentialId } = req.params;
+      const { visibility } = req.body;
+      const issuerId = req.user?.id;
+
+      if (!issuerId) {
+        return res.status(401).json({ success: false, message: 'Unauthorized' });
+      }
+      if (!credentialId) {
+        return res.status(400).json({ success: false, message: 'credentialId is required' });
+      }
+      if (!visibility || !['public', 'private'].includes(visibility)) {
+        return res.status(400).json({ success: false, message: 'visibility must be "public" or "private"' });
+      }
+
+      const result = await couchDB.updateIssuerTemplateVisibility(issuerId, credentialId, visibility);
+
+      return res.status(200).json({
+        success: true,
+        message: `Issuer template visibility updated to ${visibility}`,
+        credentialId,
+        issuerId,
+        visibility,
+        doc: result?.doc || null,
+        timestamp: new Date().toISOString()
+      });
+    } catch (error) {
+      console.error('[WALLET CONTROLLER] Error updating issuer template visibility:', error);
+      return res.status(500).json({ success: false, message: `Error updating issuer template visibility: ${error.message}` });
+    }
+  },
+
   updateCredentialOrder: async (req, res) => {
     try {
       const { credentialId } = req.params;

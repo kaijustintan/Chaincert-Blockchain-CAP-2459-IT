@@ -556,10 +556,17 @@ export default function IssuerDashboard() {
       const credentialKey = credential?._id || credential?.id || credential?.blockchainId;
       if (!credentialKey) return;
       const newVisibility = credential.visibility === 'public' ? 'private' : 'public';
-      await apiService.Update_CredentialVisibility(credentialKey, newVisibility);
+      const isTemplate = credential?.isTemplate === true || String(credential?.type || '').toLowerCase() === 'credential_template';
+
+      if (isTemplate) {
+        await apiService.Update_IssuerTemplateVisibility(credentialKey, newVisibility);
+      } else {
+        await apiService.Update_CredentialVisibility(credentialKey, newVisibility);
+      }
+
       setCredentials((prev) => prev.map((item) => ((item._id || item.id || item.blockchainId) === credentialKey ? { ...item, visibility: newVisibility } : item)));
       setTemplateOptions((prev) => prev.map((item) => ((item._id || item.id || item.blockchainId) === credentialKey ? { ...item, visibility: newVisibility } : item)));
-      showToast(`Credential visibility updated to ${newVisibility}.`);
+      showToast(`${isTemplate ? 'Template' : 'Credential'} visibility updated to ${newVisibility}.`);
     } catch (err) {
       console.error('[ISSUER DASHBOARD] Failed to update credential visibility:', err);
       showToast(err.response?.data?.message || 'Failed to update credential visibility.', 'danger');

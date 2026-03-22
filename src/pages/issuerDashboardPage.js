@@ -100,6 +100,17 @@ export default function IssuerDashboard() {
   const [sortBy, setSortBy] = useState("issuedDate-desc");
   const [filterType, setFilterType] = useState("all");
   const [filterStatus, setFilterStatus] = useState("all");
+  const [templateSearch, setTemplateSearch] = useState("");
+  const [templateTypeFilter, setTemplateTypeFilter] = useState("all");
+  const [templateSortBy, setTemplateSortBy] = useState("newest");
+  const [issueSearch, setIssueSearch] = useState("");
+  const [revokeStatusFilter, setRevokeStatusFilter] = useState("all");
+  const [revokeTypeFilter, setRevokeTypeFilter] = useState("all");
+  const [revokeSectionSearch, setRevokeSectionSearch] = useState("");
+  const [revokeSortBy, setRevokeSortBy] = useState("newest");
+  const [viewAllTypeFilter, setViewAllTypeFilter] = useState("all");
+  const [viewAllSearch, setViewAllSearch] = useState("");
+  const [viewAllSortBy, setViewAllSortBy] = useState("newest");
 
   // Root Authority → My Subordinates directory
   const [subordinateDirectory, setSubordinateDirectory] = useState([]);
@@ -365,6 +376,88 @@ export default function IssuerDashboard() {
     return allHolders.filter((holder) => holder.toLowerCase().includes(query));
   }, [revokeHolderOptions, revokeHolderSearch]);
 
+  const getRevokedDateValue = useCallback((credential) => credential?.revokedAt || credential?.rejectedAt || (String(credential?.status || "").toLowerCase() === "revoked" ? credential?.updatedAt : ""), []);
+
+  const uniqueTemplateTypes = useMemo(() => Array.from(new Set(templateOptions.map((template) => template.credentialType).filter(Boolean))).sort((a, b) => a.localeCompare(b)), [templateOptions]);
+
+  const filteredTemplates = useMemo(() => {
+    let result = [...(templateOptions || [])];
+    if (templateTypeFilter !== "all") result = result.filter((t) => String(t.credentialType || "").toLowerCase() === templateTypeFilter.toLowerCase());
+    const query = templateSearch.trim().toLowerCase();
+    if (query) result = result.filter((t) => [t.credentialName, t.credentialType, t.description].filter(Boolean).join(" ").toLowerCase().includes(query));
+    switch (templateSortBy) {
+      case "oldest": result.sort((a, b) => new Date(a.createdAt || 0) - new Date(b.createdAt || 0)); break;
+      case "name-asc": result.sort((a, b) => String(a.credentialName || "").localeCompare(String(b.credentialName || ""))); break;
+      case "name-desc": result.sort((a, b) => String(b.credentialName || "").localeCompare(String(a.credentialName || ""))); break;
+      case "newest":
+      default: result.sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0)); break;
+    }
+    return result;
+  }, [templateOptions, templateTypeFilter, templateSearch, templateSortBy]);
+
+  const issueTableCredentials = useMemo(() => {
+    const query = issueSearch.trim().toLowerCase();
+    let result = [...filteredCredentials];
+    if (query) result = result.filter((cred) => [cred.credentialName, cred.holderName, cred.holderID, cred.blockchainId, cred.id].filter(Boolean).join(" ").toLowerCase().includes(query));
+    return result;
+  }, [filteredCredentials, issueSearch]);
+
+  const revokeTableCredentials = useMemo(() => {
+    let result = [...credentials];
+    if (revokeStatusFilter !== "all") result = result.filter((cred) => String(cred.status || "active").toLowerCase() === revokeStatusFilter);
+    if (revokeTypeFilter !== "all") result = result.filter((cred) => String(cred.credentialType || "").toLowerCase() === revokeTypeFilter.toLowerCase());
+    const query = revokeSectionSearch.trim().toLowerCase();
+    if (query) result = result.filter((cred) => [cred.credentialName, cred.holderName, cred.holderID, cred.blockchainId, cred.id].filter(Boolean).join(" ").toLowerCase().includes(query));
+    switch (revokeSortBy) {
+      case "oldest": result.sort((a, b) => new Date(a.issuedDate || a.createdAt || 0) - new Date(b.issuedDate || b.createdAt || 0)); break;
+      case "name-asc": result.sort((a, b) => String(a.credentialName || "").localeCompare(String(b.credentialName || ""))); break;
+      case "name-desc": result.sort((a, b) => String(b.credentialName || "").localeCompare(String(a.credentialName || ""))); break;
+      case "status-asc": result.sort((a, b) => String(a.status || "").localeCompare(String(b.status || ""))); break;
+      case "newest":
+      default: result.sort((a, b) => new Date(b.issuedDate || b.createdAt || 0) - new Date(a.issuedDate || a.createdAt || 0)); break;
+    }
+    return result;
+  }, [credentials, revokeStatusFilter, revokeTypeFilter, revokeSectionSearch, revokeSortBy]);
+
+  const allCredentialRows = useMemo(() => {
+    const templateRows = (templateOptions || []).map((template) => ({
+      rowType: "template",
+      name: template.credentialName || template.credentialType || "N/A",
+      type: template.credentialType || "N/A",
+      status: "template",
+      holderName: "—",
+      createdDate: template.createdAt,
+      expiryDate: null,
+      source: template,
+    }));
+    const issuedRows = (credentials || []).map((cred) => ({
+      rowType: String(cred.status || "issued").toLowerCase() === "revoked" ? "revoked" : String(cred.status || "issued").toLowerCase() === "expired" ? "expired" : "issued",
+      name: cred.credentialName || cred.credentialType || "N/A",
+      type: cred.credentialType || "N/A",
+      status: cred.status || "issued",
+      holderName: cred.holderName || cred.holderID || "—",
+      createdDate: cred.issuedDate || cred.createdAt,
+      expiryDate: cred.expiryDate,
+      source: cred,
+    }));
+    return [...templateRows, ...issuedRows];
+  }, [templateOptions, credentials]);
+
+  const filteredAllCredentialRows = useMemo(() => {
+    let result = [...allCredentialRows];
+    if (viewAllTypeFilter !== "all") result = result.filter((row) => row.rowType === viewAllTypeFilter);
+    const query = viewAllSearch.trim().toLowerCase();
+    if (query) result = result.filter((row) => [row.name, row.type, row.status, row.holderName, row.source?.blockchainId, row.source?.id].filter(Boolean).join(" ").toLowerCase().includes(query));
+    switch (viewAllSortBy) {
+      case "name-asc": result.sort((a, b) => String(a.name).localeCompare(String(b.name))); break;
+      case "name-desc": result.sort((a, b) => String(b.name).localeCompare(String(a.name))); break;
+      case "oldest": result.sort((a, b) => new Date(a.createdDate || 0) - new Date(b.createdDate || 0)); break;
+      case "newest":
+      default: result.sort((a, b) => new Date(b.createdDate || 0) - new Date(a.createdDate || 0)); break;
+    }
+    return result;
+  }, [allCredentialRows, viewAllTypeFilter, viewAllSearch, viewAllSortBy]);
+
   const revokableCount = useMemo(
     () => credentials.filter((c) => c.status === "issued" || c.status === "active").length,
     [credentials]
@@ -550,6 +643,19 @@ export default function IssuerDashboard() {
   // -------------------------------------------------------------------
   // CSS-CHANGE: Back button handler - polo
   // -------------------------------------------------------------------
+  const resetCreateViewFilters = () => { setTemplateSearch(""); setTemplateTypeFilter("all"); setTemplateSortBy("newest"); };
+  const resetIssueViewFilters = () => { setSortBy("issuedDate-desc"); setFilterType("all"); setFilterStatus("all"); setIssueSearch(""); };
+  const resetRevokeViewFilters = () => { setRevokeStatusFilter("all"); setRevokeTypeFilter("all"); setRevokeSectionSearch(""); setRevokeSortBy("newest"); };
+  const resetViewAllFilters = () => { setViewAllTypeFilter("all"); setViewAllSearch(""); setViewAllSortBy("newest"); };
+
+  const openDashboardView = (view) => {
+    if (view === "create") resetCreateViewFilters();
+    if (view === "issue") resetIssueViewFilters();
+    if (view === "revoke") resetRevokeViewFilters();
+    if (view === "viewall") resetViewAllFilters();
+    setActiveView(view);
+  };
+
   const goHome = () => setActiveView("home");
 
   // -------------------------------------------------------------------
@@ -570,7 +676,8 @@ export default function IssuerDashboard() {
     { id: "create", icon: "📝", title: "Create Template", desc: "Design and publish credential templates", color: "#667eea" },
     { id: "issue", icon: "🎓", title: "Issue Credential", desc: "Assign credentials to recipients", color: "#8b5cf6" },
     { id: "revoke", icon: "🚫", title: "Revoke Credential", desc: "Revoke issued credentials", color: "#ef4444" },
-    { id: "history", icon: "📋", title: "Credential History", desc: "View blockchain audit trail", color: "#f59e0b" },
+    { id: "viewall", icon: "📋", title: "View Credentials", desc: "View all templates, issued, revoked, expired", color: "#f59e0b" },
+    { id: "history", icon: "🧾", title: "Credential History", desc: "View blockchain audit trail", color: "#f59e0b" },
     ...(!isSubordinate ? [{ id: "subordinates", icon: "🏢", title: "Subordinates", desc: "Manage subordinate issuers & logs", color: "#22c55e" }] : []),
   ];
 
@@ -603,10 +710,6 @@ export default function IssuerDashboard() {
               <span className="issuer-stat-label">Issued</span>
             </div>
             <div className="issuer-stat-card">
-              <span className="issuer-stat-num">{credentials.filter(c => c.status === "issued" || c.status === "active" || !c.status).length}</span>
-              <span className="issuer-stat-label">Active</span>
-            </div>
-            <div className="issuer-stat-card">
               <span className="issuer-stat-num">{credentials.filter(c => c.status === "revoked").length}</span>
               <span className="issuer-stat-label">Revoked</span>
             </div>
@@ -624,7 +727,7 @@ export default function IssuerDashboard() {
               <button
                 key={card.id}
                 className="issuer-nav-card"
-                onClick={() => card.id === "history" ? navigate("/issuer/history") : setActiveView(card.id)}
+                onClick={() => card.id === "history" ? navigate("/issuer/history") : openDashboardView(card.id)}
               >
                 <div className="nav-card-icon" style={{ background: `${card.color}22`, color: card.color, borderColor: `${card.color}44` }}>{card.icon}</div>
                 <h3>{card.title}</h3>
@@ -650,20 +753,25 @@ export default function IssuerDashboard() {
 
           {/* Templates table */}
           <div className="table-container">
-            <h3 style={{ marginBottom: 12 }}>Your Templates ({templateOptions.length})</h3>
-            {templateOptions.length === 0 ? (
-              <div className="no-results"><p>📭 No credential templates found. Create your first template!</p></div>
+            <h3 style={{ marginBottom: 12 }}>Your Templates ({filteredTemplates.length})</h3>
+            <div className="filter-row">
+              <div className="filter-group"><label>Search:</label><input value={templateSearch} onChange={(e) => setTemplateSearch(e.target.value)} placeholder="Search templates..." className="filter-select" /></div>
+              <div className="filter-group"><label>Type:</label><select value={templateTypeFilter} onChange={(e) => setTemplateTypeFilter(e.target.value)} className="filter-select"><option value="all">All Types</option>{uniqueTemplateTypes.map((type) => <option key={type} value={type}>{type}</option>)}</select></div>
+              <div className="filter-group"><label>Sort by:</label><select value={templateSortBy} onChange={(e) => setTemplateSortBy(e.target.value)} className="filter-select"><option value="newest">Most Recent</option><option value="oldest">Oldest First</option><option value="name-asc">Name A-Z</option><option value="name-desc">Name Z-A</option></select></div>
+            </div>
+            {filteredTemplates.length === 0 ? (
+              <div className="no-results"><p>{templateOptions.length === 0 ? "📭 No credential templates found. Create your first template!" : "❌ No templates match your filters."}</p></div>
             ) : (
               <table className="template-table">
-                <thead><tr><th>Template ID</th><th>Type</th><th>Name</th><th>Description</th><th>Skills</th><th>Created Date</th></tr></thead>
+                <thead><tr><th>Name</th><th>Type</th><th>Template ID</th><th>Description</th><th>Skills</th><th>Created Date</th></tr></thead>
                 <tbody>
-                  {templateOptions.map((template) => {
+                  {filteredTemplates.map((template) => {
                     const id = template.id || template._id;
                     return (
                       <tr key={id}>
-                        <td style={{ fontFamily: "monospace", fontSize: 12 }}>{id || "N/A"}</td>
-                        <td>{template.credentialType || "N/A"}</td>
                         <td>{template.credentialName || "N/A"}</td>
+                        <td>{template.credentialType || "N/A"}</td>
+                        <td style={{ fontFamily: "monospace", fontSize: 12 }}>{id || "N/A"}</td>
                         <td>{template.description || "—"}</td>
                         <td>{Array.isArray(template.skills) && template.skills.length > 0 ? template.skills.join(", ") : "—"}</td>
                         <td>{template.createdAt ? new Date(template.createdAt).toLocaleDateString() : "N/A"}</td>
@@ -715,34 +823,35 @@ export default function IssuerDashboard() {
                 <label htmlFor="filterStatus">Status:</label>
                 <select id="filterStatus" value={filterStatus} onChange={(e) => setFilterStatus(e.target.value)} className="filter-select">
                   <option value="all">All Status</option>
-                  <option value="active">✅ Active</option>
+                  <option value="active">✅ Issued</option>
                   <option value="revoked">❌ Revoked</option>
                   <option value="expired">⚠️ Expired</option>
                 </select>
               </div>
             </div>
-            <div className="results-info">Showing <strong>{filteredCredentials.length}</strong> of <strong>{credentials.length}</strong> credentials</div>
+            <div className="filter-row"><div className="filter-group"><label htmlFor="issueSearch">Search:</label><input id="issueSearch" value={issueSearch} onChange={(e) => setIssueSearch(e.target.value)} placeholder="Search by credential, holder, or ID..." className="filter-select" /></div></div><div className="results-info">Showing <strong>{issueTableCredentials.length}</strong> of <strong>{credentials.length}</strong> credentials</div>
           </div>
 
           {/* Issued credentials table */}
-          {filteredCredentials.length === 0 ? (
+          {issueTableCredentials.length === 0 ? (
             <div className="no-results"><p>{credentials.length === 0 ? "📭 No credentials found. Issue your first credential!" : "❌ No credentials match your filters."}</p></div>
           ) : (
             <div className="table-container">
               <table className="template-table">
-                <thead><tr><th>Credential ID</th><th>Type</th><th>Name</th><th>Holder Name</th><th>Description</th><th>Created Date</th><th>Status</th><th>Expiry Date</th><th>Actions</th></tr></thead>
+                <thead><tr><th>Credential ID</th><th>Holder Name</th><th>Credential Name</th><th>Type</th><th>Description</th><th>Created Date</th><th>Status</th><th>Revoked Date</th><th>Expiry Date</th><th>Actions</th></tr></thead>
                 <tbody>
-                  {filteredCredentials.map((credential) => {
+                  {issueTableCredentials.map((credential) => {
                     const blockchainId = credential.blockchainId || credential.id;
                     return (
                       <tr key={blockchainId}>
                         <td>{blockchainId || "N/A"}</td>
-                        <td>{credential.credentialType || "N/A"}</td>
-                        <td>{credential.credentialName || "N/A"}</td>
                         <td>{credential.holderName || "N/A"}</td>
+                        <td>{credential.credentialName || "N/A"}</td>
+                        <td>{credential.credentialType || "N/A"}</td>
                         <td>{credential.description || "N/A"}</td>
                         <td>{credential.issuedDate ? new Date(credential.issuedDate).toLocaleDateString() : "N/A"}</td>
                         <td><span className={`status-badge status-${credential.status || "active"}`}>{credential.status || "active"}</span></td>
+                        <td>{getRevokedDateValue(credential) ? new Date(getRevokedDateValue(credential)).toLocaleDateString() : "—"}</td>
                         <td>{credential.expiryDate ? new Date(credential.expiryDate).toLocaleDateString() : "N/A"}</td>
                         <td>
                           <button
@@ -765,6 +874,43 @@ export default function IssuerDashboard() {
       )}
 
       {/* ============================================================
+          VIEW ALL CREDENTIALS — Unified table
+          ============================================================ */}
+      {activeView === "viewall" && (
+        <>
+          <button className="btn-back-home" onClick={goHome}>← Back to Dashboard</button>
+          <h2>View Credentials</h2>
+          <div className="table-container">
+            <div className="filter-row">
+              <div className="filter-group"><label>Type:</label><select value={viewAllTypeFilter} onChange={(e) => setViewAllTypeFilter(e.target.value)} className="filter-select"><option value="all">All</option><option value="template">Template</option><option value="issued">Issued</option><option value="revoked">Revoked</option><option value="expired">Expired</option></select></div>
+              <div className="filter-group"><label>Search:</label><input value={viewAllSearch} onChange={(e) => setViewAllSearch(e.target.value)} placeholder="Search credentials..." className="filter-select" /></div>
+              <div className="filter-group"><label>Sort by:</label><select value={viewAllSortBy} onChange={(e) => setViewAllSortBy(e.target.value)} className="filter-select"><option value="newest">Most Recent</option><option value="oldest">Oldest First</option><option value="name-asc">Name A-Z</option><option value="name-desc">Name Z-A</option></select></div>
+            </div>
+            {filteredAllCredentialRows.length === 0 ? (
+              <div className="no-results"><p>❌ No credentials match your filters.</p></div>
+            ) : (
+              <table className="template-table">
+                <thead><tr><th>Name</th><th>Type</th><th>Status</th><th>Holder Name</th><th>Created Date</th><th>Expiry Date</th><th>Actions</th></tr></thead>
+                <tbody>
+                  {filteredAllCredentialRows.map((row, index) => (
+                    <tr key={`${row.rowType}-${row.source?.id || row.source?._id || row.source?.blockchainId || index}`}>
+                      <td>{row.name}</td>
+                      <td>{row.type}</td>
+                      <td><span className={`status-badge status-${String(row.status || row.rowType).toLowerCase()}`} style={{ color: getStatusColor(row.status || row.rowType), borderColor: `${getStatusColor(row.status || row.rowType)}55` }}>{row.status}</span></td>
+                      <td>{row.holderName}</td>
+                      <td>{row.createdDate ? new Date(row.createdDate).toLocaleDateString() : "N/A"}</td>
+                      <td>{row.expiryDate ? new Date(row.expiryDate).toLocaleDateString() : "—"}</td>
+                      <td>{row.rowType === "template" ? <span style={{ opacity: 0.6 }}>—</span> : <button type="button" className="action-btn" onClick={() => handleSeeHistory(row.source)} style={{ padding: "6px 10px", fontSize: "12px", background: "rgba(139,92,246,0.15)", color: "#a78bfa", border: "1px solid rgba(255,255,255,0.18)", borderRadius: "8px", cursor: "pointer" }}>View BC History</button>}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+          </div>
+        </>
+      )}
+
+      {/* ============================================================
           REVOKE VIEW — Revoke form + Revokable credentials list
           ============================================================ */}
       {activeView === "revoke" && (
@@ -779,21 +925,29 @@ export default function IssuerDashboard() {
           {/* Revokable credentials list */}
           <div className="table-container">
             <h3 style={{ marginBottom: 12 }}>Issued Credentials ({revokableCount} revokable)</h3>
-            {credentials.length === 0 ? (
-              <div className="no-results"><p>📭 No issued credentials found.</p></div>
+            <div className="filter-row">
+              <div className="filter-group"><label>Status:</label><select value={revokeStatusFilter} onChange={(e) => setRevokeStatusFilter(e.target.value)} className="filter-select"><option value="all">All</option><option value="issued">Issued</option><option value="active">Active</option><option value="revoked">Revoked</option></select></div>
+              <div className="filter-group"><label>Type:</label><select value={revokeTypeFilter} onChange={(e) => setRevokeTypeFilter(e.target.value)} className="filter-select"><option value="all">All Types</option>{getUniqueCredentialTypes().map((type) => <option key={type} value={type}>{type}</option>)}</select></div>
+              <div className="filter-group"><label>Search:</label><input value={revokeSectionSearch} onChange={(e) => setRevokeSectionSearch(e.target.value)} placeholder="Search by credential, holder, or ID..." className="filter-select" /></div>
+              <div className="filter-group"><label>Sort by:</label><select value={revokeSortBy} onChange={(e) => setRevokeSortBy(e.target.value)} className="filter-select"><option value="newest">Most Recent</option><option value="oldest">Oldest First</option><option value="name-asc">Name A-Z</option><option value="name-desc">Name Z-A</option><option value="status-asc">Status A-Z</option></select></div>
+            </div>
+            {revokeTableCredentials.length === 0 ? (
+              <div className="no-results"><p>{credentials.length === 0 ? "📭 No issued credentials found." : "❌ No credentials match your filters."}</p></div>
             ) : (
               <table className="template-table">
-                <thead><tr><th>Credential ID</th><th>Name</th><th>Holder</th><th>Status</th><th>Issued Date</th><th>Actions</th></tr></thead>
+                <thead><tr><th>Credential ID</th><th>Name</th><th>Holder</th><th>Type</th><th>Status</th><th>Issued Date</th><th>Revoked Date</th><th>Actions</th></tr></thead>
                 <tbody>
-                  {credentials.map((credential) => {
+                  {revokeTableCredentials.map((credential) => {
                     const blockchainId = credential.blockchainId || credential.id;
                     return (
                       <tr key={blockchainId}>
                         <td>{blockchainId || "N/A"}</td>
                         <td>{credential.credentialName || "N/A"}</td>
                         <td>{credential.holderName || "N/A"}</td>
+                        <td>{credential.credentialType || "N/A"}</td>
                         <td><span className={`status-badge status-${credential.status || "active"}`}>{credential.status || "active"}</span></td>
                         <td>{credential.issuedDate ? new Date(credential.issuedDate).toLocaleDateString() : "N/A"}</td>
+                        <td>{getRevokedDateValue(credential) ? new Date(getRevokedDateValue(credential)).toLocaleDateString() : "—"}</td>
                         <td>
                           <button
                             type="button"
@@ -1174,6 +1328,7 @@ export default function IssuerDashboard() {
                   </div>
                   {historyCredential?.holderName && <div><strong>Holder:</strong> {historyCredential.holderName}</div>}
                   {historyCredential?.issuerName && <div><strong>Issuer:</strong> {historyCredential.issuerName}</div>}
+                  {String(historyCredential?.status || "").toLowerCase() === "revoked" && getRevokedDateValue(historyCredential) && <div><strong>Revoked On:</strong> <span style={{ color: "#ef4444" }}>{new Date(getRevokedDateValue(historyCredential)).toLocaleDateString()}</span></div>}
                 </div>
               </div>
               <button type="button" className="modal-close history-modal-close" onClick={closeHistory}>✕</button>

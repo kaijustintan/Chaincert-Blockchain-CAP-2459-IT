@@ -1,5 +1,5 @@
 // Admin dashboard for credential management
-import React, { useState, useEffect, useCallback, useRef } from "react";
+import React, { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import ReactDOM from "react-dom";
 import "../styles/adminDashboard.css";
 import apiService from "../services/apiService";
@@ -82,6 +82,14 @@ export default function AdminDashboard() {
   const [adminCredSearchField, setAdminCredSearchField] = useState("holderName"); // 'holderName' | 'holderID' | 'credentialId' | 'credentialName'
   const [adminCredSearchQuery, setAdminCredSearchQuery] = useState("");
   const [filteredAdminCredentials, setFilteredAdminCredentials] = useState([]);
+
+  const [adminCredentialSortBy, setAdminCredentialSortBy] = useState("newest");
+  const [issuerSortBy, setIssuerSortBy] = useState("newest");
+  const [userSortBy, setUserSortBy] = useState("newest");
+  const [verificationSortBy, setVerificationSortBy] = useState("newest");
+  const [statusLogSortBy, setStatusLogSortBy] = useState("newest");
+  const [issuerDecisionLogSortBy, setIssuerDecisionLogSortBy] = useState("newest");
+  const [rootSubordinateLogSortBy, setRootSubordinateLogSortBy] = useState("newest");
 
   // ✅ NEW: modal state for viewing a specific credential's blockchain history
   const [showHistoryModal, setShowHistoryModal] = useState(false);
@@ -287,6 +295,82 @@ const handleDownloadIssuerDocument = async (doc) => {
   };
 
   const visibleUsers = getVisibleUsers();
+
+  const sortByDateThenName = (items, sortOption, config = {}) => {
+    const { dateFields = ["createdAt"], nameFields = [], statusField = "status" } = config;
+    const getDateValue = (item) => {
+      for (const field of dateFields) {
+        if (item?.[field]) return new Date(item[field]).getTime() || 0;
+      }
+      return 0;
+    };
+    const getNameValue = (item) => {
+      for (const field of nameFields) {
+        if (item?.[field]) return String(item[field]).toLowerCase();
+      }
+      return "";
+    };
+    const getStatusValue = (item) => String(item?.[statusField] || "").toLowerCase();
+    const sorted = [...items];
+
+    switch (sortOption) {
+      case "oldest":
+        return sorted.sort((a, b) => getDateValue(a) - getDateValue(b));
+      case "name-asc":
+        return sorted.sort((a, b) => getNameValue(a).localeCompare(getNameValue(b)));
+      case "name-desc":
+        return sorted.sort((a, b) => getNameValue(b).localeCompare(getNameValue(a)));
+      case "status-asc":
+        return sorted.sort((a, b) => getStatusValue(a).localeCompare(getStatusValue(b)));
+      case "status-desc":
+        return sorted.sort((a, b) => getStatusValue(b).localeCompare(getStatusValue(a)));
+      case "newest":
+      default:
+        return sorted.sort((a, b) => getDateValue(b) - getDateValue(a));
+    }
+  };
+
+  const sortedAdminCredentials = useMemo(() => sortByDateThenName(filteredAdminCredentials, adminCredentialSortBy, { dateFields: ["createdAt", "issuedDate"], nameFields: ["credentialName", "credentialType"], statusField: "status" }), [filteredAdminCredentials, adminCredentialSortBy]);
+
+  const sortedVisibleIssuers = useMemo(() => sortByDateThenName(visibleIssuers, issuerSortBy, { dateFields: ["createdAt"], nameFields: ["orgName", "name", "email"], statusField: "status" }), [visibleIssuers, issuerSortBy]);
+
+  const sortedVisibleUsers = useMemo(() => sortByDateThenName(visibleUsers, userSortBy, { dateFields: ["createdAt"], nameFields: ["username", "fullName", "email"], statusField: "email" }), [visibleUsers, userSortBy]);
+
+  const sortedVerifications = useMemo(() => sortByDateThenName(verifications, verificationSortBy, { dateFields: ["createdAt", "timestamp", "updatedAt"], nameFields: ["credentialName", "holderName", "issuerName"], statusField: "status" }), [verifications, verificationSortBy]);
+
+  const sortedStatusLogs = useMemo(() => sortByDateThenName(statusLogs, statusLogSortBy, { dateFields: ["timestamp", "createdAt"], nameFields: ["email", "adminEmail"], statusField: "newStatus" }), [statusLogs, statusLogSortBy]);
+
+  const sortedIssuerDecisionLogs = useMemo(() => sortByDateThenName(issuerDecisionLogs, issuerDecisionLogSortBy, { dateFields: ["timestamp", "createdAt"], nameFields: ["issuerEmail", "orgName"], statusField: "decision" }), [issuerDecisionLogs, issuerDecisionLogSortBy]);
+
+  const sortedRootSubordinateLogs = useMemo(() => sortByDateThenName(rootSubordinateLogs, rootSubordinateLogSortBy, { dateFields: ["timestamp", "createdAt"], nameFields: ["issuerEmail", "orgName"], statusField: "decision" }), [rootSubordinateLogs, rootSubordinateLogSortBy]);
+
+  const sortedVerificationLogs = useMemo(() => sortByDateThenName(verificationLogs, verificationSortBy, { dateFields: ["timestamp", "verifiedAt", "createdAt"], nameFields: ["verifierName", "holderName", "credentialId"], statusField: "resultMessage" }), [verificationLogs, verificationSortBy]);
+
+  const issuerColumnConfig = {
+    approved: ["issuerId", "orgName", "email", "issuerType", "rootAuthority", "rootApproval", "status", "approvedBy", "createdAt", "actions"],
+    pending: ["issuerId", "orgName", "email", "issuerType", "rootAuthority", "rootApproval", "rootApprovedAt", "status", "createdAt", "actions"],
+    rejected: ["issuerId", "orgName", "email", "issuerType", "rootAuthority", "status", "rejectedBy", "createdAt", "actions"],
+    disabled: ["issuerId", "orgName", "email", "issuerType", "rootAuthority", "status", "disabledBy", "enabledBy", "createdAt", "actions"],
+  };
+
+  const issuerColumnLabels = {
+    issuerId: "Issuer ID",
+    orgName: "Org Name",
+    email: "Email",
+    issuerType: "Issuer Type",
+    rootAuthority: "Root Authority",
+    rootApproval: "Root Approval",
+    rootApprovedAt: "Root Approved At",
+    status: "Status",
+    approvedBy: "Approved By",
+    rejectedBy: "Rejected By",
+    disabledBy: "Disabled By",
+    enabledBy: "Enabled By",
+    createdAt: "Created At",
+    actions: "Actions",
+  };
+
+  const activeIssuerColumns = issuerColumnConfig[issuerFilter] || issuerColumnConfig.approved;
 
   const getHistoryActionLabel = (entry, idx) => {
     if (!entry) return "Unknown";
@@ -2148,6 +2232,21 @@ const handleDownloadIssuerDocument = async (doc) => {
                 </select>
               </div>
 
+              <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                <label htmlFor="adminCredentialSortBy">Sort by:</label>
+                <select
+                  id="adminCredentialSortBy"
+                  value={adminCredentialSortBy}
+                  onChange={(e) => setAdminCredentialSortBy(e.target.value)}
+                >
+                  <option value="newest">Most Recent</option>
+                  <option value="oldest">Oldest First</option>
+                  <option value="name-asc">Credential Name A-Z</option>
+                  <option value="name-desc">Credential Name Z-A</option>
+                  <option value="status-asc">Status A-Z</option>
+                </select>
+              </div>
+
               <input
                 type="text"
                 value={adminCredSearchQuery}
@@ -2170,7 +2269,7 @@ const handleDownloadIssuerDocument = async (doc) => {
               <div className="tab-placeholder">Loading credentials...</div>
             ) : adminCredentialsError ? (
               <div className="tab-placeholder">❌ {adminCredentialsError}</div>
-            ) : filteredAdminCredentials.length > 0 ? (
+            ) : sortedAdminCredentials.length > 0 ? (
               <div className="table-wrapper">
                 <table className="admin-table">
                   <thead>
@@ -2187,7 +2286,7 @@ const handleDownloadIssuerDocument = async (doc) => {
                     </tr>
                   </thead>
                   <tbody>
-                    {filteredAdminCredentials.map((row, idx) => {
+                    {sortedAdminCredentials.map((row, idx) => {
                       const typeLower = String(row.type || "").toLowerCase();
                       const isIssued = typeLower === "issued";
 
@@ -2246,25 +2345,42 @@ const handleDownloadIssuerDocument = async (doc) => {
           <h2>Issuer Management</h2>
           {renderStatsGrid(issuerStats)}
 
-          <div className="issuer-filter-row">
-            <label htmlFor="issuerFilter">View:</label>
-            <select
-              id="issuerFilter"
-              value={issuerFilter}
-              onChange={async (e) => {
-                const value = e.target.value;
-                setIssuerFilter(value);
+          <div className="issuer-filter-row" style={{ gap: 12, flexWrap: "wrap" }}>
+            <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+              <label htmlFor="issuerFilter">View:</label>
+              <select
+                id="issuerFilter"
+                value={issuerFilter}
+                onChange={async (e) => {
+                  const value = e.target.value;
+                  setIssuerFilter(value);
 
-                if (value === "pending") {
-                  setPendingIssuerFilter("admin_actionable");
-                }
-              }}
-            >
-              <option value="approved">Approved Issuers</option>
-              <option value="pending">Pending Issuers</option>
-              <option value="rejected">Rejected Issuers</option>
-              <option value="disabled">Disabled Issuers</option>
-            </select>
+                  if (value === "pending") {
+                    setPendingIssuerFilter("admin_actionable");
+                  }
+                }}
+              >
+                <option value="approved">Approved Issuers</option>
+                <option value="pending">Pending Issuers</option>
+                <option value="rejected">Rejected Issuers</option>
+                <option value="disabled">Disabled Issuers</option>
+              </select>
+            </div>
+
+            <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+              <label htmlFor="issuerSortBy">Sort by:</label>
+              <select
+                id="issuerSortBy"
+                value={issuerSortBy}
+                onChange={(e) => setIssuerSortBy(e.target.value)}
+              >
+                <option value="newest">Most Recent</option>
+                <option value="oldest">Oldest First</option>
+                <option value="name-asc">Org Name A-Z</option>
+                <option value="name-desc">Org Name Z-A</option>
+                <option value="status-asc">Status A-Z</option>
+              </select>
+            </div>
           </div>
 
           {issuerFilter === "pending" && (
@@ -2287,104 +2403,112 @@ const handleDownloadIssuerDocument = async (doc) => {
 
           {loading ? (
             <div className="tab-placeholder">Loading issuers...</div>
-          ) : visibleIssuers.length > 0 ? (
+          ) : sortedVisibleIssuers.length > 0 ? (
             <div className="table-wrapper">
               <table className="admin-table">
-              <thead>
-                <tr>
-                  <th>Issuer ID</th>
-                  <th>Org Name</th>
-                  <th>Email</th>
-                  <th>Issuer Type</th>
-                  <th>Root Authority</th>
-                  <th>Root Approval</th>
-                  <th>Root Approved At</th>
-                  <th>Status</th>
-                  <th>Approved By</th>
-                  <th>Rejected By</th>
-                  <th>Disabled By</th>
-                  <th>Enabled By</th>
-                  <th>Created At</th>
-                  <th>Actions</th>
-                </tr>
-              </thead>
+                <thead>
+                  <tr>
+                    {activeIssuerColumns.map((column) => (
+                      <th key={column}>{issuerColumnLabels[column]}</th>
+                    ))}
+                  </tr>
+                </thead>
                 <tbody>
-                  {visibleIssuers.map((issuer) => {
+                  {sortedVisibleIssuers.map((issuer) => {
                     const id = issuer._id || issuer.id;
                     const isDisabled = issuer.isDisabled === true || issuer.status === "disabled";
                     const adminMeta = getIssuerAdminMeta(issuer);
+                    const canSeeDocuments = issuer.documents?.length > 0 || issuer.hasUploadedDocuments || issuer.hasDocuments;
 
-                    return (
-                      <tr key={id}>
-                        <td>{id}</td>
-                        <td>{issuer.orgName || issuer.name || "N/A"}</td>
-                        <td>{issuer.email || "N/A"}</td>
+                    const rootApprovalBadge = issuer.issuerType === "subordinate" ? (
+                      <span
+                        className={
+                          issuer.rootApprovalStatus === "approved"
+                            ? "badge green"
+                            : issuer.rootApprovalStatus === "rejected"
+                            ? "badge red"
+                            : "badge purple"
+                        }
+                      >
+                        {issuer.rootApprovalStatus || "pending"}
+                      </span>
+                    ) : (
+                      "Not Required"
+                    );
 
-                        <td>
-                          {issuer.issuerType === "subordinate" ? (
-                            <span className="badge purple">Subordinate</span>
-                          ) : (
-                            <span className="badge blue">Root</span>
-                          )}
-                        </td>
+                    const actionsCell = (() => {
+                      if (issuerFilter === "approved") {
+                        return (
+                          <>
+                            <button
+                              type="button"
+                              onClick={() => openIssuerStatusModal(issuer, isDisabled ? "enable" : "disable")}
+                              style={{
+                                padding: "8px 12px",
+                                borderRadius: 10,
+                                border: "1px solid rgba(255,255,255,0.18)",
+                                cursor: "pointer",
+                                fontWeight: 700,
+                                background: isDisabled ? "rgba(74,222,128,0.12)" : "rgba(255,107,107,0.12)",
+                                color: isDisabled ? "#4ade80" : "#ff6b6b",
+                              }}
+                              title={isDisabled ? "Re-enable issuer" : "Disable issuer"}
+                            >
+                              {isDisabled ? "Enable" : "Disable"}
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => openHistoryStatusModal(issuer.email, "issuer")}
+                              style={{
+                                padding: "8px 12px",
+                                borderRadius: 10,
+                                border: "1px solid rgba(255,255,255,0.18)",
+                                cursor: "pointer",
+                                fontWeight: 700,
+                                background: "rgba(139,92,246,0.15)",
+                                color: "#a78bfa",
+                              }}
+                              title="View status change history"
+                            >
+                              See History
+                            </button>
+                          </>
+                        );
+                      }
 
-  <td>
-  {issuer.issuerType === "subordinate"
-    ? (issuer.rootAuthorityName || "N/A")
-    : "—"}
-</td>
+                      if (issuerFilter === "disabled") {
+                        return (
+                          <button
+                            type="button"
+                            onClick={() => openIssuerStatusModal(issuer, "enable")}
+                            style={{
+                              padding: "8px 12px",
+                              borderRadius: 10,
+                              border: "1px solid rgba(255,255,255,0.18)",
+                              cursor: "pointer",
+                              fontWeight: 700,
+                              background: "rgba(74,222,128,0.12)",
+                              color: "#4ade80",
+                            }}
+                            title="Re-enable issuer"
+                          >
+                            Enable
+                          </button>
+                        );
+                      }
 
-<td>
-  {issuer.issuerType === "subordinate" ? (
-    <span
-      className={
-        issuer.rootApprovalStatus === "approved"
-          ? "badge green"
-          : issuer.rootApprovalStatus === "rejected"
-          ? "badge red"
-          : "badge purple"
-      }
-    >
-      {issuer.rootApprovalStatus || "pending"}
-    </span>
-  ) : (
-    "Not Required"
-  )}
-</td>
+                      if (issuerFilter === "rejected") {
+                        return <span style={{ opacity: 0.65 }}>—</span>;
+                      }
 
-                        <td>
-                          {issuer.issuerType === "subordinate"
-                            ? (
-                                issuer.rootApprovalStatus === "approved"
-                                  ? formatTimestamp(issuer.rootApprovedAt)
-                                  : issuer.rootApprovalStatus === "rejected"
-                                  ? "Rejected by Root"
-                                  : "Pending"
-                              )
-                            : "—"}
-                        </td>
+                      const isAwaitingRoot = pendingIssuerFilter === "awaiting_root";
+                      const isPendingRoot = pendingIssuerFilter === "root_only";
+                      const isRootApproved = pendingIssuerFilter === "root_approved" || pendingIssuerFilter === "admin_actionable";
+                      const showAdminDecision = !isAwaitingRoot && (isPendingRoot || isRootApproved || pendingIssuerFilter === "all_pending" || pendingIssuerFilter === "subordinate_only");
 
-                        <td>
-                          {renderStatusText(issuer.status || (isDisabled ? "disabled" : "approved"), isDisabled ? "disabled" : "approved")}
-                        </td>
-
-                        <td style={{ fontFamily: "monospace", fontSize: "12px" }}>
-                          {adminMeta.approvedBy}
-                        </td>
-                        <td style={{ fontFamily: "monospace", fontSize: "12px" }}>
-                          {adminMeta.rejectedBy}
-                        </td>
-                        <td style={{ fontFamily: "monospace", fontSize: "12px" }}>
-                          {adminMeta.disabledBy}
-                        </td>
-                        <td style={{ fontFamily: "monospace", fontSize: "12px" }}>
-                          {adminMeta.enabledBy}
-                        </td>
-
-                        <td>{formatTimestamp(issuer.createdAt)}</td>
-
-                        <td style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                          {issuerFilter === "pending" ? (
+                      return (
+                        <>
+                          {showAdminDecision ? (
                             <>
                               <button
                                 onClick={() => handleApproveIssuer(id)}
@@ -2414,65 +2538,55 @@ const handleDownloadIssuerDocument = async (doc) => {
                               >
                                 Reject
                               </button>
-                              <button
-                                  onClick={() => openIssuerDocumentsModal(issuer)}                                
-                                  style={{
-                                  padding: "8px 12px",
-                                  borderRadius: 10,
-                                  border: "1px solid rgba(255,255,255,0.18)",
-                                  cursor: "pointer",
-                                  fontWeight: 700,
-                                  background: "rgba(139,92,246,0.15)",
-                                  color: "#a78bfa",
-                                }}
-                                title="View submitted documents"
-                              >
-                                See Documents
-                              </button>
                             </>
-                          ) : issuer.status === "rejected" ? (
-                            <span style={{ opacity: 0.65 }}>—</span>
                           ) : (
-                            <>
-                              <button
-                                type="button"
-                                onClick={() =>
-                                  openIssuerStatusModal(issuer, isDisabled ? "enable" : "disable")
-                                }
-                                style={{
-                                  padding: "8px 12px",
-                                  borderRadius: 10,
-                                  border: "1px solid rgba(255,255,255,0.18)",
-                                  cursor: "pointer",
-                                  fontWeight: 700,
-                                  background: isDisabled
-                                    ? "rgba(74,222,128,0.12)"
-                                    : "rgba(255,107,107,0.12)",
-                                  color: isDisabled ? "#4ade80" : "#ff6b6b",
-                                }}
-                                title={isDisabled ? "Re-enable issuer" : "Disable issuer"}
-                              >
-                                {isDisabled ? "Enable" : "Disable"}
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => openHistoryStatusModal(issuer.email, "issuer")}
-                                style={{
-                                  padding: "8px 12px",
-                                  borderRadius: 10,
-                                  border: "1px solid rgba(255,255,255,0.18)",
-                                  cursor: "pointer",
-                                  fontWeight: 700,
-                                  background: "rgba(139,92,246,0.15)",
-                                  color: "#a78bfa",
-                                }}
-                                title="View status change history"
-                              >
-                                See History
-                              </button>
-                            </>
+                            <span style={{ opacity: 0.5, fontSize: "12px", fontStyle: "italic" }}>Awaiting Root Approval</span>
                           )}
-                        </td>
+
+                          {canSeeDocuments && (
+                            <button
+                              type="button"
+                              onClick={() => openIssuerDocumentsModal(issuer)}
+                              style={{
+                                padding: "8px 12px",
+                                borderRadius: 10,
+                                border: "1px solid rgba(255,255,255,0.18)",
+                                cursor: "pointer",
+                                fontWeight: 700,
+                                background: "rgba(139,92,246,0.15)",
+                                color: "#a78bfa",
+                              }}
+                              title="View submitted documents"
+                            >
+                              See Documents
+                            </button>
+                          )}
+                        </>
+                      );
+                    })();
+
+                    const issuerCellMap = {
+                      issuerId: id || "N/A",
+                      orgName: issuer.orgName || issuer.name || "N/A",
+                      email: issuer.email || "N/A",
+                      issuerType: issuer.issuerType === "subordinate" ? <span className="badge purple">Subordinate</span> : <span className="badge blue">Root</span>,
+                      rootAuthority: issuer.issuerType === "subordinate" ? (issuer.rootAuthorityName || "N/A") : "—",
+                      rootApproval: rootApprovalBadge,
+                      rootApprovedAt: issuer.issuerType === "subordinate" ? (issuer.rootApprovalStatus === "approved" ? formatTimestamp(issuer.rootApprovedAt) : issuer.rootApprovalStatus === "rejected" ? "Rejected by Root" : "Pending") : "—",
+                      status: renderStatusText(issuer.status || (isDisabled ? "disabled" : "approved"), isDisabled ? "disabled" : "approved"),
+                      approvedBy: <span style={{ fontFamily: "monospace", fontSize: "12px" }}>{adminMeta.approvedBy}</span>,
+                      rejectedBy: <span style={{ fontFamily: "monospace", fontSize: "12px" }}>{adminMeta.rejectedBy}</span>,
+                      disabledBy: <span style={{ fontFamily: "monospace", fontSize: "12px" }}>{adminMeta.disabledBy}</span>,
+                      enabledBy: <span style={{ fontFamily: "monospace", fontSize: "12px" }}>{adminMeta.enabledBy}</span>,
+                      createdAt: formatTimestamp(issuer.createdAt),
+                      actions: <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>{actionsCell}</div>,
+                    };
+
+                    return (
+                      <tr key={id}>
+                        {activeIssuerColumns.map((column) => (
+                          <td key={`${id}-${column}`}>{issuerCellMap[column]}</td>
+                        ))}
                       </tr>
                     );
                   })}
@@ -2494,22 +2608,34 @@ const handleDownloadIssuerDocument = async (doc) => {
           </p>
           {renderStatsGrid(userStats)}
 
-          <div className="issuer-filter-row">
-            <label htmlFor="userFilter">View:</label>
-            <select
-              id="userFilter"
-              value={userFilter}
-              onChange={(e) => setUserFilter(e.target.value)}
-            >
-              <option value="active">Active Users</option>
-              <option value="disabled">Disabled Users</option>
-              <option value="all">All Users</option>
-            </select>
+          <div className="issuer-filter-row" style={{ gap: 12, flexWrap: "wrap" }}>
+            <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+              <label htmlFor="userFilter">View:</label>
+              <select
+                id="userFilter"
+                value={userFilter}
+                onChange={(e) => setUserFilter(e.target.value)}
+              >
+                <option value="active">Active Users</option>
+                <option value="disabled">Disabled Users</option>
+                <option value="all">All Users</option>
+              </select>
+            </div>
+            <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+              <label htmlFor="userSortBy">Sort by:</label>
+              <select id="userSortBy" value={userSortBy} onChange={(e) => setUserSortBy(e.target.value)}>
+                <option value="newest">Most Recent</option>
+                <option value="oldest">Oldest First</option>
+                <option value="name-asc">Username A-Z</option>
+                <option value="name-desc">Username Z-A</option>
+                <option value="status-asc">Email A-Z</option>
+              </select>
+            </div>
           </div>
 
           {usersLoading ? (
             <div className="tab-placeholder">Loading users...</div>
-          ) : visibleUsers.length > 0 ? (
+          ) : sortedVisibleUsers.length > 0 ? (
             <div className="table-wrapper">
               <table className="admin-table">
                 <thead>
@@ -2524,7 +2650,7 @@ const handleDownloadIssuerDocument = async (doc) => {
                   </tr>
                 </thead>
                 <tbody>
-                  {visibleUsers.map((user) => {
+                  {sortedVisibleUsers.map((user) => {
                     const isDisabled = user.isActive === false;
                     return (
                       <tr key={user._id || user.id}>
@@ -2597,9 +2723,19 @@ const handleDownloadIssuerDocument = async (doc) => {
           <p className="tab-subtitle">
             Monitor credential verification requests and track their resolution status.
           </p>
+          <div className="issuer-filter-row" style={{ gap: 12, flexWrap: "wrap" }}>
+            <label htmlFor="verificationSortBy">Sort by:</label>
+            <select id="verificationSortBy" value={verificationSortBy} onChange={(e) => setVerificationSortBy(e.target.value)}>
+              <option value="newest">Most Recent</option>
+              <option value="oldest">Oldest First</option>
+              <option value="name-asc">Credential Name A-Z</option>
+              <option value="name-desc">Credential Name Z-A</option>
+              <option value="status-asc">Status A-Z</option>
+            </select>
+          </div>
           {verificationsLoading ? (
             <div className="tab-placeholder">Loading verifications...</div>
-          ) : verifications.length > 0 ? (
+          ) : sortedVerifications.length > 0 ? (
             <div className="table-wrapper">
               <table className="admin-table">
                 <thead>
@@ -2612,7 +2748,7 @@ const handleDownloadIssuerDocument = async (doc) => {
                   </tr>
                 </thead>
                 <tbody>
-                  {verifications.map((v) => (
+                  {sortedVerifications.map((v) => (
                     <tr key={v.id}>
                       <td>{v.id}</td>
                       <td>{v.requester}</td>
@@ -2650,6 +2786,25 @@ const handleDownloadIssuerDocument = async (doc) => {
               <option value="status">Status Change Logs</option>
               <option value="decision">Issuer Decision Logs</option>
               <option value="root_subordinate_decision">Root Subordinate Decision Logs</option>
+            </select>
+
+            <label htmlFor="activeLogSort">Sort by:</label>
+            <select
+              id="activeLogSort"
+              value={logCategory === "status" ? statusLogSortBy : logCategory === "decision" ? issuerDecisionLogSortBy : logCategory === "root_subordinate_decision" ? rootSubordinateLogSortBy : verificationSortBy}
+              onChange={(e) => {
+                const value = e.target.value;
+                if (logCategory === "status") setStatusLogSortBy(value);
+                else if (logCategory === "decision") setIssuerDecisionLogSortBy(value);
+                else if (logCategory === "root_subordinate_decision") setRootSubordinateLogSortBy(value);
+                else setVerificationSortBy(value);
+              }}
+            >
+              <option value="newest">Most Recent</option>
+              <option value="oldest">Oldest First</option>
+              <option value="name-asc">Name A-Z</option>
+              <option value="name-desc">Name Z-A</option>
+              <option value="status-asc">Status A-Z</option>
             </select>
 
             {logCategory === "status" && (
@@ -2755,7 +2910,7 @@ const handleDownloadIssuerDocument = async (doc) => {
               {issuerDecisionLogsError ? (
                 <div className="tab-placeholder">❌ {issuerDecisionLogsError}</div>
               ) : (() => {
-                const filtered = issuerDecisionLogs;
+                const filtered = sortedIssuerDecisionLogs;
 
                 return filtered.length > 0 ? (
                   <div className="table-wrapper">
@@ -2831,7 +2986,7 @@ const handleDownloadIssuerDocument = async (doc) => {
                         .toLowerCase();
                       return searchable.includes(query);
                     })
-                  : rootSubordinateLogs;
+                  : sortedRootSubordinateLogs;
 
                 return filtered.length > 0 ? (
                   <div className="table-wrapper">
@@ -2885,7 +3040,7 @@ const handleDownloadIssuerDocument = async (doc) => {
             <>
               {verificationLogsError ? (
                 <div className="tab-placeholder">{verificationLogsError}</div>
-              ) : verificationLogs.length > 0 ? (
+              ) : sortedVerificationLogs.length > 0 ? (
                 <div className="table-wrapper">
                   <table className="admin-table">
                     <thead>
@@ -2901,7 +3056,7 @@ const handleDownloadIssuerDocument = async (doc) => {
                       </tr>
                     </thead>
                     <tbody>
-                      {verificationLogs.map((log) => (
+                      {sortedVerificationLogs.map((log) => (
                         <tr key={log.logId || log.txId}>
                           <td style={{ fontFamily: "monospace", fontSize: "12px" }}>
                             {log.logId || log.id || "N/A"}
@@ -2930,7 +3085,7 @@ const handleDownloadIssuerDocument = async (doc) => {
             <>
               {statusLogsError ? (
                 <div className="tab-placeholder">{statusLogsError}</div>
-              ) : statusLogs.length > 0 ? (
+              ) : sortedStatusLogs.length > 0 ? (
                 <div className="table-wrapper">
                   <table className="admin-table">
                     {/* Removed Admin Email + Performed By (fabric) columns, renamed Performed By MSP → Performed By */}
@@ -2948,7 +3103,7 @@ const handleDownloadIssuerDocument = async (doc) => {
                       </tr>
                     </thead>
                     <tbody>
-                      {statusLogs.map((log) => (
+                      {sortedStatusLogs.map((log) => (
                         <tr key={log.id || log.txId}>
                           <td style={{ fontFamily: "monospace", fontSize: "12px" }}>
                             {log.id ? `${String(log.id).slice(0, 18)}...` : "N/A"}

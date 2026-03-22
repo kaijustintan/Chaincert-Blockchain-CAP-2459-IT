@@ -97,6 +97,7 @@ export default function AdminDashboard() {
   const [credentialHistory, setCredentialHistory] = useState([]);
   const [credentialHistoryLoading, setCredentialHistoryLoading] = useState(false);
   const [credentialHistoryError, setCredentialHistoryError] = useState(null);
+  const [descriptionModal, setDescriptionModal] = useState(null);
 
   // ✅ NEW: Reject Issuer modal state (required rejection reason)
   const [showRejectIssuerModal, setShowRejectIssuerModal] = useState(false);
@@ -179,6 +180,25 @@ const [issuerDocumentsError, setIssuerDocumentsError] = useState(null);
     if (typeof v === "object") return JSON.stringify(v);
     return String(v);
   };
+
+  const renderDescriptionCell = useCallback((row) => {
+    const rawDescription = typeof row?.description === "string" ? row.description : "";
+    const trimmedDescription = rawDescription.trim();
+    if (!trimmedDescription || trimmedDescription.toLowerCase() === "n/a") {
+      return <span style={{ opacity: 0.4 }}>—</span>;
+    }
+
+    return (
+      <button
+        type="button"
+        className="action-btn"
+        onClick={() => setDescriptionModal({ name: row?.credentialName || row?.credentialType || "Credential", description: trimmedDescription })}
+        style={{ padding: "4px 10px", fontSize: "11px", background: "rgba(139,92,246,0.12)", color: "#a78bfa", border: "1px solid rgba(139,92,246,0.25)", borderRadius: "6px", cursor: "pointer" }}
+      >
+        View Description
+      </button>
+    );
+  }, []);
 
   const getIssuerAdminMeta = (issuer) => ({
     approvedBy: issuer?.approvedBy || "N/A",
@@ -1491,6 +1511,58 @@ const handleDownloadIssuerDocument = async (doc) => {
           document.body
         )}
 
+      {descriptionModal &&
+        ReactDOM.createPortal(
+          <div
+            onClick={() => setDescriptionModal(null)}
+            style={{
+              position: "fixed",
+              inset: 0,
+              background: "rgba(0,0,0,0.6)",
+              zIndex: 999999,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              padding: "20px",
+            }}
+          >
+            <div
+              onClick={(e) => e.stopPropagation()}
+              style={{
+                width: "min(600px, 95vw)",
+                background: "#101018",
+                borderRadius: "12px",
+                border: "1px solid rgba(255,255,255,0.15)",
+                padding: "24px",
+                boxShadow: "0 10px 40px rgba(0,0,0,0.4)",
+                color: "#fff",
+              }}
+            >
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "16px" }}>
+                <h3 style={{ margin: 0, fontSize: "18px" }}>{descriptionModal.name}</h3>
+                <button
+                  type="button"
+                  onClick={() => setDescriptionModal(null)}
+                  style={{
+                    background: "transparent",
+                    border: "1px solid rgba(255,255,255,0.25)",
+                    color: "#fff",
+                    borderRadius: "8px",
+                    padding: "8px 10px",
+                    cursor: "pointer",
+                  }}
+                >
+                  ✕
+                </button>
+              </div>
+              <div style={{ fontSize: "14px", lineHeight: "1.7", color: "rgba(255,255,255,0.85)", whiteSpace: "pre-wrap" }}>
+                {descriptionModal.description}
+              </div>
+            </div>
+          </div>,
+          document.body
+        )}
+
       {showRejectIssuerModal &&
         ReactDOM.createPortal(
           <div
@@ -2278,6 +2350,7 @@ const handleDownloadIssuerDocument = async (doc) => {
                       <th>Credential ID</th>
                       <th>Type</th>
                       <th>Credential Name</th>
+                      <th>Description</th>
                       <th>Holder ID</th>
                       <th>Holder Name</th>
                       <th>Status</th>
@@ -2298,6 +2371,7 @@ const handleDownloadIssuerDocument = async (doc) => {
                           </td>
                           <td>{row.type || "N/A"}</td>
                           <td>{row.credentialName || row.credentialType || "N/A"}</td>
+                          <td>{renderDescriptionCell(row)}</td>
                           <td style={{ fontFamily: "monospace", fontSize: 12 }}>
                             {row.holderID || "—"}
                           </td>

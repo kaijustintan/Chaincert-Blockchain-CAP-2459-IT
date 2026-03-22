@@ -39,6 +39,7 @@ const [showAll, setShowAll] = useState(false);
   const [showShareModal, setShowShareModal] = useState(false);
   const [shareRecipientEmail, setShareRecipientEmail] = useState('');
   const [shareDuration, setShareDuration] = useState('7');
+  const [shareDescription, setShareDescription] = useState('');
   const [shareGeneratedUrl, setShareGeneratedUrl] = useState('');
   const [shareLoading, setShareLoading] = useState(false);
   const [shareError, setShareError] = useState('');
@@ -366,6 +367,7 @@ const [showAll, setShowAll] = useState(false);
   const handleOpenShareModal = () => {
     setShareRecipientEmail('');
     setShareDuration('7');
+    setShareDescription('');
     setShareGeneratedUrl('');
     setShareError('');
     setShareCopied(false);
@@ -376,6 +378,7 @@ const [showAll, setShowAll] = useState(false);
     setShowShareModal(false);
     setShareGeneratedUrl('');
     setShareError('');
+    setShareDescription('');
   };
 
   const handleGenerateShareLink = async () => {
@@ -392,11 +395,15 @@ const [showAll, setShowAll] = useState(false);
       if (shareType === 'specific') {
         result = await apiService.generateProfileShareLink({
           recipientEmail: shareRecipientEmail.trim(),
-          durationDays: shareDuration
+          durationDays: shareDuration,
+          description: shareDescription.trim(),
+          source: 'manual'
         });
       } else {
         result = await apiService.generatePublicShareLink({
-          durationDays: shareDuration
+          durationDays: shareDuration,
+          description: shareDescription.trim(),
+          source: 'manual'
         });
       }
       if (result.success) {
@@ -772,7 +779,7 @@ const [showAll, setShowAll] = useState(false);
               <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.85rem' }}>
                 <thead>
                   <tr style={{ borderBottom: '1px solid rgba(139,92,246,0.3)' }}>
-                    {['Recipient', 'Created', 'Expires', 'Share Link', 'Views', 'Status', 'Action'].map(h => (
+                    {['Recipient', 'Source', 'Description', 'Created', 'Expires', 'Share Link', 'Views', 'Status', 'Action'].map(h => (
                       <th key={h} style={{ padding: '8px 12px', color: '#a78bfa', fontWeight: 600, textAlign: 'left', whiteSpace: 'nowrap' }}>{h}</th>
                     ))}
                   </tr>
@@ -791,6 +798,21 @@ const [showAll, setShowAll] = useState(false);
                       <tr key={link._id} style={{ borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
                         <td style={{ padding: '10px 12px', color: '#d4d4d8' }}>
                           {link.recipientEmail || <span style={{ color: '#666', fontStyle: 'italic' }}>Anyone</span>}
+                        </td>
+                        <td style={{ padding: '10px 12px' }}>
+                          <span style={{
+                            padding: '2px 8px',
+                            borderRadius: '10px',
+                            fontSize: '11px',
+                            fontWeight: 600,
+                            background: link.source === 'pdf_export' ? 'rgba(59,130,246,0.12)' : 'rgba(139,92,246,0.12)',
+                            color: link.source === 'pdf_export' ? '#3b82f6' : '#a78bfa'
+                          }}>
+                            {link.source === 'pdf_export' ? 'PDF Export' : 'Manual'}
+                          </span>
+                        </td>
+                        <td style={{ padding: '10px 12px', fontSize: '12px', maxWidth: '200px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: '#d4d4d8' }}>
+                          {link.description || '—'}
                         </td>
                         <td style={{ padding: '10px 12px', color: '#94a3b8', whiteSpace: 'nowrap' }}>
                           {link.createdAt ? new Date(link.createdAt).toLocaleDateString() : '—'}
@@ -930,6 +952,25 @@ const [showAll, setShowAll] = useState(false);
                       <option value="30">30 Days</option>
                       <option value="none">No Expiry</option>
                     </select>
+                  </div>
+                  <div className="detail-row" style={{ flexDirection: 'column', gap: 6, marginTop: 14 }}>
+                    <label style={{ color: '#a78bfa', fontSize: '0.85rem', fontWeight: 600 }}>
+                      Description <span style={{ color: '#94a3b8', fontWeight: 400 }}>(optional)</span>
+                    </label>
+                    <input
+                      type="text"
+                      value={shareDescription}
+                      onChange={(e) => setShareDescription(e.target.value)}
+                      placeholder="e.g., For employer at Company X"
+                      maxLength={200}
+                      style={{
+                        background: 'rgba(255,255,255,0.08)',
+                        border: '1px solid #a78bfa',
+                        borderRadius: 8, color: '#fff',
+                        padding: '8px 12px', fontSize: '14px',
+                        outline: 'none', width: '100%'
+                      }}
+                    />
                   </div>
                   {shareError && (
                     <p style={{ color: '#ff6b6b', fontSize: '0.85rem', marginTop: 10 }}>{shareError}</p>

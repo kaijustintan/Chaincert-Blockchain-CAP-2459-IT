@@ -2204,10 +2204,10 @@ GetRootSubordinateRejectionLogsByRootAuthority: async () => {
   // ==========================================================================================================================================================================
 
   // generate public share link (no recipient email, no OTP)
-  generatePublicShareLink: async ({ durationDays }) => {
+  generatePublicShareLink: async (data = {}) => {
     try {
       const response = await axios.post('/auth/profile-share/generate-public', {
-        durationDays
+        ...data
       });
       return response.data;
     } catch (error) {
@@ -2216,11 +2216,13 @@ GetRootSubordinateRejectionLogsByRootAuthority: async () => {
     }
   },
 
-  generateProfileShareLink: async ({ recipientEmail, durationDays }) => {
+  generateProfileShareLink: async ({ recipientEmail, durationDays, description, source } = {}) => {
     try {
       const response = await axios.post('/auth/profile-share/generate', {
         recipientEmail,
-        durationDays
+        durationDays,
+        description,
+        source
       });
       return response.data;
     } catch (error) {

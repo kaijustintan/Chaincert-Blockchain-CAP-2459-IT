@@ -3300,14 +3300,22 @@ async function getBlockedHolderIDsByTemplate(templateId) {
   Technical: Creates a new profile share link doc in profile_share_links DB.
   Tropang Ex: Ginagawa yung shareable link doc kapag nag-click ng "Share Profile" si user. // - polo
 */
-async function createProfileShareLink(userId, token, recipientEmail, expiresAt) {
+async function createProfileShareLink(userId, token, recipientEmail, expiresAt, options = {}) {
   if (!profileShareLinksDb) await initializeDatabases();
+  const normalizedSource = typeof options.source === 'string' && options.source.trim()
+    ? options.source.trim()
+    : 'manual';
+  const normalizedDescription = typeof options.description === 'string'
+    ? options.description.trim()
+    : '';
   const doc = {
     _id: `share_${userId}_${Date.now()}`,
     type: 'profile_share_link',
     userId,
     token,
     recipientEmail,
+    source: normalizedSource,
+    description: normalizedDescription || null,
     expiresAt: expiresAt || null,
     createdAt: new Date().toISOString(),
     isActive: true,

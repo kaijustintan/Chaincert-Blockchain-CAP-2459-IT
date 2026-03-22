@@ -149,6 +149,7 @@ export default function IssuerDashboard() {
   const [historyError, setHistoryError] = useState(null);
   const [historyOpen, setHistoryOpen] = useState(false);
   const [historyCredential, setHistoryCredential] = useState(null);
+  const [descriptionModal, setDescriptionModal] = useState(null);
 
   // -------------------------------------------------------------------
   // EFFECTS (unchanged)
@@ -163,7 +164,13 @@ export default function IssuerDashboard() {
   const applyFilters = useCallback(() => {
     let result = [...credentials];
     if (filterType !== "all") result = result.filter((cred) => cred.credentialType === filterType);
-    if (filterStatus !== "all") result = result.filter((cred) => cred.status === filterStatus);
+    if (filterStatus !== "all") {
+      result = result.filter((cred) => {
+        const normalizedStatus = String(cred.status || "").toLowerCase();
+        if (filterStatus === "issued") return normalizedStatus === "issued" || normalizedStatus === "active";
+        return normalizedStatus === filterStatus;
+      });
+    }
     result = applySorting(result, sortBy);
     setFilteredCredentials(result);
   }, [credentials, sortBy, filterType, filterStatus]);
@@ -404,7 +411,13 @@ export default function IssuerDashboard() {
 
   const revokeTableCredentials = useMemo(() => {
     let result = [...credentials];
-    if (revokeStatusFilter !== "all") result = result.filter((cred) => String(cred.status || "active").toLowerCase() === revokeStatusFilter);
+    if (revokeStatusFilter !== "all") {
+      result = result.filter((cred) => {
+        const normalizedStatus = String(cred.status || "active").toLowerCase();
+        if (revokeStatusFilter === "issued") return normalizedStatus === "issued" || normalizedStatus === "active";
+        return normalizedStatus === revokeStatusFilter;
+      });
+    }
     if (revokeTypeFilter !== "all") result = result.filter((cred) => String(cred.credentialType || "").toLowerCase() === revokeTypeFilter.toLowerCase());
     const query = revokeSectionSearch.trim().toLowerCase();
     if (query) result = result.filter((cred) => [cred.credentialName, cred.holderName, cred.holderID, cred.blockchainId, cred.id].filter(Boolean).join(" ").toLowerCase().includes(query));
@@ -442,6 +455,25 @@ export default function IssuerDashboard() {
     }));
     return [...templateRows, ...issuedRows];
   }, [templateOptions, credentials]);
+
+  const renderDescriptionCell = useCallback((item) => {
+    const rawDescription = typeof item?.description === "string" ? item.description : "";
+    const trimmedDescription = rawDescription.trim();
+    if (!trimmedDescription || trimmedDescription.toLowerCase() === "n/a") {
+      return <span style={{ opacity: 0.4 }}>—</span>;
+    }
+
+    return (
+      <button
+        type="button"
+        className="action-btn"
+        onClick={() => setDescriptionModal({ name: item?.credentialName || item?.name || "Credential", description: trimmedDescription })}
+        style={{ padding: "4px 10px", fontSize: "11px", background: "rgba(139,92,246,0.12)", color: "#a78bfa", border: "1px solid rgba(139,92,246,0.25)", borderRadius: "6px", cursor: "pointer" }}
+      >
+        View Description
+      </button>
+    );
+  }, []);
 
   const filteredAllCredentialRows = useMemo(() => {
     let result = [...allCredentialRows];
@@ -823,7 +855,7 @@ export default function IssuerDashboard() {
                 <label htmlFor="filterStatus">Status:</label>
                 <select id="filterStatus" value={filterStatus} onChange={(e) => setFilterStatus(e.target.value)} className="filter-select">
                   <option value="all">All Status</option>
-                  <option value="active">✅ Issued</option>
+                  <option value="issued">✅ Issued</option>
                   <option value="revoked">❌ Revoked</option>
                   <option value="expired">⚠️ Expired</option>
                 </select>
@@ -848,7 +880,7 @@ export default function IssuerDashboard() {
                         <td>{credential.holderName || "N/A"}</td>
                         <td>{credential.credentialName || "N/A"}</td>
                         <td>{credential.credentialType || "N/A"}</td>
-                        <td>{credential.description || "N/A"}</td>
+                        <td>{renderDescriptionCell(credential)}</td>
                         <td>{credential.issuedDate ? new Date(credential.issuedDate).toLocaleDateString() : "N/A"}</td>
                         <td><span className={`status-badge status-${credential.status || "active"}`}>{credential.status || "active"}</span></td>
                         <td>{getRevokedDateValue(credential) ? new Date(getRevokedDateValue(credential)).toLocaleDateString() : "—"}</td>
@@ -926,7 +958,7 @@ export default function IssuerDashboard() {
           <div className="table-container">
             <h3 style={{ marginBottom: 12 }}>Issued Credentials ({revokableCount} revokable)</h3>
             <div className="filter-row">
-              <div className="filter-group"><label>Status:</label><select value={revokeStatusFilter} onChange={(e) => setRevokeStatusFilter(e.target.value)} className="filter-select"><option value="all">All</option><option value="issued">Issued</option><option value="active">Active</option><option value="revoked">Revoked</option></select></div>
+              <div className="filter-group"><label>Status:</label><select value={revokeStatusFilter} onChange={(e) => setRevokeStatusFilter(e.target.value)} className="filter-select"><option value="all">All Status</option><option value="issued">✅ Issued</option><option value="revoked">❌ Revoked</option></select></div>
               <div className="filter-group"><label>Type:</label><select value={revokeTypeFilter} onChange={(e) => setRevokeTypeFilter(e.target.value)} className="filter-select"><option value="all">All Types</option>{getUniqueCredentialTypes().map((type) => <option key={type} value={type}>{type}</option>)}</select></div>
               <div className="filter-group"><label>Search:</label><input value={revokeSectionSearch} onChange={(e) => setRevokeSectionSearch(e.target.value)} placeholder="Search by credential, holder, or ID..." className="filter-select" /></div>
               <div className="filter-group"><label>Sort by:</label><select value={revokeSortBy} onChange={(e) => setRevokeSortBy(e.target.value)} className="filter-select"><option value="newest">Most Recent</option><option value="oldest">Oldest First</option><option value="name-asc">Name A-Z</option><option value="name-desc">Name Z-A</option><option value="status-asc">Status A-Z</option></select></div>
@@ -935,7 +967,7 @@ export default function IssuerDashboard() {
               <div className="no-results"><p>{credentials.length === 0 ? "📭 No issued credentials found." : "❌ No credentials match your filters."}</p></div>
             ) : (
               <table className="template-table">
-                <thead><tr><th>Credential ID</th><th>Name</th><th>Holder</th><th>Type</th><th>Status</th><th>Issued Date</th><th>Revoked Date</th><th>Actions</th></tr></thead>
+                <thead><tr><th>Credential ID</th><th>Name</th><th>Holder</th><th>Type</th><th>Description</th><th>Status</th><th>Issued Date</th><th>Revoked Date</th><th>Actions</th></tr></thead>
                 <tbody>
                   {revokeTableCredentials.map((credential) => {
                     const blockchainId = credential.blockchainId || credential.id;
@@ -945,6 +977,7 @@ export default function IssuerDashboard() {
                         <td>{credential.credentialName || "N/A"}</td>
                         <td>{credential.holderName || "N/A"}</td>
                         <td>{credential.credentialType || "N/A"}</td>
+                        <td>{renderDescriptionCell(credential)}</td>
                         <td><span className={`status-badge status-${credential.status || "active"}`}>{credential.status || "active"}</span></td>
                         <td>{credential.issuedDate ? new Date(credential.issuedDate).toLocaleDateString() : "N/A"}</td>
                         <td>{getRevokedDateValue(credential) ? new Date(getRevokedDateValue(credential)).toLocaleDateString() : "—"}</td>
@@ -1388,6 +1421,21 @@ export default function IssuerDashboard() {
             })()}
           </div>
           <div className="modal-backdrop" onClick={closeHistory}></div>
+        </div>
+      )}
+
+      {descriptionModal && (
+        <div className="modal-overlay">
+          <div className="modal" style={{ maxWidth: "600px", padding: "24px" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "16px" }}>
+              <h3 style={{ margin: 0, fontSize: "18px" }}>{descriptionModal.name}</h3>
+              <button type="button" className="modal-close" onClick={() => setDescriptionModal(null)}>✕</button>
+            </div>
+            <div style={{ fontSize: "14px", lineHeight: "1.7", color: "rgba(255,255,255,0.85)", whiteSpace: "pre-wrap" }}>
+              {descriptionModal.description}
+            </div>
+          </div>
+          <div className="modal-backdrop" onClick={() => setDescriptionModal(null)}></div>
         </div>
       )}
 

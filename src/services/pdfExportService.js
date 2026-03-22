@@ -6,6 +6,19 @@
 
 import { jsPDF } from 'jspdf';
 import QRCode from 'qrcode';
+import apiService from './apiService';
+
+const PH_TIMEZONE = { timeZone: 'Asia/Manila' };
+const formatPhilippineDate = (value) => {
+  if (!value) return 'N/A';
+  try {
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return 'N/A';
+    return date.toLocaleDateString('en-PH', PH_TIMEZONE);
+  } catch {
+    return 'N/A';
+  }
+};
 
 /*
   Function: exportCredentialToPDF
@@ -18,6 +31,20 @@ export async function exportCredentialToPDF(credential, templateDetails) {
   const pageW = doc.internal.pageSize.getWidth();
   const margin = 20;
   let y = 20;
+  const verifyUrl = `http://localhost:3000/verifier/dashboard?credentialId=${credential.blockchainId || ''}`;
+  let profileShareUrl = null;
+
+  try {
+    const shareResult = await apiService.generatePublicShareLink({
+      source: 'pdf_export',
+      description: `Auto-generated for PDF export on ${new Date().toLocaleDateString('en-PH', PH_TIMEZONE)}`
+    });
+    if (shareResult?.success && shareResult?.shareUrl) {
+      profileShareUrl = shareResult.shareUrl;
+    }
+  } catch (e) {
+    console.warn('[PDF] Profile link generation failed (non-fatal):', e);
+  }
 
   // ── Background ───────────────────────────────────────────────────────────
   doc.setFillColor(12, 8, 32);
@@ -38,8 +65,8 @@ export async function exportCredentialToPDF(credential, templateDetails) {
   if (badgeImage && badgeImage.startsWith('data:image')) {
     try {
       const imgFormat = badgeImage.includes('png') ? 'PNG' : 'JPEG';
-      doc.addImage(badgeImage, imgFormat, pageW / 2 - 20, y, 40, 40);
-      y += 48;
+      doc.addImage(badgeImage, imgFormat, pageW / 2 - 25, y, 50, 50);
+      y += 58;
     } catch (e) {
       console.warn('[PDF EXPORT] Badge image failed to load:', e);
       y += 4;
@@ -48,9 +75,8 @@ export async function exportCredentialToPDF(credential, templateDetails) {
 
   // ── Credential Name ──────────────────────────────────────────────────────
   const credentialTitle = credential.credentialName || 'Credential';
-  const verifyUrl = `http://localhost:3000/verifier/dashboard?credentialId=${credential.blockchainId || ''}`;
   doc.setTextColor(102, 126, 234);
-  doc.setFontSize(18);
+  doc.setFontSize(22);
   doc.setFont('helvetica', 'bold');
   doc.textWithLink(credentialTitle, pageW / 2, y, { align: 'center', url: verifyUrl });
   y += 10;
@@ -66,8 +92,8 @@ export async function exportCredentialToPDF(credential, templateDetails) {
     { label: 'Credential Type', value: credential.credentialType || 'N/A' },
     { label: 'Issued By',       value: credential.issuerName || 'N/A' },
     { label: 'Status',          value: credential.status === 'issued' ? 'Active' : (credential.status || 'N/A') },
-    { label: 'Date Issued',     value: credential.savedToUserWalletAt ? new Date(credential.savedToUserWalletAt).toLocaleDateString() : 'N/A' },
-    { label: 'Expiry Date',     value: credential.expiryDate ? new Date(credential.expiryDate).toLocaleDateString() : 'No Expiry' },
+    { label: 'Date Issued',     value: credential.savedToUserWalletAt ? formatPhilippineDate(credential.savedToUserWalletAt) : 'N/A' },
+    { label: 'Expiry Date',     value: credential.expiryDate ? formatPhilippineDate(credential.expiryDate) : 'No Expiry' },
     { label: 'Blockchain ID',   value: credential.blockchainId || 'N/A' },
   ];
 
@@ -82,8 +108,23 @@ export async function exportCredentialToPDF(credential, templateDetails) {
     // wrap long values like blockchainId
     const lines = doc.splitTextToSize(value, pageW - margin - 60);
     doc.text(lines, margin + 42, y);
-    y += lines.length > 1 ? lines.length * 5 + 2 : 7;
+    y += lines.length > 1 ? lines.length * 7 + 2 : 9;
   });
+
+  const description = credential.description || templateDetails?.description || '';
+  if (description && description.trim()) {
+    y += 4;
+    doc.setFontSize(9);
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(167, 139, 250);
+    doc.text('Description:', margin, y);
+    y += 6;
+    doc.setFont('helvetica', 'normal');
+    doc.setTextColor(255, 255, 255);
+    const descLines = doc.splitTextToSize(description, pageW - margin * 2);
+    doc.text(descLines, margin, y);
+    y += descLines.length * 5 + 4;
+  }
 
   // ── Skills ───────────────────────────────────────────────────────────────
   const skills = templateDetails?.skills || credential.skills || [];
@@ -111,7 +152,7 @@ export async function exportCredentialToPDF(credential, templateDetails) {
   y += 4;
   doc.setDrawColor(139, 92, 246);
   doc.line(margin, y, pageW - margin, y);
-  y += 8;
+  y += 14;
 
   doc.setFontSize(9);
   doc.setFont('helvetica', 'bold');
@@ -127,10 +168,25 @@ export async function exportCredentialToPDF(credential, templateDetails) {
   y += verifyLines.length * 4 + 4;
   try {
     const qrDataUrl = await QRCode.toDataURL(verifyUrl, { width: 200, margin: 1, color: { dark: '#000000', light: '#ffffff' } });
-    const qrSize = 30;
+    const qrSize = 40;
     doc.addImage(qrDataUrl, 'PNG', pageW / 2 - qrSize / 2, y, qrSize, qrSize);
     y += qrSize + 4;
   } catch (e) { console.warn('[PDF] QR failed:', e); }
+
+  if (profileShareUrl) {
+    y += 6;
+    doc.setFontSize(9);
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(167, 139, 250);
+    doc.text('View holder profile:', margin, y);
+    y += 6;
+    doc.setFontSize(8);
+    doc.setFont('helvetica', 'normal');
+    doc.setTextColor(102, 126, 234);
+    const profileLines = doc.splitTextToSize(profileShareUrl, pageW - margin * 2);
+    doc.textWithLink(profileLines.join('\n'), margin, y, { url: profileShareUrl });
+    y += profileLines.length * 4 + 4;
+  }
 
   // ── Footer ───────────────────────────────────────────────────────────────
   doc.setFillColor(102, 126, 234);
@@ -159,6 +215,19 @@ export async function exportAllCredentialsToPDF(credentials, studentName) {
   const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
   const pageW = doc.internal.pageSize.getWidth();
   const margin = 20;
+  let profileShareUrl = null;
+
+  try {
+    const shareResult = await apiService.generatePublicShareLink({
+      source: 'pdf_export',
+      description: `Auto-generated for portfolio PDF export on ${new Date().toLocaleDateString('en-PH', PH_TIMEZONE)}`
+    });
+    if (shareResult?.success && shareResult?.shareUrl) {
+      profileShareUrl = shareResult.shareUrl;
+    }
+  } catch (e) {
+    console.warn('[PDF] Profile link generation failed:', e);
+  }
 
   // ── COVER PAGE ────────────────────────────────────────────────────────────
   doc.setFillColor(12, 8, 32);
@@ -193,7 +262,7 @@ export async function exportAllCredentialsToPDF(credentials, studentName) {
 
   doc.setTextColor(136, 136, 136);
   doc.setFontSize(10);
-  doc.text(`Generated: ${new Date().toLocaleDateString()}`, pageW / 2, 134, { align: 'center' });
+  doc.text(`Generated: ${new Date().toLocaleDateString('en-PH', PH_TIMEZONE)}`, pageW / 2, 134, { align: 'center' });
   doc.text(`Total Active Credentials: ${credentials.length}`, pageW / 2, 142, { align: 'center' }); 
 
   // Credential list summary on cover
@@ -242,14 +311,14 @@ export async function exportAllCredentialsToPDF(credentials, studentName) {
     if (badgeImage && badgeImage.startsWith('data:image')) {
       try {
         const imgFormat = badgeImage.includes('png') ? 'PNG' : 'JPEG';
-        doc.addImage(badgeImage, imgFormat, pageW / 2 - 18, y, 36, 36);
-        y += 44;
+        doc.addImage(badgeImage, imgFormat, pageW / 2 - 22.5, y, 45, 45);
+        y += 53;
       } catch (e) { y += 4; }
     }
 
     // Credential name
     doc.setTextColor(102, 126, 234);
-    doc.setFontSize(15);
+    doc.setFontSize(18);
     doc.setFont('helvetica', 'bold');
     doc.textWithLink(credential.credentialName || 'Credential', margin, y, { url: verifyUrl });
     y += 8;
@@ -265,8 +334,8 @@ export async function exportAllCredentialsToPDF(credentials, studentName) {
       { label: 'Credential Type', value: credential.credentialType || 'N/A' },
       { label: 'Issued By', value: credential.issuerName || 'N/A' },
       { label: 'Status', value: credential.status === 'issued' ? 'Active' : (credential.status || 'N/A') },
-      { label: 'Date Issued', value: credential.savedToUserWalletAt ? new Date(credential.savedToUserWalletAt).toLocaleDateString() : 'N/A' },
-      { label: 'Expiry Date', value: credential.expiryDate ? new Date(credential.expiryDate).toLocaleDateString() : 'No Expiry' },
+      { label: 'Date Issued', value: credential.savedToUserWalletAt ? formatPhilippineDate(credential.savedToUserWalletAt) : 'N/A' },
+      { label: 'Expiry Date', value: credential.expiryDate ? formatPhilippineDate(credential.expiryDate) : 'No Expiry' },
       { label: 'Blockchain ID', value: credential.blockchainId || 'N/A' },
     ];
 
@@ -280,8 +349,23 @@ export async function exportAllCredentialsToPDF(credentials, studentName) {
       doc.setTextColor(255, 255, 255);
       const lines = doc.splitTextToSize(value, pageW - margin - 50);
       doc.text(lines, margin + 36, y);
-      y += lines.length > 1 ? lines.length * 4 + 1 : 5;
+      y += lines.length > 1 ? lines.length * 6 + 1 : 7;
     });
+
+    const description = credential.description || '';
+    if (description && description.trim()) {
+      y += 4;
+      doc.setFontSize(9);
+      doc.setFont('helvetica', 'bold');
+      doc.setTextColor(167, 139, 250);
+      doc.text('Description:', margin, y);
+      y += 6;
+      doc.setFont('helvetica', 'normal');
+      doc.setTextColor(255, 255, 255);
+      const descLines = doc.splitTextToSize(description, pageW - margin * 2);
+      doc.text(descLines, margin, y);
+      y += descLines.length * 5 + 4;
+    }
 
     const skills = credential.skills || [];
     if (skills.length > 0) {
@@ -305,7 +389,7 @@ export async function exportAllCredentialsToPDF(credentials, studentName) {
     y += 4;
     doc.setDrawColor(139, 92, 246);
     doc.line(margin, y, pageW - margin, y);
-    y += 8;
+    y += 14;
 
     doc.setFontSize(9);
     doc.setFont('helvetica', 'bold');
@@ -321,10 +405,25 @@ export async function exportAllCredentialsToPDF(credentials, studentName) {
     y += verifyLines.length * 4 + 4;
     try {
       const qrDataUrl = await QRCode.toDataURL(verifyUrl, { width: 200, margin: 1, color: { dark: '#000000', light: '#ffffff' } });
-      const qrSize = 30;
+      const qrSize = 40;
       doc.addImage(qrDataUrl, 'PNG', pageW / 2 - qrSize / 2, y, qrSize, qrSize);
       y += qrSize + 4;
     } catch (e) { console.warn('[PDF] QR failed:', e); }
+
+    if (profileShareUrl) {
+      y += 6;
+      doc.setFontSize(9);
+      doc.setFont('helvetica', 'bold');
+      doc.setTextColor(167, 139, 250);
+      doc.text('View holder profile:', margin, y);
+      y += 6;
+      doc.setFontSize(8);
+      doc.setFont('helvetica', 'normal');
+      doc.setTextColor(102, 126, 234);
+      const profileLines = doc.splitTextToSize(profileShareUrl, pageW - margin * 2);
+      doc.textWithLink(profileLines.join('\n'), margin, y, { url: profileShareUrl });
+      y += profileLines.length * 4 + 4;
+    }
 
     // Footer
     doc.setFillColor(102, 126, 234);

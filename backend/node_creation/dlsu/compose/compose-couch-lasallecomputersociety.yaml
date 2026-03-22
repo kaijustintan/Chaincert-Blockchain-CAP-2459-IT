@@ -1,0 +1,17 @@
+networks:
+  test:
+    name: fabric_test
+
+services:
+  couchdb_lasallecomputersociety:
+    container_name: couchdb_lasallecomputersociety
+    image: couchdb:3.4.2
+    labels:
+      service: hyperledger-fabric
+    environment:
+      - COUCHDB_USER=admin
+      - COUCHDB_PASSWORD=adminpw
+    ports:
+      - "9086:5984"
+    networks:
+      - test

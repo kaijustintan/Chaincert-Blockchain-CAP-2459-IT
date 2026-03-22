@@ -218,7 +218,7 @@ export default function IssuerDashboard() {
       else if (mode === "pending") response = await apiService.getPendingSubordinatesForRoot();
       else response = await apiService.getAllSubordinatesForRoot();
       const list = Array.isArray(response?.data) ? response.data : Array.isArray(response) ? response : [];
-      if (mode === "all") setTotalSubordinateCount(list.length);
+      if (mode === "all") setTotalSubordinateCount(list.filter((issuer) => issuer?.status === "approved").length);
       setSubordinateDirectory(list);
     } catch (err) {
       console.error("Error fetching subordinate directory:", err);
@@ -551,18 +551,20 @@ export default function IssuerDashboard() {
     return "inherit";
   };
 
-  const getHistoryActionLabel = useCallback((entry) => {
-    if (!entry) return "Unknown";
-    if (entry.isDelete) return "Deleted";
-    if (entry.action) return entry.action;
-
-    const value = entry.value || {};
-    if (value.status === "revoked" || value.revokedAt) return "Revoked";
-    if (value.assignedDate && value.holderID) return "Issued";
-    if (value.isTemplate === true || value.holderID === "") return "Created Template";
-
-    return "Updated";
-  }, []);
+  const handleToggleCredentialVisibility = async (credential) => {
+    try {
+      const credentialKey = credential?._id || credential?.id || credential?.blockchainId;
+      if (!credentialKey) return;
+      const newVisibility = credential.visibility === 'public' ? 'private' : 'public';
+      await apiService.Update_CredentialVisibility(credentialKey, newVisibility);
+      setCredentials((prev) => prev.map((item) => ((item._id || item.id || item.blockchainId) === credentialKey ? { ...item, visibility: newVisibility } : item)));
+      setTemplateOptions((prev) => prev.map((item) => ((item._id || item.id || item.blockchainId) === credentialKey ? { ...item, visibility: newVisibility } : item)));
+      showToast(`Credential visibility updated to ${newVisibility}.`);
+    } catch (err) {
+      console.error('[ISSUER DASHBOARD] Failed to update credential visibility:', err);
+      showToast(err.response?.data?.message || 'Failed to update credential visibility.', 'danger');
+    }
+  };
 
   // Revoke Modal handlers
   const openRevokeModal = () => { setShowRevokeModal(true); setRevokeError(""); setRevokeHolderOpen(false); setRevokeHolderSearch(""); setRevokeSelectedHolder(""); setRevokeCredentialOpen(false); setRevokeCredentialSearch(""); setRevokeForm({ credentialId: "", rejectionReason: "" }); };
@@ -804,7 +806,7 @@ export default function IssuerDashboard() {
               <div className="no-results"><p>{templateOptions.length === 0 ? "📭 No credential templates found. Create your first template!" : "❌ No templates match your filters."}</p></div>
             ) : (
               <table className="template-table">
-                <thead><tr><th>Name</th><th>Type</th><th>Template ID</th><th>Description</th><th>Skills</th><th>Created Date</th></tr></thead>
+                <thead><tr><th>Name</th><th>Type</th><th>Template ID</th><th>Description</th><th>Skills</th><th>Visibility</th><th>Created Date</th></tr></thead>
                 <tbody>
                   {filteredTemplates.map((template) => {
                     const id = template.id || template._id;
@@ -815,6 +817,7 @@ export default function IssuerDashboard() {
                         <td style={{ fontFamily: "monospace", fontSize: 12 }}>{id || "N/A"}</td>
                         <td>{template.description || "—"}</td>
                         <td>{Array.isArray(template.skills) && template.skills.length > 0 ? template.skills.join(", ") : "—"}</td>
+                        <td><button type="button" onClick={() => handleToggleCredentialVisibility(template)} className="action-btn" style={{ padding: "4px 12px", fontSize: "11px", background: template.visibility === "public" ? "rgba(34,197,94,0.12)" : "rgba(245,158,11,0.12)", color: template.visibility === "public" ? "#22c55e" : "#f59e0b", border: "1px solid rgba(255,255,255,0.18)", borderRadius: "999px" }}>{template.visibility === "public" ? "🌐 Public" : "🔒 Private"}</button></td>
                         <td>{template.createdAt ? new Date(template.createdAt).toLocaleDateString() : "N/A"}</td>
                       </tr>
                     );
@@ -879,7 +882,7 @@ export default function IssuerDashboard() {
           ) : (
             <div className="table-container">
               <table className="template-table">
-                <thead><tr><th>Credential ID</th><th>Holder Name</th><th>Credential Name</th><th>Type</th><th>Created Date</th><th>Status</th><th>Revoked Date</th><th>Expiry Date</th><th>Actions</th></tr></thead>
+                <thead><tr><th>Credential ID</th><th>Holder Name</th><th>Credential Name</th><th>Type</th><th>Created Date</th><th>Status</th><th>Visibility</th><th>Revoked Date</th><th>Expiry Date</th><th>Actions</th></tr></thead>
                 <tbody>
                   {issueTableCredentials.map((credential) => {
                     const blockchainId = credential.blockchainId || credential.id;
@@ -891,6 +894,7 @@ export default function IssuerDashboard() {
                         <td>{credential.credentialType || "N/A"}</td>
                         <td>{credential.issuedDate ? new Date(credential.issuedDate).toLocaleDateString() : "N/A"}</td>
                         <td><span className={`status-badge status-${credential.status || "active"}`}>{credential.status || "active"}</span></td>
+                        <td><button type="button" onClick={() => handleToggleCredentialVisibility(credential)} className="action-btn" style={{ padding: "4px 12px", fontSize: "11px", background: credential.visibility === "public" ? "rgba(34,197,94,0.12)" : "rgba(245,158,11,0.12)", color: credential.visibility === "public" ? "#22c55e" : "#f59e0b", border: "1px solid rgba(255,255,255,0.18)", borderRadius: "999px" }}>{credential.visibility === "public" ? "🌐 Public" : "🔒 Private"}</button></td>
                         <td>{getRevokedDateValue(credential) ? new Date(getRevokedDateValue(credential)).toLocaleDateString() : "—"}</td>
                         <td>{credential.expiryDate ? new Date(credential.expiryDate).toLocaleDateString() : "N/A"}</td>
                         <td className="actions-cell">
@@ -931,7 +935,7 @@ export default function IssuerDashboard() {
               <div className="no-results"><p>❌ No credentials match your filters.</p></div>
             ) : (
               <table className="template-table">
-                <thead><tr><th>Name</th><th>Type</th><th>Status</th><th>Holder Name</th><th>Created Date</th><th>Expiry Date</th><th>Actions</th></tr></thead>
+                <thead><tr><th>Name</th><th>Type</th><th>Status</th><th>Holder Name</th><th>Visibility</th><th>Created Date</th><th>Expiry Date</th><th>Actions</th></tr></thead>
                 <tbody>
                   {filteredAllCredentialRows.map((row, index) => (
                     <tr key={`${row.rowType}-${row.source?.id || row.source?._id || row.source?.blockchainId || index}`}>
@@ -939,9 +943,10 @@ export default function IssuerDashboard() {
                       <td>{row.type}</td>
                       <td><span className={`status-badge status-${String(row.status || row.rowType).toLowerCase()}`} style={{ color: getStatusColor(row.status || row.rowType), borderColor: `${getStatusColor(row.status || row.rowType)}55` }}>{row.status}</span></td>
                       <td>{row.holderName}</td>
+                      <td>{row.source?.visibility === "public" ? "🌐 Public" : "🔒 Private"}</td>
                       <td>{row.createdDate ? new Date(row.createdDate).toLocaleDateString() : "N/A"}</td>
                       <td>{row.expiryDate ? new Date(row.expiryDate).toLocaleDateString() : "—"}</td>
-                      <td className="actions-cell">{row.rowType === "template" ? <span style={{ opacity: 0.6 }}>—</span> : <><button type="button" className="action-btn" onClick={() => handleSeeHistory(row.source)} style={{ padding: "6px 10px", fontSize: "12px", background: "rgba(139,92,246,0.15)", color: "#a78bfa", border: "1px solid rgba(255,255,255,0.18)", borderRadius: "8px", cursor: "pointer" }}>View BC History</button>{renderDescriptionCell(row.source, false)}</>}</td>
+                      <td className="actions-cell"><button type="button" className="action-btn" onClick={() => handleToggleCredentialVisibility(row.source)} style={{ padding: "4px 12px", fontSize: "11px", background: row.source?.visibility === "public" ? "rgba(34,197,94,0.12)" : "rgba(245,158,11,0.12)", color: row.source?.visibility === "public" ? "#22c55e" : "#f59e0b", border: "1px solid rgba(255,255,255,0.18)", borderRadius: "999px", cursor: "pointer" }}>{row.source?.visibility === "public" ? "🌐 Public" : "🔒 Private"}</button>{row.rowType === "template" ? renderDescriptionCell(row.source, false) : <><button type="button" className="action-btn" onClick={() => handleSeeHistory(row.source)} style={{ padding: "6px 10px", fontSize: "12px", background: "rgba(139,92,246,0.15)", color: "#a78bfa", border: "1px solid rgba(255,255,255,0.18)", borderRadius: "8px", cursor: "pointer" }}>View BC History</button>{renderDescriptionCell(row.source, false)}</>}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -1404,7 +1409,6 @@ export default function IssuerDashboard() {
                       <thead>
                         <tr>
                           <th>Timestamp</th>
-                          <th>Action</th>
                           <th>Status</th>
                           <th>TX ID</th>
                           <th>Snapshot</th>
@@ -1412,15 +1416,9 @@ export default function IssuerDashboard() {
                       </thead>
                       <tbody>
                         {cleanHistory.map((entry, idx) => {
-                          const action = getHistoryActionLabel(entry);
                           return (
                             <tr key={entry.txId || idx}>
                               <td>{entry.timestamp ? new Date(entry.timestamp).toLocaleString() : "N/A"}</td>
-                              <td>
-                                <span className={`history-action-badge ${(action || "").toLowerCase().replace(/\s+/g, "-")}`}>
-                                  {action || "N/A"}
-                                </span>
-                              </td>
                               <td style={{ color: getStatusColor(entry.value?.status || entry.status), fontWeight: 600 }}>{entry.value?.status || entry.status || "N/A"}</td>
                               <td style={{ fontFamily: "monospace", fontSize: "11px" }}>
                                 {entry.txId ? `${String(entry.txId).slice(0, 16)}...` : "N/A"}

@@ -2,6 +2,38 @@ const couchDB = require('../couchDB_service');
 const nodemailer = require('nodemailer'); // - polo
 const crypto = require('crypto'); // - polo
 
+const buildShareProfilePayload = async (ownerId) => {
+  const user = await couchDB.getUser(ownerId);
+  if (!user) return null;
+
+  const role = String(user.role || (String(ownerId || '').startsWith('issuer_') ? 'issuer' : 'student')).toLowerCase();
+  const sharedCredentials = role === 'issuer'
+    ? [
+        ...(await couchDB.getIssuerTemplatesByIssuerId(ownerId)),
+        ...(await couchDB.getIssuerIssuedByIssuerId(ownerId))
+      ]
+    : await couchDB.getUserCredentialsByHolderId(ownerId);
+
+  const visibleCredentials = (Array.isArray(sharedCredentials) ? sharedCredentials : []).filter((cred) => (
+    cred?.visibility === 'public' &&
+    String(cred?.status || '').toLowerCase() !== 'revoked' &&
+    String(cred?.status || '').toLowerCase() !== 'expired'
+  ));
+
+  return {
+    id: user._id,
+    userId: user._id,
+    name: user.username || user.orgName || user.contactName || user.fullName || user.name || 'User',
+    orgName: user.orgName || user.organizationName || '',
+    email: user.email || '',
+    role,
+    summary: user.summary || '',
+    profilePicture: user.profilePicture || user.avatar || null,
+    isPublic: user.isPublic,
+    sharedCredentials: visibleCredentials,
+  };
+};
+
 const accountController = {
   getUserInfo: async (req, res) => {
     try {
@@ -147,11 +179,14 @@ const accountController = {
         }
       }
 
+      const profile = doc.userId ? await buildShareProfilePayload(doc.userId) : null;
+
       return res.status(200).json({ 
         success: true, 
         valid: true,
         recipientEmail: doc.recipientEmail || null, // null means public link
-        userId: doc.userId // needed for public link profile load
+        userId: doc.userId, // needed for public link profile load
+        profile
       });
     } catch (error) {
       console.error('[SHARE] getShareLinkInfo error:', error);
@@ -255,9 +290,8 @@ const accountController = {
 
       const userId = await couchDB.verifyOTPAndGetUserId(token, otp);
 
-      // Fetch the user's profile data to return - polo
-      const user = await couchDB.getUser(userId);
-      if (!user) {
+      const profile = await buildShareProfilePayload(userId);
+      if (!profile) {
         return res.status(404).json({ success: false, message: 'User not found.' });
       }
 
@@ -265,14 +299,7 @@ const accountController = {
         success: true,
         message: 'Verified.',
         userId,
-        profile: {
-          id: user._id,
-          name: user.username,
-          email: user.email,
-          summary: user.summary || '',
-          profilePicture: user.profilePicture || null,
-          isPublic: user.isPublic
-        }
+        profile
       });
     } catch (error) {
       console.error('[SHARE] verifyOTP error:', error);

@@ -2281,17 +2281,17 @@ GetRootSubordinateRejectionLogsByRootAuthority: async () => {
     }
   },
 
-  forceExpireShareLink: async (token) => {
+  // Fetch all share links for logged-in user
+  triggerIntegrityCheck: async () => {
     try {
-      const response = await axios.post(`/auth/profile-share/${token}/force-expire`);
+      const response = await axios.post('/admin/trigger-integrity-check');
       return response.data;
     } catch (error) {
-      console.error('Error force-expiring share link:', error.response?.data?.message || error.message);
+      console.error('Error running integrity check:', error.response?.data?.message || error.message);
       throw error;
     }
   },
 
-  // Fetch all share links for logged-in user
   getMyShareLinks: async () => {
     try {
       const response = await axios.get('/auth/profile-share/my-links');

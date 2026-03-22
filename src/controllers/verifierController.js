@@ -110,6 +110,7 @@ const Verify_Credential = async (req, res, getContractAndGateway) => {
             verifiedAt: new Date().toISOString(),
             source: 'blockchain',
           };
+          mainPayload.status = String(mainPayload.status || 'unknown').toLowerCase();
           finalIsValid = bcResult.valid;
           finalReason = bcResult.reason || (bcResult.valid ? 'Credential is valid (blockchain-verified)' : 'Credential is invalid (blockchain)');
           sourceUsed = 'blockchain';
@@ -214,6 +215,7 @@ const Verify_Credential = async (req, res, getContractAndGateway) => {
           verifiedAt: new Date().toISOString(),
           source: 'couchdb_fallback',
         };
+        mainPayload.status = String(mainPayload.status || 'unknown').toLowerCase();
         finalIsValid = isValid;
         finalReason = reason;
         sourceUsed = 'couchdb_fallback';

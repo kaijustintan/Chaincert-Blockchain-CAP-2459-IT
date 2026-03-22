@@ -120,6 +120,11 @@ router.post('/trigger-expiry-check', (req, res) => {
   adminDashboardController.triggerExpiryCheck(req, res, req.app.locals.getContractAndGateway);
 });
 
+// POST /api/admin/trigger-integrity-check
+router.post('/trigger-integrity-check', (req, res) => {
+  adminDashboardController.triggerIntegrityCheck(req, res, req.app.locals.getContractAndGateway);
+});
+
 // POST /api/admin/change-password
 router.post('/change-password', (req, res) => {
   adminAuditController.changeAdminPasswordSecure(req, res, req.app.locals.getContractAndGateway);

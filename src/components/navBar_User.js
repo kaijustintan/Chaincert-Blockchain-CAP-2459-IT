@@ -148,11 +148,6 @@ function NavBar() {
                   <li className={location.pathname === '/settings' ? 'active' : ''}>
                     <Link to="/settings">Settings</Link>
                   </li>
-                  {(userRole === 'student' || userRole === 'user') && (
-                    <li className={location.pathname === '/transcript' ? 'active' : ''}>
-                      <Link to="/transcript">Send Transcript</Link>
-                    </li>
-                  )}
                   <li className="divider"></li>
                   <li>
                     <button onClick={handleLogout} className="signout-btn">

@@ -115,7 +115,10 @@ export default function CreateAccount() {
 
       if (response.success) {
         showToast("Account created successfully! Redirecting to login...");
-        setTimeout(() => navigate("/login"), 900); /* CSS-CHANGE: redirect to login after success - polo */
+        setTimeout(
+          () => navigate("/login", { state: { successMessage: "Account created successfully! Please log in." } }),
+          900
+        ); /* CSS-CHANGE: redirect to login after success - polo */
       } else {
         setUserError(
           response.message || response.error || "Registration failed."

@@ -1,5 +1,7 @@
 const couchDB = require('../couchDB_service');
 const nodemailer = require('nodemailer'); 
+const path = require('path');
+const { Wallets } = require('fabric-network');
 
 // Inline approval email, same pattern as accountController.js forgotPassword 
 async function sendIssuerApprovalEmail(issuerEmail, orgName) {
@@ -23,6 +25,45 @@ async function sendIssuerApprovalEmail(issuerEmail, orgName) {
     console.error('[APPROVAL EMAIL] Failed to send:', err.message);
   }
 }
+
+const normalizeFabricIdentityPart = (value) =>
+  String(value || '')
+    .trim()
+    .toLowerCase()
+    .replace(/\s+/g, '');
+
+const getExpectedIssuerIdentityName = (issuerDoc) => {
+  const issuerType = String(issuerDoc?.issuerType || 'root').trim().toLowerCase();
+
+  if (issuerType === 'subordinate') {
+    if (!issuerDoc?.rootAuthorityName || !issuerDoc?.orgName) {
+      throw new Error('Subordinate issuer is missing rootAuthorityName or orgName for Fabric identity verification.');
+    }
+
+    return `${normalizeFabricIdentityPart(issuerDoc.rootAuthorityName)}-subordinate-${normalizeFabricIdentityPart(issuerDoc.orgName)}`;
+  }
+
+  if (!issuerDoc?.orgName) {
+    throw new Error('Issuer orgName is required for Fabric identity verification.');
+  }
+
+  return `${normalizeFabricIdentityPart(issuerDoc.orgName)}-admin`;
+};
+
+const ensureIssuerFabricIdentityExists = async (issuerDoc) => {
+  const identityName = getExpectedIssuerIdentityName(issuerDoc);
+  const walletPath = path.join(__dirname, '../../backend/wallet');
+  const wallet = await Wallets.newFileSystemWallet(walletPath);
+  const identity = await wallet.get(identityName);
+
+  if (!identity) {
+    const err = new Error(`Fabric identity '${identityName}' was not found in the wallet. Please create/enroll this identity before approving the issuer.`);
+    err.statusCode = 400;
+    throw err;
+  }
+
+  return identityName;
+};
 
 const adminIssuerController = {
   getPendingIssuers: async (req, res) => {
@@ -242,6 +283,8 @@ const adminIssuerController = {
           rootApprovalStatus
         });
       }
+
+      await ensureIssuerFabricIdentityExists(issuerDoc);
 
       const result = await couchDB.Approve_Issuer(issuerId, adminEmail);
 

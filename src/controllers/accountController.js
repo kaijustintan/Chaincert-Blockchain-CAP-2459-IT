@@ -355,6 +355,10 @@ const accountController = {
 
       // Hash new password
       const bcrypt = require('bcryptjs');
+      const isSamePassword = await bcrypt.compare(newPassword, user.password || '');
+      if (isSamePassword) {
+        return res.status(400).json({ success: false, message: 'New password must be different from your current password.' });
+      }
       const hashedPassword = await bcrypt.hash(newPassword, 10);
 
       // Update user doc

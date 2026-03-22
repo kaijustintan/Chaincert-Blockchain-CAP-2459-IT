@@ -82,7 +82,7 @@ const [showAll, setShowAll] = useState(false);
   // Load user profile data on component mount
   useEffect(() => {
     loadUserProfile();
-    if (userRole !== 'admin' && userRole !== 'issuer') fetchMyShareLinks(); 
+    if (userRole !== 'admin') fetchMyShareLinks(); 
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -869,7 +869,7 @@ const [showAll, setShowAll] = useState(false);
       )} {/* end Skills Wallet — hidden for issuers */}
 
       {/* My Share Links Section */}
-      {!isAdmin && !isIssuer && (
+      {!isAdmin && (
         <section className="profile-section">
           <div className="section-header">
             <h3>My Share Links</h3>
@@ -883,7 +883,7 @@ const [showAll, setShowAll] = useState(false);
               <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', marginBottom: '16px', alignItems: 'center' }}>
                 <div>
                   <label style={{ fontSize: '12px', marginRight: '6px' }}>Sort:</label>
-                  <select value={linkSortBy} onChange={(e) => setLinkSortBy(e.target.value)}>
+                  <select className="filter-select" value={linkSortBy} onChange={(e) => setLinkSortBy(e.target.value)}>
                     <option value="newest">Most Recent</option>
                     <option value="oldest">Oldest First</option>
                   </select>

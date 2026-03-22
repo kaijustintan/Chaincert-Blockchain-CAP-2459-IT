@@ -473,3 +473,22 @@
 .admin-table.history-modal-table td {
   padding: 12px 16px;
 }
+
+.admin-header-row { display: flex; justify-content: center; align-items: center; position: relative; margin-bottom: 8px; }
+.admin-notification-bell-wrap { position: absolute; right: 0; top: 0; }
+.admin-notification-bell-btn { position: relative; border: 1px solid rgba(139,92,246,0.25); background: rgba(12,8,32,0.92); color: #f5f3ff; border-radius: 14px; width: 48px; height: 48px; cursor: pointer; font-size: 20px; }
+.admin-notification-bell-btn:hover, .admin-notification-bell-btn.open { background: rgba(139,92,246,0.14); border-color: rgba(139,92,246,0.45); }
+.admin-notification-badge { position: absolute; top: -6px; right: -6px; min-width: 22px; height: 22px; border-radius: 999px; background: #ef4444; color: #fff; font-size: 11px; font-weight: 700; display: flex; align-items: center; justify-content: center; }
+.admin-notification-panel { position: absolute; top: calc(100% + 12px); right: 0; width: min(420px, 92vw); background: rgba(8,6,22,0.98); border: 1px solid rgba(139,92,246,0.22); border-radius: 18px; box-shadow: 0 18px 60px rgba(0,0,0,0.45); z-index: 20; overflow: hidden; }
+.admin-notification-panel-header { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 14px 18px; border-bottom: 1px solid rgba(139,92,246,0.2); }
+.admin-notification-panel-header h3 { margin: 0; font-size: 15px; color: #f5f3ff; font-weight: 700; }
+.admin-notification-panel-state { padding: 20px 18px; color: #9ca3af; font-size: 13px; }
+.admin-notification-panel-state.error { color: #f87171; }
+.admin-notification-list { padding: 8px; max-height: 460px; overflow-y: auto; }
+.admin-notification-item { width: 100%; text-align: left; border-radius: 14px; margin-bottom: 10px; border: 1px solid rgba(139,92,246,0.08); padding: 16px 16px 14px; background: rgba(139,92,246,0.04); color: inherit; cursor: pointer; }
+.admin-notification-item.unread { background: rgba(139,92,246,0.08); border-left: 3px solid #8b5cf6; }
+.admin-notification-item.read { opacity: 0.75; }
+.admin-notification-item-type { font-size: 11px; font-weight: 700; color: #c4b5fd; margin-bottom: 8px; }
+.admin-notification-item-message { font-size: 13px; font-weight: 600; color: #f8fafc; line-height: 1.45; }
+.admin-notification-item-meta { font-size: 12px; color: #9ca3af; margin-top: 6px; }
+.admin-notification-item-time { font-size: 11px; color: #888; margin-top: 8px; }

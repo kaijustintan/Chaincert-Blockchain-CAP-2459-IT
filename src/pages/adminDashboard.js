@@ -18,6 +18,13 @@ export default function AdminDashboard() {
   const [message, setMessage] = useState("");
   const [messageType, setMessageType] = useState("success");
   const feedbackTimerRef = useRef(null);
+  const [adminNotifications, setAdminNotifications] = useState([]);
+  const [adminNotificationsLoading, setAdminNotificationsLoading] = useState(true);
+  const [adminNotificationsError, setAdminNotificationsError] = useState(null);
+  const [adminUnreadCount, setAdminUnreadCount] = useState(0);
+  const [adminNotificationsOpen, setAdminNotificationsOpen] = useState(false);
+  const adminNotificationPanelRef = useRef(null);
+  const [showIntegrityModal, setShowIntegrityModal] = useState(false);
 
   const showFeedback = useCallback((type, feedbackMessage) => {
     if (feedbackTimerRef.current) {
@@ -32,6 +39,11 @@ export default function AdminDashboard() {
       feedbackTimerRef.current = null;
     }, 5000);
   }, []);
+
+  const adminUnreadNotifications = useMemo(
+    () => adminNotifications.filter((notification) => !notification.read),
+    [adminNotifications]
+  );
 
   const [issuerFilter, setIssuerFilter] = useState("approved");
 
@@ -797,6 +809,74 @@ const handleDownloadIssuerDocument = async (doc) => {
     }
   };
 
+  const fetchAdminNotifications = useCallback(async () => {
+    try {
+      setAdminNotificationsLoading(true);
+      setAdminNotificationsError(null);
+
+      const [notificationsResponse, unreadResponse] = await Promise.all([
+        apiService.getAdminNotifications(),
+        apiService.getUnreadAdminNotifications(),
+      ]);
+
+      setAdminNotifications(
+        Array.isArray(notificationsResponse?.notifications)
+          ? notificationsResponse.notifications
+          : []
+      );
+      setAdminUnreadCount(
+        typeof unreadResponse?.unreadCount === "number"
+          ? unreadResponse.unreadCount
+          : Array.isArray(unreadResponse?.notifications)
+            ? unreadResponse.notifications.length
+            : 0
+      );
+    } catch (error) {
+      console.error("[ADMIN DASHBOARD] Failed to fetch admin notifications:", error);
+      setAdminNotificationsError("Failed to load notifications.");
+    } finally {
+      setAdminNotificationsLoading(false);
+    }
+  }, []);
+
+  const handleAdminNotificationClick = async (notification) => {
+    if (!notification) return;
+
+    try {
+      if (!notification.read) {
+        await apiService.markAdminNotificationAsRead(notification._id);
+        setAdminNotifications((prev) =>
+          prev.map((item) =>
+            item._id === notification._id
+              ? { ...item, read: true, readAt: item.readAt || new Date().toISOString() }
+              : item
+          )
+        );
+        setAdminUnreadCount((prev) => Math.max(prev - 1, 0));
+      }
+
+      setAdminNotificationsOpen(false);
+    } catch (error) {
+      console.error("[ADMIN DASHBOARD] Failed to mark admin notification as read:", error);
+    }
+  };
+
+  const handleMarkAllAdminNotificationsRead = async () => {
+    try {
+      await apiService.markAllAdminNotificationsAsRead();
+      setAdminNotifications((prev) =>
+        prev.map((notification) => ({
+          ...notification,
+          read: true,
+          readAt: notification.readAt || new Date().toISOString(),
+        }))
+      );
+      setAdminUnreadCount(0);
+    } catch (error) {
+      console.error("[ADMIN DASHBOARD] Failed to mark all admin notifications as read:", error);
+    }
+  };
+
   // -------------------------------------------------------------------
   // CREDENTIALS / VERIFICATIONS (OLD, PER-CREDENTIAL LIST)
   // -------------------------------------------------------------------
@@ -827,11 +907,13 @@ const handleDownloadIssuerDocument = async (doc) => {
   // NEW: ADMIN GLOBAL CREDENTIALS VIEW (across all issuers)
   // -------------------------------------------------------------------
   const handleIntegrityCheck = async () => {
+    if (!window.confirm("Run CouchDB vs blockchain integrity check now?")) return;
     setIntegrityLoading(true);
     setIntegrityResult(null);
     try {
       const result = await apiService.triggerIntegrityCheck();
       setIntegrityResult(result);
+      setShowIntegrityModal(true);
       showFeedback('success', result.message);
     } catch (error) {
       showFeedback('danger', `Integrity check failed: ${error.response?.data?.message || error.message || 'Unknown error'}`);
@@ -1304,6 +1386,27 @@ const handleDownloadIssuerDocument = async (doc) => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [adminCredIssuerFilter, adminCredTypeFilter]);
 
+  useEffect(() => {
+    fetchAdminNotifications();
+  }, [fetchAdminNotifications]);
+
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (
+        adminNotificationPanelRef.current &&
+        !adminNotificationPanelRef.current.contains(event.target)
+      ) {
+        setAdminNotificationsOpen(false);
+      }
+    };
+
+    if (adminNotificationsOpen) {
+      document.addEventListener("mousedown", handleClickOutside);
+    }
+
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [adminNotificationsOpen]);
+
   useEffect(() => () => {
     if (feedbackTimerRef.current) {
       window.clearTimeout(feedbackTimerRef.current);
@@ -1315,7 +1418,77 @@ const handleDownloadIssuerDocument = async (doc) => {
   // -------------------------------------------------------------------
   return (
     <div className="admin-container">
-      <h1 className="admin-title">Admin Dashboard</h1>
+      <div className="admin-header-row" ref={adminNotificationPanelRef}>
+        <h1 className="admin-title">Admin Dashboard</h1>
+        <div className="admin-notification-bell-wrap">
+          <button
+            type="button"
+            className={`admin-notification-bell-btn ${adminNotificationsOpen ? "open" : ""}`}
+            onClick={() => setAdminNotificationsOpen((prev) => !prev)}
+            aria-label="Toggle admin notifications"
+          >
+            🔔
+            {adminUnreadCount > 0 && (
+              <span className="admin-notification-badge">{adminUnreadCount}</span>
+            )}
+          </button>
+
+          {adminNotificationsOpen && (
+            <div className="admin-notification-panel">
+              <div className="admin-notification-panel-header">
+                <h3>Notifications</h3>
+                {adminUnreadNotifications.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={handleMarkAllAdminNotificationsRead}
+                    style={{ padding: "6px 14px", fontSize: "12px", background: "rgba(139,92,246,0.12)", color: "#a78bfa", border: "1px solid rgba(139,92,246,0.25)", borderRadius: "8px", cursor: "pointer" }}
+                  >
+                    Mark All as Read
+                  </button>
+                )}
+              </div>
+
+              {adminNotificationsLoading && (
+                <div className="admin-notification-panel-state">Loading notifications...</div>
+              )}
+
+              {!adminNotificationsLoading && adminNotificationsError && (
+                <div className="admin-notification-panel-state error">
+                  {adminNotificationsError}
+                </div>
+              )}
+
+              {!adminNotificationsLoading && !adminNotificationsError && adminNotifications.length === 0 && (
+                <div className="admin-notification-panel-state">No notifications yet.</div>
+              )}
+
+              {!adminNotificationsLoading && !adminNotificationsError && adminNotifications.length > 0 && (
+                <div className="admin-notification-list">
+                  {adminNotifications.map((notification) => (
+                    <button
+                      key={notification._id}
+                      type="button"
+                      className={`admin-notification-item ${notification.read ? "read" : "unread"}`}
+                      onClick={() => handleAdminNotificationClick(notification)}
+                    >
+                      <div className="admin-notification-item-type">🔔 {notification.title || "Admin Notification"}</div>
+                      <div className="admin-notification-item-message">
+                        {notification.message || "Notification update."}
+                      </div>
+                      <div className="admin-notification-item-meta">
+                        Category: {notification.category || "system"}
+                      </div>
+                      <div className="admin-notification-item-time">
+                        {formatTimestamp(notification.createdAt)} • {notification.read ? "Read" : "Unread"}
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      </div>
 
       <div className="admin-tabs">
         <button
@@ -1363,6 +1536,85 @@ const handleDownloadIssuerDocument = async (doc) => {
       </div>
 
       <AppToast show={!!message} message={message} type={messageType} />
+
+      {showIntegrityModal &&
+        integrityResult &&
+        ReactDOM.createPortal(
+          <div
+            onClick={() => setShowIntegrityModal(false)}
+            style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", zIndex: 999999, display: "flex", alignItems: "center", justifyContent: "center", padding: "20px" }}
+          >
+            <div
+              onClick={(e) => e.stopPropagation()}
+              style={{ width: "min(1180px, 95vw)", maxHeight: "85vh", overflow: "auto", background: "#101018", borderRadius: "12px", border: "1px solid rgba(255,255,255,0.15)", padding: "24px", boxShadow: "0 10px 40px rgba(0,0,0,0.4)", color: "#fff" }}
+            >
+              <div style={{ display: "flex", justifyContent: "space-between", gap: "16px", alignItems: "flex-start", marginBottom: "16px" }}>
+                <div>
+                  <h3 style={{ margin: 0 }}>Integrity Check Results</h3>
+                  <div style={{ marginTop: "8px", opacity: 0.85, fontSize: "13px" }}>
+                    Total | ✅ Matched | ⚠️ Mismatched | ❌ Missing | 🔴 Errors
+                  </div>
+                </div>
+                <button type="button" onClick={() => setShowIntegrityModal(false)} style={{ background: "transparent", border: "1px solid rgba(255,255,255,0.25)", color: "#fff", borderRadius: "8px", padding: "8px 10px", cursor: "pointer" }}>
+                  ✕ Close
+                </button>
+              </div>
+
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(5, minmax(0, 1fr))", gap: "12px", marginBottom: "18px" }}>
+                {[
+                  ["Total", integrityResult.totalChecked, "#a78bfa"],
+                  ["✅ Matched", integrityResult.matched, "#22c55e"],
+                  ["⚠️ Mismatched", integrityResult.mismatched, "#fbbf24"],
+                  ["❌ Missing", integrityResult.missing, "#ef4444"],
+                  ["🔴 Errors", integrityResult.errors, "#f87171"],
+                ].map(([label, value, color]) => (
+                  <div key={label} style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: "12px", padding: "14px" }}>
+                    <div style={{ color, fontWeight: 700, fontSize: "22px" }}>{value}</div>
+                    <div style={{ fontSize: "12px", color: "#d1d5db" }}>{label}</div>
+                  </div>
+                ))}
+              </div>
+
+              {integrityResult.results?.filter((row) => row.verdict === "mismatched").length > 0 ? (
+                <div className="table-wrapper">
+                  <table className="admin-table">
+                    <thead>
+                      <tr>
+                        <th>Credential ID</th>
+                        <th>Name</th>
+                        <th>Issuer</th>
+                        <th>Field</th>
+                        <th>CouchDB Value</th>
+                        <th>Blockchain Value</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {integrityResult.results
+                        .filter((row) => row.verdict === "mismatched")
+                        .flatMap((row) =>
+                          row.mismatches.map((mismatch, index) => (
+                            <tr key={`${row.blockchainId}-${mismatch.field}-${index}`}>
+                              <td style={{ fontFamily: "monospace", fontSize: "12px" }}>{row.blockchainId || "N/A"}</td>
+                              <td>{row.credentialName || "N/A"}</td>
+                              <td>{row.issuerOrgName || "N/A"}</td>
+                              <td>{mismatch.field}</td>
+                              <td>{String(mismatch.couchValue || "—")}</td>
+                              <td>{String(mismatch.blockchainValue || "—")}</td>
+                            </tr>
+                          ))
+                        )}
+                    </tbody>
+                  </table>
+                </div>
+              ) : (
+                <div style={{ padding: "16px", borderRadius: "12px", background: "rgba(34,197,94,0.08)", color: "#4ade80" }}>
+                  No field mismatches found.
+                </div>
+              )}
+            </div>
+          </div>,
+          document.body
+        )}
 
       {showHistoryModal &&
         ReactDOM.createPortal(
@@ -1489,7 +1741,6 @@ const handleDownloadIssuerDocument = async (doc) => {
                       <thead>
                         <tr>
                           <th>Timestamp</th>
-                          <th>Action</th>
                           <th>Status</th>
                           <th>Tx ID</th>
                           <th>Snapshot</th>
@@ -1497,8 +1748,6 @@ const handleDownloadIssuerDocument = async (doc) => {
                       </thead>
                       <tbody>
                         {credentialHistory.map((entry, idx) => {
-                          const action = getHistoryActionLabel(entry, idx);
-
                           const status =
                             entry?.value?.status ||
                             (entry.isDelete ? "deleted" : "N/A");
@@ -1514,15 +1763,6 @@ const handleDownloadIssuerDocument = async (doc) => {
                           return (
                             <tr key={entry.txId || idx}>
                               <td style={{ padding: "12px 16px" }}>{formatTimestamp(entry.timestamp)}</td>
-
-                              <td style={{ padding: "12px 16px" }}>
-                                <span
-                                  className={`history-action-badge ${(action || "").toLowerCase().replace(/\s+/g, "-")}`}
-                                  style={{ background: `${getStatusColor(action) === "inherit" ? "rgba(139,92,246,0.18)" : getStatusColor(action)}22`, color: getStatusColor(action) === "inherit" ? "#c4b5fd" : getStatusColor(action), border: `1px solid ${getStatusColor(action) === "inherit" ? "rgba(139,92,246,0.35)" : `${getStatusColor(action)}55`}` }}
-                                >
-                                  {action}
-                                </span>
-                              </td>
 
                               <td style={{ padding: "12px 16px" }}>
                                 <span
@@ -2105,7 +2345,7 @@ const handleDownloadIssuerDocument = async (doc) => {
               <div
                 onClick={(e) => e.stopPropagation()}
                 style={{
-                  width: "min(900px, 95vw)",
+                  width: "min(1100px, 95vw)",
                   maxHeight: "85vh",
                   overflow: "auto",
                   background: "#101018",
@@ -2187,15 +2427,15 @@ const handleDownloadIssuerDocument = async (doc) => {
                       <tbody>
                         {issuerDocuments.map((doc, idx) => (
                           <tr key={doc.attachmentName || idx}>
-                            <td>{doc.docType || "N/A"}</td>
-                            <td>{doc.originalname || "N/A"}</td>
+                            <td>{doc.docType ? doc.docType.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase()) : "N/A"}</td>
+                            <td style={{ maxWidth: "220px", wordBreak: "break-word" }}>{doc.originalname || "N/A"}</td>
                             <td>{doc.mimetype || "N/A"}</td>
                             <td>
                               {typeof doc.size === "number"
                                 ? `${(doc.size / 1024).toFixed(1)} KB`
                                 : "N/A"}
                             </td>
-                            <td style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                            <td style={{ display: "flex", gap: 8, flexWrap: "nowrap", whiteSpace: "nowrap" }}>
                               <button
                                 type="button"
                                 onClick={() => handleViewIssuerDocument(doc)}
@@ -2352,29 +2592,9 @@ const handleDownloadIssuerDocument = async (doc) => {
               </button>
             </div>
 
-            {integrityResult && integrityResult.mismatches && integrityResult.mismatches.length > 0 && (
-              <div style={{ marginBottom: '16px', padding: '16px', background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.2)', borderRadius: '12px' }}>
-                <h4 style={{ color: '#ef4444', margin: '0 0 12px' }}>⚠️ {integrityResult.mismatchCount} Mismatch(es) Found</h4>
-                {integrityResult.mismatches.map((m, idx) => (
-                  <div key={idx} style={{ marginBottom: '8px', fontSize: '13px', padding: '8px', background: 'rgba(0,0,0,0.2)', borderRadius: '8px' }}>
-                    <strong>{m.credentialName}</strong> ({String(m.credentialId || '').slice(0, 30)}...)
-                    <br />CouchDB: {m.couchDBStatus} | Blockchain: {m.blockchainValid ? 'valid' : 'invalid'} ({m.blockchainReason || m.blockchainStatus})
-                    {Array.isArray(m.fieldMismatches) && m.fieldMismatches.length > 0 && (
-                      <div style={{ marginTop: '6px', color: '#fca5a5' }}>
-                        {m.fieldMismatches.map((fieldMismatch, mismatchIndex) => (
-                          <div key={mismatchIndex}>
-                            • {fieldMismatch.field}: CouchDB={fieldMismatch.couchDB || '—'} | Blockchain={fieldMismatch.blockchain || '—'}
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                ))}
-              </div>
-            )}
-            {integrityResult && integrityResult.mismatches && integrityResult.mismatches.length === 0 && (
-              <div style={{ marginBottom: '16px', padding: '16px', background: 'rgba(34,197,94,0.08)', border: '1px solid rgba(34,197,94,0.2)', borderRadius: '12px', color: '#22c55e' }}>
-                ✅ All {integrityResult.checked} credentials match between CouchDB and blockchain.
+            {integrityResult && (
+              <div style={{ marginBottom: "16px", padding: "16px", background: "rgba(139,92,246,0.08)", border: "1px solid rgba(139,92,246,0.2)", borderRadius: "12px", color: "#ddd6fe" }}>
+                Last integrity check: {integrityResult.totalChecked} checked • {integrityResult.matched} matched • {integrityResult.mismatched} mismatched • {integrityResult.missing} missing • {integrityResult.errors} errors.
               </div>
             )}
 
@@ -3166,8 +3386,6 @@ const handleDownloadIssuerDocument = async (doc) => {
                           <th>Decision</th>
                           <th>Reason</th>
                           <th>Approved / Rejected By</th>
-                          <th>Performed By</th>
-                          <th>MSP</th>
                           <th>Tx ID</th>
                           <th>Timestamp</th>
                         </tr>
@@ -3190,12 +3408,6 @@ const handleDownloadIssuerDocument = async (doc) => {
                               <td>{log.reason || "—"}</td>
                               <td style={{ fontFamily: "monospace", fontSize: "12px" }}>
                                 {log.adminEmail || "N/A"}
-                              </td>
-                              <td style={{ fontFamily: "monospace", fontSize: "12px" }}>
-                                {log.performedBy || "N/A"}
-                              </td>
-                              <td style={{ fontFamily: "monospace", fontSize: "12px" }}>
-                                {log.performedByMSP || "N/A"}
                               </td>
                               <td style={{ fontFamily: "monospace", fontSize: "12px" }}>
                                 {log.txId ? `${String(log.txId).slice(0, 18)}...` : "N/A"}

@@ -21,8 +21,8 @@
   - updateProfile(userId, fields)
 
   CATEGORY: ISSUER REGISTRATION / STATUS
-  - checkIfOrgAccredited(orgName) UNUSED
   - createIssuerRegistration(issuerData, accreditationCheck)
+  - deleteIssuerDoc(docId, docRev)
   - getPendingIssuers()
   - Approve_Issuer(issuerId, adminId)
   - Reject_Issuer(issuerId, rejectionReason)
@@ -47,7 +47,7 @@ const couch = nano(COUCHDB_URL);
 let usersDb = null;
 let issuersDB = null;
 let notificationsDb = null;
-let accreditedOrgsDb = null; // List of fully accredited orgs
+let adminNotificationsDb = null;
 let profileShareLinksDb = null; // Profile share links - polo
 
 /* 
@@ -55,7 +55,7 @@ let profileShareLinksDb = null; // Profile share links - polo
 
   Technical:
   Initializes and selects all required CouchDB databases used by the system.
-  It assigns database handles (users, issuers, notifications, deployments, accredited orgs)
+  It assigns database handles (users, issuers, notifications, admin notifications, deployments)
   so they can be reused by other service functions.
 
   Tropang Ex:
@@ -67,7 +67,7 @@ async function initializeDatabases() {
     usersDb = couch.use('users');
     issuersDB = couch.use('issuers');
     notificationsDb = couch.use('user_notifications');
-    accreditedOrgsDb = couch.use('accredited_organizations');
+    adminNotificationsDb = couch.use('admin_notifications');
     profileShareLinksDb = couch.use('profile_share_links'); // - polo
     console.log('✅ CouchDB databases selected');
   } catch (error) {
@@ -186,10 +186,44 @@ async function isEmailAlreadyUsed(email) {
   });
 
   if (issuerRes.docs && issuerRes.docs.length > 0) {
-    return { exists: true, where: 'issuers', doc: issuerRes.docs[0] };
+    const issuerDoc = issuerRes.docs[0];
+    const issuerStatus = String(issuerDoc.status || '').trim().toLowerCase();
+
+    if (issuerStatus === 'rejected') {
+      return {
+        exists: false,
+        where: 'issuers',
+        doc: issuerDoc,
+        previouslyRejected: true,
+        rejectedDocId: issuerDoc._id,
+        rejectedDocRev: issuerDoc._rev
+      };
+    }
+
+    return { exists: true, where: 'issuers', doc: issuerDoc };
   }
 
   return { exists: false, where: null };
+}
+// ==========================================================================================================================================================================
+
+/*
+  Function Name: deleteIssuerDoc
+
+  Technical:
+  Deletes an existing issuer document from the issuers database using its current _id and _rev.
+
+  Tropang Ex:
+  Pang-delete ito ng lumang rejected issuer record para makapag-register ulit gamit same email.
+
+  Step 1: Siguraduhin na ready yung issuers DB.
+  Step 2: Kunin yung mismong issuer doc gamit docId.
+  Step 3: I-delete yung doc gamit latest _rev para walang conflict.
+*/
+async function deleteIssuerDoc(docId, docRev) {
+  if (!issuersDB) await initializeDatabases();
+  if (!docId || !docRev) throw new Error('docId and docRev are required');
+  return await issuersDB.destroy(docId, docRev);
 }
 // ==========================================================================================================================================================================
 
@@ -319,111 +353,6 @@ async function updateProfilePicture(userId, imageUrl) {
 }
 
 // ==========================================================================================================================================================================
-//                                                                 ACCREDITED ORGANIZATIONS Functions
-// ==========================================================================================================================================================================
-
-/*
-  Function Name: saveAccreditedOrganization
-
-  Technical:
-  Saves (inserts) a new accredited organization document into the "accredited_organizations" CouchDB database.
-*/
-async function saveAccreditedOrganization(org) {
-  if (!accreditedOrgsDb) await initializeDatabases();
-  return await accreditedOrgsDb.insert(org);
-}
-// ==========================================================================================================================================================================
-
-/*
-  Function Name: getAllAccreditedOrganizations
-
-  Technical:
-  Fetches all documents from the "accredited_organizations" database and returns them as an array.
-  Filters out CouchDB design docs (_design/...) so only real organization records are returned.
-
-  Tropang Ex:
-  Pangkuha ng lahat ng accredited orgs sa database.
-  Nililinis niya yung list para di maisama yung internal CouchDB design docs.
-*/
-async function getAllAccreditedOrganizations() {
-  if (!accreditedOrgsDb) await initializeDatabases();
-  const result = await accreditedOrgsDb.list({ include_docs: true });
-  return result.rows
-    .filter(row => row.doc && !row.id.startsWith('_design/'))
-    .map(row => row.doc);
-}
-// ==========================================================================================================================================================================
-
-/* UNUSED 
-
-  Function Name: checkIfOrgAccredited
-
-  Technical: Checks if an organization exists in the "accredited_organizations" database by matching its name.
-  Tropang Ex: hinahanap yung name ng org dun sa "accredited_organizations" database if andun via its name
-*/
-async function checkIfOrgAccredited(orgName) {
-  try {
-
-    /* Step 1: Ensure accredited_organizations DB is ready
-
-      Technical: Initializes DB handles if not yet initialized.
-      Tropang Ex: Para sure na naka-connect tayo sa DB bago mag-check.
-    */
-    if (!accreditedOrgsDb) await initializeDatabases();
-
-    /* Step 2: Query CouchDB using Mango find()
-
-      Technical: Looks for a matching org name across possible fields:
-        - organizationName
-        - name
-        - orgName
-      Tropang Ex: Hinahanap yung orgName kahit ano pa yung field name na ginamit sa doc (kasi minsan inconsistent).
-    */
-    const result = await accreditedOrgsDb.find({
-      selector: {
-        $or: [
-          { organizationName: orgName },
-          { name: orgName },
-          { orgName: orgName }
-        ]
-      },
-      limit: 1
-    });
-
-    /* Step 3: If found, return accredited = true + type
-
-      Technical: If at least 1 doc exists, the org is accredited.
-      Tropang Ex: Kapag may nahanap na doc, ibig sabihin legit/accredited siya, ibabalik din anong type.
-    */
-    if (result.docs && result.docs.length > 0) {
-      const accreditedOrg = result.docs[0];
-      return {
-        isAccredited: true,
-        accreditedType: accreditedOrg.type || accreditedOrg.accreditationType || 'Accredited'
-      };
-    }
-
-    /* Step 4: If not found, return accredited = false
-
-      Technical: No document matched → not accredited.
-      Tropang Ex: Walang record sa DB → hindi accredited.
-    */
-    return { isAccredited: false, accreditedType: null };
-
-  } catch (error) {
-
-    /* Step 5: Fail-safe return if query errors out
-
-      Technical: On error, returns not accredited to avoid breaking flow.
-      Tropang Ex: Pag nagka-error, safe default: treat as not accredited.
-    */
-    console.error(`[COUCHDB] Error checking accreditation:`, error.message);
-    return { isAccredited: false, accreditedType: null };
-  }
-}
-
-
-// ==========================================================================================================================================================================
 //                                                                 ISSUER Functions
 // ==========================================================================================================================================================================
 
@@ -457,13 +386,7 @@ async function createIssuerRegistration(issuerData, accreditationCheck = null) {
       throw err;
     }
 
-    /* Step 3: Normalize accreditation info */
-    const accreditationInfo = {
-      isAccredited: accreditationCheck?.isAccredited ?? false,
-      accreditedType: accreditationCheck?.accreditedType ?? null
-    };
-
-    /* Step 4: Normalize governance fields */
+    /* Step 3: Normalize governance fields */
     const issuerType = String(issuerData.issuerType || 'root').trim().toLowerCase();
     const isSubordinate = issuerType === 'subordinate';
     const rootApprovalStatus = isSubordinate ? 'pending' : 'not_required';
@@ -491,9 +414,6 @@ async function createIssuerRegistration(issuerData, accreditationCheck = null) {
 
       // ✅ Will be updated below with attachmentName after attachment insert
       documents: [],
-
-      accredited: accreditationInfo.isAccredited,
-      accreditedType: accreditationInfo.accreditedType,
 
       issuerType: issuerType,
       category: issuerData.category,
@@ -1733,6 +1653,117 @@ async function markNotificationAsRead(notificationId) {
   notif.readAt = new Date().toISOString();
 
   return await notificationsDb.insert(notif);
+}
+
+
+// ==========================================================================================================================================================================
+
+/* 
+  Function Name: createAdminNotification
+
+  Technical: Creates and stores an admin-specific notification document in the admin_notifications database.
+  Tropang Ex: Dito ginagawa yung bell notification ng admin kapag may bagong issuer event o issuer decision.
+
+  Step 1: I-ready ang admin notification DB handle.
+  Step 2: Buoin ang notification document with defaults.
+  Step 3: I-save sa admin_notifications para mabasa ng dashboard.
+*/
+async function createAdminNotification(notificationData) {
+  if (!adminNotificationsDb) await initializeDatabases();
+
+  const notification = {
+    _id: `admin_notif_${Date.now()}_${Math.random().toString(36).slice(2, 11)}`,
+    type: 'admin_notification',
+    category: notificationData.category || 'system',
+    title: notificationData.title || 'Admin Notification',
+    message: notificationData.message || '',
+    issuerId: notificationData.issuerId || null,
+    issuerEmail: notificationData.issuerEmail || null,
+    createdAt: new Date().toISOString(),
+    read: false
+  };
+
+  return await adminNotificationsDb.insert(notification);
+}
+
+/* 
+  Function Name: getAdminNotifications
+
+  Technical: Retrieves all admin notification documents sorted by newest first.
+  Tropang Ex: Ito yung source ng full admin notification panel list.
+
+  Step 1: I-ready ang admin notification DB.
+  Step 2: Kunin lahat ng docs.
+  Step 3: I-filter out design docs at i-sort newest first.
+*/
+async function getAdminNotifications() {
+  if (!adminNotificationsDb) await initializeDatabases();
+  const result = await adminNotificationsDb.list({ include_docs: true });
+  return (result.rows || [])
+    .map((row) => row.doc)
+    .filter((doc) => doc && !String(doc._id || '').startsWith('_design/'))
+    .sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
+}
+
+/* 
+  Function Name: getUnreadAdminNotifications
+
+  Technical: Fetches only unread admin notifications sorted by newest first.
+  Tropang Ex: Ginagamit ito para sa unread badge count ng admin bell.
+
+  Step 1: I-ready ang DB.
+  Step 2: Mag-query ng read=false docs.
+  Step 3: I-sort newest first bago ibalik.
+*/
+async function getUnreadAdminNotifications() {
+  if (!adminNotificationsDb) await initializeDatabases();
+  const result = await adminNotificationsDb.find({
+    selector: {
+      type: 'admin_notification',
+      read: false
+    },
+    limit: 1000
+  });
+  return (result.docs || []).sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
+}
+
+/* 
+  Function Name: markAdminNotificationAsRead
+
+  Technical: Marks one admin notification as read and sets readAt.
+  Tropang Ex: Kapag na-click na ni admin ang notif, dito siya nagiging read.
+
+  Step 1: I-ready ang DB at kunin ang notif doc.
+  Step 2: Kung read na, ibalik agad without extra write.
+  Step 3: Mark as read then save.
+*/
+async function markAdminNotificationAsRead(notificationId) {
+  if (!adminNotificationsDb) await initializeDatabases();
+  const notif = await adminNotificationsDb.get(notificationId);
+  if (notif.read) return { ok: true, id: notif._id, rev: notif._rev, skipped: true };
+  notif.read = true;
+  notif.readAt = new Date().toISOString();
+  return await adminNotificationsDb.insert(notif);
+}
+
+/* 
+  Function Name: markAllAdminNotificationsAsRead
+
+  Technical: Marks every unread admin notification as read using bulk update.
+  Tropang Ex: Isang pindot, lahat ng admin notifications mababasa na.
+
+  Step 1: Kunin muna lahat ng unread admin notifications.
+  Step 2: Lagyan ng read/readAt yung bawat doc.
+  Step 3: I-save sila gamit bulk operation.
+*/
+async function markAllAdminNotificationsAsRead() {
+  if (!adminNotificationsDb) await initializeDatabases();
+  const unreadDocs = await getUnreadAdminNotifications();
+  if (!unreadDocs.length) return { ok: true, updated: 0 };
+  const now = new Date().toISOString();
+  const docs = unreadDocs.map((doc) => ({ ...doc, read: true, readAt: doc.readAt || now }));
+  await adminNotificationsDb.bulk({ docs });
+  return { ok: true, updated: docs.length };
 }
 
 /*
@@ -3440,6 +3471,53 @@ async function getShareLinksByUserId(userId) {
   );
 }
 
+
+/*
+  Function Name: getAllIssuedCredentialsForIntegrity
+  Technical: Fetches all credential docs with blockchainId across every approved issuer CouchDB database for admin integrity checks.
+  Tropang Ex: Iniipon nito lahat ng issued credentials ng bawat issuer para maikumpara sa blockchain.
+
+  Step 1: Kunin lahat ng approved issuers na may couchDBUrl.
+  Step 2: I-query bawat issuer DB for docs with blockchainId.
+  Step 3: I-return flattened rows kasama issuer metadata.
+*/
+async function getAllIssuedCredentialsForIntegrity() {
+  const approvedIssuers = await getApprovedIssuers();
+  const rows = [];
+
+  for (const issuer of approvedIssuers || []) {
+    if (!issuer?.couchDBUrl) continue;
+
+    try {
+      const issuerDb = nano(issuer.couchDBUrl);
+      const queryResult = await issuerDb.find({
+        selector: {
+          blockchainId: { $exists: true }
+        },
+        limit: 5000
+      });
+
+      (queryResult.docs || []).forEach((doc) => {
+        if (!doc?.blockchainId) return;
+        rows.push({
+          couchDoc: doc,
+          issuerOrgName: issuer.orgName || issuer.email || issuer._id,
+          issuerId: issuer._id
+        });
+      });
+    } catch (error) {
+      rows.push({
+        couchDoc: null,
+        issuerOrgName: issuer.orgName || issuer.email || issuer._id,
+        issuerId: issuer._id,
+        error: error.message
+      });
+    }
+  }
+
+  return rows;
+}
+
 module.exports = {
   // Core initialization
   nano,
@@ -3457,13 +3535,8 @@ module.exports = {
   getAllUsers,
   updateCredentialVisibility, // - Newly added - olops
   updateCredentialOrder,     // - polo
-    isEmailAlreadyUsed,
-
-
-  // Accreditation
-  checkIfOrgAccredited,
-  saveAccreditedOrganization,
-  getAllAccreditedOrganizations,
+  isEmailAlreadyUsed,
+  deleteIssuerDoc,
 
 
   // Issuer lifecycle
@@ -3537,6 +3610,14 @@ module.exports = {
   getApprovedSubordinatesForRoot,
   getDisabledSubordinatesForRoot,
   rootApproveSubordinateIssuer,
-  rootRejectSubordinateIssuer
+  rootRejectSubordinateIssuer,
+
+  createAdminNotification,
+  getAdminNotifications,
+  getUnreadAdminNotifications,
+  markAdminNotificationAsRead,
+  markAllAdminNotificationsAsRead,
+
+  getAllIssuedCredentialsForIntegrity 
 
 };

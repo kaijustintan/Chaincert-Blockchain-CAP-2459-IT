@@ -456,11 +456,11 @@ export default function IssuerDashboard() {
     return [...templateRows, ...issuedRows];
   }, [templateOptions, credentials]);
 
-  const renderDescriptionCell = useCallback((item) => {
+  const renderDescriptionCell = useCallback((item, showPlaceholder = true) => {
     const rawDescription = typeof item?.description === "string" ? item.description : "";
     const trimmedDescription = rawDescription.trim();
     if (!trimmedDescription || trimmedDescription.toLowerCase() === "n/a") {
-      return <span style={{ opacity: 0.4 }}>—</span>;
+      return showPlaceholder ? <span style={{ opacity: 0.4 }}>—</span> : null;
     }
 
     return (
@@ -870,7 +870,7 @@ export default function IssuerDashboard() {
           ) : (
             <div className="table-container">
               <table className="template-table">
-                <thead><tr><th>Credential ID</th><th>Holder Name</th><th>Credential Name</th><th>Type</th><th>Description</th><th>Created Date</th><th>Status</th><th>Revoked Date</th><th>Expiry Date</th><th>Actions</th></tr></thead>
+                <thead><tr><th>Credential ID</th><th>Holder Name</th><th>Credential Name</th><th>Type</th><th>Created Date</th><th>Status</th><th>Revoked Date</th><th>Expiry Date</th><th>Actions</th></tr></thead>
                 <tbody>
                   {issueTableCredentials.map((credential) => {
                     const blockchainId = credential.blockchainId || credential.id;
@@ -880,12 +880,11 @@ export default function IssuerDashboard() {
                         <td>{credential.holderName || "N/A"}</td>
                         <td>{credential.credentialName || "N/A"}</td>
                         <td>{credential.credentialType || "N/A"}</td>
-                        <td>{renderDescriptionCell(credential)}</td>
                         <td>{credential.issuedDate ? new Date(credential.issuedDate).toLocaleDateString() : "N/A"}</td>
                         <td><span className={`status-badge status-${credential.status || "active"}`}>{credential.status || "active"}</span></td>
                         <td>{getRevokedDateValue(credential) ? new Date(getRevokedDateValue(credential)).toLocaleDateString() : "—"}</td>
                         <td>{credential.expiryDate ? new Date(credential.expiryDate).toLocaleDateString() : "N/A"}</td>
-                        <td>
+                        <td className="actions-cell">
                           <button
                             type="button"
                             className="action-btn"
@@ -894,6 +893,7 @@ export default function IssuerDashboard() {
                           >
                             View BC History
                           </button>
+                          {renderDescriptionCell(credential, false)}
                         </td>
                       </tr>
                     );
@@ -932,7 +932,7 @@ export default function IssuerDashboard() {
                       <td>{row.holderName}</td>
                       <td>{row.createdDate ? new Date(row.createdDate).toLocaleDateString() : "N/A"}</td>
                       <td>{row.expiryDate ? new Date(row.expiryDate).toLocaleDateString() : "—"}</td>
-                      <td>{row.rowType === "template" ? <span style={{ opacity: 0.6 }}>—</span> : <button type="button" className="action-btn" onClick={() => handleSeeHistory(row.source)} style={{ padding: "6px 10px", fontSize: "12px", background: "rgba(139,92,246,0.15)", color: "#a78bfa", border: "1px solid rgba(255,255,255,0.18)", borderRadius: "8px", cursor: "pointer" }}>View BC History</button>}</td>
+                      <td className="actions-cell">{row.rowType === "template" ? <span style={{ opacity: 0.6 }}>—</span> : <><button type="button" className="action-btn" onClick={() => handleSeeHistory(row.source)} style={{ padding: "6px 10px", fontSize: "12px", background: "rgba(139,92,246,0.15)", color: "#a78bfa", border: "1px solid rgba(255,255,255,0.18)", borderRadius: "8px", cursor: "pointer" }}>View BC History</button>{renderDescriptionCell(row.source, false)}</>}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -967,7 +967,7 @@ export default function IssuerDashboard() {
               <div className="no-results"><p>{credentials.length === 0 ? "📭 No issued credentials found." : "❌ No credentials match your filters."}</p></div>
             ) : (
               <table className="template-table">
-                <thead><tr><th>Credential ID</th><th>Name</th><th>Holder</th><th>Type</th><th>Description</th><th>Status</th><th>Issued Date</th><th>Revoked Date</th><th>Actions</th></tr></thead>
+                <thead><tr><th>Credential ID</th><th>Name</th><th>Holder</th><th>Type</th><th>Status</th><th>Issued Date</th><th>Revoked Date</th><th>Actions</th></tr></thead>
                 <tbody>
                   {revokeTableCredentials.map((credential) => {
                     const blockchainId = credential.blockchainId || credential.id;
@@ -977,11 +977,10 @@ export default function IssuerDashboard() {
                         <td>{credential.credentialName || "N/A"}</td>
                         <td>{credential.holderName || "N/A"}</td>
                         <td>{credential.credentialType || "N/A"}</td>
-                        <td>{renderDescriptionCell(credential)}</td>
                         <td><span className={`status-badge status-${credential.status || "active"}`}>{credential.status || "active"}</span></td>
                         <td>{credential.issuedDate ? new Date(credential.issuedDate).toLocaleDateString() : "N/A"}</td>
                         <td>{getRevokedDateValue(credential) ? new Date(getRevokedDateValue(credential)).toLocaleDateString() : "—"}</td>
-                        <td>
+                        <td className="actions-cell">
                           <button
                             type="button"
                             className="action-btn"
@@ -990,6 +989,7 @@ export default function IssuerDashboard() {
                           >
                             View BC History
                           </button>
+                          {renderDescriptionCell(credential, false)}
                           {(credential.status === "issued" || credential.status === "active") ? (
                             <button onClick={() => openRevokeForCredential(credential)} className="action-btn revoke-btn">Revoke</button>
                           ) : (

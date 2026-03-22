@@ -325,6 +325,7 @@ const [showAll, setShowAll] = useState(false);
   const [myShareLinks, setMyShareLinks] = useState([]);
   const [shareLinksLoading, setShareLinksLoading] = useState(false);
   const [revokingToken, setRevokingToken] = useState(null);
+  const [expiringToken, setExpiringToken] = useState(null);
 
   // Fetch all share links for current user
   const fetchMyShareLinks = async () => {
@@ -341,8 +342,12 @@ const [showAll, setShowAll] = useState(false);
 
   // Compute status from share link doc fields 
   const getShareLinkStatus = (link) => {
-    if (!link.isActive) return 'Revoked';
-    if (link.expiresAt && new Date() > new Date(link.expiresAt)) return 'Expired';
+    if (link.status === 'revoked' || !link.isActive) return 'Revoked';
+    if (link.status === 'expired') return 'Expired';
+    if (link.expiresAt) {
+      const expiresAt = new Date(link.expiresAt);
+      if (Number.isNaN(expiresAt.getTime()) || new Date() > expiresAt) return 'Expired';
+    }
     if (link.viewCount > 0) return 'Viewed';
     return 'Unused';
   };
@@ -360,6 +365,21 @@ const [showAll, setShowAll] = useState(false);
       showToast('Failed to revoke link.', 'danger');
     } finally {
       setRevokingToken(null);
+    }
+  };
+
+  const handleForceExpireLink = async (token) => {
+    if (!window.confirm('Force expire this link? It will become immediately inaccessible.')) return;
+    setExpiringToken(token);
+    try {
+      await apiService.forceExpireShareLink(token);
+      showToast('Share link expired successfully.');
+      fetchMyShareLinks();
+    } catch (err) {
+      console.error('[PROFILE PAGE] Error force-expiring share link:', err);
+      showToast('Failed to force expire link.', 'danger');
+    } finally {
+      setExpiringToken(null);
     }
   };
 
@@ -832,25 +852,34 @@ const [showAll, setShowAll] = useState(false);
                           {link.viewCount || 0}
                         </td>
                         <td style={{ padding: '10px 12px' }}>
-                          <span style={{ background: sc.bg, color: sc.color, borderRadius: 20, padding: '3px 10px', fontSize: '0.78rem', fontWeight: 600 }}>
-                            {status}
-                          </span>
+                          {status === 'Revoked' && <span style={{ color: '#ef4444', fontWeight: 600 }}>Revoked</span>}
+                          {status === 'Expired' && <span style={{ color: '#f59e0b', fontWeight: 600 }}>Expired</span>}
+                          {status !== 'Revoked' && status !== 'Expired' && <span style={{ background: sc.bg, color: sc.color, borderRadius: 20, padding: '3px 10px', fontSize: '0.78rem', fontWeight: 600 }}>{status === 'Viewed' ? 'Viewed' : 'Active'}</span>}
                         </td>
                         <td style={{ padding: '10px 12px' }}>
-                          {status !== 'Revoked' ? (
-                            <button
-                              onClick={() => handleRevokeShareLink(link.token)}
-                              disabled={revokingToken === link.token}
-                              style={{
-                                background: 'rgba(239,68,68,0.15)',
-                                border: '1px solid rgba(239,68,68,0.4)',
-                                borderRadius: 6, color: '#f87171',
-                                padding: '4px 10px', fontSize: '0.78rem',
-                                cursor: 'pointer', fontFamily: 'Poppins, sans-serif'
-                              }}
-                            >
-                              {revokingToken === link.token ? 'Revoking...' : 'Revoke'}
-                            </button>
+                          {status !== 'Revoked' && status !== 'Expired' ? (
+                            <>
+                              <button
+                                onClick={() => handleRevokeShareLink(link.token)}
+                                disabled={revokingToken === link.token}
+                                style={{
+                                  background: 'rgba(239,68,68,0.15)',
+                                  border: '1px solid rgba(239,68,68,0.4)',
+                                  borderRadius: 6, color: '#f87171',
+                                  padding: '4px 10px', fontSize: '0.78rem',
+                                  cursor: 'pointer', fontFamily: 'Poppins, sans-serif'
+                                }}
+                              >
+                                {revokingToken === link.token ? 'Revoking...' : 'Revoke'}
+                              </button>
+                              <button
+                                onClick={() => handleForceExpireLink(link.token)}
+                                disabled={expiringToken === link.token}
+                                style={{ padding: '4px 8px', fontSize: '11px', background: 'rgba(245,158,11,0.12)', color: '#f59e0b', border: '1px solid rgba(245,158,11,0.25)', borderRadius: '6px', cursor: 'pointer', marginLeft: '4px' }}
+                              >
+                                {expiringToken === link.token ? 'Expiring...' : 'Force Expire'}
+                              </button>
+                            </>
                           ) : (
                             <span style={{ color: '#555', fontSize: '0.78rem' }}>—</span>
                           )}
@@ -1037,6 +1066,11 @@ const [showAll, setShowAll] = useState(false);
               <button className="close-btn" onClick={closeCredModal}>✕</button>
             </div>
             <div className="modal-body">
+              {selectedCred.badgeImage && (
+                <div style={{ textAlign: 'center', marginBottom: '16px' }}>
+                  <img src={selectedCred.badgeImage} alt="Badge" style={{ maxWidth: '120px', maxHeight: '120px', objectFit: 'contain', borderRadius: '12px' }} />
+                </div>
+              )}
               <div className="detail-row">
                 <span className="detail-label">Type</span>
                 <span className="detail-value">{selectedCred.credentialType || "N/A"}</span>
@@ -1053,6 +1087,12 @@ const [showAll, setShowAll] = useState(false);
                 <div className="detail-row">
                   <span className="detail-label">Rejection Reason</span>
                   <span className="detail-value" style={{color: "#ff6b6b"}}>{selectedCred.rejectionReason}</span>
+                </div>
+              )}
+              {(selectedCred.status === "revoked" || selectedCred.status === "REVOKED") && (
+                <div className="detail-row">
+                  <span className="detail-label">Revoked Date</span>
+                  <span className="detail-value">{formatDate(selectedCred.revokedAt || selectedCred.revokedDate || selectedCred.updatedAt)}</span>
                 </div>
               )}
               <div className="detail-row">

@@ -45,6 +45,7 @@ router.post('/profile-share/:token/verify-otp', accountController.verifyOTP);
 
 // DELETE /api/auth/profile-share/:token/revoke - Revoke a share link (auth required). 
 router.delete('/profile-share/:token/revoke', accountController.revokeShareLink);
+router.post('/profile-share/:token/force-expire', accountController.forceExpireShareLink);
 
 // POST /api/auth/profile-share/generate-public - Generate a public share link (no recipient).
 router.post('/profile-share/generate-public', accountController.generatePublicShareLink);

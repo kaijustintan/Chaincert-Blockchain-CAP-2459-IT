@@ -181,11 +181,11 @@ const [issuerDocumentsError, setIssuerDocumentsError] = useState(null);
     return String(v);
   };
 
-  const renderDescriptionCell = useCallback((row) => {
+  const renderDescriptionCell = useCallback((row, showPlaceholder = true) => {
     const rawDescription = typeof row?.description === "string" ? row.description : "";
     const trimmedDescription = rawDescription.trim();
     if (!trimmedDescription || trimmedDescription.toLowerCase() === "n/a") {
-      return <span style={{ opacity: 0.4 }}>—</span>;
+      return showPlaceholder ? <span style={{ opacity: 0.4 }}>—</span> : null;
     }
 
     return (
@@ -2350,7 +2350,6 @@ const handleDownloadIssuerDocument = async (doc) => {
                       <th>Credential ID</th>
                       <th>Type</th>
                       <th>Credential Name</th>
-                      <th>Description</th>
                       <th>Holder ID</th>
                       <th>Holder Name</th>
                       <th>Status</th>
@@ -2371,31 +2370,33 @@ const handleDownloadIssuerDocument = async (doc) => {
                           </td>
                           <td>{row.type || "N/A"}</td>
                           <td>{row.credentialName || row.credentialType || "N/A"}</td>
-                          <td>{renderDescriptionCell(row)}</td>
                           <td style={{ fontFamily: "monospace", fontSize: 12 }}>
                             {row.holderID || "—"}
                           </td>
                           <td>{row.holderName || "—"}</td>
                           <td>{renderStatusText(row.status || "unknown", "unknown")}</td>
                           <td>{formatTimestamp(row.createdAt)}</td>
-                          <td>
+                          <td className="actions-cell">
                             {isIssued ? (
-                              <button
-                                type="button"
-                                onClick={() => openHistoryModalForRow(row)}
-                                style={{
-                                  padding: "8px 10px",
-                                  borderRadius: 10,
-                                  border: "1px solid rgba(255,255,255,0.18)",
-                                  cursor: "pointer",
-                                  background: "rgba(255,255,255,0.06)",
-                                  color: "#fff",
-                                  fontWeight: 700,
-                                }}
-                                title="View blockchain audit history"
-                              >
-                                View BC History
-                              </button>
+                              <>
+                                <button
+                                  type="button"
+                                  onClick={() => openHistoryModalForRow(row)}
+                                  style={{
+                                    padding: "8px 10px",
+                                    borderRadius: 10,
+                                    border: "1px solid rgba(255,255,255,0.18)",
+                                    cursor: "pointer",
+                                    background: "rgba(255,255,255,0.06)",
+                                    color: "#fff",
+                                    fontWeight: 700,
+                                  }}
+                                  title="View blockchain audit history"
+                                >
+                                  View BC History
+                                </button>
+                                {renderDescriptionCell(row, false)}
+                              </>
                             ) : (
                               <span style={{ opacity: 0.65 }}>—</span>
                             )}

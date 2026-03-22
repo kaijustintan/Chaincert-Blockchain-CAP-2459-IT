@@ -133,8 +133,18 @@ const accountController = {
       if (!doc.isActive) {
         return res.status(403).json({ success: false, message: 'This link has been revoked.' });
       }
-      if (doc.expiresAt && new Date() > new Date(doc.expiresAt)) {
-        return res.status(403).json({ success: false, message: 'This link has expired.' });
+      if (doc.status === 'revoked' || doc.status === 'expired') {
+        return res.status(403).json({
+          success: false,
+          message: doc.status === 'revoked' ? 'This link has been revoked.' : 'This link has expired.'
+        });
+      }
+      if (doc.expiresAt) {
+        const expiresAt = new Date(doc.expiresAt);
+        if (Number.isNaN(expiresAt.getTime()) || new Date() > expiresAt) {
+          try { await couchDB.updateShareLinkStatus(doc._id, 'expired'); } catch (e) { /* non-critical */ }
+          return res.status(403).json({ success: false, message: 'This link has expired.' });
+        }
       }
 
       return res.status(200).json({ 
@@ -175,8 +185,15 @@ const accountController = {
       const doc = await couchDB.getProfileShareLink(token);
 
       if (!doc) return res.status(404).json({ success: false, message: 'Invalid or deleted link.' });
-      if (!doc.isActive) return res.status(403).json({ success: false, message: 'This link has been revoked.' });
-      if (doc.expiresAt && new Date() > new Date(doc.expiresAt)) return res.status(403).json({ success: false, message: 'This link has expired.' });
+      if (!doc.isActive || doc.status === 'revoked') return res.status(403).json({ success: false, message: 'This link has been revoked.' });
+      if (doc.status === 'expired') return res.status(403).json({ success: false, message: 'This link has expired.' });
+      if (doc.expiresAt) {
+        const expiresAt = new Date(doc.expiresAt);
+        if (Number.isNaN(expiresAt.getTime()) || new Date() > expiresAt) {
+          try { await couchDB.updateShareLinkStatus(doc._id, 'expired'); } catch (e) { /* non-critical */ }
+          return res.status(403).json({ success: false, message: 'This link has expired.' });
+        }
+      }
       if (doc.recipientEmail.toLowerCase() !== email.toLowerCase()) {
         return res.status(403).json({ success: false, message: 'This link is not accessible with your email.' });
       }
@@ -222,6 +239,18 @@ const accountController = {
 
       if (!otp) {
         return res.status(400).json({ success: false, message: 'OTP is required.' });
+      }
+
+      const doc = await couchDB.getProfileShareLink(token);
+      if (!doc) return res.status(404).json({ success: false, message: 'Invalid or deleted link.' });
+      if (!doc.isActive || doc.status === 'revoked') return res.status(403).json({ success: false, message: 'This link has been revoked.' });
+      if (doc.status === 'expired') return res.status(403).json({ success: false, message: 'This link has expired.' });
+      if (doc.expiresAt) {
+        const expiresAt = new Date(doc.expiresAt);
+        if (Number.isNaN(expiresAt.getTime()) || new Date() > expiresAt) {
+          try { await couchDB.updateShareLinkStatus(doc._id, 'expired'); } catch (e) { /* non-critical */ }
+          return res.status(403).json({ success: false, message: 'This link has expired.' });
+        }
       }
 
       const userId = await couchDB.verifyOTPAndGetUserId(token, otp);
@@ -436,6 +465,17 @@ const accountController = {
       return res.status(200).json({ success: true, message: 'Share link revoked.' });
     } catch (error) {
       console.error('[SHARE] revokeShareLink error:', error);
+      return res.status(500).json({ success: false, message: error.message });
+    }
+  },
+
+  forceExpireShareLink: async (req, res) => {
+    try {
+      const { token } = req.params;
+      if (!token) return res.status(400).json({ success: false, message: 'Token is required' });
+      await couchDB.forceExpireShareLink(token);
+      return res.status(200).json({ success: true, message: 'Share link expired successfully.' });
+    } catch (error) {
       return res.status(500).json({ success: false, message: error.message });
     }
   },

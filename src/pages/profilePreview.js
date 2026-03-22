@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { useParams } from "react-router-dom";
 import apiService from "../services/apiService";
 import '../styles/profilePreview.css';
@@ -59,6 +59,26 @@ export default function ProfilePreview() {
   // ── Credentials state - polo ───────────────────────────────────
   const [credentials, setCredentials] = useState([]);
   const [credLoading, setCredLoading] = useState(false);
+  const [selectedPreviewCred, setSelectedPreviewCred] = useState(null);
+
+  // ── Derived skills (MUST be before any early returns) ──────────
+  const derivedSkills = useMemo(() => [...new Set(
+    credentials.flatMap(c =>
+      Array.isArray(c.skills) && c.skills.length > 0
+        ? c.skills
+        : (c.credentialType ? [c.credentialType] : [])
+    )
+  )], [credentials]);
+
+  const skillsByCredential = useMemo(() => {
+    const groups = [];
+    (credentials || []).forEach((cred) => {
+      if (cred.skills && cred.skills.length > 0) {
+        groups.push({ credentialName: cred.credentialName || 'Unknown Credential', skills: cred.skills });
+      }
+    });
+    return groups;
+  }, [credentials]);
 
   // Derived display values - polo
   const userName = profileData?.name || 'User';
@@ -365,15 +385,6 @@ export default function ProfilePreview() {
     );
   }
 
-  // Derive skills from credentials — reads skills array first, falls back to credentialType - polo
-  const derivedSkills = [...new Set(
-    credentials.flatMap(c =>
-      Array.isArray(c.skills) && c.skills.length > 0
-        ? c.skills
-        : (c.credentialType ? [c.credentialType] : [])
-    )
-  )];
-
   return (
     <div className="profile-preview">
       {/* Header */}
@@ -418,7 +429,7 @@ export default function ProfilePreview() {
             <div>No public credentials yet.</div>
           )}
           {!credLoading && credentials.map((cred, index) => (
-            <div key={cred._id} className={`badge-list-item ${cred.status === 'revoked' ? 'revoked-card' : ''}`}>
+            <div key={cred._id} className={`badge-list-item ${cred.status === 'revoked' ? 'revoked-card' : ''}`} onClick={() => setSelectedPreviewCred(cred)} style={{ cursor: 'pointer' }}>
               <div className="badge-order-num">{index + 1}</div>
               <div className="badge-img-small">
                 {cred.badgeImage ? (
@@ -449,9 +460,20 @@ export default function ProfilePreview() {
         <div className="skills-grid">
           {derivedSkills.length === 0 ? (
             <div>No skills yet.</div>
-          ) : (
+          ) : skillsByCredential.length === 0 ? (
             derivedSkills.map((skill, idx) => (
               <div key={idx} className="skill-badge">{skill}</div>
+            ))
+          ) : (
+            skillsByCredential.map((group, idx) => (
+              <div key={`${group.credentialName}-${idx}`} className="skill-group">
+                <p className="skill-group-label">From: {group.credentialName}</p>
+                <div className="skill-group-pills">
+                  {group.skills.map((skill, skillIdx) => (
+                    <div key={`${group.credentialName}-${skill}-${skillIdx}`} className="skill-badge">{skill}</div>
+                  ))}
+                </div>
+              </div>
             ))
           )}
         </div>
@@ -466,6 +488,58 @@ export default function ProfilePreview() {
       <footer className="preview-footer">
         <p>Verified on ChainCert • Blockchain-Secured Credentials</p>
       </footer>
+
+      {selectedPreviewCred && (
+        <div className="modal-overlay" onClick={() => setSelectedPreviewCred(null)}>
+          <div className="modal detail-modal preview-detail-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header">
+              <h2>{selectedPreviewCred.credentialName || 'Credential'}</h2>
+              <button className="close-btn" onClick={() => setSelectedPreviewCred(null)}>✕</button>
+            </div>
+            <div className="modal-body">
+              {selectedPreviewCred.badgeImage && (
+                <div className="preview-modal-badge">
+                  <img src={selectedPreviewCred.badgeImage} alt="Badge" />
+                </div>
+              )}
+              <div className="detail-row">
+                <span className="detail-label">Type</span>
+                <span className="detail-value">{selectedPreviewCred.credentialType || 'N/A'}</span>
+              </div>
+              <div className="detail-row">
+                <span className="detail-label">Issuer</span>
+                <span className="detail-value">{selectedPreviewCred.issuerName || 'N/A'}</span>
+              </div>
+              <div className="detail-row">
+                <span className="detail-label">Status</span>
+                <span className="detail-value">{selectedPreviewCred.status || 'N/A'}</span>
+              </div>
+              <div className="detail-row">
+                <span className="detail-label">Issued On</span>
+                <span className="detail-value">{selectedPreviewCred.savedToUserWalletAt ? new Date(selectedPreviewCred.savedToUserWalletAt).toLocaleDateString() : 'N/A'}</span>
+              </div>
+              <div className="detail-row">
+                <span className="detail-label">Expiry Date</span>
+                <span className="detail-value">{selectedPreviewCred.expiryDate ? new Date(selectedPreviewCred.expiryDate).toLocaleDateString() : 'No Expiry'}</span>
+              </div>
+              <div className="detail-row">
+                <span className="detail-label">Blockchain ID</span>
+                <span className="detail-value mono">{selectedPreviewCred.blockchainId || 'N/A'}</span>
+              </div>
+              {Array.isArray(selectedPreviewCred.skills) && selectedPreviewCred.skills.length > 0 && (
+                <div className="preview-modal-skills">
+                  <span className="detail-label">Skills</span>
+                  <div className="skill-group-pills">
+                    {selectedPreviewCred.skills.map((skill, idx) => (
+                      <span key={`${skill}-${idx}`} className="skill-badge">{skill}</span>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

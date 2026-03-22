@@ -258,6 +258,41 @@
   background: linear-gradient(90deg, transparent, rgba(139,92,246,0.3), transparent);
 }
 
+.filter-row {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  align-items: center;
+  margin-bottom: 16px;
+}
+
+.filter-select,
+.filter-input {
+  background: rgba(255, 255, 255, 0.07);
+  border: 1px solid rgba(139, 92, 246, 0.35);
+  border-radius: 8px;
+  color: #fff;
+  padding: 8px 12px;
+  font-size: 13px;
+  outline: none;
+  min-width: 120px;
+  font-family: 'Poppins', sans-serif;
+}
+
+.filter-input {
+  flex: 1 1 220px;
+}
+
+.filter-select:focus,
+.filter-input:focus {
+  border-color: #a78bfa;
+}
+
+.filter-select option {
+  background: #1a1035;
+  color: #fff;
+}
+
 .tab-card h2 {
   margin-bottom: 12px; font-size: 22px; font-weight: 700; color: #fff;
   background: linear-gradient(135deg, #a78bfa 0%, #c4b5fd 100%);

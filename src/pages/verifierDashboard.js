@@ -174,6 +174,17 @@ export default function VerifierDashboard() {
   }
 
   // Normal dashboard view once verifier info is set
+  const normalizedStatus = String(result?.status || '').toLowerCase();
+  const renderedStatusLabel = normalizedStatus === 'issued' || normalizedStatus === 'active'
+    ? 'Active'
+    : normalizedStatus === 'revoked'
+      ? 'Revoked'
+      : normalizedStatus === 'expired'
+        ? 'Expired'
+        : normalizedStatus
+          ? normalizedStatus.charAt(0).toUpperCase() + normalizedStatus.slice(1)
+          : 'Unknown';
+
   return (
     <div className="verifier-container">
       <h1>Verifier Dashboard</h1>
@@ -241,7 +252,7 @@ export default function VerifierDashboard() {
               {result.credentialName && <p style={{ fontSize: '20px', fontWeight: 700, marginBottom: '12px' }}>{result.credentialName}</p>}
               <p><strong>Issued To:</strong> {result.holderName || 'N/A'}</p>
               <p><strong>Issued By:</strong> {result.issuerName || 'N/A'}</p>
-              <p><strong>Status:</strong>{' '}<span style={{ color: result.status === 'issued' || result.status === 'active' ? '#22c55e' : result.status === 'revoked' ? '#ef4444' : result.status === 'expired' ? '#f59e0b' : 'inherit', fontWeight: 600 }}>{result.status === 'issued' || result.status === 'active' ? 'Active' : result.status === 'revoked' ? 'Revoked' : result.status === 'expired' ? 'Expired' : (result.status || 'Unknown')}</span></p>
+              <p><strong>Status:</strong>{' '}<span style={{ color: normalizedStatus === 'issued' || normalizedStatus === 'active' ? '#22c55e' : normalizedStatus === 'revoked' ? '#ef4444' : normalizedStatus === 'expired' ? '#f59e0b' : 'inherit', fontWeight: 600 }}>{renderedStatusLabel}</span></p>
               {result.expiryDate && <p><strong>Expires:</strong> {new Date(result.expiryDate).toLocaleDateString()}</p>}
 
               <div style={{ marginTop: '16px', paddingTop: '12px', borderTop: '1px solid rgba(255,255,255,0.08)' }}>

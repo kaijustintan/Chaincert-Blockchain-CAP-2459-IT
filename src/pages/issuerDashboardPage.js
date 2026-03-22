@@ -1038,11 +1038,12 @@ export default function IssuerDashboard() {
             : subordinateDirectory.length === 0 ? <div className="no-results"><p>No subordinate issuers found for this filter.</p></div>
             : (
               <table className="template-table">
-                <thead><tr><th>Issuer ID</th><th>Org Name</th><th>Email</th><th>Category</th><th>Root Approval</th><th>Root Approved At</th><th>Overall Status</th><th>Created At</th><th>Documents</th><th>Actions</th></tr></thead>
+                <thead><tr><th>Issuer ID</th><th>Org Name</th><th>Email</th><th>Category</th><th>Root Approval</th><th>Root Approval Date</th><th>Admin Approval</th><th>Admin Approval Date</th><th>Overall Status</th><th>Created At</th><th>Documents</th><th>Actions</th></tr></thead>
                 <tbody>
                   {subordinateDirectory.map((issuer) => {
                     const issuerId = issuer._id || issuer.id;
                     const isPendingRootApproval = (issuer.rootApprovalStatus || "pending") === "pending";
+                    const adminApproved = String(issuer.status || "").toLowerCase() === "approved";
                     return (
                       <tr key={issuerId}>
                         <td style={{ fontFamily: "monospace", fontSize: 12 }}>{issuerId}</td>
@@ -1051,6 +1052,8 @@ export default function IssuerDashboard() {
                         <td>{issuer.category || "N/A"}</td>
                         <td><span className={issuer.rootApprovalStatus === "approved" ? "badge green" : issuer.rootApprovalStatus === "rejected" ? "badge red" : "badge purple"}>{issuer.rootApprovalStatus || "pending"}</span></td>
                         <td>{issuer.rootApprovalStatus === "approved" ? (issuer.rootApprovedAt ? new Date(issuer.rootApprovedAt).toLocaleString() : "N/A") : issuer.rootApprovalStatus === "rejected" ? "Rejected by Root" : "Pending"}</td>
+                        <td>{adminApproved ? <span className="badge green">Approved</span> : <span className="badge purple">Pending</span>}</td>
+                        <td>{adminApproved ? (issuer.approvedAt ? new Date(issuer.approvedAt).toLocaleString() : "N/A") : "Pending"}</td>
                         <td><span className={issuer.status === "approved" ? "badge green" : issuer.status === "disabled" ? "badge gray" : issuer.status === "rejected" ? "badge red" : "badge purple"}>{issuer.status || "pending"}</span></td>
                         <td>{issuer.createdAt ? new Date(issuer.createdAt).toLocaleString() : "N/A"}</td>
                         <td><button type="button" onClick={() => openIssuerDocumentsModal(issuer)} className="action-btn" style={{ padding: "6px 10px", fontSize: "12px", background: "rgba(139,92,246,0.15)", color: "#a78bfa", border: "1px solid rgba(255,255,255,0.18)" }}>See Documents</button></td>

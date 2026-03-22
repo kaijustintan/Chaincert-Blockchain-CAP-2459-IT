@@ -28,6 +28,10 @@ export default function ProfilePage() {
 
   // Show all toggle for credential wallet - polo
 const [showAll, setShowAll] = useState(false);
+  const [credSearch, setCredSearch] = useState('');
+  const [credStatusFilter, setCredStatusFilter] = useState('all');
+  const [credTypeFilter, setCredTypeFilter] = useState('all');
+  const [credSortBy, setCredSortBy] = useState('newest');
   // - polo: 13C skill click → show source credential
   const [selectedSkill, setSelectedSkill] = useState(null);
 
@@ -341,6 +345,46 @@ const [showAll, setShowAll] = useState(false);
       setShareLinksLoading(false);
     }
   };
+
+  const profileCredentialTypes = useMemo(() => Array.from(new Set((credentials || []).map((cred) => cred.credentialType).filter(Boolean))).sort((a, b) => a.localeCompare(b)), [credentials]);
+
+  const filteredProfileCreds = useMemo(() => {
+    let result = [...(credentials || [])];
+
+    if (credStatusFilter !== 'all') {
+      result = result.filter((cred) => {
+        const normalizedStatus = String(cred.status || '').toLowerCase();
+        if (credStatusFilter === 'active') return normalizedStatus === 'issued' || normalizedStatus === 'active';
+        return normalizedStatus === credStatusFilter;
+      });
+    }
+
+    if (credTypeFilter !== 'all') {
+      result = result.filter((cred) => String(cred.credentialType || '').toLowerCase() === credTypeFilter.toLowerCase());
+    }
+
+    const query = credSearch.trim().toLowerCase();
+    if (query) {
+      result = result.filter((cred) =>
+        [cred.credentialName, cred.issuerName].filter(Boolean).join(' ').toLowerCase().includes(query)
+      );
+    }
+
+    switch (credSortBy) {
+      case 'oldest':
+        result.sort((a, b) => new Date(a.savedToUserWalletAt || 0) - new Date(b.savedToUserWalletAt || 0));
+        break;
+      case 'name-asc':
+        result.sort((a, b) => String(a.credentialName || '').localeCompare(String(b.credentialName || '')));
+        break;
+      case 'newest':
+      default:
+        result.sort((a, b) => new Date(b.savedToUserWalletAt || 0) - new Date(a.savedToUserWalletAt || 0));
+        break;
+    }
+
+    return result;
+  }, [credentials, credSearch, credSortBy, credStatusFilter, credTypeFilter]);
 
   // Compute status from share link doc fields 
   const getShareLinkStatus = (link) => {
@@ -675,9 +719,27 @@ const [showAll, setShowAll] = useState(false);
 
         {!credLoading && !credError && credentials.length > 0 && (
           <>
+            <div className="filter-row">
+              <input className="filter-input" type="text" value={credSearch} onChange={(e) => setCredSearch(e.target.value)} placeholder="Search by credential or issuer" />
+              <select className="filter-select" value={credStatusFilter} onChange={(e) => setCredStatusFilter(e.target.value)}>
+                <option value="all">All Statuses</option>
+                <option value="active">Active</option>
+                <option value="revoked">Revoked</option>
+                <option value="expired">Expired</option>
+              </select>
+              <select className="filter-select" value={credTypeFilter} onChange={(e) => setCredTypeFilter(e.target.value)}>
+                <option value="all">All Types</option>
+                {profileCredentialTypes.map((type) => <option key={type} value={type}>{type}</option>)}
+              </select>
+              <select className="filter-select" value={credSortBy} onChange={(e) => setCredSortBy(e.target.value)}>
+                <option value="newest">Most Recent</option>
+                <option value="oldest">Oldest</option>
+                <option value="name-asc">Name A-Z</option>
+              </select>
+            </div>
             {isSavingOrder && <div className="order-saving-msg">Saving order...</div>}
             <div className="badges-grid">
-              {(showAll ? credentials : credentials.slice(0, 5)).map((cred, index) => (
+              {(showAll ? filteredProfileCreds : filteredProfileCreds.slice(0, 5)).map((cred, index) => (
                 <div
                   key={cred._id}
                   className={`badge-card draggable${draggedIndex === index ? ' dragging' : ''}`}
@@ -703,12 +765,12 @@ const [showAll, setShowAll] = useState(false);
               </div>
               ))}
             </div>
-            {credentials.length > 5 && (
+            {filteredProfileCreds.length > 5 && (
               <button
                 className="see-all-btn"
                 onClick={() => setShowAll(prev => !prev)}
               >
-                {showAll ? '▲ Show Less' : `▼ See All (${credentials.length})`}
+                {showAll ? '▲ Show Less' : `▼ See All (${filteredProfileCreds.length})`}
               </button>
             )}
           </>
@@ -828,7 +890,7 @@ const [showAll, setShowAll] = useState(false);
                 </div>
                 <div>
                   <label style={{ fontSize: '12px', marginRight: '6px' }}>Status:</label>
-                  <select value={linkStatusFilter} onChange={(e) => setLinkStatusFilter(e.target.value)}>
+                  <select className="filter-select" value={linkStatusFilter} onChange={(e) => setLinkStatusFilter(e.target.value)}>
                     <option value="all">All Status</option>
                     <option value="active">Active</option>
                     <option value="expired">Expired</option>
@@ -837,7 +899,7 @@ const [showAll, setShowAll] = useState(false);
                 </div>
                 <div>
                   <label style={{ fontSize: '12px', marginRight: '6px' }}>Source:</label>
-                  <select value={linkSourceFilter} onChange={(e) => setLinkSourceFilter(e.target.value)}>
+                  <select className="filter-select" value={linkSourceFilter} onChange={(e) => setLinkSourceFilter(e.target.value)}>
                     <option value="all">All Sources</option>
                     <option value="manual">Manual</option>
                     <option value="pdf">PDF Export</option>
@@ -1150,34 +1212,6 @@ const [showAll, setShowAll] = useState(false);
               <div className="detail-row">
                 <span className="detail-label">Blockchain ID</span>
                 <span className="detail-value mono">{selectedCred.blockchainId || "N/A"}</span>
-              </div>
-              <div className="detail-row">
-                <span className="detail-label">Visibility</span>
-                <span className="detail-value">
-                  <button
-                    className={`visibility-toggle-btn ${selectedCred.visibility === 'private' ? 'private' : 'public'}`}
-                    onClick={async (e) => {
-                      e.stopPropagation();
-                      console.log('[DEBUG] Full selectedCred object:', JSON.stringify(selectedCred, null, 2));
-                      console.log('[DEBUG] blockchainId value:', selectedCred.blockchainId);
-                      const newVisibility = selectedCred.visibility === 'private' ? 'public' : 'private';
-                      try {
-                        await apiService.Update_CredentialVisibility(selectedCred.blockchainId, newVisibility);
-                        // Update local state so UI reflects change immediately
-                        // - polo
-                        setSelectedCred(prev => ({ ...prev, visibility: newVisibility }));
-                        setCredentials(prev => prev.map(c =>
-                          c._id === selectedCred._id ? { ...c, visibility: newVisibility } : c
-                        ));
-                      } catch (err) {
-                        console.error('[PROFILE PAGE] Error updating visibility:', err);
-                        showToast('Failed to update visibility. Please try again.', 'danger');
-                      }
-                    }}
-                  >
-                    {selectedCred.visibility === 'private' ? '🔒 Private' : '🌐 Public'}
-                  </button>
-                </span>
               </div>
             </div>
             <div className="modal-footer">

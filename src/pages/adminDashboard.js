@@ -465,54 +465,49 @@ const handleDownloadIssuerDocument = async (doc) => {
 
   const activeHistoryColumns = getHistoryColumns(adminCredStatusFilter);
 
-  const getHistoryActionLabel = (entry, idx) => {
-    if (!entry) return "Unknown";
-    if (entry.isDelete) return "Deleted";
-
-    const v = entry.value || {};
-    if (v.status === "revoked" || v.revokedAt) return "Revoked";
-    if (v.assignedDate && v.holderID) return "Issued";
-    if (v.isTemplate === true || v.holderID === "") return "Created Template";
-
-    if (idx === credentialHistory.length - 1) return "Created";
-    return "Updated";
-  };
-
   const openHistoryModalForRow = async (row) => {
-    const typeLower = String(row?.type || "").toLowerCase();
-    if (!row || typeLower !== "issued") return;
-
     try {
+      const credentialId = row?.credentialId || row?.blockchainId || row?.id;
       setSelectedCredentialRow(row);
       setShowHistoryModal(true);
-
-      setCredentialHistory([]);
-      setCredentialHistoryError(null);
       setCredentialHistoryLoading(true);
+      setCredentialHistoryError(null);
+      setCredentialHistory([]);
 
-      const resp = await apiService.Get_CredentialHistory(row.credentialId);
+      if (!credentialId) {
+        setCredentialHistoryError('No blockchain ID found for this credential.');
+        return;
+      }
 
+      const resp = await apiService.Get_CredentialHistory(credentialId);
       const list = Array.isArray(resp.history) ? resp.history : [];
       const cleanHistory = list.filter((entry) => {
-        const id = entry?.credentialId || entry?.id || entry?.key || entry?.value?.credentialId || "";
-        const action = String(entry?.action || "").toLowerCase();
-        const status = String(entry?.status || entry?.value?.status || "").toLowerCase();
-        if (String(id).startsWith("vlog_")) return false;
-        if (action === "updated" && (status === "status unknown" || status === "unknown")) return false;
-        if (!action && status === "status unknown") return false;
+        const id = entry?.credentialId || entry?.id || entry?.key || entry?.value?.credentialId || '';
+        const action = String(entry?.action || '').toLowerCase();
+        const derivedAction = entry?.value?.status?.toLowerCase() === 'revoked' || entry?.value?.revokedAt
+          ? 'revoked'
+          : entry?.value?.assignedDate && entry?.value?.holderID
+            ? 'issued'
+            : entry?.value?.isTemplate === true || entry?.value?.holderID === '' || !entry?.value?.holderID
+              ? 'created template'
+              : 'updated';
+        const status = String(entry?.status || entry?.value?.status || '').toLowerCase();
+        const credentialType = String(entry?.credentialType || entry?.value?.credentialType || '').toLowerCase();
+
+        if (String(id).startsWith('vlog_')) return false;
+        if ((action === 'updated' || derivedAction === 'updated') && (status === 'status unknown' || status === 'unknown')) return false;
+        if ((action === 'updated' || derivedAction === 'updated') && (credentialType === 'n/a' || credentialType === '')) return false;
         return true;
       });
-      const sorted = [...cleanHistory].sort(
-        (a, b) => new Date(b.timestamp) - new Date(a.timestamp)
-      );
 
+      const sorted = [...cleanHistory].sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
       setCredentialHistory(sorted);
     } catch (error) {
       const msg =
         error.response?.data?.error ||
         error.response?.data?.message ||
         error.message ||
-        "Failed to load credential history";
+        'Failed to load credential history';
       setCredentialHistoryError(msg);
       setCredentialHistory([]);
     } finally {
@@ -2925,6 +2920,24 @@ const handleDownloadIssuerDocument = async (doc) => {
                             >
                               See History
                             </button>
+                            {canSeeDocuments && (
+                              <button
+                                type="button"
+                                onClick={() => openIssuerDocumentsModal(issuer)}
+                                style={{
+                                  padding: "8px 12px",
+                                  borderRadius: 10,
+                                  border: "1px solid rgba(255,255,255,0.18)",
+                                  cursor: "pointer",
+                                  fontWeight: 700,
+                                  background: "rgba(139,92,246,0.15)",
+                                  color: "#a78bfa",
+                                }}
+                                title="View submitted documents"
+                              >
+                                See Documents
+                              </button>
+                            )}
                           </>
                         );
                       }

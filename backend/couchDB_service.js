@@ -2189,38 +2189,73 @@ async function updateCredentialVisibility(credentialId, newVisibility) {
   try {
     console.log(`[COUCHDB] Updating visibility for: ${credentialId} → ${newVisibility}`);
 
-    // --- 1) Update in ADMIN DB: wallet_user_credentials ---
     const adminCouch = require('nano')(COUCHDB_URL);
     const userWalletDb = adminCouch.use('wallet_user_credentials');
+    const normalizedId = String(credentialId || '').replace(/^user_cred_/, '').replace(/^issuer_cred_/, '');
 
-    const userDocId = `user_cred_${credentialId.replace(/^user_cred_/, '')}`;
-    const userDoc = await userWalletDb.get(userDocId);
-    userDoc.visibility = newVisibility;
-    const userResult = await userWalletDb.insert(userDoc);
-    console.log(`[COUCHDB] ✅ Visibility updated in wallet_user_credentials: ${userDocId}`);
+    try {
+      const userDocId = `user_cred_${normalizedId}`;
+      const userDoc = await userWalletDb.get(userDocId);
+      userDoc.visibility = newVisibility;
+      const userResult = await userWalletDb.insert(userDoc);
+      console.log(`[COUCHDB] ✅ Visibility updated in wallet_user_credentials: ${userDocId}`);
 
-    // --- 2) Update in ISSUER DB: issued_credentials ---
-    const issuerEmail = userDoc.issuerEmail;
-    if (issuerEmail) {
-      const issuer = await getIssuerByEmail(issuerEmail);
-      if (issuer && issuer.couchDBUrl) {
-        const issuerCouch = require('nano')(issuer.couchDBUrl);
-        const issuedDb = issuerCouch.use('issued_credentials');
+      const issuerEmail = userDoc.issuerEmail;
+      if (issuerEmail) {
+        const issuer = await getIssuerByEmail(issuerEmail);
+        if (issuer && issuer.couchDBUrl) {
+          const issuerCouch = require('nano')(issuer.couchDBUrl);
+          const issuedDb = issuerCouch.use('issued_credentials');
+          const issuerDocId = `issuer_cred_${normalizedId}`;
 
-        const issuerDocId = `issuer_cred_${credentialId.replace(/^user_cred_/, '').replace(/^issuer_cred_/, '')}`;
+          try {
+            const issuerDoc = await issuedDb.get(issuerDocId);
+            issuerDoc.visibility = newVisibility;
+            await issuedDb.insert(issuerDoc);
+            console.log(`[COUCHDB] ✅ Visibility updated in issued_credentials: ${issuerDocId}`);
+          } catch (err) {
+            console.warn(`[COUCHDB] ⚠️ Could not update issuer-side visibility (${issuerDocId}):`, err.message);
+          }
+        }
+      }
+
+      return userResult;
+    } catch (userError) {
+      if (userError.statusCode !== 404) throw userError;
+    }
+
+    const approvedIssuers = await getApprovedIssuers();
+    const disabledIssuers = await getDisabledIssuers();
+    const allIssuers = [...(approvedIssuers || []), ...(disabledIssuers || [])];
+
+    for (const issuer of allIssuers) {
+      if (!issuer?.couchDBUrl) continue;
+
+      const issuerNano = require('nano')(issuer.couchDBUrl);
+      const dbTargets = [
+        { dbName: 'wallet_issuer_credentials', docId: credentialId },
+        { dbName: 'wallet_issuer_credentials', docId: `issuer_cred_${normalizedId}` },
+        { dbName: 'issued_credentials', docId: credentialId },
+        { dbName: 'issued_credentials', docId: `issuer_cred_${normalizedId}` },
+      ];
+
+      for (const target of dbTargets) {
         try {
-          const issuerDoc = await issuedDb.get(issuerDocId);
-          issuerDoc.visibility = newVisibility;
-          await issuedDb.insert(issuerDoc);
-          console.log(`[COUCHDB] ✅ Visibility updated in issued_credentials: ${issuerDocId}`);
+          const db = issuerNano.use(target.dbName);
+          const doc = await db.get(target.docId);
+          doc.visibility = newVisibility;
+          const result = await db.insert(doc);
+          console.log(`[COUCHDB] ✅ Visibility updated in ${target.dbName}: ${target.docId}`);
+          return result;
         } catch (err) {
-          console.warn(`[COUCHDB] ⚠️ Could not update issuer-side visibility (${issuerDocId}):`, err.message);
+          if (err.statusCode !== 404) {
+            console.warn(`[COUCHDB] ⚠️ Could not update ${target.dbName} (${target.docId}):`, err.message);
+          }
         }
       }
     }
 
-    return userResult;
-
+    throw new Error(`Credential ${credentialId} not found for visibility update`);
   } catch (error) {
     console.error(`[COUCHDB] ❌ Error updating visibility:`, error.message);
     throw error;
@@ -3488,29 +3523,46 @@ async function getAllIssuedCredentialsForIntegrity() {
   for (const issuer of approvedIssuers || []) {
     if (!issuer?.couchDBUrl) continue;
 
-    try {
-      const issuerDb = nano(issuer.couchDBUrl);
-      const queryResult = await issuerDb.find({
-        selector: {
-          blockchainId: { $exists: true }
-        },
-        limit: 5000
-      });
+    const issuerNano = nano(issuer.couchDBUrl);
+    const issuerOrgName = issuer.orgName || issuer.email || issuer._id;
+    const issuerId = issuer._id;
+    let foundDocs = false;
+    let hadQueryError = false;
 
-      (queryResult.docs || []).forEach((doc) => {
-        if (!doc?.blockchainId) return;
-        rows.push({
-          couchDoc: doc,
-          issuerOrgName: issuer.orgName || issuer.email || issuer._id,
-          issuerId: issuer._id
+    const queryDb = async (dbName) => {
+      try {
+        const db = issuerNano.use(dbName);
+        const result = await db.find({
+          selector: {
+            blockchainId: { $exists: true }
+          },
+          limit: 5000
         });
-      });
-    } catch (error) {
+
+        (result.docs || []).forEach((doc) => {
+          if (!doc?.blockchainId) return;
+          foundDocs = true;
+          rows.push({
+            couchDoc: doc,
+            issuerOrgName,
+            issuerId
+          });
+        });
+      } catch (error) {
+        hadQueryError = true;
+        console.warn(`[COUCHDB] Integrity query skipped for ${issuerOrgName} / ${dbName}: ${error.message}`);
+      }
+    };
+
+    await queryDb('issued_credentials');
+    await queryDb('wallet_issuer_credentials');
+
+    if (!foundDocs && hadQueryError) {
       rows.push({
         couchDoc: null,
-        issuerOrgName: issuer.orgName || issuer.email || issuer._id,
-        issuerId: issuer._id,
-        error: error.message
+        issuerOrgName,
+        issuerId,
+        error: 'Unable to query one or more issuer credential databases.'
       });
     }
   }

@@ -81,7 +81,7 @@ export default function ProfilePreview() {
   }, [credentials]);
 
   // Derived display values - polo
-  const userName = profileData?.name || 'User';
+  const userName = profileData?.role === 'issuer' ? (profileData?.orgName || profileData?.name || 'Issuer') : (profileData?.name || 'User');
   const userEmail = profileData?.email || '';
   const userRole = profileData?.role || 'student';
   const userId = profileData?.id || profileData?.userId || '';
@@ -100,16 +100,19 @@ export default function ProfilePreview() {
       try {
         const response = await apiService.getUserInfo(previewUserId);
         if (response.success && response.user) {
-          setProfileData({
+          const nextProfile = {
             id: response.user.id,
+            userId: response.user.id,
             name: response.user.name,
+            orgName: response.user.orgName || response.user.organizationName || '',
             email: response.user.email,
             role: response.user.role,
             summary: response.user.summary || '',
             profilePicture: response.user.profilePicture || null
-          });
-          setSummary(response.user.summary || '');
-          if (response.user.profilePicture) setAvatar(response.user.profilePicture);
+          };
+          setProfileData(nextProfile);
+          setSummary(nextProfile.summary || '');
+          if (nextProfile.profilePicture) setAvatar(nextProfile.profilePicture);
         }
       } catch (err) {
         console.error('[PROFILE PREVIEW] Error loading owner profile:', err);
@@ -125,18 +128,30 @@ export default function ProfilePreview() {
       try {
         const doc = await apiService.getShareLinkInfo(token);
         if (!doc.success) return;
+        if (doc.profile) {
+          setProfileData(doc.profile);
+          setSummary(doc.profile.summary || '');
+          if (doc.profile.profilePicture) setAvatar(doc.profile.profilePicture);
+          if (Array.isArray(doc.profile.sharedCredentials)) {
+            setCredentials(doc.profile.sharedCredentials);
+          }
+          return;
+        }
         const response = await apiService.getUserInfo(doc.userId);
         if (response.success && response.user) {
-          setProfileData({
+          const nextProfile = {
             id: response.user.id,
+            userId: response.user.id,
             name: response.user.name,
+            orgName: response.user.orgName || response.user.organizationName || '',
             email: response.user.email,
             role: response.user.role,
             summary: response.user.summary || '',
             profilePicture: response.user.profilePicture || null
-          });
-          setSummary(response.user.summary || '');
-          if (response.user.profilePicture) setAvatar(response.user.profilePicture);
+          };
+          setProfileData(nextProfile);
+          setSummary(nextProfile.summary || '');
+          if (nextProfile.profilePicture) setAvatar(nextProfile.profilePicture);
         }
       } catch (err) {
         console.error('[PROFILE PREVIEW] Error loading public profile:', err);
@@ -148,7 +163,7 @@ export default function ProfilePreview() {
   // ── Load credentials after OTP verified - polo ─────────────────
   useEffect(() => {
     const effectiveUserId = isOwner ? previewUserId : userId;
-    if (gateStage !== 'verified' || !effectiveUserId) return;
+    if (gateStage !== 'verified' || !effectiveUserId || (!isOwner && Array.isArray(profileData?.sharedCredentials))) return;
     const fetchCredentials = async () => {
       setCredLoading(true);
       try {
@@ -174,7 +189,7 @@ export default function ProfilePreview() {
       }
     };
     fetchCredentials();
-  }, [gateStage, userId, isOwner, previewUserId]); 
+  }, [gateStage, userId, isOwner, previewUserId, profileData]); 
 
   // ── Gate handlers - polo ───────────────────────────────────────
   const handleRequestOTP = async () => {
@@ -212,6 +227,9 @@ export default function ProfilePreview() {
         setProfileData(result.profile);
         setSummary(result.profile?.summary || '');
         if (result.profile?.profilePicture) setAvatar(result.profile.profilePicture);
+        if (Array.isArray(result.profile?.sharedCredentials)) {
+          setCredentials(result.profile.sharedCredentials);
+        }
         setGateStage('verified');
       } else {
         setGateError(result.message || 'Invalid code.');

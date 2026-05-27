@@ -248,6 +248,9 @@ cp "/mnt/c/Users/kaita/OneDrive/Desktop/CAP-2459-IT-AFTER-RESET/backend/node_cre
 # Make sure the target dirs exist
 mkdir -p ~/.claude/commands ~/.claude/skills ~/docs
 
+# settings.json (hooks — Stop hook that auto-tips sync commands on file changes)
+cp "/mnt/c/Users/kaita/OneDrive/Desktop/CAP-2459-IT-AFTER-RESET/.claude/settings.json" ~/.claude/settings.json
+
 # Slash commands
 cp "/mnt/c/Users/kaita/OneDrive/Desktop/CAP-2459-IT-AFTER-RESET/.claude/commands/"*.md ~/.claude/commands/
 

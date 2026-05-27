@@ -1,70 +1,168 @@
-# Getting Started with Create React App
+# ChainCert
 
-This project was bootstrapped with [Create React App](https://github.com/facebook/create-react-app).
+Blockchain-backed academic and professional credential platform built on Hyperledger Fabric 2.5.14. Issuers (universities, organizations) issue tamper-proof digital credentials to holders, who can share them with verifiers via a unique credential ID.
 
-## Available Scripts
+---
 
-In the project directory, you can run:
+## Architecture
 
-### `npm start`
+Three cooperating layers:
 
-Runs the app in the development mode.\
-Open [http://localhost:3000](http://localhost:3000) to view it in your browser.
+```
+React Frontend (Windows :3000)
+        ↓ Axios
+Express API (Ubuntu/WSL2 :4000)
+        ↓ Fabric Gateway SDK
+Hyperledger Fabric Network (Docker containers)
+        + CouchDB (off-chain mirror + state databases)
+```
 
-The page will reload when you make changes.\
-You may also see any lint errors in the console.
+| Component | Address | Notes |
+|---|---|---|
+| React frontend | :3000 | Create React App, Windows |
+| Express API | :4000 | Node.js, Ubuntu/WSL2 |
+| Orderer | :7050 | Single Raft orderer |
+| Org1 peer / CA | :7051 / :7054 | |
+| Org2 peer / CA | :9051 / :8054 | |
+| DLSU peer / CA | :12051 / :12054 | |
+| Central CouchDB | :5985 | Non-standard port (not 5984) |
+| DLSU issuer CouchDB | :9084 | |
+| INNOCENCIO subordinate CouchDB | :9085 | |
+| LASALLECOMPUTERSOCIETY subordinate CouchDB | :9086 | |
 
-### `npm test`
+---
 
-Launches the test runner in the interactive watch mode.\
-See the section about [running tests](https://facebook.github.io/create-react-app/docs/running-tests) for more information.
+## Prerequisites
 
-### `npm run build`
+**Windows side:**
+- Node.js 18+
+- Git
 
-Builds the app for production to the `build` folder.\
-It correctly bundles React in production mode and optimizes the build for the best performance.
+**Ubuntu/WSL2 side:**
+- Docker Engine (via Docker Desktop for Windows)
+- Node.js 18+
+- Hyperledger Fabric 2.5.14 binaries + Docker images
+- `fabric-samples` at `~/fabric-samples/fabric-samples/`
+- Chaincode at `~/chaincert-chaincode/`
+- API at `~/chaincert-api/`
 
-The build is minified and the filenames include the hashes.\
-Your app is ready to be deployed!
+---
 
-See the section about [deployment](https://facebook.github.io/create-react-app/docs/deployment) for more information.
+## Quick Start
 
-### `npm run eject`
+### 1. Frontend (Windows)
+```bash
+npm install
+npm start
+# Runs on http://localhost:3000
+```
 
-**Note: this is a one-way operation. Once you `eject`, you can't go back!**
+### 2. Backend API (Ubuntu/WSL2)
+```bash
+cd ~/chaincert-api
+node sdk-server-fixed.js
+# Runs on http://localhost:4000
+# Health check: curl http://localhost:4000/api/health
+```
 
-If you aren't satisfied with the build tool and configuration choices, you can `eject` at any time. This command will remove the single build dependency from your project.
+### 3. Fabric Network (Ubuntu/WSL2)
+```bash
+cd ~/fabric-samples/fabric-samples/test-network
+./network.sh up createChannel -c chaincert-channel -ca
+# Then deploy chaincode — see docs/Claude Reference - MD Files/Redeploy_CC_Instructions.md
+```
 
-Instead, it will copy all the configuration files and the transitive dependencies (webpack, Babel, ESLint, etc) right into your project so you have full control over them. All of the commands except `eject` will still work, but they will point to the copied scripts so you can tweak them. At this point you're on your own.
+### 4. Wallet setup (Ubuntu/WSL2 — first time only)
+```bash
+cd ~/chaincert-api
+node enrollAdmin.js
+node enrollOrg2Admin.js
+node enrollChaincertAdmin.js
+node setup_Wallet_DLSU.js
+node setup_Wallet_DLSU_Subordinate_INNOCENCIO.js
+node setup_Wallet_DLSU_Subordinate_LASALLECOMPUTERSOCIETY.js
+```
 
-You don't have to ever use `eject`. The curated feature set is suitable for small and middle deployments, and you shouldn't feel obligated to use this feature. However we understand that this tool wouldn't be useful if you couldn't customize it when you are ready for it.
+---
 
-## Learn More
+## Key Commands
 
-You can learn more in the [Create React App documentation](https://facebook.github.io/create-react-app/docs/getting-started).
+| Command | Where | What it does |
+|---|---|---|
+| `npm start` | Windows | React dev server on :3000 |
+| `npm run build` | Windows | Production bundle to `build/` |
+| `node sdk-server-fixed.js` | Ubuntu | Start the Express API |
+| `curl http://localhost:4000/api/health` | Ubuntu | Verify API is up |
 
-To learn React, check out the [React documentation](https://reactjs.org/).
+---
 
-### Code Splitting
+## Roles
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/code-splitting](https://facebook.github.io/create-react-app/docs/code-splitting)
+| Role | Description |
+|---|---|
+| Admin | Manages issuer approvals, user accounts, audit logs |
+| Issuer (Root Authority) | University/org with its own Fabric peer — issues credentials |
+| Issuer (Subordinate) | Department/org under a root authority — no own peer |
+| Holder / Student | Receives and shares credentials |
+| Verifier | Verifies credentials by credential ID |
 
-### Analyzing the Bundle Size
+---
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size](https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size)
+## Demo Accounts
 
-### Making a Progressive Web App
+| Email | Password | Role |
+|---|---|---|
+| admin1@email.com | pw123 | Admin |
+| admin2@email.com | pw123 | Admin |
+| dlsu@email.com | pw123 | Issuer (Root — DLSU) |
+| lasallecomputersociety@email.com | pw123 | Issuer (Subordinate) |
+| kylejustin.tan7@gmail.com | pw123 | Holder |
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app](https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app)
+> Full demo walkthrough: `docs/Claude Reference - MD Files/CAP1 Documents to Submit/CAP-2459-IT-WALKTHROUGH.md`
 
-### Advanced Configuration
+---
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/advanced-configuration](https://facebook.github.io/create-react-app/docs/advanced-configuration)
+## Project Structure
 
-### Deployment
+```
+chaincode/          Smart contract (ChainCertContract) — deploys to ~/chaincert-chaincode/
+backend/            API server, services, wallet scripts — deploys to ~/chaincert-api/
+src/controllers/    Express controllers — deploys to ~/chaincert-api/controllers/
+src/routes/         Express routes — deploys to ~/chaincert-api/routes/
+src/services/       Frontend API helpers + authenticationService (backend)
+src/pages/          Role-scoped dashboard pages
+src/components/     Shared UI components
+docs/               Reference docs (.md mirrors preferred over PDFs)
+```
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/deployment](https://facebook.github.io/create-react-app/docs/deployment)
+> ⚠️ `src/controllers/` and `src/routes/` are Express backend files — not React. They live here for repo organization but deploy to Ubuntu.
 
-### `npm run build` fails to minify
+---
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify](https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify)
+## Windows → Ubuntu Sync
+
+Backend files must be manually copied to Ubuntu before they take effect. Copy commands:
+```
+docs/Claude Reference - MD Files/Copy Commands.md
+```
+
+---
+
+## Deployment Target (CAP2)
+
+CCSCloud (DLSU-provided Ubuntu VM). Same setup as local WSL2 — Docker + Fabric + Node API + React frontend on one machine. Ports 3000 and 4000 must be open on the VM firewall.
+
+---
+
+## Docs
+
+All reference docs are under `docs/Claude Reference - MD Files/`. Prefer `.md` files over PDFs in `docs/Claude Reference - PDF Files/` — same content, faster to read.
+
+| Doc | What it covers |
+|---|---|
+| `CAP-2459-IT-INSTALLATION-MANUAL.md` | Full setup, ports, identities |
+| `CAP-2459-IT-TECHNICAL-MANUAL.md` | API routes, dual-write pattern, DB design |
+| `CAP-2459-IT-WALKTHROUGH.md` | Demo accounts, scenario scripts |
+| `Redeploy_CC_Instructions.md` | Chaincode redeploy procedure |
+| `Copy_Commands.md` | Windows → Ubuntu cp commands |
+| `Final_Design.md` | Governance model, subordinate creation workflow |

@@ -1,15 +1,3 @@
 {
-  "hooks": {
-    "Stop": [
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "shell": "bash",
-            "command": "f=$(git status --porcelain 2>/dev/null); if printf '%s' \"$f\" | grep -q 'chaincode/'; then printf '%s' '{\"systemMessage\":\"TIP: Chaincode changed - run /sync-backend-with-chaincode when ready (syncs backend + redeploys CC).\"}'; elif printf '%s' \"$f\" | grep -qE 'backend/|src/(controllers|routes|services)/'; then printf '%s' '{\"systemMessage\":\"TIP: Backend changed - run /sync-backend-only to push to Ubuntu.\"}'; fi"
-          }
-        ]
-      }
-    ]
-  }
+  "theme": "dark"
 }

@@ -7,9 +7,9 @@ Frontend (src/) — React 19 SPA bootstrapped from Create React App. Served from
 Backend API (backend/ + the misplaced src/controllers/ and src/routes/ — see "Windows vs Ubuntu layout" below) — Express server (sdk-server-fixed.js) that bridges the SPA to Hyperledger Fabric and CouchDB. Runs in Ubuntu/WSL2 on :4000.
 Chaincode (chaincode/) — Hyperledger Fabric smart contract (ChainCertContract). Deployed to channel chaincert-channel, contract name chaincert.
 
-CAP2 deployment target is a single Ubuntu cloud VM (AWS EC2 or DigitalOcean) hosting Docker + Fabric + CouchDB + Node API + React frontend. Ports 3000 and 4000 must be opened in the security group. Vercel is optional for a prettier frontend URL — backend, Fabric, and CouchDB still run on the VM.
+CAP2 deployment target is a single Ubuntu cloud VM — CCSCloud (DLSU-provided) is the confirmed target; AWS EC2 or DigitalOcean are alternatives if CCSCloud is unavailable. Hosts Docker + Fabric + CouchDB + Node API + React frontend. Ports 3000 and 4000 must be opened on the VM firewall. Confirm sudo access and Docker availability on CCSCloud before proceeding. Vercel is optional for a prettier frontend URL — backend, Fabric, and CouchDB still run on the VM.
 
-📄 Doc-reading tip — prefer .md over .pdf to save tokens. When referencing project docs, read the .md mirrors under docs/Claude Reference - MD Files/ (and docs/Claude Reference - MD Files/CAP1 Documents to Submit/ for the formal CAP1 submission manuals) instead of the original PDFs in docs/. The .md files have identical content and are dramatically cheaper to consume. The full doc index lives in the Canonical docs section at the bottom of this file.
+📄 Doc-reading tip — prefer .md over .pdf to save tokens. When referencing project docs, read the .md mirrors under docs/Claude Reference - MD Files/ (and docs/Claude Reference - MD Files/CAP1 Documents to Submit/ for the formal CAP1 submission manuals) instead of the original PDFs in docs/Claude Reference - PDF Files/. The .md files have identical content and are dramatically cheaper to consume. The full doc index lives in the Canonical docs section at the bottom of this file.
 
 Commands
 Frontend (run from repo root, Windows side — runs npm start against the WSL backend):
@@ -72,7 +72,7 @@ Subordinate gate: adminIssuerController.Approve_Issuer must check rootApprovalSt
 Frontend layout (src/)
 
 App.js is the only router. Routes split into public, protected (JWT in localStorage, gated by components/protectedRoutes.js), and admin-only (components/adminProtectedRoutes.js). Catch-all redirects to /.
-services/axiosInstance.js is the canonical HTTP client — injects Authorization from localStorage.token, points at http://localhost:4000/api. New API calls should go through it (or services/apiService.js, which wraps it). On EC2 the base URL must be the public IP, not localhost.
+services/axiosInstance.js is the canonical HTTP client — injects Authorization from localStorage.token, points at http://localhost:4000/api. New API calls should go through it (or services/apiService.js, which wraps it). On CCSCloud or any cloud VM, the base URL must be the public IP, not localhost.
 pages/ are role-scoped dashboards: studentDashboard, issuerDashboardPage, verifierDashboard, adminDashboard, plus credential / profile / share pages. Public profile shares route through /profile/:token → profilePreview.js.
 services/pdfExportService.js handles credential PDF rendering (jsPDF + qrcode).
 ⚠️ src/services/authenticationService.js is a backend file that lives under src/ for historical reasons — it deploys to ~/chaincert-api/authenticationService.js, not the React bundle. Don't import it from frontend code.
@@ -171,7 +171,7 @@ Integrity check is one-directional (CouchDB → ledger only).
 
 Touch these only when the user explicitly asks to.
 Canonical docs
-Always prefer the .md mirrors below over the original PDFs in docs/ — same content, far cheaper on tokens.
+Always prefer the .md mirrors below over the original PDFs in docs/Claude Reference - PDF Files/ — same content, far cheaper on tokens.
 docs/Claude Reference - MD Files/CAP1 Documents to Submit/ (formal CAP1 submission manuals)
 
 CAP-2459-IT-INSTALLATION-MANUAL.md — phased setup; canonical for ports, identities, CouchDB DB names.
@@ -189,7 +189,7 @@ Node_Creation_for_DLSU.md — channel config update dance, peer addition, and th
 Redeploy_CC_Instructions.md + Predemo_Setup.md — exact configtx swap sequence and DLSU peer login env vars.
 Issuer_Required_Docs_per_Category.md — rationale per required document in backend/issuerRequirements.js.
 Chaincert_Design_Details__1.md — Platform vs Consortium architecture rationale.
-CAP2_-_Deployment_Gameplan.md — EC2/DigitalOcean target plan (CAP2 only; current prototype is local).
+CAP2_-_Deployment_Gameplan.md — Cloud VM deployment plan (CCSCloud / EC2 / DigitalOcean); CAP2 only, current prototype is local.
 CONTROLLER_Files_and_its_Responsibilities.md — canonical controller-placement rules.
 ROUTE_Files_and_its_Responsibilities.md — canonical route-placement rules.
 Copy_Commands.md — full Windows → Ubuntu cp command list.

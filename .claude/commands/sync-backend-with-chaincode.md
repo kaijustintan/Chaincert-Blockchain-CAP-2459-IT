@@ -20,7 +20,7 @@ Follow the documented sequence strictly:
 4. After install, swap to `configtx-WITHDLSU.yaml` for the approve/commit step.
 5. Run `peer lifecycle chaincode querycommitted --channelID chaincert-channel --name chaincert` before AND after to confirm the sequence number bumped.
 6. Confirm DLSU CouchDB stays on port 9084. Never 9984.
-7. Restart the API and run a smoke test against one credential issuance endpoint.
+7. Restart the API and confirm `curl http://localhost:4000/api/health` returns OK. Do NOT run an automated credential smoke test — I (Kai) test the changed chaincode functions manually, since I'm the one who knows exactly what was added/changed. Just get the API back up cleanly (fix any wallet/identity/CouchDB gaps that block boot) and hand off to me for manual testing.
 
 If at any step the output diverges from the documented expected output, STOP and surface the drift. Do not proceed past a broken step.
 

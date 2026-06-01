@@ -170,6 +170,16 @@ Credential IDs use Date.now() + Math.random() — not cryptographically secure, 
 Integrity check is one-directional (CouchDB → ledger only).
 
 Touch these only when the user explicitly asks to.
+Directory maintenance
+Whenever files or folders are added, removed, or moved in the Windows working copy (CAP-2459-IT-AFTER-RESET/) — including any change I make — remind Kai to update DIRECTORY - Windows.md in BOTH locations:
+- Windows: docs/Claude Reference - MD Files/DIRECTORY - Windows.md
+- Ubuntu: ~/docs/Claude Reference - MD Files/Directory - Windows.md
+
+Whenever files or folders are added, removed, or moved in the Ubuntu environment (~/) — remind Kai to update Directory - Ubuntu.md in BOTH locations:
+- Ubuntu: ~/docs/Claude Reference - MD Files/Directory - Ubuntu.md
+- Windows: docs/Claude Reference - MD Files/Directory - Ubuntu.md
+
+This applies vice-versa: a Windows change requires updating the Ubuntu copy of the Windows directory file, and a Ubuntu change requires updating the Windows copy of the Ubuntu directory file.
 Canonical docs
 Always prefer the .md mirrors below over the original PDFs in docs/Claude Reference - PDF Files/ — same content, far cheaper on tokens.
 docs/Claude Reference - MD Files/CAP1 Documents to Submit/ (formal CAP1 submission manuals)

@@ -2,7 +2,12 @@
   "permissions": {
     "allow": [
       "PowerShell(wsl cp -r \"/mnt/c/Users/kaita/OneDrive/Desktop/CAP-2459-IT-AFTER-RESET/docs/Claude Reference - MD Files\" ~/docs/)",
-      "PowerShell(if \\($?\\) { \"Sync OK\" } else { \"Sync FAILED\" })"
+      "PowerShell(if \\($?\\) { \"Sync OK\" } else { \"Sync FAILED\" })",
+      "Bash(npm --version)",
+      "Bash(git --version)",
+      "Bash(docker --version)",
+      "Bash(cd \"/mnt/c/Users/kaita/OneDrive/Desktop/CAP-2459-IT-AFTER-RESET\" && find . -not -path \"*/node_modules/*\" -not -path \"*/.git/*\" | sort)",
+      "Bash(grep -E \"\\(package\\\\.json|\\\\.js$\\)\")"
     ]
   }
 }

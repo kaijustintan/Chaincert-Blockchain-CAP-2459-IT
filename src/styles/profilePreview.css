@@ -463,6 +463,11 @@ html {
   opacity: 0.8;
 }
 
+.badge-list-item.expired-card {
+  border-color: rgba(245, 158, 11, 0.35);
+  opacity: 0.8;
+}
+
 .badge-order-num {
   font-size: 1.4rem;
   font-weight: 700;

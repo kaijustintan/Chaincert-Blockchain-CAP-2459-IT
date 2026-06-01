@@ -21,6 +21,32 @@ const formatPhilippineDate = (value) => {
 };
 
 /*
+  Helper: drawStatusBanner
+  Technical: Draws a large REVOKED / EXPIRED banner near the top of a credential's PDF page so a
+  non-active credential can never be passed off as valid. Active/issued → no banner (returns y as-is).
+  Tropang Ex: Para kapag na-revoke/na-expire na, may malaking tatak na hindi mo maikakaila. - polo
+*/
+const STATUS_BANNER = {
+  revoked: { label: 'REVOKED', rgb: [239, 68, 68] },
+  expired: { label: 'EXPIRED', rgb: [245, 158, 11] },
+};
+function drawStatusBanner(doc, status, pageW, y) {
+  const cfg = STATUS_BANNER[String(status || '').toLowerCase()];
+  if (!cfg) return y;
+  const [r, g, b] = cfg.rgb;
+  const bannerW = 70;
+  const bannerH = 13;
+  const x = pageW / 2 - bannerW / 2;
+  doc.setFillColor(r, g, b);
+  doc.roundedRect(x, y, bannerW, bannerH, 2, 2, 'F');
+  doc.setTextColor(255, 255, 255);
+  doc.setFontSize(17);
+  doc.setFont('helvetica', 'bold');
+  doc.text(cfg.label, pageW / 2, y + 9, { align: 'center' });
+  return y + bannerH + 8;
+}
+
+/*
   Function: exportCredentialToPDF
   Technical: Generates a styled PDF for a credential with badge image, details, and verification link.
   Tropang Ex: Kapag pinindot ni student yung Export, dito nag-ge-generate yung PDF file. - polo
@@ -70,6 +96,9 @@ export async function exportCredentialToPDF(credential, templateDetails) {
   doc.text('ChainCert — Verified Digital Credential', pageW / 2, 12, { align: 'center' });
 
   y = 30;
+
+  // Large REVOKED/EXPIRED banner for non-active credentials - polo
+  y = drawStatusBanner(doc, credential.status, pageW, y);
 
   if (credential.holderName) {
     doc.setTextColor(196, 181, 253);
@@ -235,11 +264,9 @@ export async function exportCredentialToPDF(credential, templateDetails) {
 */
 export async function exportAllCredentialsToPDF(credentials, studentName) {
   if (!credentials || credentials.length === 0) return;
-  credentials = credentials.filter(c =>
-    c.status !== 'revoked' &&
-    c.status !== 'expired' &&
-    c.visibility === 'public'
-  );
+  // Include ALL statuses (incl. revoked/expired) — each non-active credential gets a large
+  // REVOKED/EXPIRED banner (drawStatusBanner) so it can't be mistaken for valid. - polo
+  credentials = credentials.filter(c => c.visibility === 'public');
   credentials.sort((a, b) => (a.currentOrder ?? Infinity) - (b.currentOrder ?? Infinity));
   if (credentials.length === 0) return;
 
@@ -314,7 +341,7 @@ export async function exportAllCredentialsToPDF(credentials, studentName) {
   doc.setTextColor(136, 136, 136);
   doc.setFontSize(10);
   doc.text(`Generated: ${new Date().toLocaleDateString('en-PH', PH_TIMEZONE)}`, pageW / 2, coverY, { align: 'center' });
-  doc.text(`Total Active Credentials: ${credentials.length}`, pageW / 2, coverY + 8, { align: 'center' }); 
+  doc.text(`Total Credentials: ${credentials.length}`, pageW / 2, coverY + 8, { align: 'center' });
 
   // Credential list summary on cover
   coverY += 26;
@@ -357,6 +384,9 @@ export async function exportAllCredentialsToPDF(credentials, studentName) {
     doc.text(`ChainCert  •  ${i + 1} of ${credentials.length}`, pageW / 2, 12, { align: 'center' });
 
     y = 30;
+
+    // Large REVOKED/EXPIRED banner for non-active credentials - polo
+    y = drawStatusBanner(doc, credential.status, pageW, y);
 
     const badgeImage = credential.badgeImage || null;
     if (badgeImage && badgeImage.startsWith('data:image')) {

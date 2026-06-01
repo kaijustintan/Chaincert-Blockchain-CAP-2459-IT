@@ -8,12 +8,12 @@ const filterVisibleProfileCredentials = (items, role) => {
 
   return (Array.isArray(items) ? items : [])
     .filter((cred) => {
-      const status = String(cred?.status || '').toLowerCase();
       const isTemplate = cred?.isTemplate === true || String(cred?.type || '').toLowerCase() === 'credential_template';
       const isPublic = cred?.visibility === 'public';
-      const isVisibleStatus = status !== 'revoked' && status !== 'expired';
 
-      if (!isPublic || !isVisibleStatus) return false;
+      // Show ALL statuses (incl. revoked/expired) WITH a visible status indicator — transparency
+      // over hiding (immutable-ledger value prop). Holder still controls exposure via visibility. - polo
+      if (!isPublic) return false;
       if (normalizedRole === 'issuer') return isTemplate;
       return true;
     })
@@ -455,7 +455,7 @@ export default function ProfilePreview() {
             <div>No public credentials yet.</div>
           )}
           {!credLoading && credentials.map((cred, index) => (
-            <div key={cred._id} className={`badge-list-item ${cred.status === 'revoked' ? 'revoked-card' : ''}`} onClick={() => setSelectedPreviewCred(cred)} style={{ cursor: 'pointer' }}>
+            <div key={cred._id} className={`badge-list-item ${cred.status === 'revoked' ? 'revoked-card' : cred.status === 'expired' ? 'expired-card' : ''}`} onClick={() => setSelectedPreviewCred(cred)} style={{ cursor: 'pointer' }}>
               <div className="badge-order-num">{index + 1}</div>
               <div className="badge-img-small">
                 {cred.badgeImage ? (
@@ -468,6 +468,9 @@ export default function ProfilePreview() {
                 <p className="date">{cred.savedToUserWalletAt ? new Date(cred.savedToUserWalletAt).toLocaleDateString() : "N/A"}</p>
                 {cred.status === 'revoked' && (
                   <span className="status-pill revoked">Revoked</span>
+                )}
+                {cred.status === 'expired' && (
+                  <span className="status-pill expired">Expired</span>
                 )}
                 {cred.status === 'revoked' && cred.rejectionReason && (
                   <p style={{color: "#ff6b6b", fontSize: "0.75rem", margin: "4px 0"}}>

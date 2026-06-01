@@ -290,7 +290,7 @@ const [showAll, setShowAll] = useState(false);
       });
       // Update localStorage and state immediately - no reload needed - polo
       const finalName = trimmedName || userName;
-      syncStoredUser({ ...user, role: userRole, name: finalName, username: finalName, fullName: isIssuer ? (user.fullName || finalName) : finalName });
+      syncStoredUser({ role: userRole, name: finalName, username: finalName, fullName: isIssuer ? (user.fullName || finalName) : finalName });
       setDisplayName(finalName); // - polo: update display immediately without reload
       setSummary(editSummaryInput);
       setIsPublic(editIsPublic);

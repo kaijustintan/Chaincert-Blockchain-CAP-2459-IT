@@ -3063,6 +3063,7 @@ async function Enable_User(userId, adminEmail, reason) {
     - status is 'issued' or 'active'
     - expiryDate exists AND current date has passed it
   → Updates CouchDB status to 'expired' in both DBs
+  → Sends a credential_expired notification to the holder (mirrors issue/revoke pattern)
   → Returns list of expired credential IDs for blockchain logging by caller
 
   Called by: midnight cron job in sdk-server-fixed.js
@@ -3130,6 +3131,26 @@ async function checkAndExpireCredentials() {
           blockchainId: doc.blockchainId,
           holderID: doc.holderID
         });
+      }
+
+      /* Step 6: Notify holder that their credential expired - polo
+         Mirrors issue/revoke notification pattern (Create_CredentialNotification).
+         Non-fatal: a notification failure must not abort the expiry sweep. */
+      if (doc.holderID) {
+        try {
+          await Create_CredentialNotification(doc.holderID, {
+            credentialId: doc.blockchainId || doc._id,
+            credentialName: doc.credentialName || doc.credentialType,
+            issuerId: doc.issuerID || null,
+            issuerName: doc.issuerName || 'Issuer',
+            issuerEmail: doc.issuerEmail || null,
+            message: `Your credential "${doc.credentialName || doc.credentialType || 'Credential'}" has expired.`,
+            notificationType: 'credential_expired'
+          });
+          console.log(`[EXPIRY] ✅ Expiry notification sent to holder: ${doc.holderID}`);
+        } catch (notifErr) {
+          console.warn(`[EXPIRY] ⚠️ Notification failed (non-fatal) for ${doc._id}:`, notifErr.message);
+        }
       }
     }
 

@@ -11,11 +11,11 @@ const buildShareProfilePayload = async (ownerId) => {
     ? await couchDB.getIssuerTemplatesByIssuerId(ownerId)
     : await couchDB.getUserCredentialsByHolderId(ownerId);
 
+  // Show ALL statuses (incl. revoked/expired) — the frontend renders a status indicator.
+  // Transparency over hiding (immutable-ledger value prop); holder still gates via visibility. - polo
   const visibleCredentials = (Array.isArray(sharedCredentials) ? sharedCredentials : []).filter((cred) => (
     cred?.visibility === 'public' &&
-    (role !== 'issuer' || cred?.isTemplate === true || String(cred?.type || '').toLowerCase() === 'credential_template') &&
-    String(cred?.status || '').toLowerCase() !== 'revoked' &&
-    String(cred?.status || '').toLowerCase() !== 'expired'
+    (role !== 'issuer' || cred?.isTemplate === true || String(cred?.type || '').toLowerCase() === 'credential_template')
   ));
 
   return {

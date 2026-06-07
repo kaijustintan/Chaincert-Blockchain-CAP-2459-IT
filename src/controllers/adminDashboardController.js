@@ -12,7 +12,7 @@ const INTEGRITY_FIELDS = [
   'issuedDate',
   'expiryDate',
   'description',
-  'issuerId'
+  'issuerID'
 ];
 
 /*
@@ -204,8 +204,8 @@ async function runIntegrityCheck(getContractAndGateway) {
       const mismatchesList = [];
 
       for (const field of INTEGRITY_FIELDS) {
-        const couchValue = normalizeIntegrityValue(couchDoc[field] ?? couchDoc[field === 'issuerId' ? 'issuerID' : field]);
-        const blockchainValue = normalizeIntegrityValue(bcRecord[field] ?? bcRecord[field === 'issuerId' ? 'issuerID' : field]);
+        const couchValue = normalizeIntegrityValue(couchDoc[field]);
+        const blockchainValue = normalizeIntegrityValue(bcRecord[field]);
         if (couchValue !== blockchainValue) {
           mismatchesList.push({ field, couchValue, blockchainValue });
         }

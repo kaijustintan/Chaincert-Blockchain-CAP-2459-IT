@@ -232,7 +232,7 @@ exports.Create_CredentialTemplate = async (req, res, getContractAndGateway) => {
       const credentialDoc = {
         _id: credentialId,
         id: credentialId,
-        issuerId: issuerId,
+        issuerID: issuerId,
         credentialType: credentialType,
         credentialName: credentialName,
         description: description || '',

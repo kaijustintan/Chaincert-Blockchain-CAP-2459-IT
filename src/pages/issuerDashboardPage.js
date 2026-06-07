@@ -72,6 +72,7 @@ export default function IssuerDashboard() {
   });
   const [issueError, setIssueError] = useState("");
   const [issueLoading, setIssueLoading] = useState(false);
+  const [issueConfirmStep, setIssueConfirmStep] = useState(false); // two-step gate before API call - polo
   const [availableUsers, setAvailableUsers] = useState([]);
   const [noTemplateError, setNoTemplateError] = useState("");
   const [issueTemplateSearch, setIssueTemplateSearch] = useState("");
@@ -620,7 +621,7 @@ export default function IssuerDashboard() {
       setShowIssueModal(true); setIssueForm({ credentialId: "", recipientId: "", expiryDate: "" });
     } catch (err) { setNoTemplateError("Failed to validate credential templates. Please try again."); }
   };
-  const closeIssueModal = () => { setShowIssueModal(false); setIssueError(""); setIssueLoading(false); setIssueTemplateSearch(""); setIssueRecipientSearch(""); setIssueTemplateOpen(false); setIssueRecipientOpen(false); setAvailableUsers([]); };
+  const closeIssueModal = () => { setShowIssueModal(false); setIssueError(""); setIssueLoading(false); setIssueConfirmStep(false); setIssueTemplateSearch(""); setIssueRecipientSearch(""); setIssueTemplateOpen(false); setIssueRecipientOpen(false); setAvailableUsers([]); };
 
   const handleIssueFormChange = async (e) => {
     const { name, value } = e.target;
@@ -676,13 +677,33 @@ export default function IssuerDashboard() {
   };
 
   const handleIssueCredential = async (e) => {
-    e.preventDefault(); setIssueLoading(true); setIssueError("");
+    e.preventDefault();
+    setIssueError("");
+
+    // Validation — runs regardless of confirm step
+    if (!issueForm.credentialId || !issueForm.recipientId) {
+      setIssueError("Please select both a credential and a recipient");
+      return;
+    }
+
+    // Step 1: Show confirmation — don't call API yet
+    if (!issueConfirmStep) {
+      setIssueConfirmStep(true);
+      return;
+    }
+
+    // Step 2: Confirmed — call API
+    setIssueLoading(true);
     try {
-      if (!issueForm.credentialId || !issueForm.recipientId) { setIssueError("Please select both a credential and a recipient"); setIssueLoading(false); return; }
       await apiService.Issue_Credential(issueForm.credentialId, issueForm.recipientId, issueForm.expiryDate);
-      showToast("Credential issued successfully!"); closeIssueModal(); fetchCredentials();
-    } catch (err) { setIssueError(err?.message || "Failed to issue credential"); }
-    finally { setIssueLoading(false); }
+      showToast("Credential issued successfully!");
+      closeIssueModal();
+      fetchCredentials();
+    } catch (err) {
+      setIssueError(err?.message || "Failed to issue credential");
+    } finally {
+      setIssueLoading(false);
+    }
   };
 
   // -------------------------------------------------------------------
@@ -1273,7 +1294,28 @@ export default function IssuerDashboard() {
               </div>
               <div className="form-group compact-form-group"><label>Expiry Date <span className="form-label-hint">(optional)</span></label><input type="date" name="expiryDate" value={issueForm.expiryDate} onChange={handleIssueFormChange} min={new Date().toISOString().split("T")[0]} /></div>
               {issueError && <div className="form-error">{issueError}</div>}
-              <div className="form-actions"><button type="submit" className="action-btn issue-btn" disabled={issueLoading}>{issueLoading ? "Issuing..." : "Issue Credential"}</button><button type="button" onClick={closeIssueModal} className="action-btn btn-cancel">Cancel</button></div>
+              {issueConfirmStep && (
+                <div style={{ marginTop:"12px",padding:"12px 14px",borderRadius:"10px",background:"rgba(245,158,11,0.10)",border:"1px solid rgba(245,158,11,0.35)",color:"#f59e0b",fontSize:"13px",lineHeight:1.6 }}>
+                  ⚠️ <strong>Are you sure?</strong> This will issue the credential to the selected recipient. The action is recorded on the blockchain and cannot be undone.
+                </div>
+              )}
+              <div className="form-actions">
+                {issueConfirmStep ? (
+                  <>
+                    <button type="submit" className="action-btn issue-btn" disabled={issueLoading}>
+                      {issueLoading ? "Issuing..." : "Confirm Issue"}
+                    </button>
+                    <button type="button" onClick={() => setIssueConfirmStep(false)} className="action-btn btn-cancel" disabled={issueLoading}>
+                      Go Back
+                    </button>
+                  </>
+                ) : (
+                  <>
+                    <button type="submit" className="action-btn issue-btn">Issue Credential</button>
+                    <button type="button" onClick={closeIssueModal} className="action-btn btn-cancel">Cancel</button>
+                  </>
+                )}
+              </div>
             </form>
           </div>
           <div className="modal-backdrop" onClick={closeIssueModal}></div>
@@ -1285,6 +1327,9 @@ export default function IssuerDashboard() {
         <div className="modal-overlay">
           <div className="modal">
             <h3>Revoke Credential</h3>
+            <p style={{ margin:"6px 0 12px",fontSize:"13px",color:"#f59e0b",opacity:0.9 }}>
+              ⚠️ This action is <strong>irreversible</strong> and will be permanently recorded on the blockchain.
+            </p>
             <form onSubmit={handleRevokeSubmit}>
               <div className="modal-section-heading">Select a holder then choose the credential to revoke.</div>
               <div className="form-group">

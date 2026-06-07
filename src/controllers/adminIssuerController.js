@@ -1,27 +1,8 @@
 const couchDB = require('../couchDB_service');
-const nodemailer = require('nodemailer'); 
+const mailerService = require('../mailerService');
 const fs = require('fs');
 const path = require('path');
 const { Wallets } = require('fabric-network');
-
-// Inline approval email, same pattern as accountController.js forgotPassword 
-async function sendIssuerApprovalEmail(issuerEmail, orgName) {
-  const testAccount = await nodemailer.createTestAccount();
-  const transporter = nodemailer.createTransport({
-    host: 'smtp.ethereal.email',
-    port: 587,
-    secure: false,
-    auth: { user: testAccount.user, pass: testAccount.pass }
-  });
-  const info = await transporter.sendMail({
-    from: '"ChainCert" <noreply@chaincert.com>',
-    to: issuerEmail,
-    subject: 'Your ChainCert Issuer Application Has Been Approved',
-    html: `<p>Dear <strong>${orgName}</strong>,</p><p>Your issuer application on ChainCert has been <strong>approved</strong>. You may now log in and begin issuing credentials.</p>`
-  });
-  console.log(`[APPROVAL EMAIL] Sent to: ${issuerEmail}`);
-  console.log(`[APPROVAL EMAIL] Preview URL: ${nodemailer.getTestMessageUrl(info)}`);
-}
 
 const normalizeFabricIdentityPart = (value) =>
   String(value || '')
@@ -332,7 +313,11 @@ const adminIssuerController = {
 
       let emailWarning = null;
       try {
-        await sendIssuerApprovalEmail(issuerEmail, orgName);
+        await mailerService.sendMail({
+          to: issuerEmail,
+          subject: 'Your ChainCert Issuer Application Has Been Approved',
+          html: `<p>Dear <strong>${orgName}</strong>,</p><p>Your issuer application on ChainCert has been <strong>approved</strong>. You may now log in and begin issuing credentials.</p>`
+        });
       } catch (emailErr) {
         emailWarning = emailErr?.message || String(emailErr);
         console.error('[Approve_Issuer] Approval email failed:', emailWarning);

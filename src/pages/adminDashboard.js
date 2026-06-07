@@ -117,6 +117,13 @@ export default function AdminDashboard() {
   const [integrityLoading, setIntegrityLoading] = useState(false);
   const [integrityResult, setIntegrityResult] = useState(null);
 
+  // Approve Issuer confirmation modal state - polo
+  const [showApproveIssuerModal, setShowApproveIssuerModal] = useState(false);
+  const [approveIssuerId, setApproveIssuerId] = useState(null);
+  const [approveIssuerName, setApproveIssuerName] = useState('');
+  const [approveIssuerLoading, setApproveIssuerLoading] = useState(false);
+  const [approveIssuerError, setApproveIssuerError] = useState('');
+
   // ✅ NEW: Reject Issuer modal state (required rejection reason)
   const [showRejectIssuerModal, setShowRejectIssuerModal] = useState(false);
   const [Reject_IssuerId, setRejectIssuerId] = useState(null);
@@ -708,15 +715,38 @@ const handleDownloadIssuerDocument = async (doc) => {
     }
   };
 
-  const handleApproveIssuer = async (issuerId) => {
+  // Opens the approve confirmation modal — actual API call is in submitApproveIssuer - polo
+  const handleApproveIssuer = (issuerId, issuerName) => {
+    setApproveIssuerId(issuerId);
+    setApproveIssuerName(issuerName || issuerId);
+    setApproveIssuerError('');
+    setShowApproveIssuerModal(true);
+  };
+
+  const closeApproveIssuerModal = () => {
+    if (approveIssuerLoading) return;
+    setShowApproveIssuerModal(false);
+    setApproveIssuerId(null);
+    setApproveIssuerName('');
+    setApproveIssuerError('');
+  };
+
+  const submitApproveIssuer = async () => {
     try {
-      await apiService.Approve_Issuer(issuerId);
+      setApproveIssuerLoading(true);
+      setApproveIssuerError('');
+      await apiService.Approve_Issuer(approveIssuerId);
       showFeedback("success", "Approve issuer successful.");
+      closeApproveIssuerModal();
       await fetchPendingIssuers(pendingIssuerFilter);
       await fetchApprovedIssuers();
     } catch (error) {
       console.error("Error approving issuer:", error);
-      showFeedback("danger", `Failed to approve issuer: ${error.response?.data?.message || error.message || "Unknown error"}`);
+      const msg = error.response?.data?.message || error.message || "Unknown error";
+      setApproveIssuerError(`Failed to approve: ${msg}`);
+      showFeedback("danger", `Failed to approve issuer: ${msg}`);
+    } finally {
+      setApproveIssuerLoading(false);
     }
   };
 
@@ -1883,6 +1913,46 @@ const handleDownloadIssuerDocument = async (doc) => {
           document.body
         )}
 
+      {showApproveIssuerModal &&
+        ReactDOM.createPortal(
+          <div
+            onClick={closeApproveIssuerModal}
+            style={{ position:"fixed",inset:0,background:"rgba(0,0,0,0.6)",zIndex:999999,display:"flex",alignItems:"center",justifyContent:"center",padding:"20px" }}
+          >
+            <div
+              onClick={(e) => e.stopPropagation()}
+              style={{ width:"min(480px,95vw)",background:"#101018",borderRadius:"12px",border:"1px solid rgba(255,255,255,0.15)",padding:"24px",boxShadow:"0 10px 40px rgba(0,0,0,0.4)",color:"#fff" }}
+            >
+              <h3 style={{ marginTop:0 }}>Approve Issuer</h3>
+              <p style={{ opacity:0.85,marginTop:"6px",lineHeight:1.6 }}>
+                You are about to approve <strong>{approveIssuerName}</strong>. This grants them issuer access on ChainCert and is permanently recorded on the blockchain.
+              </p>
+              {approveIssuerError && (
+                <div style={{ color:"#ff6b6b",marginTop:"10px" }}>❌ {approveIssuerError}</div>
+              )}
+              <div style={{ display:"flex",gap:"10px",justifyContent:"flex-end",marginTop:"20px" }}>
+                <button
+                  type="button"
+                  onClick={closeApproveIssuerModal}
+                  disabled={approveIssuerLoading}
+                  style={{ padding:"10px 14px",borderRadius:"10px",border:"1px solid rgba(255,255,255,0.18)",background:"transparent",color:"#fff",cursor:approveIssuerLoading?"not-allowed":"pointer",opacity:approveIssuerLoading?0.65:1,fontWeight:700 }}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={submitApproveIssuer}
+                  disabled={approveIssuerLoading}
+                  style={{ padding:"10px 14px",borderRadius:"10px",border:"1px solid rgba(255,255,255,0.18)",background:"rgba(74,222,128,0.12)",color:"#4ade80",cursor:approveIssuerLoading?"not-allowed":"pointer",opacity:approveIssuerLoading?0.65:1,fontWeight:800 }}
+                >
+                  {approveIssuerLoading ? "Approving..." : "Confirm Approve"}
+                </button>
+              </div>
+            </div>
+          </div>,
+          document.body
+        )}
+
       {showRejectIssuerModal &&
         ReactDOM.createPortal(
           <div
@@ -2977,7 +3047,7 @@ const handleDownloadIssuerDocument = async (doc) => {
                           {showAdminDecision ? (
                             <>
                               <button
-                                onClick={() => handleApproveIssuer(id)}
+                                onClick={() => handleApproveIssuer(id, issuer.orgName || issuer.email)}
                                 style={{
                                   padding: "8px 12px",
                                   borderRadius: 10,

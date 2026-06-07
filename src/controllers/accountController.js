@@ -1,5 +1,5 @@
 const couchDB = require('../couchDB_service');
-const nodemailer = require('nodemailer'); // - polo
+const mailerService = require('../mailerService'); // - polo
 const crypto = require('crypto'); // - polo
 
 const buildShareProfilePayload = async (ownerId) => {
@@ -237,26 +237,12 @@ const accountController = {
 
       await couchDB.saveOTPToShareLink(token, otp, otpExpiresAt);
 
-     // Send OTP email via Ethereal (test SMTP) - polo
-      const testAccount = await nodemailer.createTestAccount();
-      const transporter = nodemailer.createTransport({
-        host: 'smtp.ethereal.email',
-        port: 587,
-        secure: false,
-        auth: {
-          user: testAccount.user,
-          pass: testAccount.pass
-        }
-      });
-
-      const info = await transporter.sendMail({
-        from: '"ChainCert" <noreply@chaincert.com>',
+      // Send OTP email via Gmail SMTP - polo
+      await mailerService.sendMail({
         to: email,
-        subject: 'Your ChainCert Profile Access Code',
-        text: `Your verification code is: ${otp}\n\nThis code expires in 10 minutes.`
+        subject: `Your ChainCert Profile Access Code (for ${email})`,
+        text: `This code was requested for: ${email}\n\nYour verification code is: ${otp}\n\nThis code expires in 10 minutes.\n\nIf you did not request this, you can ignore this email.`
       });
-
-      console.log('[OTP] Preview URL:', nodemailer.getTestMessageUrl(info)); // - polo
 
       return res.status(200).json({ success: true, message: 'Verification code sent.' });
     } catch (error) {
@@ -324,18 +310,32 @@ const accountController = {
         return res.status(400).json({ success: false, message: 'Email is required.' });
       }
 
-      // Look up user by email
+      // Look up account by email — check users first, then approved issuers only.
+      // Only approved issuers can log in (authController loginIssuer blocks all other statuses),
+      // so password reset is only meaningful for approved issuer accounts.
+      // couchDB.updateUser routes by _id prefix (issuer_ → issuersDB), so both account types
+      // share the same downstream OTP-save and password-update path.
       const nano = require('nano')('http://admin:adminpw@localhost:5985');
       const usersDb = nano.use('users');
-      const result = await usersDb.find({ selector: { email: email.toLowerCase().trim() }, limit: 1 });
 
-      // Always return success to prevent email enumeration 
-      // (don't reveal if email exists or not)
-      if (!result.docs || result.docs.length === 0) {
-        return res.status(200).json({ success: true, otpSent: false, message: 'If this email is registered, a reset code has been sent.' }); 
+      let foundDoc = null;
+
+      const userResult = await usersDb.find({ selector: { email: email.toLowerCase().trim() }, limit: 1 });
+      if (userResult.docs && userResult.docs.length > 0) {
+        foundDoc = userResult.docs[0];
+      } else {
+        // Fall back to approved issuers — only status that can actually log in
+        const issuerDoc = await couchDB.getApprovedIssuer(email.toLowerCase().trim());
+        if (issuerDoc) foundDoc = issuerDoc;
       }
 
-      const user = result.docs[0];
+      // Always return success to prevent email enumeration
+      // (don't reveal if email exists or not)
+      if (!foundDoc) {
+        return res.status(200).json({ success: true, otpSent: false, message: 'If this email is registered, a reset code has been sent.' });
+      }
+
+      const user = foundDoc;
 
       // Generate 6-digit OTP 
       const otp = String(Math.floor(100000 + Math.random() * 900000));
@@ -348,26 +348,18 @@ const accountController = {
         resetOtpUsed: false
       });
 
-      // Send OTP email via Ethereal
-      const testAccount = await nodemailer.createTestAccount();
-      const transporter = nodemailer.createTransport({
-        host: 'smtp.ethereal.email',
-        port: 587,
-        secure: false,
-        auth: {
-          user: testAccount.user,
-          pass: testAccount.pass
-        }
-      });
-
-      const info = await transporter.sendMail({
-        from: '"ChainCert" <noreply@chaincert.com>',
-        to: email,
-        subject: 'ChainCert Password Reset Code',
-        text: `Your password reset code is: ${otp}\n\nThis code expires in 10 minutes.\n\nIf you did not request this, please ignore this email.`
-      });
-
-      console.log('[FORGOT-PW] OTP Preview URL:', nodemailer.getTestMessageUrl(info)); // - polo
+      // Send OTP email via Gmail SMTP - polo
+      // Inner try/catch: email failure is non-fatal here — anti-enumeration: always return
+      // the same generic 200 response whether email lands or not.
+      try {
+        await mailerService.sendMail({
+          to: email,
+          subject: 'ChainCert Password Reset Code',
+          text: `Your password reset code is: ${otp}\n\nThis code expires in 10 minutes.\n\nIf you did not request this, please ignore this email.`
+        });
+      } catch (emailErr) {
+        console.warn('[FORGOT-PW] Email send failed (non-fatal):', emailErr.message);
+      }
 
       return res.status(200).json({ success: true, otpSent: true, message: 'If this email is registered, a reset code has been sent.' }); 
     } catch (error) {
@@ -388,16 +380,25 @@ const accountController = {
         return res.status(400).json({ success: false, message: 'Password must be at least 6 characters.' });
       }
 
-      // Look up user
+      // Look up account by email — check users first, then approved issuers only.
       const nano = require('nano')('http://admin:adminpw@localhost:5985');
       const usersDb = nano.use('users');
-      const result = await usersDb.find({ selector: { email: email.toLowerCase().trim() }, limit: 1 });
 
-      if (!result.docs || result.docs.length === 0) {
+      let foundDoc = null;
+
+      const userResult = await usersDb.find({ selector: { email: email.toLowerCase().trim() }, limit: 1 });
+      if (userResult.docs && userResult.docs.length > 0) {
+        foundDoc = userResult.docs[0];
+      } else {
+        const issuerDoc = await couchDB.getApprovedIssuer(email.toLowerCase().trim());
+        if (issuerDoc) foundDoc = issuerDoc;
+      }
+
+      if (!foundDoc) {
         return res.status(400).json({ success: false, message: 'Invalid or expired reset code.' });
       }
 
-      const user = result.docs[0];
+      const user = foundDoc;
 
       // Validate OTP 
       if (!user.resetOtp || user.resetOtp !== otp) {

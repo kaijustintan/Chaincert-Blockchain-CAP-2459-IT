@@ -195,6 +195,22 @@ const [showAll, setShowAll] = useState(false);
     setHistoryError(null);
   };
 
+  // Toggle a credential's visibility between public and private - polo
+  const handleToggleVisibility = async () => {
+    if (!selectedCred) return;
+    const credentialKey = selectedCred.blockchainId || selectedCred._id;
+    const newVisibility = selectedCred.visibility === 'public' ? 'private' : 'public';
+    try {
+      await apiService.Update_CredentialVisibility(credentialKey, newVisibility);
+      setCredentials((prev) => prev.map((cred) =>
+        (cred.blockchainId || cred._id) === credentialKey ? { ...cred, visibility: newVisibility } : cred
+      ));
+      setSelectedCred((prev) => (prev ? { ...prev, visibility: newVisibility } : prev));
+    } catch (err) {
+      console.error('[PROFILE PAGE] Failed to update credential visibility:', err);
+    }
+  };
+
   // Derive skills from credentials — reads skills array first, falls back to credentialType - polo
   const derivedSkills = [...new Set(
     credentials.flatMap(c =>
@@ -1188,6 +1204,28 @@ const [showAll, setShowAll] = useState(false);
               <div className="detail-row">
                 <span className="detail-label">Status</span>
                 <span className="detail-value"><StatusPill status={selectedCred.status} /></span>
+              </div>
+              <div className="detail-row">
+                <span className="detail-label">Visibility</span>
+                <span className="detail-value">
+                  <button
+                    type="button"
+                    onClick={handleToggleVisibility}
+                    style={{
+                      padding: '4px 14px',
+                      borderRadius: '20px',
+                      fontSize: '12px',
+                      fontWeight: 600,
+                      cursor: 'pointer',
+                      border: '1px solid',
+                      borderColor: selectedCred.visibility === 'public' ? '#22c55e' : '#f59e0b',
+                      background: selectedCred.visibility === 'public' ? 'rgba(34,197,94,0.12)' : 'rgba(245,158,11,0.12)',
+                      color: selectedCred.visibility === 'public' ? '#22c55e' : '#f59e0b',
+                    }}
+                  >
+                    {selectedCred.visibility === 'public' ? '🌐 Public' : '🔒 Private'} — Click to toggle
+                  </button>
+                </span>
               </div>
               {(selectedCred.status === "revoked" || selectedCred.status === "REVOKED") && selectedCred.rejectionReason && (
                 <div className="detail-row">

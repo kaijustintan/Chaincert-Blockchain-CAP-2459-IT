@@ -337,15 +337,47 @@ const accountController = {
 
       const user = foundDoc;
 
-      // Generate 6-digit OTP 
+      // M5 (Phase 5 hardening): per-account OTP request rate-limit (KB A-7 / P-5).
+      // Cap reset-code requests to 3 per 10-minute window per account, so nobody can spam a
+      // victim's inbox or grind reset codes. This counter is persisted on the account doc, so it
+      // survives server restarts and works across instances (unlike the per-IP limiter at the
+      // server layer). The 429 below is only ever reachable for a REAL account — unknown emails
+      // never reach this point (they already returned the generic 200 above), so this adds no
+      // enumeration oracle. The counter is reset on a successful password reset.
+      const OTP_WINDOW_MS = 10 * 60 * 1000;
+      const OTP_MAX_ATTEMPTS = 3;
+      const nowMs = Date.now();
+      const windowAnchor = user.resetOtpAttemptsAt ? new Date(user.resetOtpAttemptsAt).getTime() : null;
+
+      let otpAttempts;
+      let otpAttemptsAt;
+      if (!windowAnchor || nowMs - windowAnchor > OTP_WINDOW_MS) {
+        // Window expired or first-ever request → open a fresh window.
+        otpAttempts = 1;
+        otpAttemptsAt = new Date(nowMs).toISOString();
+      } else {
+        // Inside the active window. (DISABLE_RATE_LIMIT=true skips enforcement for local testing.)
+        if (process.env.DISABLE_RATE_LIMIT !== 'true' && (user.resetOtpAttempts || 0) >= OTP_MAX_ATTEMPTS) {
+          return res.status(429).json({
+            success: false,
+            message: 'Too many reset requests. Please wait a few minutes and try again.'
+          });
+        }
+        otpAttempts = (user.resetOtpAttempts || 0) + 1;
+        otpAttemptsAt = user.resetOtpAttemptsAt; // keep the same window anchor
+      }
+
+      // Generate 6-digit OTP
       const otp = String(Math.floor(100000 + Math.random() * 900000));
       const otpExpiresAt = new Date(Date.now() + 10 * 60 * 1000).toISOString(); // 10 minutes
 
-      // Save OTP to user doc 
+      // Save OTP + rate-limit counters to user doc (single write).
       await couchDB.updateUser(user._id, {
         resetOtp: otp,
         resetOtpExpiresAt: otpExpiresAt,
-        resetOtpUsed: false
+        resetOtpUsed: false,
+        resetOtpAttempts: otpAttempts,
+        resetOtpAttemptsAt: otpAttemptsAt
       });
 
       // Send OTP email via Gmail SMTP - polo
@@ -419,12 +451,14 @@ const accountController = {
       }
       const hashedPassword = await bcrypt.hash(newPassword, 10);
 
-      // Update user doc
+      // Update user doc — clear OTP + rate-limit counters so a successful reset starts fresh (M5).
       await couchDB.updateUser(user._id, {
         password: hashedPassword,
         resetOtp: null,
         resetOtpExpiresAt: null,
-        resetOtpUsed: true
+        resetOtpUsed: true,
+        resetOtpAttempts: 0,
+        resetOtpAttemptsAt: null
       });
 
       return res.status(200).json({ success: true, message: 'Password reset successful. You may now log in.' });

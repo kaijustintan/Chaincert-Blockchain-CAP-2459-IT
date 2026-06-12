@@ -2,6 +2,12 @@ const couchDB = require('../couchDB_service');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 
+// M4 (Phase 5 hardening): a real bcrypt hash used ONLY to equalize response timing when an email
+// doesn't exist. Without this, "no such user" returns instantly while "wrong password" spends time
+// hashing — that timing gap is itself an account-enumeration oracle (KB A-6). We always run one
+// bcrypt.compare so both paths take roughly the same time. Computed once at module load.
+const DUMMY_BCRYPT_HASH = bcrypt.hashSync('chaincert-timing-equalizer', 10);
+
 const authController = {
   register: async (req, res) => {
     try {
@@ -79,25 +85,24 @@ const authController = {
       const users = await couchDB.getAllUsers();
       const user = users.find(u => u.email === email);
 
-      if (!user) {
+      // M4: ONE generic failure for both "unknown email" and "wrong password" — identical message
+      // AND identical status code — so an attacker can't tell which emails are registered (KB A-6).
+      // Always run a bcrypt.compare (against a dummy hash when no user) to keep timing uniform.
+      const passwordMatch = await bcrypt.compare(password, user ? user.password : DUMMY_BCRYPT_HASH);
+      if (!user || !passwordMatch) {
+        console.warn(`[LOGIN] Failed login for "${email}" — reason: ${user ? 'bad password' : 'no such user'}`);
         return res.status(401).json({
           success: false,
-          message: 'User not found'
+          message: 'Invalid email or password.'
         });
       }
 
+      // Account-status checks happen only AFTER the password is proven correct, so the
+      // "account disabled" message can't be used to confirm an email exists.
       if (user.isActive === false) {
         return res.status(403).json({
           success: false,
           message: 'Your account has been disabled. Please contact administrator.'
-        });
-      }
-
-      const passwordMatch = await bcrypt.compare(password, user.password);
-      if (!passwordMatch) {
-        return res.status(401).json({
-          success: false,
-          message: 'Invalid password'
         });
       }
 
@@ -107,7 +112,7 @@ const authController = {
           email: user.email,
           role: user.role || 'student'
         },
-        process.env.JWT_SECRET || 'dev_secret_key',
+        process.env.JWT_SECRET,
         { expiresIn: '24h' }
       );
 
@@ -173,13 +178,18 @@ const authController = {
 
       const issuer = await couchDB.getIssuerByEmail(email);
 
-      if (!issuer) {
+      // M4: uniform credential-failure path (unknown email OR wrong password) — same message,
+      // same 401, timing equalized — so the issuer login can't be used to enumerate accounts (KB A-6).
+      const passwordMatch = await bcrypt.compare(password, issuer ? issuer.password : DUMMY_BCRYPT_HASH);
+      if (!issuer || !passwordMatch) {
+        console.warn(`[ISSUER LOGIN] Failed login for "${email}" — reason: ${issuer ? 'bad password' : 'no such issuer'}`);
         return res.status(401).json({
           success: false,
-          message: 'Issuer not found or not approved yet'
+          message: 'Invalid email or password.'
         });
       }
 
+      // Status checks only AFTER the password is verified (so status can't be probed without creds).
       if (issuer.status === 'disabled') {
         return res.status(403).json({
           success: false,
@@ -188,17 +198,9 @@ const authController = {
       }
 
       if (issuer.status !== 'approved') {
-        return res.status(401).json({
+        return res.status(403).json({
           success: false,
-          message: 'Issuer not found or not approved yet'
-        });
-      }
-
-      const passwordMatch = await bcrypt.compare(password, issuer.password);
-      if (!passwordMatch) {
-        return res.status(401).json({
-          success: false,
-          message: 'Invalid password'
+          message: 'Your issuer account is not approved yet.'
         });
       }
 
@@ -209,7 +211,7 @@ const authController = {
           role: 'issuer',
           orgName: issuer.orgName
         },
-        process.env.JWT_SECRET || 'dev_secret_key',
+        process.env.JWT_SECRET,
         { expiresIn: '24h' }
       );
 

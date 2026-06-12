@@ -72,6 +72,14 @@ function LoginPage() {
         return;
       }
 
+      // Rate limited (M5): surface it to the user instead of silently falling through to the
+      // user-login attempt (which would also 429 and confusingly show "Invalid credentials").
+      if (issuerStatus === 429) {
+        setError(issuerMessage || 'Too many attempts. Please wait a few minutes and try again.');
+        setLoading(false);
+        return;
+      }
+
       // For 401 (not issuer / not approved), continue to regular user fallback
       console.log('📌 Not an issuer account, checking regular user...');
     }
@@ -110,7 +118,12 @@ function LoginPage() {
       
       setError(userResponse.message || userResponse.error || 'Login failed.');
     } catch (userError) {
-      setError('Invalid credentials.');
+      // Rate limited (M5): show the real reason instead of a misleading "Invalid credentials".
+      if (userError?.response?.status === 429) {
+        setError(userError.response.data?.message || 'Too many attempts. Please wait a few minutes and try again.');
+      } else {
+        setError('Invalid credentials.');
+      }
       console.error('Login error:', userError);
     }
     

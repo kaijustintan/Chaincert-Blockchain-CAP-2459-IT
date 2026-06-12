@@ -269,7 +269,9 @@ const getDocumentDescription = (docKey) => {
       setRootIssuersLoading(true);
       setIssuerError("");
 
-      const response = await apiService.getApprovedIssuers?.();
+      // Use the PUBLIC root-authorities endpoint — registration happens before the user has a
+      // token, and /admin/approved-issuers is now admin-only (M2 — Phase 5 hardening).
+      const response = await apiService.getPublicRootAuthorities?.();
 
       let issuersList = [];
       if (Array.isArray(response)) {

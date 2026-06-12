@@ -385,6 +385,40 @@ const issuerOnboardingController = {
         message: error.message
       });
     }
+  },
+
+  // M2 (Phase 5 hardening): PUBLIC, minimal list of approved ROOT authorities.
+  // The registration form needs this BEFORE the user has an account/token (a subordinate issuer
+  // must pick its parent root authority during sign-up). It deliberately returns ONLY id + org
+  // name + type. The full issuer record — which includes internal couchDBUrl / fabricIdentity /
+  // walletId / email — stays behind admin auth at GET /api/admin/approved-issuers, so locking that
+  // endpoint down does not leak infrastructure details to the public sign-up page.
+  getPublicRootAuthorities: async (req, res) => {
+    try {
+      const approved = await couchDB.getApprovedIssuers();
+      const rootAuthorities = (Array.isArray(approved) ? approved : [])
+        .filter((doc) => {
+          const t = String(doc.issuerType || 'root').toLowerCase();
+          return t === 'root' || t === 'root_authority';
+        })
+        .map((doc) => ({
+          id: doc._id,
+          orgName: doc.orgName,
+          issuerType: doc.issuerType || 'root'
+        }));
+
+      return res.status(200).json({
+        success: true,
+        data: rootAuthorities,
+        count: rootAuthorities.length
+      });
+    } catch (error) {
+      console.error('Error fetching public root authorities:', error);
+      return res.status(500).json({
+        success: false,
+        message: error.message
+      });
+    }
   }
 };
 

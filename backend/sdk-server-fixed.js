@@ -14,7 +14,20 @@ const multer = require('multer');
 const Docker = require('dockerode');
 const nano = require('nano');
 
-const JWT_SECRET = process.env.JWT_SECRET || 'dev_secret_key';
+// ------------------------------------------------------------------------------------------------
+// M3 (Phase 5 hardening): FAIL CLOSED on a missing JWT signing secret.
+// Previously this fell back to a hardcoded 'dev_secret_key'. A signing key that lives in the
+// source code means anyone who can read the repo can forge a valid token for ANY account
+// (including admin) — total authentication bypass. We now refuse to boot without a real secret
+// supplied via the environment (set JWT_SECRET in ~/chaincert-api/.env).
+// ------------------------------------------------------------------------------------------------
+if (!process.env.JWT_SECRET || process.env.JWT_SECRET.trim() === '') {
+  console.error('❌ FATAL: JWT_SECRET environment variable is not set.');
+  console.error('   Refusing to start with an insecure default signing key.');
+  console.error('   Add a long random JWT_SECRET to ~/chaincert-api/.env and restart.');
+  process.exit(1);
+}
+const JWT_SECRET = process.env.JWT_SECRET;
 const upload = multer({ storage: multer.memoryStorage() });
 
 const couchdb = require('./couchDB_service');
@@ -54,6 +67,97 @@ app.use((req, res, next) => {
 
   next();
 });
+
+// ==========================================================================================================================================================================
+// M2 (Phase 5 hardening): CENTRALIZED AUTHORIZATION GUARDS
+// --------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+// The middleware above only DECODES the token into req.user (or null). It never blocks anyone.
+// These two guards are the gate. They are applied once at the router-mount points below so every
+// route under a guarded prefix is protected in a single place (KB Z-2: centralized authorization —
+// one fix applies everywhere, instead of copy-pasting a check into every handler and forgetting one).
+//   requireAuth        — reject any request that has no valid token.
+//   requireRole(role)  — reject any request whose token role doesn't match.
+// ==========================================================================================================================================================================
+
+function requireAuth(req, res, next) {
+  if (!req.user) {
+    return res.status(401).json({ success: false, message: 'Authentication required.' });
+  }
+  next();
+}
+
+function requireRole(role) {
+  return (req, res, next) => {
+    if (!req.user) {
+      return res.status(401).json({ success: false, message: 'Authentication required.' });
+    }
+    if (req.user.role !== role) {
+      return res.status(403).json({ success: false, message: 'Forbidden: insufficient privileges.' });
+    }
+    next();
+  };
+}
+
+// ==========================================================================================================================================================================
+// M5 (Phase 5 hardening): LIGHTWEIGHT IN-MEMORY RATE LIMITER
+// --------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+// Caps requests per client IP per time window on sensitive auth endpoints to blunt online
+// password brute-force, credential stuffing, and OTP-email spam (KB A-7, P-5). In-memory and
+// per-process is sufficient for the single-VM capstone deployment; a shared store (Redis) or the
+// express-rate-limit library would be the upgrade path for a multi-instance production setup.
+// A separate per-account OTP counter (in accountController.forgotPassword) complements this with
+// a persisted, cross-restart limit tied to identity rather than IP.
+// ==========================================================================================================================================================================
+
+// Temporary testing escape hatch: set DISABLE_RATE_LIMIT=true in ~/chaincert-api/.env to turn OFF
+// all rate limiting (handy when repeatedly testing wrong-password logins). MUST be unset / false
+// for any demo or deployment — a loud warning is logged at startup whenever it is on.
+const RATE_LIMIT_DISABLED = process.env.DISABLE_RATE_LIMIT === 'true';
+
+function createRateLimiter({ windowMs, max, message }) {
+  const hits = new Map(); // ip -> { count, resetAt }
+
+  // Periodic sweep so the Map can't grow unbounded with unique IPs. unref() lets the process exit.
+  const sweep = setInterval(() => {
+    const now = Date.now();
+    for (const [ip, entry] of hits) {
+      if (now > entry.resetAt) hits.delete(ip);
+    }
+  }, windowMs);
+  if (typeof sweep.unref === 'function') sweep.unref();
+
+  return (req, res, next) => {
+    if (RATE_LIMIT_DISABLED) return next(); // testing bypass — see DISABLE_RATE_LIMIT above
+    const now = Date.now();
+    const ip = req.ip || (req.connection && req.connection.remoteAddress) || 'unknown';
+    let entry = hits.get(ip);
+    if (!entry || now > entry.resetAt) {
+      entry = { count: 0, resetAt: now + windowMs };
+      hits.set(ip, entry);
+    }
+    entry.count += 1;
+    if (entry.count > max) {
+      const retryAfterSec = Math.ceil((entry.resetAt - now) / 1000);
+      res.set('Retry-After', String(retryAfterSec));
+      return res.status(429).json({
+        success: false,
+        message: message || 'Too many requests. Please try again later.'
+      });
+    }
+    next();
+  };
+}
+
+// 10 attempts per IP per 15 minutes on the sensitive auth routes (login / forgot / reset).
+const authLimiter = createRateLimiter({
+  windowMs: 15 * 60 * 1000,
+  max: 10,
+  message: 'Too many attempts from this IP. Please wait a few minutes and try again.'
+});
+
+if (RATE_LIMIT_DISABLED) {
+  console.warn('⚠️  ⚠️  RATE LIMITING IS DISABLED (DISABLE_RATE_LIMIT=true in .env). FOR TESTING ONLY — remove it before any demo or deployment.  ⚠️  ⚠️');
+}
 
 // ==========================================================================================================================================================================
 // DOCKER & DB INIT
@@ -201,12 +305,29 @@ const walletRoutes = require('./routes/walletRoutes');
 // ==========================================================================================================================================================================
 
 app.use('/api', systemRoutes);
+
+// M5: rate-limit the sensitive auth endpoints. These run BEFORE the routers that ultimately
+// handle the request, so excess attempts are rejected with 429 before any auth work happens.
+app.use('/api/auth/login', authLimiter);
+app.use('/api/auth/forgot-password', authLimiter);
+app.use('/api/auth/reset-password', authLimiter);
+app.use('/api/issuer/login', authLimiter);
+
 app.use('/api/auth', authRoutes);
-app.use('/api/admin', adminRoutes);
+
+// M2: every /api/admin route now requires a valid token (closes anonymous access to admin data,
+// e.g. the issuer-listing endpoints that previously had no auth at all). Fine-grained role checks
+// (admin vs issuer-as-root-authority) are enforced inside adminRoutes / the controllers, because
+// this router intentionally serves BOTH admin actions and issuer root-authority actions.
+app.use('/api/admin', requireAuth, adminRoutes);
+
 app.use('/api/issuer', issuerRoutes);
 app.use('/api/credentials', credentialRoutes);
 app.use('/api/verify', verificationRoutes);
-app.use('/api/wallet', walletRoutes);
+
+// M2 + M1: wallet endpoints require authentication; per-handler ownership checks (M1) then ensure
+// a logged-in user can only touch their OWN credentials/notifications.
+app.use('/api/wallet', requireAuth, walletRoutes);
 
 // ==========================================================================================================================================================================
 // HELPERS / SHUTDOWN

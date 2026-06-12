@@ -676,6 +676,28 @@ getAdminActionablePendingIssuers: async () => {
       throw error;
     }
   },
+
+  /*
+    Function Name: getPublicRootAuthorities
+
+    Technical:
+    PUBLIC (no-auth) minimal list of approved ROOT authorities for the registration form.
+    Tropang Ex: Pang-dropdown ng "sino root authority mo?" sa sign-up ng subordinate issuer —
+    bago pa siya may account/token, so hindi pwede yung admin-only endpoint.
+    Returns { success, data: [{ id, orgName, issuerType }], count }.
+  */
+  getPublicRootAuthorities: async () => {
+    try {
+      const response = await axios.get('/issuer/root-authorities');
+      return response.data;
+    } catch (error) {
+      console.error(
+        'Error fetching public root authorities:',
+        error.response?.data?.message || error.message
+      );
+      throw error;
+    }
+  },
   // ==========================================================================================================================================================================
 
   /*

@@ -7,7 +7,10 @@
       "Bash(git --version)",
       "Bash(docker --version)",
       "Bash(cd \"/mnt/c/Users/kaita/OneDrive/Desktop/CAP-2459-IT-AFTER-RESET\" && find . -not -path \"*/node_modules/*\" -not -path \"*/.git/*\" | sort)",
-      "Bash(grep -E \"\\(package\\\\.json|\\\\.js$\\)\")"
+      "Bash(grep -E \"\\(package\\\\.json|\\\\.js$\\)\")",
+      "Bash(Get-ChildItem -Path src -Recurse -Include *.js, *.jsx, *.ts, *.tsx)",
+      "Bash(Select-Object -ExpandProperty FullName)",
+      "Bash(Sort-Object)"
     ]
   }
 }

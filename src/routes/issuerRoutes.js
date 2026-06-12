@@ -31,6 +31,15 @@ router.get(
   issuerOnboardingController.getIssuerRequirementsByCategory
 );
 
+// GET /api/issuer/root-authorities
+// PUBLIC minimal list of approved root authorities for the registration form (no auth — a
+// subordinate issuer picks its parent before it has an account). Replaces the registration page's
+// old call to the now admin-only GET /api/admin/approved-issuers. (M2 — Phase 5 hardening)
+router.get(
+  '/root-authorities',
+  issuerOnboardingController.getPublicRootAuthorities
+);
+
 // GET /api/issuer/issuer/:issuerId/documents
 // Get issuer document metadata
 router.get(

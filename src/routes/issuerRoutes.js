@@ -6,7 +6,9 @@ const issuerOnboardingController = require('../controllers/issuerOnboardingContr
 const issuerCredentialController = require('../controllers/issuerCredentialController');
 
 const router = express.Router();
-const upload = multer({ storage: multer.memoryStorage() });
+// M7 (Phase 5 hardening): cap each uploaded issuer document at 5 MB (DoS protection).
+// Magic-number type validation happens in issuerOnboardingController via securityHelpers.
+const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 5 * 1024 * 1024 } });
 
 // ======================================================
 // ISSUER AUTH / ONBOARDING

@@ -18,6 +18,7 @@
 
 const nano = require('nano');
 const couchdbService = require('../couchDB_service');  // UBUNTU DIRECTORY BASED
+const { sendServerError } = require('../securityHelpers'); // Phase 5 Tier 2 (M9)
 
 // ==========================================================================================================================================================================
 //                                                             CREDENTIAL TEMPLATE CREATION (BLOCKCHAIN + COUCHDB)
@@ -335,11 +336,7 @@ exports.Create_CredentialTemplate = async (req, res, getContractAndGateway) => {
     */
     console.error('\n❌ [ERROR] Credential creation failed:', error.message);
     console.error('Stack:', error.stack);
-    return res.status(500).json({
-      success: false,
-      error: error.message,
-      details: process.env.NODE_ENV === 'development' ? error.stack : undefined
-    });
+    return sendServerError(res, error, 'ISSUER-CREDENTIAL'); // M9
   }
 };
 // ==========================================================================================================================================================================
@@ -639,10 +636,7 @@ exports.Issue_Credential = async (req, res, getContractAndGateway) => {
 
   } catch (error) {
     console.error('❌ [ISSUE] Error issuing credential:', error.message);
-    return res.status(500).json({
-      success: false,
-      error: error.message
-    });
+    return sendServerError(res, error, 'ISSUER-CREDENTIAL'); // M9
   }
 };
 // ==========================================================================================================================================================================
@@ -746,10 +740,7 @@ exports.get_CredentialTemplatesByIssuerID = async (req, res) => {
 
     /* Step 5: Error handling */
     console.error('Error fetching credentials:', error.message);
-    return res.status(500).json({
-      success: false,
-      error: error.message
-    });
+    return sendServerError(res, error, 'ISSUER-CREDENTIAL'); // M9
   }
 };
 
@@ -1206,11 +1197,7 @@ exports.Get_CredentialHistory = async (req, res, getContractAndGateway) => {
     console.error('\n❌ [HISTORY] Error fetching credential history:', error.message);
     console.error('Stack:', error.stack);
 
-    return res.status(500).json({
-      success: false,
-      error: error.message,
-      details: process.env.NODE_ENV === 'development' ? error.stack : undefined
-    });
+    return sendServerError(res, error, 'ISSUER-CREDENTIAL'); // M9
   }
 };
 // ==========================================================================================================================================================================
@@ -1375,10 +1362,7 @@ exports.revoke_Credential = async (req, res, getContractAndGateway) => {
 
   } catch (error) {
     console.error('❌ [REVOKE] Error revoking credential:', error.message);
-    return res.status(500).json({
-      success: false,
-      error: error.message
-    });
+    return sendServerError(res, error, 'ISSUER-CREDENTIAL'); // M9
   }
 };
 
@@ -1564,10 +1548,7 @@ exports.getCredentialTemplates = async (req, res, getContractAndGateway) => {
   } catch (error) {
     console.error('❌ Error (getCredentialTemplates):', error.message);
 
-    return res.status(500).json({
-      success: false,
-      error: error.message
-    });
+    return sendServerError(res, error, 'ISSUER-CREDENTIAL'); // M9
   }
 };
 // ==========================================================================================================================================================================

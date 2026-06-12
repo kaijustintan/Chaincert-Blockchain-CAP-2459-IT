@@ -6,6 +6,8 @@
 CAP-2459-IT-AFTER-RESET/
 ├── .claude/
 │   ├── commands/
+│   │   ├── commit-documentation.md
+│   │   ├── context-for-next-session.md
 │   │   ├── new-controller.md
 │   │   ├── new-feature.md
 │   │   ├── review-patterns.md
@@ -43,9 +45,11 @@ CAP-2459-IT-AFTER-RESET/
 │   ├── couchDB_service.js
 │   ├── enrollChaincertAdmin.js
 │   ├── issuerRequirements.js
+│   ├── mailerService.js
 │   ├── package.json
 │   ├── package-lock.json
 │   ├── sdk-server-fixed.js
+│   ├── securityHelpers.js
 │   ├── setupWallet_ORG1.js
 │   └── setupWallet_ORG2.js
 │
@@ -85,24 +89,31 @@ CAP-2459-IT-AFTER-RESET/
 │   │   ├── Redeploy CC Instructions.md
 │   │   └── ROUTE Files and its Responsibilities.md
 │   │
-│   └── Claude Reference - PDF Files/         ← original PDFs (working/internal docs)
-│       ├── DIRECTORY - Ubuntu.txt
-│       ├── CAP2 - Deployment Gameplan.pdf
-│       ├── CAP-2459-IT-PROPOSAL.pdf
-│       ├── CAP-2459-IT-WALKTHROUGH-OUTDATED.pdf
-│       ├── Chaincert Design Details #1.pdf
-│       ├── Chaincert Design Details #2.pdf
-│       ├── Chaincode - Query Commands.pdf
-│       ├── CONTROLLER Files and its Responsibilities.pdf
-│       ├── Copy Commands.pdf
-│       ├── DIRECTORY - Windows.pdf
-│       ├── Final Design.pdf
-│       ├── Installation Dependencies.pdf
-│       ├── Issuer Required Docs per Category.pdf
-│       ├── Node Creation for DLSU.pdf
-│       ├── Predemo Setup.pdf
-│       ├── Redeploy CC Instructions.pdf
-│       └── ROUTE Files and its Responsibilities.pdf
+│   ├── Claude Reference - PDF Files/         ← original PDFs (working/internal docs)
+│   │   ├── DIRECTORY - Ubuntu.txt
+│   │   ├── CAP2 - Deployment Gameplan.pdf
+│   │   ├── CAP-2459-IT-PROPOSAL.pdf
+│   │   ├── CAP-2459-IT-WALKTHROUGH-OUTDATED.pdf
+│   │   ├── Chaincert Design Details #1.pdf
+│   │   ├── Chaincert Design Details #2.pdf
+│   │   ├── Chaincode - Query Commands.pdf
+│   │   ├── CONTROLLER Files and its Responsibilities.pdf
+│   │   ├── Copy Commands.pdf
+│   │   ├── DIRECTORY - Windows.pdf
+│   │   ├── Final Design.pdf
+│   │   ├── Installation Dependencies.pdf
+│   │   ├── Issuer Required Docs per Category.pdf
+│   │   ├── Node Creation for DLSU.pdf
+│   │   ├── Predemo Setup.pdf
+│   │   ├── Redeploy CC Instructions.pdf
+│   │   └── ROUTE Files and its Responsibilities.pdf
+│   │
+│   └── Security Checklist/                   ← AI-readable security review framework (KB)
+│       ├── README.md
+│       ├── Foundations.md
+│       ├── Domains.md
+│       ├── Review-Checklists.md
+│       └── Reference.md
 │
 ├── public/
 │   ├── assets/

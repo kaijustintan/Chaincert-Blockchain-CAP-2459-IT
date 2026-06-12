@@ -3,6 +3,7 @@ const mailerService = require('../mailerService');
 const fs = require('fs');
 const path = require('path');
 const { Wallets } = require('fabric-network');
+const { sendServerError } = require('../securityHelpers'); // Phase 5 Tier 2 (M9)
 
 const normalizeFabricIdentityPart = (value) =>
   String(value || '')
@@ -70,10 +71,7 @@ const adminIssuerController = {
       });
     } catch (error) {
       console.error('Error fetching pending issuers:', error);
-      res.status(500).json({
-        success: false,
-        message: error.message
-      });
+      return sendServerError(res, error, 'ADMIN-ISSUER'); // M9
     }
   },
 
@@ -83,7 +81,7 @@ const adminIssuerController = {
       return res.status(200).json({ success: true, data: rows, count: rows.length });
     } catch (error) {
       console.error('Error fetching pending root issuers:', error);
-      return res.status(500).json({ success: false, message: error.message });
+      return sendServerError(res, error, 'ADMIN-ISSUER'); // M9
     }
   },
 
@@ -93,7 +91,7 @@ const adminIssuerController = {
       return res.status(200).json({ success: true, data: rows, count: rows.length });
     } catch (error) {
       console.error('Error fetching pending subordinate issuers:', error);
-      return res.status(500).json({ success: false, message: error.message });
+      return sendServerError(res, error, 'ADMIN-ISSUER'); // M9
     }
   },
 
@@ -103,7 +101,7 @@ const adminIssuerController = {
       return res.status(200).json({ success: true, data: rows, count: rows.length });
     } catch (error) {
       console.error('Error fetching subordinate issuers awaiting root approval:', error);
-      return res.status(500).json({ success: false, message: error.message });
+      return sendServerError(res, error, 'ADMIN-ISSUER'); // M9
     }
   },
 
@@ -113,7 +111,7 @@ const adminIssuerController = {
       return res.status(200).json({ success: true, data: rows, count: rows.length });
     } catch (error) {
       console.error('Error fetching root-approved subordinate issuers:', error);
-      return res.status(500).json({ success: false, message: error.message });
+      return sendServerError(res, error, 'ADMIN-ISSUER'); // M9
     }
   },
 
@@ -123,7 +121,7 @@ const adminIssuerController = {
       return res.status(200).json({ success: true, data: rows, count: rows.length });
     } catch (error) {
       console.error('Error fetching admin-actionable pending issuers:', error);
-      return res.status(500).json({ success: false, message: error.message });
+      return sendServerError(res, error, 'ADMIN-ISSUER'); // M9
     }
   },
 
@@ -155,10 +153,7 @@ const adminIssuerController = {
       });
     } catch (error) {
       console.error('Error fetching approved issuers:', error);
-      return res.status(500).json({
-        success: false,
-        message: `Error fetching approved issuers: ${error.message}`
-      });
+      return sendServerError(res, error, 'ADMIN-ISSUER'); // M9
     }
   },
 
@@ -193,10 +188,7 @@ const adminIssuerController = {
       });
     } catch (error) {
       console.error('Error fetching rejected issuers:', error);
-      return res.status(500).json({
-        success: false,
-        message: `Error fetching rejected issuers: ${error.message}`
-      });
+      return sendServerError(res, error, 'ADMIN-ISSUER'); // M9
     }
   },
 
@@ -231,10 +223,7 @@ const adminIssuerController = {
       });
     } catch (error) {
       console.error('Error fetching disabled issuers:', error);
-      return res.status(500).json({
-        success: false,
-        message: `Error fetching disabled issuers: ${error.message}`
-      });
+      return sendServerError(res, error, 'ADMIN-ISSUER'); // M9
     }
   },
 
@@ -316,7 +305,14 @@ const adminIssuerController = {
         await mailerService.sendMail({
           to: issuerEmail,
           subject: 'Your ChainCert Issuer Application Has Been Approved',
-          html: `<p>Dear <strong>${orgName}</strong>,</p><p>Your issuer application on ChainCert has been <strong>approved</strong>. You may now log in and begin issuing credentials.</p>`
+          html: mailerService.renderEmail({
+            heading: '✅ Issuer Application Approved',
+            bodyHtml: `
+              <p style="margin:0 0 14px;color:#374151;font-size:14px;line-height:1.6;">Dear <strong>${orgName}</strong>,</p>
+              <p style="margin:0 0 14px;color:#374151;font-size:14px;line-height:1.6;">Great news &mdash; your issuer application on ChainCert has been <strong style="color:#16a34a;">approved</strong>. You may now log in and begin issuing verifiable credentials to your holders.</p>
+              <p style="margin:0;color:#6b7280;font-size:13px;line-height:1.6;">Log in using the email and password you registered with.</p>`
+          }),
+          text: `Dear ${orgName},\n\nYour issuer application on ChainCert has been approved. You may now log in and begin issuing credentials.`
         });
       } catch (emailErr) {
         emailWarning = emailErr?.message || String(emailErr);
@@ -342,7 +338,7 @@ const adminIssuerController = {
       if (error.statusCode) {
         return res.status(error.statusCode).json({ success: false, message: error.message });
       }
-      return res.status(500).json({ success: false, message: error.message });
+      return sendServerError(res, error, 'ADMIN-ISSUER'); // M9
     }
   },
 
@@ -430,7 +426,7 @@ const adminIssuerController = {
       if (error.statusCode) {
         return res.status(error.statusCode).json({ success: false, message: error.message });
       }
-      return res.status(500).json({ success: false, message: error.message });
+      return sendServerError(res, error, 'ADMIN-ISSUER'); // M9
     }
   },
 
@@ -537,7 +533,7 @@ const adminIssuerController = {
     } catch (error) {
       console.error('Disable_Issuer error:', error);
       if (res.headersSent) return;
-      return res.status(500).json({ success: false, message: error.message });
+      return sendServerError(res, error, 'ADMIN-ISSUER'); // M9
     }
   },
 
@@ -620,7 +616,7 @@ const adminIssuerController = {
     } catch (error) {
       console.error('Enable_Issuer error:', error);
       if (res.headersSent) return;
-      return res.status(500).json({ success: false, message: error.message });
+      return sendServerError(res, error, 'ADMIN-ISSUER'); // M9
     }
   }
 };

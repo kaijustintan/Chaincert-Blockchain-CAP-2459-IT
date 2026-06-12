@@ -1,4 +1,5 @@
 const couchDB = require('../couchDB_service');
+const { sendServerError } = require('../securityHelpers'); // Phase 5 Tier 2 (M9)
 
 // ==========================================================================================
 // M1 (Phase 5 hardening): OWNERSHIP HELPERS  (fixes BOLA / IDOR — KB Z-3, CWE-639)
@@ -60,11 +61,7 @@ const walletController = {
         timestamp: new Date().toISOString()
       });
     } catch (error) {
-      console.error('Error fetching user credentials:', error);
-      return res.status(500).json({
-        success: false,
-        message: `Error fetching credentials: ${error.message}`
-      });
+      return sendServerError(res, error, 'WALLET'); // M9
     }
   },
 
@@ -100,8 +97,7 @@ const walletController = {
         timestamp: new Date().toISOString()
       });
     } catch (error) {
-      console.error('[WALLET CONTROLLER] Error updating credential visibility:', error);
-      return res.status(500).json({ success: false, message: `Error updating visibility: ${error.message}` });
+      return sendServerError(res, error, 'WALLET'); // M9
     }
   },
 
@@ -134,8 +130,7 @@ const walletController = {
         timestamp: new Date().toISOString()
       });
     } catch (error) {
-      console.error('[WALLET CONTROLLER] Error updating issuer template visibility:', error);
-      return res.status(500).json({ success: false, message: `Error updating issuer template visibility: ${error.message}` });
+      return sendServerError(res, error, 'WALLET'); // M9
     }
   },
 
@@ -171,8 +166,7 @@ const walletController = {
         timestamp: new Date().toISOString()
       });
     } catch (error) {
-      console.error('[WALLET CONTROLLER] Error updating credential order:', error);
-      return res.status(500).json({ success: false, message: `Error updating order: ${error.message}` });
+      return sendServerError(res, error, 'WALLET'); // M9
     }
   },
 
@@ -197,11 +191,7 @@ const walletController = {
         timestamp: new Date().toISOString()
       });
     } catch (error) {
-      console.error('Error fetching user notifications:', error);
-      return res.status(500).json({
-        success: false,
-        message: `Error fetching notifications: ${error.message}`
-      });
+      return sendServerError(res, error, 'WALLET'); // M9
     }
   },
 
@@ -226,11 +216,7 @@ const walletController = {
         timestamp: new Date().toISOString()
       });
     } catch (error) {
-      console.error('Error fetching unread user notifications:', error);
-      return res.status(500).json({
-        success: false,
-        message: `Error fetching unread notifications: ${error.message}`
-      });
+      return sendServerError(res, error, 'WALLET'); // M9
     }
   },
 
@@ -264,11 +250,7 @@ const walletController = {
         timestamp: new Date().toISOString()
       });
     } catch (error) {
-      console.error('Error marking notification as read:', error);
-      return res.status(500).json({
-        success: false,
-        message: `Error marking notification as read: ${error.message}`
-      });
+      return sendServerError(res, error, 'WALLET'); // M9
     }
   }
 };

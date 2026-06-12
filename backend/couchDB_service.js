@@ -1679,6 +1679,9 @@ async function createAdminNotification(notificationData) {
     message: notificationData.message || '',
     issuerId: notificationData.issuerId || null,
     issuerEmail: notificationData.issuerEmail || null,
+    // Optional structured payload (e.g. integrity-check results) so the dashboard can render a
+    // detailed view when the admin clicks the notification — instead of just the summary text.
+    details: notificationData.details || null,
     createdAt: new Date().toISOString(),
     read: false
   };

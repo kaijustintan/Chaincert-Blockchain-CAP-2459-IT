@@ -1,6 +1,7 @@
 const couchDB = require('../couchDB_service');
 const mailerService = require('../mailerService'); // - polo
 const crypto = require('crypto'); // - polo
+const { validateUploadedFile, validatePasswordStrength, sendServerError } = require('../securityHelpers'); // Phase 5 Tier 2
 
 const buildShareProfilePayload = async (ownerId) => {
   const user = await couchDB.getUser(ownerId);
@@ -64,10 +65,7 @@ const accountController = {
         }
       });
     } catch (error) {
-      return res.status(500).json({
-        success: false,
-        message: `User lookup error: ${error.message}`
-      });
+      return sendServerError(res, error, 'ACCOUNT'); // M9
     }
   },
 
@@ -83,10 +81,7 @@ const accountController = {
         count: filteredUsers.length
       });
     } catch (error) {
-      return res.status(500).json({
-        success: false,
-        message: `Retrieve users error: ${error.message}`
-      });
+      return sendServerError(res, error, 'ACCOUNT'); // M9
     }
   },
 
@@ -102,7 +97,7 @@ const accountController = {
       });
     } catch (error) {
       console.error('Update profile error:', error);
-      return res.status(500).json({ success: false, message: error.message });
+      return sendServerError(res, error, 'ACCOUNT'); // M9
     }
   },
 
@@ -148,7 +143,7 @@ const accountController = {
       });
     } catch (error) {
       console.error('[SHARE] generateShareLink error:', error);
-      return res.status(500).json({ success: false, message: error.message });
+      return sendServerError(res, error, 'ACCOUNT'); // M9
     }
   },
 
@@ -188,7 +183,7 @@ const accountController = {
       });
     } catch (error) {
       console.error('[SHARE] getShareLinkInfo error:', error);
-      return res.status(500).json({ success: false, message: error.message });
+      return sendServerError(res, error, 'ACCOUNT'); // M9
     }
   },
 
@@ -241,13 +236,19 @@ const accountController = {
       await mailerService.sendMail({
         to: email,
         subject: `Your ChainCert Profile Access Code (for ${email})`,
+        html: mailerService.renderOtpEmail({
+          heading: 'Profile Access Code',
+          intro: `This code was requested to view a shared ChainCert profile, for <strong>${email}</strong>. Enter it on the access page to continue.`,
+          otp,
+          note: 'This code expires in 10 minutes. If you did not request access to a profile, you can safely ignore this email.'
+        }),
         text: `This code was requested for: ${email}\n\nYour verification code is: ${otp}\n\nThis code expires in 10 minutes.\n\nIf you did not request this, you can ignore this email.`
       });
 
       return res.status(200).json({ success: true, message: 'Verification code sent.' });
     } catch (error) {
       console.error('[SHARE] requestOTP error:', error);
-      return res.status(500).json({ success: false, message: error.message });
+      return sendServerError(res, error, 'ACCOUNT'); // M9
     }
   },
 
@@ -387,7 +388,13 @@ const accountController = {
         await mailerService.sendMail({
           to: email,
           subject: 'ChainCert Password Reset Code',
-          text: `Your password reset code is: ${otp}\n\nThis code expires in 10 minutes.\n\nIf you did not request this, please ignore this email.`
+          html: mailerService.renderOtpEmail({
+            heading: 'Password Reset Code',
+            intro: 'We received a request to reset your ChainCert password. Use the code below to set a new one.',
+            otp,
+            note: 'This code expires in 10 minutes. If you did not request a password reset, you can safely ignore this email &mdash; your password will stay the same.'
+          }),
+          text: `Your ChainCert password reset code is: ${otp}\n\nThis code expires in 10 minutes.\n\nIf you did not request this, please ignore this email.`
         });
       } catch (emailErr) {
         console.warn('[FORGOT-PW] Email send failed (non-fatal):', emailErr.message);
@@ -396,7 +403,7 @@ const accountController = {
       return res.status(200).json({ success: true, otpSent: true, message: 'If this email is registered, a reset code has been sent.' }); 
     } catch (error) {
       console.error('[FORGOT-PW] forgotPassword error:', error);
-      return res.status(500).json({ success: false, message: error.message });
+      return sendServerError(res, error, 'ACCOUNT'); // M9
     }
   },
 
@@ -408,8 +415,10 @@ const accountController = {
         return res.status(400).json({ success: false, message: 'Email, OTP, and new password are required.' });
       }
 
-      if (newPassword.length < 6) {
-        return res.status(400).json({ success: false, message: 'Password must be at least 6 characters.' });
+      // M8 (Phase 5 hardening): enforce the full password-strength policy (replaces the old length-6 check).
+      const pwCheck = validatePasswordStrength(newPassword);
+      if (!pwCheck.ok) {
+        return res.status(400).json({ success: false, message: pwCheck.message });
       }
 
       // Look up account by email — check users first, then approved issuers only.
@@ -464,7 +473,7 @@ const accountController = {
       return res.status(200).json({ success: true, message: 'Password reset successful. You may now log in.' });
     } catch (error) {
       console.error('[FORGOT-PW] resetPassword error:', error);
-      return res.status(500).json({ success: false, message: error.message });
+      return sendServerError(res, error, 'ACCOUNT'); // M9
     }
   },
 
@@ -507,7 +516,7 @@ const accountController = {
       });
     } catch (error) {
       console.error('[SHARE] generatePublicShareLink error:', error);
-      return res.status(500).json({ success: false, message: error.message });
+      return sendServerError(res, error, 'ACCOUNT'); // M9
     }
   },
 
@@ -525,7 +534,7 @@ const accountController = {
       return res.status(200).json({ success: true, message: 'Share link revoked.' });
     } catch (error) {
       console.error('[SHARE] revokeShareLink error:', error);
-      return res.status(500).json({ success: false, message: error.message });
+      return sendServerError(res, error, 'ACCOUNT'); // M9
     }
   },
 
@@ -543,7 +552,7 @@ const accountController = {
       return res.status(200).json({ success: true, links });
     } catch (error) {
       console.error('[SHARE] getMyShareLinks error:', error);
-      return res.status(500).json({ success: false, message: error.message });
+      return sendServerError(res, error, 'ACCOUNT'); // M9
     }
   },
 
@@ -560,7 +569,15 @@ const accountController = {
       }
 
       const fileBuffer = file.buffer;
-      const fileType = file.mimetype;
+
+      // M7 (Phase 5 hardening): verify the file's REAL type by magic number — never trust the
+      // client-supplied mimetype/extension. Only real PNG/JPG images are accepted for avatars.
+      const check = validateUploadedFile(fileBuffer, ['png', 'jpg']);
+      if (!check.ok) {
+        return res.status(400).json({ success: false, message: check.message });
+      }
+      // Use the DETECTED type for the data URI, not the (untrusted) client mimetype.
+      const fileType = check.type === 'jpg' ? 'image/jpeg' : 'image/png';
       const base64Image = `data:${fileType};base64,${fileBuffer.toString('base64')}`;
 
       await couchDB.updateUser(userId, {
@@ -574,7 +591,7 @@ const accountController = {
       });
     } catch (error) {
       console.error('Error uploading profile picture:', error);
-      return res.status(500).json({ success: false, message: error.message });
+      return sendServerError(res, error, 'ACCOUNT'); // M9
     }
   }
 };

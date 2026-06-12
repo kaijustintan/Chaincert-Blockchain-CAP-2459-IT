@@ -6,6 +6,7 @@ const {
 } = require('../config/issuerRequirements');
 
 const bcrypt = require('bcryptjs');
+const { validateUploadedFile, validatePasswordStrength, sendServerError } = require('../securityHelpers'); // Phase 5 Tier 2
 
 const issuerOnboardingController = {
   registerIssuer: async (req, res) => {
@@ -139,12 +140,33 @@ const issuerOnboardingController = {
         });
       }
 
+      // M8 (Phase 5 hardening): enforce password strength before creating the issuer account.
+      const pwCheck = validatePasswordStrength(password);
+      if (!pwCheck.ok) {
+        return res.status(400).json({ success: false, message: pwCheck.message });
+      }
+
+      // M7 (Phase 5 hardening): validate each uploaded document by its REAL bytes (magic number),
+      // not the client-claimed type. Issuer onboarding documents (CHED/SEC/board resolutions/etc.)
+      // are formal records that are always PDFs, so we accept PDF ONLY here — the narrowest allow-list
+      // is the strongest (smaller attack surface). Reject the registration if any file isn't a real PDF.
+      for (const file of uploadedFiles) {
+        const fileCheck = validateUploadedFile(file.buffer, ['pdf']);
+        if (!fileCheck.ok) {
+          return res.status(400).json({
+            success: false,
+            message: `Document "${file.fieldname || file.originalname || 'file'}": ${fileCheck.message}`
+          });
+        }
+      }
+
       console.log('[HASH] Hashing password...');
       const hashedPassword = await bcrypt.hash(password, 10);
 
       const docs = uploadedFiles.map(file => ({
         docType: String(file.fieldname || '').trim().toLowerCase(),
-        originalname: file.originalname,
+        // M7: neutralize path separators in the stored display name (defensive; not used as a path).
+        originalname: String(file.originalname || 'document').replace(/[\\/]/g, '_').replace(/\.{2,}/g, '.'),
         mimetype: file.mimetype,
         size: file.size,
         buffer: file.buffer
@@ -205,10 +227,7 @@ const issuerOnboardingController = {
       });
     } catch (error) {
       console.error('Issuer registration error:', error);
-      return res.status(500).json({
-        success: false,
-        message: error.message
-      });
+      return sendServerError(res, error, 'ISSUER-ONBOARDING'); // M9
     }
   },
 
@@ -238,10 +257,7 @@ const issuerOnboardingController = {
         });
     } catch (error) {
       console.error('Error fetching issuer requirements:', error);
-      return res.status(500).json({
-        success: false,
-        message: error.message
-      });
+      return sendServerError(res, error, 'ISSUER-ONBOARDING'); // M9
     }
   },
 
@@ -303,10 +319,7 @@ const issuerOnboardingController = {
       });
     } catch (error) {
       console.error('Error fetching issuer documents:', error);
-      return res.status(500).json({
-        success: false,
-        message: error.message
-      });
+      return sendServerError(res, error, 'ISSUER-ONBOARDING'); // M9
     }
   },
 
@@ -380,10 +393,7 @@ const issuerOnboardingController = {
       return res.status(200).send(fileBuffer);
     } catch (error) {
       console.error('Error viewing issuer document:', error);
-      return res.status(500).json({
-        success: false,
-        message: error.message
-      });
+      return sendServerError(res, error, 'ISSUER-ONBOARDING'); // M9
     }
   },
 
@@ -414,10 +424,7 @@ const issuerOnboardingController = {
       });
     } catch (error) {
       console.error('Error fetching public root authorities:', error);
-      return res.status(500).json({
-        success: false,
-        message: error.message
-      });
+      return sendServerError(res, error, 'ISSUER-ONBOARDING'); // M9
     }
   }
 };

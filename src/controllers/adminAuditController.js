@@ -1,4 +1,5 @@
 const couchDB = require('../couchDB_service');
+const { sendServerError } = require('../securityHelpers'); // Phase 5 Tier 2 (M9)
 
 const adminAuditController = {
   Disable_User: async (req, res, getContractAndGateway) => {
@@ -66,7 +67,7 @@ const adminAuditController = {
     } catch (error) {
       console.error('Disable_User error:', error);
       if (res.headersSent) return;
-      return res.status(500).json({ success: false, message: error.message });
+      return sendServerError(res, error, 'ADMIN-AUDIT'); // M9
     } finally {
       try { if (gateway) await gateway.disconnect(); } catch (_) {}
     }
@@ -137,7 +138,7 @@ const adminAuditController = {
     } catch (error) {
       console.error('Enable_User error:', error);
       if (res.headersSent) return;
-      return res.status(500).json({ success: false, message: error.message });
+      return sendServerError(res, error, 'ADMIN-AUDIT'); // M9
     } finally {
       try { if (gateway) await gateway.disconnect(); } catch (_) {}
     }
@@ -248,7 +249,7 @@ const adminAuditController = {
     } catch (error) {
       console.error('changeAdminPasswordSecure error:', error);
       if (res.headersSent) return;
-      return res.status(500).json({ success: false, message: error.message });
+      return sendServerError(res, error, 'ADMIN-AUDIT'); // M9
     }
   },
 

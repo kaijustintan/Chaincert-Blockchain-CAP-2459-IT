@@ -164,18 +164,30 @@ Auth: tokens live in localStorage.token on the client; backend treats absence of
 Roles: student (holder), issuer (root or subordinate), admin, verifier. Plus the chaincode-level chaincert-admin Fabric identity used by the API for system-level invokes.
 When in doubt about layout: read docs/DIRECTORY - Ubuntu.txt and docs/Claude Reference - MD Files/DIRECTORY_-_Windows.md for the authoritative directory tree on each side.
 
-Accepted limitations (don't "fix" these without explicit ask)
-These are conscious capstone-scope decisions, not oversights. Rationale per item lives in docs/Claude Reference - MD Files/Defense_Knowledge_-_March_25.md.
+Phase 5 security hardening (implemented June 2026 — these were FIXED; do not re-flag as holes)
+Two batches landed. Per-measure exploit/fix/test detail is in the session handoffs; short version:
+- Tier 1: M1 fixed BOLA/IDOR on wallet endpoints (ownership derived from req.user.id, not the URL id); M2 added centralized auth guards — /api/wallet requires auth, /api/admin requires auth + admin role (root-authority routes stay role:'issuer'); M3 made the JWT secret fail-closed (app refuses to boot without JWT_SECRET — the dev_secret_key fallback is GONE); M4 made login failures uniform + timing-equalized (anti-enumeration); M5 added rate limiting (per-IP limiter on login/forgot/reset + per-account OTP counter).
+- Tier 2: M6 added helmet security headers (configured for a cross-origin JSON API — CSP off, CORP cross-origin); M7 hardened uploads (5 MB cap + magic-number type check — profile pics PNG/JPG, issuer docs PDF-only); M8 added a password-strength policy (min 10 + common-password blocklist) at all set-password points; M9 centralized error handling via securityHelpers.sendServerError (+ a global error middleware) so 500s return a generic message + errorId instead of leaking error.message/stack. Bonus: unified /api/auth/login (one request resolves user-vs-issuer; /api/issuer/login kept as alias).
+- Shared helper file: backend/securityHelpers.js (→ ~/chaincert-api/securityHelpers.js) holds validatePasswordStrength, validateUploadedFile, sendServerError.
+
+New env vars (~/chaincert-api/.env — NOT in git, Ubuntu only):
+- JWT_SECRET — REQUIRED. App exits at boot if unset (M3). Generate: openssl rand -hex 48.
+- DISABLE_RATE_LIMIT=true — TESTING ONLY toggle to bypass M5. Loud startup warning while on. Remove before demo.
+- DISABLE_PASSWORD_POLICY=true — TESTING ONLY toggle to bypass M8. Loud startup warning while on. Remove before demo.
+(Plus the existing SMTP_USER / SMTP_APP_PASSWORD / SMTP_OVERRIDE_TO from Phase 5.5.)
+
+Accepted limitations (still conscious capstone-scope decisions — don't "fix" without explicit ask)
+Rationale per item lives in docs/Claude Reference - MD Files/Defense_Knowledge_-_March_25.md.
 
 JWT in localStorage (XSS-vulnerable) — production would use httpOnly cookies.
-JWT secret has a dev_secret_key fallback if .env is missing.
-CouchDB creds hardcoded as admin:adminpw across files.
-No HTTPS, no rate limiting, no token blacklist on disable (24h TTL).
+CouchDB creds hardcoded as admin:adminpw across files — Tier 3 / deployment moves these to env (M11).
+No HTTPS yet — Tier 3 / CCSCloud cutover adds TLS + HSTS (M10). (Rate limiting is now DONE — M5.)
+No token blacklist on disable (24h JWT TTL) — a disabled user's existing token stays valid until it expires.
 Single orderer (no Raft cluster); all infra on one host.
 Credential expiry has a timing gap — VerifyCredential chaincode does not re-check expiry in real time; the cron job in adminDashboardController.initExpiryCron flips status.
 Duplicate issuance prevention is CouchDB-based, not chaincode-level.
-Credential IDs use Date.now() + Math.random() — not cryptographically secure, but the ID is not a security token.
-Integrity check is one-directional (CouchDB → ledger only).
+Credential IDs use Date.now() + Math.random() — not cryptographically secure, but the ID is not a security token. (NOTE: profile-share tokens DO use crypto.randomBytes — those are secure.)
+Integrity check is one-directional (CouchDB → ledger only) and still manual-trigger only (the scheduled integrity cron was planned but not yet implemented).
 
 Touch these only when the user explicitly asks to.
 Directory maintenance

@@ -880,6 +880,13 @@ const handleDownloadIssuerDocument = async (doc) => {
         setAdminUnreadCount((prev) => Math.max(prev - 1, 0));
       }
 
+      // Integrity-check notifications carry the full results in `details` — clicking opens the same
+      // results modal as the manual button, no re-run needed. (Phase 5 M13 follow-up)
+      if (notification.category === "integrity_check" && notification.details) {
+        setIntegrityResult(notification.details);
+        setShowIntegrityModal(true);
+      }
+
       setAdminNotificationsOpen(false);
     } catch (error) {
       console.error("[ADMIN DASHBOARD] Failed to mark admin notification as read:", error);
@@ -1576,8 +1583,13 @@ const handleDownloadIssuerDocument = async (doc) => {
               <div style={{ display: "flex", justifyContent: "space-between", gap: "16px", alignItems: "flex-start", marginBottom: "16px" }}>
                 <div>
                   <h3 style={{ margin: 0 }}>Integrity Check Results</h3>
-                  <div style={{ marginTop: "8px", opacity: 0.85, fontSize: "13px" }}>
-                    Total | ✅ Matched | ⚠️ Mismatched | ❌ Missing | 🔴 Errors
+                  <div style={{ marginTop: "8px", opacity: 0.85, fontSize: "13px", maxWidth: "660px", lineHeight: 1.5 }}>
+                    Each credential's fast <strong>database copy</strong> is compared against the permanent{" "}
+                    <strong>blockchain record</strong>. The blockchain is the source of truth — anything flagged
+                    below doesn't match and should be investigated.
+                    {(integrityResult.checkedAt || integrityResult.timestamp) && (
+                      <span style={{ opacity: 0.7 }}> · Checked {formatTimestamp(integrityResult.checkedAt || integrityResult.timestamp)}</span>
+                    )}
                   </div>
                 </div>
                 <button type="button" onClick={() => setShowIntegrityModal(false)} style={{ background: "transparent", border: "1px solid rgba(255,255,255,0.25)", color: "#fff", borderRadius: "8px", padding: "8px 10px", cursor: "pointer" }}>
@@ -1600,42 +1612,72 @@ const handleDownloadIssuerDocument = async (doc) => {
                 ))}
               </div>
 
-              {integrityResult.results?.filter((row) => row.verdict === "mismatched").length > 0 ? (
-                <div className="table-wrapper">
-                  <table className="admin-table">
-                    <thead>
-                      <tr>
-                        <th>Credential ID</th>
-                        <th>Name</th>
-                        <th>Issuer</th>
-                        <th>Field</th>
-                        <th>CouchDB Value</th>
-                        <th>Blockchain Value</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {integrityResult.results
-                        .filter((row) => row.verdict === "mismatched")
-                        .flatMap((row) =>
-                          row.mismatches.map((mismatch, index) => (
-                            <tr key={`${row.blockchainId}-${mismatch.field}-${index}`}>
-                              <td style={{ fontFamily: "monospace", fontSize: "12px" }}>{row.blockchainId || "N/A"}</td>
-                              <td>{row.credentialName || "N/A"}</td>
-                              <td>{row.issuerOrgName || "N/A"}</td>
-                              <td>{mismatch.field}</td>
-                              <td>{String(mismatch.couchValue || "—")}</td>
-                              <td>{String(mismatch.blockchainValue || "—")}</td>
-                            </tr>
-                          ))
-                        )}
-                    </tbody>
-                  </table>
-                </div>
-              ) : (
-                <div style={{ padding: "16px", borderRadius: "12px", background: "rgba(34,197,94,0.08)", color: "#4ade80" }}>
-                  No field mismatches found.
-                </div>
-              )}
+              {(() => {
+                const FIELD_LABELS = {
+                  credentialName: "Credential Name", credentialType: "Credential Type",
+                  holderID: "Holder ID", status: "Status", issuedDate: "Issued Date",
+                  expiryDate: "Expiry Date", description: "Description", issuerID: "Issuer ID",
+                };
+                const fieldLabel = (f) => FIELD_LABELS[f] || f;
+                const problems = (integrityResult.results || []).filter(
+                  (r) => r.verdict === "mismatched" || r.verdict === "missing" || r.verdict === "error"
+                );
+
+                if (problems.length === 0) {
+                  return (
+                    <div style={{ padding: "16px", borderRadius: "12px", background: "rgba(34,197,94,0.08)", border: "1px solid rgba(34,197,94,0.25)", color: "#4ade80" }}>
+                      ✅ All checked credentials match the blockchain ledger. No issues found.
+                    </div>
+                  );
+                }
+
+                const badgeFor = (v) =>
+                  v === "mismatched" ? { text: "⚠️ Mismatched", color: "#fbbf24" }
+                  : v === "missing" ? { text: "❌ Missing from blockchain", color: "#f87171" }
+                  : { text: "🔴 Error", color: "#f87171" };
+
+                return (
+                  <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
+                    {problems.map((row, i) => {
+                      const badge = badgeFor(row.verdict);
+                      return (
+                        <div key={`${row.blockchainId}-${i}`} style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: "12px", padding: "14px 16px" }}>
+                          <div style={{ display: "flex", justifyContent: "space-between", gap: "12px", flexWrap: "wrap", alignItems: "baseline" }}>
+                            <div style={{ fontWeight: 700, fontSize: "15px" }}>{row.credentialName || "Unknown credential"}</div>
+                            <div style={{ color: badge.color, fontWeight: 700, fontSize: "13px" }}>{badge.text}</div>
+                          </div>
+                          <div style={{ fontSize: "12px", color: "#9ca3af", margin: "2px 0 10px" }}>
+                            Issuer: {row.issuerOrgName || "Unknown"} &nbsp;·&nbsp; ID: <span style={{ fontFamily: "monospace" }}>{row.blockchainId || "N/A"}</span>
+                          </div>
+
+                          {row.verdict === "mismatched" && (row.mismatches || []).map((m, j) => (
+                            <div key={j} style={{ fontSize: "13px", padding: "7px 0", borderTop: j === 0 ? "none" : "1px solid rgba(255,255,255,0.06)" }}>
+                              <span style={{ color: "#e5e7eb", fontWeight: 600 }}>{fieldLabel(m.field)}: </span>
+                              <span style={{ color: "#f87171", textDecoration: "line-through" }}>{String(m.couchValue || "—")}</span>
+                              <span style={{ color: "#6b7280", fontSize: "11px" }}> (database) </span>
+                              <span style={{ color: "#9ca3af" }}>→ </span>
+                              <span style={{ color: "#4ade80", fontWeight: 700 }}>{String(m.blockchainValue || "—")}</span>
+                              <span style={{ color: "#6b7280", fontSize: "11px" }}> (blockchain ✓)</span>
+                            </div>
+                          ))}
+
+                          {row.verdict === "missing" && (
+                            <div style={{ fontSize: "13px", color: "#fca5a5" }}>
+                              This credential exists in the database but was <strong>not found on the blockchain ledger</strong>.
+                            </div>
+                          )}
+
+                          {row.verdict === "error" && (
+                            <div style={{ fontSize: "13px", color: "#fca5a5" }}>
+                              Could not verify against the blockchain: {row.error || "unknown error"}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                );
+              })()}
             </div>
           </div>,
           document.body

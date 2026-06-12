@@ -21,113 +21,58 @@ function LoginPage() {
     e.preventDefault();
     setError('');
     setLoading(true);
-    
+
+    // Bonus (Phase 5 Tier 2): ONE unified call. The backend resolves user-vs-issuer and returns the
+    // right token + role, so there's no more "try issuer, fall back to user" double-request (which
+    // produced an expected-but-ugly 401 in the console on every normal login).
     try {
-      // ✅ STEP 1: Try ISSUER login first (optimal - single request on success)
-      console.log('🔍 Attempting issuer login...');
-      const issuerResponse = await apiService.loginIssuer({ email, password });
-      
-      if (issuerResponse.success) {
-        console.log('✅ Issuer login successful!');
-        const issuerRole = 'issuer';
-        const issuerType = issuerResponse.user?.issuerType || issuerResponse.issuerType || 'root';
-        let nextIssuerUser = {
-          ...issuerResponse.user,
-          role: issuerRole,
-          issuerType,
-        };
-        const issuerUid = issuerResponse.user?._id || issuerResponse.user?.id;
-        if (issuerUid) {
+      const response = await apiService.login({ email, password });
+
+      if (response.success) {
+        const role = response.user?.role || 'student';
+        let nextUser = { ...response.user, role };
+        const uid = response.user?._id || response.user?.id;
+        if (uid) {
           try {
-            const profileResp = await apiService.getUserInfo(issuerUid);
+            const profileResp = await apiService.getUserInfo(uid);
             if (profileResp?.success && profileResp.user) {
-              nextIssuerUser = {
-                ...nextIssuerUser,
-                ...profileResp.user,
-                role: issuerRole,
-                issuerType,
-              };
+              nextUser = { ...nextUser, ...profileResp.user, role };
             }
-          } catch (e) { /* non-critical */ }
+          } catch (e) { /* non-critical profile enrichment */ }
         }
-        login(
-          issuerResponse.token,
-          nextIssuerUser,
-          issuerRole,
-          nextIssuerUser?.email || issuerResponse.user?.email || email
-        );
-        syncStoredUser(nextIssuerUser);
-        setLoading(false);
-        navigate('/issuer/dashboard');
-        return; // ✅ Exit - no need for fallback
-      }
-    } catch (issuerError) {
-      const issuerStatus = issuerError?.response?.status;
-      const issuerMessage = issuerError?.response?.data?.message;
 
-      // Disabled issuer should stop fallback and show explicit UI message
-      if (issuerStatus === 403) {
-        setError(issuerMessage || 'Your issuer account has been disabled. Please contact administrator.');
-        setLoading(false);
-        return;
-      }
-
-      // Rate limited (M5): surface it to the user instead of silently falling through to the
-      // user-login attempt (which would also 429 and confusingly show "Invalid credentials").
-      if (issuerStatus === 429) {
-        setError(issuerMessage || 'Too many attempts. Please wait a few minutes and try again.');
-        setLoading(false);
-        return;
-      }
-
-      // For 401 (not issuer / not approved), continue to regular user fallback
-      console.log('📌 Not an issuer account, checking regular user...');
-    }
-
-
-    // ✅ STEP 2: Try REGULAR USER login (fallback only if issuer fails)
-    try {
-      console.log('🔍 Attempting user login...');
-      const userResponse = await apiService.login({ email, password });
-      
-      if (userResponse.success) {
-        console.log('✅ User login successful!');
-        const userRole = userResponse.user.role || 'student';
-        let nextUser = { ...userResponse.user, role: userRole };
-        const userUid = userResponse.user?._id || userResponse.user?.id;
-        if (userUid) {
-          try {
-            const profileResp = await apiService.getUserInfo(userUid);
-            if (profileResp?.success && profileResp.user) {
-              nextUser = { ...nextUser, ...profileResp.user, role: userRole };
-            }
-          } catch (e) { /* non-critical */ }
-        }
-        login(userResponse.token, nextUser, userRole, nextUser?.email || userResponse.user?.email || email);
+        login(response.token, nextUser, role, nextUser?.email || response.user?.email || email);
         syncStoredUser(nextUser);
-        
-        // Route based on role
-        if (userRole === 'admin') {
+        setLoading(false);
+
+        if (role === 'issuer') {
+          navigate('/issuer/dashboard');
+        } else if (role === 'admin') {
           navigate('/admin/dashboard');
         } else {
           navigate('/student/dashboard');
         }
-        setLoading(false);
         return;
       }
-      
-      setError(userResponse.message || userResponse.error || 'Login failed.');
-    } catch (userError) {
-      // Rate limited (M5): show the real reason instead of a misleading "Invalid credentials".
-      if (userError?.response?.status === 429) {
-        setError(userError.response.data?.message || 'Too many attempts. Please wait a few minutes and try again.');
+
+      setError(response.message || response.error || 'Login failed.');
+      setLoading(false);
+    } catch (err) {
+      const status = err?.response?.status;
+      const msg = err?.response?.data?.message;
+      if (status === 429) {
+        // Rate limited (M5).
+        setError(msg || 'Too many attempts. Please wait a few minutes and try again.');
+      } else if (status === 403) {
+        // Disabled / not-yet-approved account — surface the server's explicit reason.
+        setError(msg || 'Your account cannot be accessed. Please contact an administrator.');
       } else {
-        setError('Invalid credentials.');
+        // Generic credential failure (M4 anti-enumeration).
+        setError(msg || 'Invalid credentials.');
       }
-      console.error('Login error:', userError);
+      console.error('Login error:', err);
+      setLoading(false);
     }
-    
-    setLoading(false);
   };
 
 

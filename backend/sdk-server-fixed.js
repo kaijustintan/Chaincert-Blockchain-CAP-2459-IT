@@ -5,6 +5,7 @@
 require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
+const helmet = require('helmet');
 const { Gateway, Wallets } = require('fabric-network');
 const path = require('path');
 const fs = require('fs');
@@ -31,6 +32,7 @@ const JWT_SECRET = process.env.JWT_SECRET;
 const upload = multer({ storage: multer.memoryStorage() });
 
 const couchdb = require('./couchDB_service');
+const { sendServerError } = require('./securityHelpers');
 
 const issuerCredentialController = require('./controllers/issuerCredentialController');
 const verifierController = require('./controllers/verifierController');
@@ -46,6 +48,20 @@ const app = express();
 app.use(cors({
   origin: 'http://localhost:3000',
   credentials: true
+}));
+
+// M6 (Phase 5 hardening): security response headers. This API serves JSON cross-origin to the SPA on
+// :3000, so two helmet defaults are tuned to NOT break that flow:
+//   - contentSecurityPolicy: false  — CSP governs HTML page resources; it belongs on the frontend host,
+//     not on a JSON API, and helmet's default CSP would otherwise interfere.
+//   - crossOriginResourcePolicy: cross-origin — lets the browser allow the :3000 SPA to read :4000 responses.
+// Everything valuable stays ON: X-Frame-Options (clickjacking), X-Content-Type-Options: nosniff,
+// Referrer-Policy, X-Powered-By removal, etc. HSTS is emitted but browsers ignore it over plain HTTP —
+// it only takes effect in Tier 3 once HTTPS fronts the app.
+app.use(helmet({
+  contentSecurityPolicy: false,
+  crossOriginResourcePolicy: { policy: 'cross-origin' },
+  crossOriginEmbedderPolicy: false
 }));
 
 app.use(express.json({ limit: '10mb' }));
@@ -157,6 +173,11 @@ const authLimiter = createRateLimiter({
 
 if (RATE_LIMIT_DISABLED) {
   console.warn('⚠️  ⚠️  RATE LIMITING IS DISABLED (DISABLE_RATE_LIMIT=true in .env). FOR TESTING ONLY — remove it before any demo or deployment.  ⚠️  ⚠️');
+}
+
+// M8 (Phase 5 hardening): same testing escape hatch for the password-strength policy.
+if (process.env.DISABLE_PASSWORD_POLICY === 'true') {
+  console.warn('⚠️  ⚠️  PASSWORD STRENGTH POLICY IS DISABLED (DISABLE_PASSWORD_POLICY=true in .env). FOR TESTING ONLY — remove it before any demo or deployment.  ⚠️  ⚠️');
 }
 
 // ==========================================================================================================================================================================
@@ -329,6 +350,14 @@ app.use('/api/verify', verificationRoutes);
 // a logged-in user can only touch their OWN credentials/notifications.
 app.use('/api/wallet', requireAuth, walletRoutes);
 
+// M9 (Phase 5 hardening): global error safety-net. Controllers mostly use sendServerError directly,
+// but anything thrown/next'd that reaches here returns a sanitized response (generic message +
+// errorId) instead of leaking a stack trace to the client. Must be registered AFTER all routes.
+app.use((err, req, res, next) => {
+  if (res.headersSent) return next(err);
+  return sendServerError(res, err, 'UNHANDLED');
+});
+
 // ==========================================================================================================================================================================
 // HELPERS / SHUTDOWN
 // ==========================================================================================================================================================================
@@ -355,6 +384,7 @@ process.on('SIGINT', async () => {
 // ==========================================================================================================================================================================
 
 adminDashboardController.initExpiryCron(getContractAndGateway);
+adminDashboardController.initIntegrityCron(getContractAndGateway); // Phase 5 M13 — daily 8 AM integrity check + admin alerts
 
 module.exports = {
   getContractAndGateway

@@ -1,6 +1,7 @@
 const couchDB = require('../couchDB_service');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
+const { validatePasswordStrength, sendServerError } = require('../securityHelpers'); // Phase 5 Tier 2
 
 // M4 (Phase 5 hardening): a real bcrypt hash used ONLY to equalize response timing when an email
 // doesn't exist. Without this, "no such user" returns instantly while "wrong password" spends time
@@ -23,6 +24,12 @@ const authController = {
           success: false,
           message: 'Username, password, and email are required'
         });
+      }
+
+      // M8 (Phase 5 hardening): enforce password strength on registration.
+      const pwCheck = validatePasswordStrength(password);
+      if (!pwCheck.ok) {
+        return res.status(400).json({ success: false, message: pwCheck.message });
       }
 
       const normalizedEmail = String(email).trim().toLowerCase();
@@ -64,11 +71,7 @@ const authController = {
         userId: result.id
       });
     } catch (error) {
-      console.error('🔥 Registration error:', error);
-      return res.status(500).json({
-        success: false,
-        message: `Registration error: ${error.message}`
-      });
+      return sendServerError(res, error, 'REGISTER'); // M9
     }
   },
 
@@ -128,11 +131,7 @@ const authController = {
         }
       });
     } catch (error) {
-      console.error('Login error:', error);
-      return res.status(500).json({
-        success: false,
-        message: `Login error: ${error.message}`
-      });
+      return sendServerError(res, error, 'LOGIN'); // M9
     }
   },
 
@@ -156,13 +155,18 @@ const authController = {
         return res.status(401).json({ success: false, message: 'Invalid current password' });
       }
 
+      // M8 (Phase 5 hardening): the new password must meet the strength policy.
+      const pwCheck = validatePasswordStrength(newPassword);
+      if (!pwCheck.ok) {
+        return res.status(400).json({ success: false, message: pwCheck.message });
+      }
+
       const hashedNewPassword = await bcrypt.hash(newPassword, 10);
       await couchDB.updateUser(user._id, { password: hashedNewPassword });
 
       return res.status(200).json({ success: true, message: 'Password updated successfully' });
     } catch (error) {
-      console.error('Change password error:', error);
-      return res.status(500).json({ success: false, message: error.message });
+      return sendServerError(res, error, 'CHANGE-PASSWORD'); // M9
     }
   },
 
@@ -228,11 +232,89 @@ const authController = {
         }
       });
     } catch (error) {
-      console.error('Issuer login error:', error);
-      return res.status(500).json({
-        success: false,
-        message: error.message
-      });
+      return sendServerError(res, error, 'ISSUER-LOGIN'); // M9
+    }
+  },
+
+  // Bonus (Phase 5 Tier 2): ONE login endpoint that figures out user-vs-issuer server-side.
+  // LAYMAN (Tropang Ex): Dati, dalawang request ang login (subok-issuer muna, tapos subok-user) —
+  // kaya laging may "expected" na 401 sa console. Ngayon, iisang tawag na lang: tinitignan ng server
+  // kung user ka ba o issuer, tapos binibigay agad ang tamang token. Walang ingay na 401.
+  // TECHNICAL: Checks the users store, then the approved-issuers store. Reuses the M3/M4-hardened
+  // logic (JWT_SECRET required, generic credential-failure message + timing equalizer, status checks
+  // only after the password is verified). The old /api/auth/login (user-only) and /api/issuer/login
+  // remain as backward-compatible aliases.
+  unifiedLogin: async (req, res) => {
+    try {
+      const { email, password } = req.body;
+      if (!email || !password) {
+        return res.status(400).json({ success: false, message: 'Email and password are required' });
+      }
+
+      // 1) Regular user store.
+      const users = await couchDB.getAllUsers();
+      const user = users.find(u => u.email === email);
+      const userMatch = user ? await bcrypt.compare(password, user.password) : false;
+
+      if (user && userMatch) {
+        if (user.isActive === false) {
+          return res.status(403).json({ success: false, message: 'Your account has been disabled. Please contact administrator.' });
+        }
+        const token = jwt.sign(
+          { id: user._id, email: user.email, role: user.role || 'student' },
+          process.env.JWT_SECRET,
+          { expiresIn: '24h' }
+        );
+        const { password: _pw, ...userData } = user;
+        return res.status(200).json({
+          success: true,
+          accountType: 'user',
+          token,
+          user: { ...userData, name: user.username, role: user.role || 'student' }
+        });
+      }
+
+      // 2) Issuer store (only approved issuers can actually log in; status checked post-password).
+      const issuer = await couchDB.getIssuerByEmail(email);
+      const issuerMatch = issuer ? await bcrypt.compare(password, issuer.password) : false;
+
+      if (issuer && issuerMatch) {
+        if (issuer.status === 'disabled') {
+          return res.status(403).json({ success: false, message: 'Your issuer account has been disabled. Please contact administrator.' });
+        }
+        if (issuer.status !== 'approved') {
+          return res.status(403).json({ success: false, message: 'Your issuer account is not approved yet.' });
+        }
+        const token = jwt.sign(
+          { id: issuer._id, email: issuer.email, role: 'issuer', orgName: issuer.orgName },
+          process.env.JWT_SECRET,
+          { expiresIn: '24h' }
+        );
+        return res.status(200).json({
+          success: true,
+          accountType: 'issuer',
+          token,
+          user: {
+            id: issuer._id,
+            email: issuer.email,
+            role: 'issuer',
+            orgName: issuer.orgName,
+            contactName: issuer.contactName,
+            issuerType: issuer.issuerType || 'root'
+          }
+        });
+      }
+
+      // 3) No match. If neither store had this email, run a dummy compare so response timing is
+      //    uniform whether the account exists or not (M4 anti-enumeration).
+      if (!user && !issuer) {
+        await bcrypt.compare(password, DUMMY_BCRYPT_HASH);
+      }
+      console.warn(`[LOGIN] Failed unified login for "${email}"`);
+      return res.status(401).json({ success: false, message: 'Invalid email or password.' });
+
+    } catch (error) {
+      return sendServerError(res, error, 'LOGIN'); // M9
     }
   }
 };

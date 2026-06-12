@@ -109,6 +109,64 @@ function isMailerConfigured() {
     → SentMessageInfo { messageId: '<abc@gmail.com>', ... }
     → If SMTP_OVERRIDE_TO=chaincert.notify@gmail.com, physical delivery goes there instead.
 */
+/*
+  Function Name: renderEmail
+  LAYMAN (Tropang Ex): Binabalot nito ang laman ng email sa isang magandang, branded na "shell" —
+  may ChainCert header sa taas, malinis na puting container, at footer sa baba — para consistent
+  at presentable lahat ng email natin (hindi na yung plain text na mukhang spam).
+  TECHNICAL: Returns a full HTML document string with INLINE CSS (email clients strip <style> tags,
+  so everything must be inline). Pass a `heading` and the inner `bodyHtml`; this wraps them in the
+  ChainCert template. Light theme, mobile-friendly max-width.
+
+  PARAMS:
+  - heading  — the H1 line (optional).
+  - bodyHtml — the inner HTML content (already-built string).
+  - accent   — header bar color (optional, defaults to ChainCert purple).
+  RETURNS: full HTML document string.
+*/
+function renderEmail({ heading, bodyHtml, accent = '#6d28d9' }) {
+  return `<!DOCTYPE html>
+<html>
+  <body style="margin:0;padding:0;background:#f4f4f7;">
+    <div style="background:#f4f4f7;padding:24px 12px;font-family:Arial,Helvetica,sans-serif;">
+      <div style="max-width:600px;margin:0 auto;background:#ffffff;border-radius:12px;overflow:hidden;border:1px solid #e5e7eb;">
+        <div style="background:${accent};padding:18px 28px;">
+          <span style="color:#ffffff;font-size:20px;font-weight:bold;letter-spacing:0.5px;">&#9939; ChainCert</span>
+        </div>
+        <div style="padding:28px;">
+          ${heading ? `<h1 style="margin:0 0 16px;font-size:20px;color:#111827;">${heading}</h1>` : ''}
+          ${bodyHtml}
+        </div>
+        <div style="padding:14px 28px;background:#f9fafb;border-top:1px solid #e5e7eb;color:#6b7280;font-size:12px;line-height:1.5;">
+          This is an automated message from ChainCert &mdash; a blockchain-backed credential platform. Please do not reply to this email.
+        </div>
+      </div>
+    </div>
+  </body>
+</html>`;
+}
+
+/*
+  Function Name: renderOtpEmail
+  LAYMAN (Tropang Ex): Espesyal na template para sa 6-digit codes (reset password, profile access) —
+  malaki at madaling basahin ang code sa gitna.
+  TECHNICAL: Convenience wrapper over renderEmail for one-time-code emails.
+
+  PARAMS: { heading, intro, otp, note } — intro/note may contain inline HTML.
+  RETURNS: full HTML document string.
+*/
+function renderOtpEmail({ heading, intro, otp, note }) {
+  const bodyHtml = `
+    <p style="margin:0 0 18px;color:#374151;font-size:14px;line-height:1.6;">${intro}</p>
+    <div style="margin:0 0 18px;text-align:center;">
+      <div style="display:inline-block;background:#f3f0ff;border:1px dashed #6d28d9;border-radius:10px;padding:16px 30px;">
+        <span style="font-size:30px;font-weight:bold;letter-spacing:8px;color:#6d28d9;">${otp}</span>
+      </div>
+    </div>
+    <p style="margin:0;color:#6b7280;font-size:13px;line-height:1.6;">${note}</p>`;
+  return renderEmail({ heading, bodyHtml });
+}
+
 async function sendMail({ to, subject, html, text }) {
   const transporter = getTransporter();
 
@@ -128,4 +186,4 @@ async function sendMail({ to, subject, html, text }) {
   return info;
 }
 
-module.exports = { sendMail, isMailerConfigured };
+module.exports = { sendMail, isMailerConfigured, renderEmail, renderOtpEmail };

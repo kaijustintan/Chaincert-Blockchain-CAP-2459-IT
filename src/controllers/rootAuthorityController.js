@@ -1,4 +1,5 @@
 const couchDB = require('../couchDB_service');
+const { sendServerError } = require('../securityHelpers'); // Phase 5 Tier 2 (M9)
 
 const rootAuthorityController = {
   getPendingSubordinatesForRoot: async (req, res) => {
@@ -17,7 +18,7 @@ const rootAuthorityController = {
       return res.status(200).json({ success: true, data: rows, count: rows.length });
     } catch (error) {
       console.error('Error fetching pending subordinates for root:', error);
-      return res.status(500).json({ success: false, message: error.message });
+      return sendServerError(res, error, 'ROOT-AUTHORITY'); // M9
     }
   },
 
@@ -38,7 +39,7 @@ const rootAuthorityController = {
       });
     } catch (error) {
       console.error('Error fetching all subordinates for root:', error);
-      return res.status(500).json({ success: false, message: error.message });
+      return sendServerError(res, error, 'ROOT-AUTHORITY'); // M9
     }
   },
 
@@ -59,7 +60,7 @@ const rootAuthorityController = {
       });
     } catch (error) {
       console.error('Error fetching root-approved subordinates for root:', error);
-      return res.status(500).json({ success: false, message: error.message });
+      return sendServerError(res, error, 'ROOT-AUTHORITY'); // M9
     }
   },
 
@@ -80,7 +81,7 @@ const rootAuthorityController = {
       });
     } catch (error) {
       console.error('Error fetching root-rejected subordinates for root:', error);
-      return res.status(500).json({ success: false, message: error.message });
+      return sendServerError(res, error, 'ROOT-AUTHORITY'); // M9
     }
   },
 
@@ -101,7 +102,7 @@ const rootAuthorityController = {
       });
     } catch (error) {
       console.error('Error fetching approved subordinates for root:', error);
-      return res.status(500).json({ success: false, message: error.message });
+      return sendServerError(res, error, 'ROOT-AUTHORITY'); // M9
     }
   },
 
@@ -122,7 +123,7 @@ const rootAuthorityController = {
       });
     } catch (error) {
       console.error('Error fetching disabled subordinates for root:', error);
-      return res.status(500).json({ success: false, message: error.message });
+      return sendServerError(res, error, 'ROOT-AUTHORITY'); // M9
     }
   },
 
@@ -213,7 +214,7 @@ const rootAuthorityController = {
         return res.status(error.statusCode).json({ success: false, message: error.message });
       }
 
-      return res.status(500).json({ success: false, message: error.message });
+      return sendServerError(res, error, 'ROOT-AUTHORITY'); // M9
     }
   },
 
@@ -308,7 +309,7 @@ const rootAuthorityController = {
         return res.status(error.statusCode).json({ success: false, message: error.message });
       }
 
-      return res.status(500).json({ success: false, message: error.message });
+      return sendServerError(res, error, 'ROOT-AUTHORITY'); // M9
     }
   },
 
@@ -368,7 +369,7 @@ GetRootSubordinateLogsByRootAuthority: async (req, res, getContractAndGateway) =
 
   } catch (error) {
     console.error('Error fetching root subordinate logs by root authority:', error);
-    return res.status(500).json({ success: false, message: error.message });
+    return sendServerError(res, error, 'ROOT-AUTHORITY'); // M9
   } finally {
     try { if (gateway) await gateway.disconnect(); } catch (_) {}
   }
@@ -426,7 +427,7 @@ GetRootSubordinateApprovalLogsByRootAuthority: async (req, res, getContractAndGa
 
   } catch (error) {
     console.error('Error fetching root subordinate approval logs by root authority:', error);
-    return res.status(500).json({ success: false, message: error.message });
+    return sendServerError(res, error, 'ROOT-AUTHORITY'); // M9
   } finally {
     try { if (gateway) await gateway.disconnect(); } catch (_) {}
   }
@@ -484,7 +485,7 @@ GetRootSubordinateRejectionLogsByRootAuthority: async (req, res, getContractAndG
 
   } catch (error) {
     console.error('Error fetching root subordinate rejection logs by root authority:', error);
-    return res.status(500).json({ success: false, message: error.message });
+    return sendServerError(res, error, 'ROOT-AUTHORITY'); // M9
   } finally {
     try { if (gateway) await gateway.disconnect(); } catch (_) {}
   }

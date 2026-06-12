@@ -5,13 +5,17 @@ const authController = require('../controllers/authController');
 const accountController = require('../controllers/accountController');
 
 const router = express.Router();
-const upload = multer({ storage: multer.memoryStorage() });
+// M7 (Phase 5 hardening): cap upload size at 5 MB to prevent memory/disk-exhaustion DoS.
+// (Actual file-type validation by magic number happens in the controller via securityHelpers.)
+const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 5 * 1024 * 1024 } });
 
 // POST /api/auth/register - Register a new user account.
 router.post('/register', authController.register);
 
-// POST /api/auth/login - Authenticate a user account.
-router.post('/login', authController.login);
+// POST /api/auth/login - Unified login: resolves user-vs-issuer server-side in ONE request
+// (Bonus, Phase 5 Tier 2). The legacy user-only handler stays available via authController.login,
+// and /api/issuer/login remains as a backward-compatible alias.
+router.post('/login', authController.unifiedLogin);
 
 // GET /api/auth/user/:id - Fetch user profile details by user id.
 router.get('/user/:id', accountController.getUserInfo);

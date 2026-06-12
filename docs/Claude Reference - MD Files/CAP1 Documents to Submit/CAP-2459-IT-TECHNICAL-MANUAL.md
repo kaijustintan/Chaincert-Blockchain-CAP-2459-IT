@@ -801,10 +801,16 @@ The following are known limitations, trade-offs, and areas for improvement that 
 
 ### Security
 
-- JWT secret has a hardcoded fallback (`dev_secret_key`) if .env is missing. Production: remove fallback.
+> **Updated after Phase 5 security hardening (June 2026).** Items previously listed here are now
+> implemented: `JWT_SECRET` is **required** (the `dev_secret_key` fallback was removed — the server
+> refuses to start without it), and **rate limiting** is in place on the sensitive auth endpoints.
+> Additional Phase 5 measures: object-level authorization on wallet endpoints (BOLA fix), centralized
+> admin auth guards, login anti-enumeration, helmet security headers, file-upload magic-number
+> validation, a password-strength policy, centralized error handling, and a daily automated integrity
+> check with admin alerts. The remaining limitations:
+
 - CouchDB credentials hardcoded as `admin:adminpw` across all files. Production: use environment variables.
 - JWT tokens stored in `localStorage` (XSS-vulnerable). Production: migrate to httpOnly cookies.
-- No rate limiting on any endpoint. Production: add express-rate-limit.
 - All traffic over HTTP, not HTTPS. Production: add TLS termination.
 - Disabled users' JWT tokens remain valid up to 24 hours (no token blacklist).
 - Shared Fabric admin identity — no per-admin cryptographic attribution. Individual accountability via logged metadata.

@@ -22,11 +22,14 @@ The following are known limitations, trade-offs, and areas for improvement that 
 
 ### Security
 
-- JWT secret has a hardcoded fallback (`dev_secret_key`) if .env is missing. Production: remove fallback.
-- CouchDB credentials hardcoded as `admin:adminpw` across all files. Production: use environment variables.
-- JWT tokens stored in `localStorage` (XSS-vulnerable). Production: migrate to httpOnly cookies.
-- No rate limiting on any endpoint. Production: add express-rate-limit.
-- All traffic over HTTP, not HTTPS. Production: add TLS termination.
+> **Updated after the Phase 5 security hardening (June 2026).** Several items previously listed here are
+> now IMPLEMENTED — see §7.1 "Implemented Security Measures." In particular: `JWT_SECRET` is now
+> **required** (the `dev_secret_key` fallback was removed — server refuses to start without it), and
+> **rate limiting is in place** on the sensitive auth endpoints. The limitations that REMAIN:
+
+- CouchDB credentials hardcoded as `admin:adminpw` across all files. Production: use environment variables (deployment-layer / Tier 3).
+- JWT tokens stored in `localStorage` (XSS-vulnerable). Production: migrate to httpOnly cookies. (React's JSX escaping provides baseline XSS protection.)
+- All traffic over HTTP, not HTTPS. Production: add TLS termination (deployment-layer / Tier 3).
 - Disabled users' JWT tokens remain valid up to 24 hours (no token blacklist).
 - Shared Fabric admin identity — no per-admin cryptographic attribution. Individual accountability via logged metadata.
 
@@ -521,6 +524,23 @@ This section covers what IS implemented first, then acknowledged trade-offs.
 - Credential revocation notifications to holders
 - Status transition guards (prevent re-approving already approved issuers, etc.)
 
+#### Phase 5 Security Hardening (June 2026)
+
+A two-tier hardening pass driven by an AI-readable security checklist (`docs/Security Checklist/`):
+
+- **M1 — Object-level authorization (BOLA/IDOR fix):** wallet endpoints derive the owner from the JWT (`req.user.id`), not a client-supplied URL id, so a logged-in user can only read/modify their OWN credentials & notifications.
+- **M2 — Centralized auth guards:** `/api/wallet` requires authentication; `/api/admin` requires an admin token (root-authority routes stay `role: 'issuer'`). Closed a gap where admin listing endpoints had no auth check.
+- **M3 — Fail-closed JWT secret:** the `dev_secret_key` fallback was removed; the server refuses to boot without `JWT_SECRET`.
+- **M4 — Login anti-enumeration:** one generic "Invalid email or password" for all credential failures, with a dummy bcrypt compare to equalize response timing (no user-enumeration oracle).
+- **M5 — Rate limiting:** per-IP limiter on login / forgot-password / reset, plus a persisted per-account OTP-request counter (3 / 10 min). Toggle-able via `DISABLE_RATE_LIMIT` for testing.
+- **M6 — Security headers (helmet):** X-Frame-Options, nosniff, Referrer-Policy, etc. on API responses.
+- **M7 — File-upload hardening:** 5 MB size cap + magic-number content validation (real bytes, not the client-claimed type). Profile pictures PNG/JPG; issuer documents PDF-only.
+- **M8 — Password-strength policy:** min 10 chars + common-password blocklist at every set-password point. Toggle-able via `DISABLE_PASSWORD_POLICY` for testing.
+- **M9 — Centralized error handling:** 500s return a generic message + correlation `errorId`; full detail stays in server logs only (no stack/DB/infra leakage).
+- **Unified login endpoint:** one `POST /api/auth/login` resolves user-vs-issuer server-side.
+- **M13 — Daily integrity-check cron:** automatic 8 AM (Asia/Manila) CouchDB↔blockchain integrity check; posts the result to the shared admin notification bell and emails all admins when issues are found.
+- **HTML transactional emails:** branded HTML templates for OTP, approval, and integrity-alert emails.
+
 ### 7.2 Security Questions
 
 #### Q: Is Fabric identity tied to the admin account?
@@ -664,9 +684,12 @@ Questions most likely to cause difficulty if unprepared. Each includes the attac
 
 ### Q: Your JWT secret has a hardcoded fallback of 'dev_secret_key'. What happens if .env is missing?
 
-`sdk-server-fixed.js` line 17: `process.env.JWT_SECRET || 'dev_secret_key'`. If `.env` isn't loaded, anyone who knows that string can forge any JWT token. This is a prototype configuration — in production, the fallback would be removed and the server would refuse to start without a proper secret.
+> **NOTE (Phase 5, fixed):** This has been remediated. The `dev_secret_key` fallback was removed in M3.
+> `sdk-server-fixed.js` now checks for `JWT_SECRET` at startup and **calls `process.exit(1)` if it is
+> missing or empty** — the server refuses to start without a real secret. Token-signing uses only
+> `process.env.JWT_SECRET`.
 
-> **Defense Answer:** "The hardcoded fallback is a development convenience that would be removed in production deployment. In production, the server should fail to start if JWT_SECRET is not properly configured. We acknowledge this as a prototype-specific configuration choice."
+> **Defense Answer:** "We addressed this in our security-hardening pass. The fallback secret was removed and the server now fails closed — it will not start without a properly configured `JWT_SECRET`, so there is no insecure default to exploit."
 
 ### Q: Your CouchDB credentials are hardcoded as admin:adminpw across every file. How do you manage database security?
 
@@ -688,9 +711,13 @@ Nothing prevents it at the governance level — admin has full control. However:
 
 ### Q: You have no rate limiting on any endpoint. What stops brute-force attacks?
 
-No rate limiter middleware exists in `sdk-server-fixed.js`. Express doesn't rate-limit by default. In production, express-rate-limit or similar middleware would be added to login, registration, OTP verification, and verification endpoints.
+> **NOTE (Phase 5, fixed):** Rate limiting is now implemented (M5). `sdk-server-fixed.js` applies a
+> per-IP limiter (10 attempts / 15 min) to `/api/auth/login`, `/api/issuer/login`,
+> `/api/auth/forgot-password`, and `/api/auth/reset-password`, returning HTTP 429 over the cap.
+> Separately, `forgotPassword` enforces a persisted per-account OTP counter (3 requests / 10 min).
+> Both can be temporarily disabled for testing via `DISABLE_RATE_LIMIT`.
 
-> **Defense Answer:** "Rate limiting is not implemented in the current prototype. In production, we would add rate-limiting middleware on authentication, OTP, and public verification endpoints to prevent brute-force attacks."
+> **Defense Answer:** "We added rate limiting in our hardening pass — a per-IP limiter on the login, password-reset, and OTP endpoints, plus a per-account cap on reset-code requests. Brute-force and OTP-spam attempts are throttled with HTTP 429."
 
 ### Q: Everything runs on HTTP, not HTTPS. JWT tokens and passwords travel in plaintext.
 
@@ -818,7 +845,7 @@ The system supports multiple deployment models: platform (current), hybrid (node
 - Blockchain does not prevent bad input ("garbage in").
 - System is not fully trustless.
 - Advanced Fabric governance/privacy features are not fully utilized.
-- No rate limiting, no HTTPS, no token revocation in prototype.
+- No HTTPS and no token revocation in the local prototype (rate limiting is now implemented — see Phase 5 §7.1).
 - Single orderer node = single point of failure.
 - All infrastructure on one machine = no genuine redundancy.
 

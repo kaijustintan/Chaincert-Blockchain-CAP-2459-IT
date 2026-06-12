@@ -127,6 +127,7 @@ The ChainCert backend server is implemented using Node.js and Express and runs w
 |---|---|
 | `bcryptjs` | Secure password hashing for user accounts |
 | `jsonwebtoken` | Implements JSON Web Token authentication for API access |
+| `helmet` | Sets protective HTTP security headers on API responses (clickjacking, MIME-sniffing, referrer policy, etc.) — added in the Phase 5 security hardening (M6) |
 
 ### File Upload Handling
 
@@ -165,8 +166,21 @@ Run the following commands in the backend directory:
 
 ```bash
 cd ~/chaincert-api
-npm install express cors dotenv bcryptjs jsonwebtoken multer nodemailer node-cron dockerode fabric-network fabric-ca-client
+npm install express cors dotenv helmet bcryptjs jsonwebtoken multer nodemailer node-cron dockerode fabric-network fabric-ca-client
 ```
+
+### Backend Environment Variables (`~/chaincert-api/.env`)
+
+The backend reads the following variables from its `.env` file (Ubuntu only — **not** committed to git). Added/changed during the Phase 5 security hardening:
+
+| Variable | Required? | Purpose |
+|---|---|---|
+| `JWT_SECRET` | **Required** | Secret used to sign JWTs. The server **refuses to start** without it (the old `dev_secret_key` fallback was removed in M3). Generate with `openssl rand -hex 48`. |
+| `SMTP_USER` | For email | Gmail address used to send system emails (OTP, approval, integrity alerts). |
+| `SMTP_APP_PASSWORD` | For email | Gmail app password for `SMTP_USER`. |
+| `SMTP_OVERRIDE_TO` | Optional (demo) | If set, ALL outgoing email is redirected to this single inbox (useful when demo accounts use fake addresses). Remove for production. |
+| `DISABLE_RATE_LIMIT` | Optional (test) | `true` bypasses all rate limiting (M5). **Testing only** — a loud startup warning prints while on; remove before demo/production. |
+| `DISABLE_PASSWORD_POLICY` | Optional (test) | `true` bypasses the password-strength policy (M8). **Testing only** — loud startup warning; remove before demo/production. |
 
 ## 6. Chaincode (Smart Contract) Dependencies
 

@@ -16,6 +16,8 @@
 - `enrollChaincertAdmin.js`
 - `authenticationService.js`
 - `couchDB_service.js`
+- `mailerService.js`
+- `securityHelpers.js`
 - `setup_Wallet_DLSU.js`
 - `setup_Wallet_DLSU_Subordinate_INNOCENCIO.js`
 - `setup_Wallet_DLSU_Subordinate_LASALLECOMPUTERSOCIETY.js`
@@ -104,6 +106,12 @@ cp "/mnt/c/Users/kaita/OneDrive/Desktop/CAP-2459-IT-AFTER-RESET/src/services/aut
 
 # couchDB_service.js
 cp "/mnt/c/Users/kaita/OneDrive/Desktop/CAP-2459-IT-AFTER-RESET/backend/couchDB_service.js" ~/chaincert-api/couchDB_service.js
+
+# mailerService.js
+cp "/mnt/c/Users/kaita/OneDrive/Desktop/CAP-2459-IT-AFTER-RESET/backend/mailerService.js" ~/chaincert-api/mailerService.js
+
+# securityHelpers.js
+cp "/mnt/c/Users/kaita/OneDrive/Desktop/CAP-2459-IT-AFTER-RESET/backend/securityHelpers.js" ~/chaincert-api/securityHelpers.js
 
 # setupWallet_DLSU.js
 cp "/mnt/c/Users/kaita/OneDrive/Desktop/CAP-2459-IT-AFTER-RESET/backend/node_creation/dlsu/setupWallet_DLSU.js" ~/chaincert-api/setup_Wallet_DLSU.js

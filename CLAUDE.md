@@ -164,6 +164,20 @@ Auth: tokens live in localStorage.token on the client; backend treats absence of
 Roles: student (holder), issuer (root or subordinate), admin, verifier. Plus the chaincode-level chaincert-admin Fabric identity used by the API for system-level invokes.
 When in doubt about layout: read docs/DIRECTORY - Ubuntu.txt and docs/Claude Reference - MD Files/DIRECTORY_-_Windows.md for the authoritative directory tree on each side.
 
+Phase 4 analytics/reports — investigation done June 2026; MVS defined, NOT YET CODED
+Panel tracker items S4/IMP7. Adviser Sir Danny directive: end-user-first (Holder → Verifier → Issuer → Admin), processed interpreted insights, not raw tables. Full GATE findings in project memory (project-phase4-analytics.md).
+Key facts — do NOT re-investigate:
+- Verification logging EXISTS AND IS WIRED: verifierDashboard → logVerificationOnChain → POST /api/credentials/:credentialId/log-verification → LogVerification chaincode. Stores credentialId, holderID, credentialName, issuerID, verifierName, verifierEmail, result, invokerMSP, blockchain timestamp. GetAllVerificationLogs / GetVerificationLogById are both exposed at /api/verify/verification-logs.
+- Not-found gap FIXED (2026-06-12): src/pages/verifierDashboard.js catch block now also logs status:'not_found' on 404 responses so forgery/fraud attempts appear in analytics.
+- Verifier identity is SELF-REPORTED (unauth'd name+email). Do not build trust-dependent analytics on it.
+- view_logs / performance_logs: DO NOT EXIST. Future Work only.
+- runIntegrityCheck results already surfaced in admin integrity modal (Phase 5 M13). Integrity-Check Insight = already done; mention as bonus in Final Doc.
+- MVS = 4 reports, NO chaincode redeploy, NO new CouchDB collections.
+MVS reports: (1) Holder — Personal Credential Health (client-side, studentDashboard loaded data), (2) Verifier — Verification Result Summary (GetAllVerificationLogs), (3) Issuer — Issuance Performance (CouchDB issued_credentials), (4) Admin — Suspicious Activity Insight (rule-based flags; revocation-spike logic queries issued_credentials by issuer+timestamp, NOT the decision logs which track issuer status changes only).
+Remaining 15 reports → documented as Future Work in Final Document (covers tracker item D2 limitations/recommendations).
+Blockchain-specific report ideas (panel-impressive, use these): Credential Provenance Timeline (Get_CredentialTemplateOrIssuedCredentialHistory), Verification Proof Trail (GetAllVerificationLogs filtered per credential).
+Demo sparseness: only DLSU + INNOCENCIO + LASALLECOMPUTERSOCIETY provisioned. Plan a seeding script for demo verifications. Mockup fake issuers (AWS, Google, Mapúa) must be labeled "illustrative."
+
 Phase 5 security hardening (implemented June 2026 — these were FIXED; do not re-flag as holes)
 Two batches landed. Per-measure exploit/fix/test detail is in the session handoffs; short version:
 - Tier 1: M1 fixed BOLA/IDOR on wallet endpoints (ownership derived from req.user.id, not the URL id); M2 added centralized auth guards — /api/wallet requires auth, /api/admin requires auth + admin role (root-authority routes stay role:'issuer'); M3 made the JWT secret fail-closed (app refuses to boot without JWT_SECRET — the dev_secret_key fallback is GONE); M4 made login failures uniform + timing-equalized (anti-enumeration); M5 added rate limiting (per-IP limiter on login/forgot/reset + per-account OTP counter).

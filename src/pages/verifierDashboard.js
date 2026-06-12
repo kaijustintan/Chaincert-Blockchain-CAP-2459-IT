@@ -97,6 +97,20 @@ export default function VerifierDashboard() {
         err.response?.data?.reason ||
         err.message ||
         "Verification failed";
+      // Log not-found attempts on-chain so fraud/forgery attempts appear in analytics (Report 6)
+      if (err.response?.status === 404) {
+        try {
+          await apiService.logVerificationOnChain(
+            query,
+            verifierName,
+            verifierEmail,
+            JSON.stringify({ valid: false, reason: 'Credential not found', status: 'not_found', source: 'not_found' })
+          );
+          console.log('[VERIFY] Not-found attempt logged on-chain');
+        } catch (logErr) {
+          console.warn('[VERIFY] Not-found log failed (non-fatal):', logErr.message);
+        }
+      }
       setResult({ error: errorMsg });
       setError(errorMsg);
     } finally {

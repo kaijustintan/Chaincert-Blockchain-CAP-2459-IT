@@ -34,6 +34,8 @@ import DonutChart from "../components/analytics/DonutChart";
 import TrendBars from "../components/analytics/TrendBars";
 import InterpretationBox from "../components/analytics/InterpretationBox";
 import { computeIssuance, computeRevocationAudit, COLORS as ANALYTICS_COLORS } from "../components/analytics/analytics";
+import { AppShell, Sidebar, Button } from "../components/ui";
+import { LayoutDashboard, FilePlus, Award, Ban, List, BarChart3, Receipt, Building2 } from "lucide-react";
 
 export default function IssuerDashboard() {
   // - polo: get current issuer type to hide subordinate sections for subordinate issuers
@@ -748,15 +750,21 @@ export default function IssuerDashboard() {
   // -------------------------------------------------------------------
   // CSS-CHANGE: Card definitions for home view - polo
   // -------------------------------------------------------------------
-  const navCards = [
-    { id: "create", icon: "📝", title: "Create Template", desc: "Design and publish credential templates", color: "#667eea" },
-    { id: "issue", icon: "🎓", title: "Issue Credential", desc: "Assign credentials to recipients", color: "#8b5cf6" },
-    { id: "revoke", icon: "🚫", title: "Revoke Credential", desc: "Revoke issued credentials", color: "#ef4444" },
-    { id: "viewall", icon: "📋", title: "View Credentials", desc: "View all templates, issued, revoked, expired", color: "#f59e0b" },
-    { id: "history", icon: "🧾", title: "Credential History", desc: "View blockchain audit trail", color: "#f59e0b" },
-    { id: "analytics", icon: "📊", title: "Issuance Performance", desc: "Issuance totals, by type, and monthly trend", color: "#06b6d4" },
-    ...(!isSubordinate ? [{ id: "subordinates", icon: "🏢", title: "Subordinates", desc: "Manage subordinate issuers & logs", color: "#22c55e" }] : []),
+  const navItems = [
+    { key: "home", label: "Dashboard", icon: LayoutDashboard },
+    { key: "create", label: "Templates", icon: FilePlus },
+    { key: "issue", label: "Issue", icon: Award },
+    { key: "revoke", label: "Revoke", icon: Ban },
+    { key: "viewall", label: "All Credentials", icon: List },
+    { key: "analytics", label: "Performance", icon: BarChart3 },
+    { key: "history", label: "History", icon: Receipt },
+    ...(!isSubordinate ? [{ key: "subordinates", label: "Subordinates", icon: Building2 }] : []),
   ];
+
+  const handleSidebarSelect = (key) => {
+    if (key === "history") navigate("/issuer/history");
+    else openDashboardView(key);
+  };
 
   // -------------------------------------------------------------------
   // RENDER
@@ -766,14 +774,25 @@ export default function IssuerDashboard() {
       {/* Toast */}
       <AppToast show={toast.show} message={toast.message} type={toast.type} />
 
+      <AppShell
+        sidebar={
+          <Sidebar
+            title="Issuer"
+            subtitle={displayName}
+            items={navItems}
+            activeKey={activeView}
+            onSelect={handleSidebarSelect}
+          />
+        }
+      >
       {/* ============================================================
-          HOME VIEW — Card Grid Navigation
+          DASHBOARD OVERVIEW
           ============================================================ */}
       {activeView === "home" && (
         <>
-          <div className="issuer-home-header">
-            <h2>Issuer Dashboard</h2>
-            <p className="issuer-home-subtitle">Welcome back, {displayName}</p>
+          <div className="issuer-page-head">
+            <h1>Dashboard</h1>
+            <p>Welcome back, {displayName}</p>
           </div>
 
           {/* Stats row */}
@@ -798,20 +817,10 @@ export default function IssuerDashboard() {
             )}
           </div>
 
-          {/* Card grid */}
-          <div className="issuer-nav-grid">
-            {navCards.map((card) => (
-              <button
-                key={card.id}
-                className="issuer-nav-card"
-                onClick={() => card.id === "history" ? navigate("/issuer/history") : openDashboardView(card.id)}
-              >
-                <div className="nav-card-icon" style={{ background: `${card.color}22`, color: card.color, borderColor: `${card.color}44` }}>{card.icon}</div>
-                <h3>{card.title}</h3>
-                <p>{card.desc}</p>
-                <span className="nav-card-arrow">→</span>
-              </button>
-            ))}
+          {/* Quick actions */}
+          <div className="issuer-quick-actions">
+            <Button icon={FilePlus} onClick={() => openDashboardView("create")}>Create template</Button>
+            <Button variant="secondary" icon={Award} onClick={() => openDashboardView("issue")}>Issue credential</Button>
           </div>
         </>
       )}
@@ -821,7 +830,6 @@ export default function IssuerDashboard() {
           ============================================================ */}
       {activeView === "create" && (
         <>
-          <button className="btn-back-home" onClick={goHome}>← Back to Dashboard</button>
           <h2>Create Credential Templates</h2>
 
           <div style={{ margin: "20px 0" }}>
@@ -837,7 +845,7 @@ export default function IssuerDashboard() {
               <div className="filter-group"><label>Sort by:</label><select value={templateSortBy} onChange={(e) => setTemplateSortBy(e.target.value)} className="filter-select"><option value="newest">Most Recent</option><option value="oldest">Oldest First</option><option value="name-asc">Name A-Z</option><option value="name-desc">Name Z-A</option></select></div>
             </div>
             {filteredTemplates.length === 0 ? (
-              <div className="no-results"><p>{templateOptions.length === 0 ? "📭 No credential templates found. Create your first template!" : "❌ No templates match your filters."}</p></div>
+              <div className="no-results"><p>{templateOptions.length === 0 ? "No credential templates found. Create your first template." : "No templates match your filters."}</p></div>
             ) : (
               <table className="template-table">
                 <thead><tr><th>Name</th><th>Type</th><th>Template ID</th><th>Description</th><th>Skills</th><th>Visibility</th><th>Created Date</th></tr></thead>
@@ -867,26 +875,25 @@ export default function IssuerDashboard() {
           ============================================================ */}
       {activeView === "issue" && (
         <>
-          <button className="btn-back-home" onClick={goHome}>← Back to Dashboard</button>
           <h2>Issue Credentials</h2>
 
           <div style={{ margin: "20px 0" }}>
             <button onClick={openIssueModal} className="action-btn issue-btn">+ Issue Credential</button>
-            {noTemplateError && <div className="no-template-warning">⚠️ {noTemplateError}</div>}
+            {noTemplateError && <div className="no-template-warning">{noTemplateError}</div>}
           </div>
 
           {/* Filter Section */}
           <div className="filter-section">
-            <h3>🔍 Filter & Sort Credentials</h3>
+            <h3>Filter &amp; sort</h3>
             <div className="filter-row">
               <div className="filter-group">
                 <label htmlFor="sortBy">Sort By:</label>
                 <select id="sortBy" value={sortBy} onChange={(e) => setSortBy(e.target.value)} className="filter-select">
-                  <option value="issuedDate-desc">📅 Most Recent</option>
-                  <option value="issuedDate-asc">📅 Oldest</option>
-                  <option value="expiryDate-desc">⏰ Latest Expiry</option>
-                  <option value="expiryDate-asc">⏰ Expiring Soonest</option>
-                  <option value="credentialType-asc">🏆 Type (A-Z)</option>
+                  <option value="issuedDate-desc">Most recent</option>
+                  <option value="issuedDate-asc">Oldest</option>
+                  <option value="expiryDate-desc">Latest expiry</option>
+                  <option value="expiryDate-asc">Expiring soonest</option>
+                  <option value="credentialType-asc">Type (A–Z)</option>
                 </select>
               </div>
               <div className="filter-group">
@@ -900,9 +907,9 @@ export default function IssuerDashboard() {
                 <label htmlFor="filterStatus">Status:</label>
                 <select id="filterStatus" value={filterStatus} onChange={(e) => setFilterStatus(e.target.value)} className="filter-select">
                   <option value="all">All Status</option>
-                  <option value="issued">✅ Issued</option>
-                  <option value="revoked">❌ Revoked</option>
-                  <option value="expired">⚠️ Expired</option>
+                  <option value="issued">Issued</option>
+                  <option value="revoked">Revoked</option>
+                  <option value="expired">Expired</option>
                 </select>
               </div>
             </div>
@@ -911,7 +918,7 @@ export default function IssuerDashboard() {
 
           {/* Issued credentials table */}
           {issueTableCredentials.length === 0 ? (
-            <div className="no-results"><p>{credentials.length === 0 ? "📭 No credentials found. Issue your first credential!" : "❌ No credentials match your filters."}</p></div>
+            <div className="no-results"><p>{credentials.length === 0 ? "No credentials found. Issue your first credential." : "No credentials match your filters."}</p></div>
           ) : (
             <div className="table-container">
               <table className="template-table">
@@ -927,7 +934,7 @@ export default function IssuerDashboard() {
                         <td>{credential.credentialType || "N/A"}</td>
                         <td>{credential.issuedDate ? new Date(credential.issuedDate).toLocaleDateString() : "N/A"}</td>
                         <td><span className={`status-badge status-${credential.status || "active"}`}>{credential.status || "active"}</span></td>
-                        <td>{credential.visibility === "public" ? "🌐 Public" : "🔒 Private"}</td>
+                        <td>{credential.visibility === "public" ? "Public" : "Private"}</td>
                         <td>{getRevokedDateValue(credential) ? new Date(getRevokedDateValue(credential)).toLocaleDateString() : "—"}</td>
                         <td>{credential.expiryDate ? new Date(credential.expiryDate).toLocaleDateString() : "N/A"}</td>
                         <td className="actions-cell">
@@ -956,7 +963,6 @@ export default function IssuerDashboard() {
           ============================================================ */}
       {activeView === "viewall" && (
         <>
-          <button className="btn-back-home" onClick={goHome}>← Back to Dashboard</button>
           <h2>View Credentials</h2>
           <div className="table-container">
             <div className="filter-row">
@@ -965,7 +971,7 @@ export default function IssuerDashboard() {
               <div className="filter-group"><label>Sort by:</label><select value={viewAllSortBy} onChange={(e) => setViewAllSortBy(e.target.value)} className="filter-select"><option value="newest">Most Recent</option><option value="oldest">Oldest First</option><option value="name-asc">Name A-Z</option><option value="name-desc">Name Z-A</option></select></div>
             </div>
             {filteredAllCredentialRows.length === 0 ? (
-              <div className="no-results"><p>❌ No credentials match your filters.</p></div>
+              <div className="no-results"><p>No credentials match your filters.</p></div>
             ) : (
               <table className="template-table">
                 <thead><tr><th>Name</th><th>Type</th><th>Status</th><th>Holder Name</th><th>Visibility</th><th>Created Date</th><th>Expiry Date</th><th>Actions</th></tr></thead>
@@ -976,10 +982,10 @@ export default function IssuerDashboard() {
                       <td>{row.type}</td>
                       <td><span className={`status-badge status-${String(row.status || row.rowType).toLowerCase()}`} style={{ color: getStatusColor(row.status || row.rowType), borderColor: `${getStatusColor(row.status || row.rowType)}55` }}>{row.status}</span></td>
                       <td>{row.holderName}</td>
-                      <td>{row.source?.visibility === "public" ? "🌐 Public" : "🔒 Private"}</td>
+                      <td>{row.source?.visibility === "public" ? "Public" : "Private"}</td>
                       <td>{row.createdDate ? new Date(row.createdDate).toLocaleDateString() : "N/A"}</td>
                       <td>{row.expiryDate ? new Date(row.expiryDate).toLocaleDateString() : "—"}</td>
-                      <td className="actions-cell">{row.rowType === "template" ? <><button type="button" className="action-btn" onClick={() => handleToggleTemplateVisibility(row.source)} style={{ padding: "4px 12px", fontSize: "11px", background: row.source?.visibility === "public" ? "rgba(34,197,94,0.12)" : "rgba(245,158,11,0.12)", color: row.source?.visibility === "public" ? "#22c55e" : "#f59e0b", border: "1px solid rgba(255,255,255,0.18)", borderRadius: "999px", cursor: "pointer" }}>{row.source?.visibility === "public" ? "🌐 Public" : "🔒 Private"}</button>{renderDescriptionCell(row.source, false)}</> : <><button type="button" className="action-btn" onClick={() => handleSeeHistory(row.source)} style={{ padding: "6px 10px", fontSize: "12px", background: "rgba(139,92,246,0.15)", color: "#a78bfa", border: "1px solid rgba(255,255,255,0.18)", borderRadius: "8px", cursor: "pointer" }}>View BC History</button>{renderDescriptionCell(row.source, false)}</>}</td>
+                      <td className="actions-cell">{row.rowType === "template" ? <><button type="button" className="action-btn" onClick={() => handleToggleTemplateVisibility(row.source)} style={{ padding: "4px 12px", fontSize: "11px", background: row.source?.visibility === "public" ? "rgba(34,197,94,0.12)" : "rgba(245,158,11,0.12)", color: row.source?.visibility === "public" ? "#22c55e" : "#f59e0b", border: "1px solid rgba(255,255,255,0.18)", borderRadius: "999px", cursor: "pointer" }}>{row.source?.visibility === "public" ? "Public" : "Private"}</button>{renderDescriptionCell(row.source, false)}</> : <><button type="button" className="action-btn" onClick={() => handleSeeHistory(row.source)} style={{ padding: "6px 10px", fontSize: "12px", background: "rgba(139,92,246,0.15)", color: "#a78bfa", border: "1px solid rgba(255,255,255,0.18)", borderRadius: "8px", cursor: "pointer" }}>View BC History</button>{renderDescriptionCell(row.source, false)}</>}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -994,24 +1000,23 @@ export default function IssuerDashboard() {
           ============================================================ */}
       {activeView === "revoke" && (
         <>
-          <button className="btn-back-home" onClick={goHome}>← Back to Dashboard</button>
           <h2>Revoke Credentials</h2>
 
           <div style={{ margin: "20px 0" }}>
-            <button onClick={openRevokeModal} className="action-btn revoke-btn">🚫 Revoke a Credential</button>
+            <button onClick={openRevokeModal} className="action-btn revoke-btn">Revoke a credential</button>
           </div>
 
           {/* Revokable credentials list */}
           <div className="table-container">
             <h3 style={{ marginBottom: 12 }}>Issued Credentials ({revokableCount} revokable)</h3>
             <div className="filter-row">
-              <div className="filter-group"><label>Status:</label><select value={revokeStatusFilter} onChange={(e) => setRevokeStatusFilter(e.target.value)} className="filter-select"><option value="all">All Status</option><option value="issued">✅ Issued</option><option value="revoked">❌ Revoked</option></select></div>
+              <div className="filter-group"><label>Status:</label><select value={revokeStatusFilter} onChange={(e) => setRevokeStatusFilter(e.target.value)} className="filter-select"><option value="all">All Status</option><option value="issued">Issued</option><option value="revoked">Revoked</option></select></div>
               <div className="filter-group"><label>Type:</label><select value={revokeTypeFilter} onChange={(e) => setRevokeTypeFilter(e.target.value)} className="filter-select"><option value="all">All Types</option>{getUniqueCredentialTypes().map((type) => <option key={type} value={type}>{type}</option>)}</select></div>
               <div className="filter-group"><label>Search:</label><input value={revokeSectionSearch} onChange={(e) => setRevokeSectionSearch(e.target.value)} placeholder="Search by credential, holder, or ID..." className="filter-select" /></div>
               <div className="filter-group"><label>Sort by:</label><select value={revokeSortBy} onChange={(e) => setRevokeSortBy(e.target.value)} className="filter-select"><option value="newest">Most Recent</option><option value="oldest">Oldest First</option><option value="name-asc">Name A-Z</option><option value="name-desc">Name Z-A</option><option value="status-asc">Status A-Z</option></select></div>
             </div>
             {revokeTableCredentials.length === 0 ? (
-              <div className="no-results"><p>{credentials.length === 0 ? "📭 No issued credentials found." : "❌ No credentials match your filters."}</p></div>
+              <div className="no-results"><p>{credentials.length === 0 ? "No issued credentials found." : "No credentials match your filters."}</p></div>
             ) : (
               <table className="template-table">
                 <thead><tr><th>Credential ID</th><th>Name</th><th>Holder</th><th>Type</th><th>Status</th><th>Issued Date</th><th>Revoked Date</th><th>Actions</th></tr></thead>
@@ -1060,7 +1065,6 @@ export default function IssuerDashboard() {
           ============================================================ */}
       {activeView === "subordinates" && !isSubordinate && (
         <>
-          <button className="btn-back-home" onClick={goHome}>← Back to Dashboard</button>
           <h2>Subordinate Management</h2>
 
           {/* My Subordinates */}
@@ -1168,7 +1172,6 @@ export default function IssuerDashboard() {
           ============================================================ */}
       {activeView === "analytics" && (
         <>
-          <button className="btn-back-home" onClick={goHome}>← Back to Dashboard</button>
           <h2>Issuance Performance</h2>
 
           <div className="issuer-stats-row" style={{ marginTop: 16 }}>
@@ -1238,6 +1241,7 @@ export default function IssuerDashboard() {
           <InterpretationBox>{revAudit.summary}</InterpretationBox>
         </>
       )}
+      </AppShell>
 
       {/* ============================================================
           ALL MODALS (preserved exactly from original)
@@ -1383,7 +1387,7 @@ export default function IssuerDashboard() {
               {issueError && <div className="form-error">{issueError}</div>}
               {issueConfirmStep && (
                 <div style={{ marginTop:"12px",padding:"12px 14px",borderRadius:"10px",background:"rgba(245,158,11,0.10)",border:"1px solid rgba(245,158,11,0.35)",color:"#f59e0b",fontSize:"13px",lineHeight:1.6 }}>
-                  ⚠️ <strong>Are you sure?</strong> This will issue the credential to the selected recipient. The action is recorded on the blockchain and cannot be undone.
+                  <strong>Are you sure?</strong> This will issue the credential to the selected recipient. The action is recorded on the blockchain and cannot be undone.
                 </div>
               )}
               <div className="form-actions">
@@ -1415,7 +1419,7 @@ export default function IssuerDashboard() {
           <div className="modal">
             <h3>Revoke Credential</h3>
             <p style={{ margin:"6px 0 12px",fontSize:"13px",color:"#f59e0b",opacity:0.9 }}>
-              ⚠️ This action is <strong>irreversible</strong> and will be permanently recorded on the blockchain.
+              This action is <strong>irreversible</strong> and will be permanently recorded on the blockchain.
             </p>
             <form onSubmit={handleRevokeSubmit}>
               <div className="modal-section-heading">Select a holder then choose the credential to revoke.</div>
@@ -1600,7 +1604,7 @@ export default function IssuerDashboard() {
               <button onClick={closeIssuerDocumentsModal} type="button" style={{ background: "transparent", border: "1px solid rgba(255,255,255,0.25)", color: "#fff", borderRadius: "8px", padding: "8px 10px", cursor: "pointer" }}>✕ Close</button>
             </div>
             {issuerDocumentsLoading ? <div style={{ padding: "16px", opacity: 0.9 }}>Loading submitted documents...</div>
-            : issuerDocumentsError ? <div style={{ padding: "12px", background: "rgba(255,0,0,0.12)", border: "1px solid rgba(255,0,0,0.25)", borderRadius: "10px", color: "#ffd2d2" }}>❌ {issuerDocumentsError}</div>
+            : issuerDocumentsError ? <div style={{ padding: "12px", background: "rgba(255,0,0,0.12)", border: "1px solid rgba(255,0,0,0.25)", borderRadius: "10px", color: "#ffd2d2" }}>{issuerDocumentsError}</div>
             : issuerDocuments.length > 0 ? (
               <div className="table-wrapper"><table className="template-table"><thead><tr><th>Doc Type</th><th>File Name</th><th>MIME Type</th><th>Size</th><th>Actions</th></tr></thead><tbody>
                 {issuerDocuments.map((doc, idx) => (
@@ -1627,7 +1631,7 @@ export default function IssuerDashboard() {
             <p style={{ opacity: 0.85, marginTop: "6px" }}>Please provide a rejection reason.</p>
             <form onSubmit={submitRejectSubordinate}>
               <textarea value={rejectSubordinateReason} onChange={(e) => setRejectSubordinateReason(e.target.value)} placeholder="Enter rejection reason..." rows={4} style={{ width: "100%", borderRadius: "10px", padding: "10px", marginTop: "10px", background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.12)", color: "#fff", outline: "none", resize: "vertical", boxSizing: "border-box" }} />
-              {rejectSubordinateError && <div style={{ color: "#ff6b6b", marginTop: "10px" }}>❌ {rejectSubordinateError}</div>}
+              {rejectSubordinateError && <div style={{ color: "#ff6b6b", marginTop: "10px" }}>{rejectSubordinateError}</div>}
               <div style={{ display: "flex", gap: "10px", justifyContent: "flex-end", marginTop: "14px" }}>
                 <button type="button" onClick={closeRejectSubordinateModal} disabled={rejectSubordinateLoading} style={{ padding: "10px 14px", borderRadius: "10px", border: "1px solid rgba(255,255,255,0.18)", background: "transparent", color: "#fff", cursor: rejectSubordinateLoading ? "not-allowed" : "pointer", opacity: rejectSubordinateLoading ? 0.65 : 1, fontWeight: 700 }}>Cancel</button>
                 <button type="submit" disabled={rejectSubordinateLoading} style={{ padding: "10px 14px", borderRadius: "10px", border: "1px solid rgba(255,255,255,0.18)", background: "rgba(255,107,107,0.12)", color: "#ff6b6b", cursor: rejectSubordinateLoading ? "not-allowed" : "pointer", opacity: rejectSubordinateLoading ? 0.65 : 1, fontWeight: 800 }}>{rejectSubordinateLoading ? "Rejecting..." : "Confirm Reject"}</button>

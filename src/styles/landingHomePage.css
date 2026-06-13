@@ -428,3 +428,45 @@
   font-weight: 600;
   box-shadow: 0 8px 28px rgba(0,0,0,0.2);
 }
+
+/* ===== PHASE 2e — refined dark override (token-driven) =====
+   Marketing page keeps ONE static accent gradient on the hero title; everything
+   else flattens to the design system (no animated text, calmer glows, flat cards). */
+.landing-container { font-family: var(--font-ui); color: var(--text); }
+.landing-hero { background: var(--bg); }
+.hero-glow-left { background: rgba(124, 92, 252, 0.35) !important; opacity: 0.22 !important; }
+.hero-glow-right { background: rgba(91, 141, 239, 0.28) !important; opacity: 0.2 !important; }
+.hero-badge { background: var(--accent-weak); border: 1px solid transparent; color: var(--accent-strong); border-radius: var(--radius-pill); }
+.hero-title { color: var(--text); }
+/* Static accent gradient (animation removed) — the one allowed flourish */
+.hero-gradient {
+  background: var(--accent-gradient) !important;
+  -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+  animation: none !important;
+}
+.hero-desc, .section-subtitle, .feature-card p, .why-card p, .cta-card p { color: var(--text-muted); }
+.section-title, .cta-card h2, .feature-card h3, .why-card h4 { color: var(--text); }
+
+.hero-btn { border-radius: var(--radius-control); font-family: inherit; transition: background var(--motion-fast) var(--ease), border-color var(--motion-fast) var(--ease); }
+.hero-btn-primary { background: var(--accent) !important; box-shadow: none !important; }
+.hero-btn-primary:hover { background: var(--accent-strong) !important; transform: none !important; box-shadow: none !important; }
+.hero-btn-secondary { background: var(--surface-2) !important; border: 1px solid var(--border-strong) !important; color: var(--text) !important; }
+.hero-btn-secondary:hover { background: var(--surface-3) !important; border-color: var(--text-subtle) !important; color: var(--text) !important; transform: none !important; }
+
+.hero-metrics { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-card); }
+.metric-num { color: var(--text); }
+.metric-label { color: var(--text-muted); letter-spacing: var(--tracking-label); }
+.metric-divider { background: var(--border-strong); }
+
+/* Flat cards */
+.feature-card, .why-card, .cta-card, .trust-card {
+  background: var(--surface) !important; border: 1px solid var(--border) !important;
+  border-radius: var(--radius-card) !important; box-shadow: var(--shadow-sm) !important;
+}
+.feature-card::before, .cta-card::before { display: none !important; }
+.feature-card { transition: transform var(--motion-fast) var(--ease), border-color var(--motion-fast) var(--ease), box-shadow var(--motion-fast) var(--ease); }
+.feature-card:hover, .why-card:hover {
+  transform: translateY(-2px) !important; border-color: var(--border-strong) !important;
+  box-shadow: var(--shadow-md) !important;
+}
+.why-num { color: var(--accent-weak); }

@@ -1,8 +1,17 @@
 // Verifier dashboard for credential verification
+/*
+  UI/UX REDESIGN (refined dark, Phase 2b):
+  - Focused single-column verification tool. The verify input is the hero; the result
+    is a strong, formal verdict (colored banner + lucide icon + bold label) — not an emoji.
+  - Adopts shared primitives (Card, Button, Field, Input, StatusPill).
+  - All verification + on-chain logging logic is unchanged.
+*/
 import React, { useState, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import "../styles/verifierDashboard.css";
 import apiService from "../services/apiService";
+import { Card, Button, Field, Input, StatusPill } from "../components/ui";
+import { ShieldCheck, CheckCircle2, XCircle, AlertTriangle, Search } from "lucide-react";
 
 const VALID_EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
 
@@ -12,7 +21,7 @@ export default function VerifierDashboard() {
   const [query, setQuery] = useState("");
   const [result, setResult] = useState(null);
 
-  // verification logs section removed 
+  // verification logs section removed
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
@@ -49,9 +58,9 @@ export default function VerifierDashboard() {
     }
   }, [query, hasVerifierInfo]);
 
-  // fetchVerificationLogs and its useEffect removed 
+  // fetchVerificationLogs and its useEffect removed
 
-  // saveVerificationLogOnChain removed 
+  // saveVerificationLogOnChain removed
 
   // Handle verification via credential ID
   const handleVerify = async () => {
@@ -152,145 +161,127 @@ export default function VerifierDashboard() {
   // If walang verifier info pa, show prereq form card
   if (!hasVerifierInfo) {
     return (
-      <div className="verifier-container">
-        <div className="verifier-form-card">
-          <h1>Verifier Information</h1>
-          <p>Please enter your details before accessing the verification dashboard.</p>
+      <div className="verifier-page verifier-gate">
+        <Card className="verifier-gate-card">
+          <div className="verifier-head-icon"><ShieldCheck size={26} aria-hidden="true" /></div>
+          <h1 className="verifier-gate-title">Verifier Information</h1>
+          <p className="verifier-gate-sub">Enter your details before accessing the verification dashboard.</p>
 
-          <form onSubmit={handleVerifierFormSubmit} className="verifier-form">
-            <div className="form-group">
-              <label>Your Name</label>
-              <input
-                type="text"
-                placeholder="e.g. Kai Verifier"
-                value={verifierName}
-                onChange={(e) => setVerifierName(e.target.value)}
-              />
-            </div>
-
-            <div className="form-group">
-              <label>Your Email</label>
-              <input
-                type="email"
-                placeholder="e.g. verifier@example.com"
-                value={verifierEmail}
-                onChange={(e) => setVerifierEmail(e.target.value)}
-              />
-            </div>
+          <form onSubmit={handleVerifierFormSubmit}>
+            <Field label="Your Name" htmlFor="vName">
+              <Input id="vName" type="text" placeholder="e.g. Kai Verifier" value={verifierName} onChange={(e) => setVerifierName(e.target.value)} />
+            </Field>
+            <Field label="Your Email" htmlFor="vEmail">
+              <Input id="vEmail" type="email" placeholder="e.g. verifier@example.com" value={verifierEmail} onChange={(e) => setVerifierEmail(e.target.value)} />
+            </Field>
 
             {verifierFormError && (
-              <div className="error-banner">
-                <p>❌ {verifierFormError}</p>
-              </div>
+              <div className="verifier-banner is-error"><XCircle size={16} aria-hidden="true" /><span>{verifierFormError}</span></div>
             )}
 
-            <div className="form-actions">
-              <button type="submit" className="primary">
-                Continue to Verifier Dashboard
-              </button>
-            </div>
+            <Button as="button" type="submit" variant="primary" style={{ width: '100%', marginTop: 8 }}>
+              Continue to dashboard
+            </Button>
           </form>
-        </div>
+        </Card>
       </div>
     );
   }
 
   // Normal dashboard view once verifier info is set
-  const normalizedStatus = String(result?.status || '').toLowerCase();
-  const renderedStatusLabel = normalizedStatus === 'issued' || normalizedStatus === 'active'
-    ? 'Active'
-    : normalizedStatus === 'revoked'
-      ? 'Revoked'
-      : normalizedStatus === 'expired'
-        ? 'Expired'
-        : normalizedStatus
-          ? normalizedStatus.charAt(0).toUpperCase() + normalizedStatus.slice(1)
-          : 'Unknown';
-
   return (
-    <div className="verifier-container">
-      <h1>Verifier Dashboard</h1>
-      <p>Enter a credential ID or code to verify authenticity.</p>
-
-      {/* Small reminder of who is logged as verifier */}
-      <div className="verifier-summary">
-        <span>
-          Verifier: <strong>{verifierName}</strong> ({verifierEmail})
-        </span>
-        <button
-          className="link-button"
-          onClick={() => {
-            // allow changing verifier info
-            setHasVerifierInfo(false);
-          }}
-        >
-          Change
-        </button>
+    <div className="verifier-page">
+      <div className="verifier-head">
+        <div className="verifier-head-icon"><ShieldCheck size={26} aria-hidden="true" /></div>
+        <h1>Verify a Credential</h1>
+        <p>Enter a credential ID or code to check its authenticity on the blockchain.</p>
       </div>
 
-      {/* Search box */}
-      <div className="verify-controls">
+      {/* Who is verifying */}
+      <div className="verifier-summary">
+        <span>Verifying as <strong>{verifierName}</strong> · {verifierEmail}</span>
+        <button className="verifier-change" onClick={() => setHasVerifierInfo(false)}>Change</button>
+      </div>
+
+      {/* Hero search */}
+      <div className="verifier-searchbar">
+        <Search size={18} aria-hidden="true" />
         <input
           type="text"
-          placeholder="Enter credential ID or code..."
+          placeholder="Enter credential ID or code…"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           onKeyPress={handleKeyPress}
           disabled={loading}
         />
-        <button onClick={handleVerify} disabled={loading}>
-          {loading ? "Verifying..." : "Verify"}
-        </button>
+        <Button onClick={handleVerify} loading={loading} disabled={loading}>Verify</Button>
       </div>
 
-      {/* Error message */}
-      {error && (
-        <div className="error-banner">
-          <p>❌ {error}</p>
-        </div>
+      {/* Inline error */}
+      {error && !result && (
+        <div className="verifier-banner is-error"><XCircle size={16} aria-hidden="true" /><span>{error}</span></div>
       )}
 
-      {/*log status banners removed*/}
-
-      {/* Verification result */}
+      {/* Could-not-verify verdict */}
       {result && result.error && (
-        <div className="verify-result error">
-          <p className="error">{result.error}</p>
-        </div>
-      )}
-
-      {result && !result.error && (
-        <div className={`verify-result ${result.isValid ? "success" : "error"}`}>
-          <h3 style={{ textAlign: 'left' }}>{result.isValid ? "✅ Credential Valid" : "⚠️ Credential Invalid"}</h3>
-          {result.reason && <p style={{ textAlign: 'left', marginBottom: '16px' }}><strong>Reason:</strong> {result.reason}</p>}
-
-          <div className="verify-detail-card" style={{ flexDirection: 'row', alignItems: 'flex-start', textAlign: 'left' }}>
-            {result.badgeImage && (
-              <div className="verify-badge-image">
-                <img src={result.badgeImage} alt="Badge" style={{ width: '150px', height: '150px', objectFit: 'contain', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.1)', background: 'rgba(255,255,255,0.03)', padding: '8px' }} />
-              </div>
-            )}
-            <div className="verify-detail-rows" style={{ textAlign: 'left' }}>
-              {result.credentialName && <p style={{ fontSize: '20px', fontWeight: 700, marginBottom: '12px' }}>{result.credentialName}</p>}
-              <p><strong>Issued To:</strong> {result.holderName || 'N/A'}</p>
-              <p><strong>Issued By:</strong> {result.issuerName || 'N/A'}</p>
-              <p><strong>Status:</strong>{' '}<span style={{ color: normalizedStatus === 'issued' || normalizedStatus === 'active' ? '#22c55e' : normalizedStatus === 'revoked' ? '#ef4444' : normalizedStatus === 'expired' ? '#f59e0b' : 'inherit', fontWeight: 600 }}>{renderedStatusLabel}</span></p>
-              {result.expiryDate && <p><strong>Expires:</strong> {new Date(result.expiryDate).toLocaleDateString()}</p>}
-
-              <div style={{ marginTop: '16px', paddingTop: '12px', borderTop: '1px solid rgba(255,255,255,0.08)' }}>
-                <p style={{ fontSize: '11px', opacity: 0.5, wordBreak: 'break-all', fontFamily: 'monospace' }}>
-                  Credential ID: {result.credentialID || 'N/A'}
-                </p>
-                <p style={{ fontSize: '11px', opacity: 0.5, marginTop: '4px' }}>
-                  Verified via: {result.sources?.primarySource || 'unknown'} • {result.verifiedAt ? new Date(result.verifiedAt).toLocaleString() : 'Unknown time'}
-                </p>
-              </div>
+        <div className="verifier-verdict is-invalid">
+          <div className="verifier-verdict-head">
+            <XCircle size={28} aria-hidden="true" />
+            <div>
+              <h2>Could not verify</h2>
+              <p>{result.error}</p>
             </div>
           </div>
         </div>
       )}
 
-      {/*verification logs section removed*/}
+      {/* Result verdict */}
+      {result && !result.error && (
+        <div className={`verifier-verdict ${result.isValid ? "is-valid" : "is-invalid"}`}>
+          <div className="verifier-verdict-head">
+            {result.isValid ? <CheckCircle2 size={28} aria-hidden="true" /> : <AlertTriangle size={28} aria-hidden="true" />}
+            <div>
+              <h2>{result.isValid ? "Credential Valid" : "Credential Invalid"}</h2>
+              {result.reason && <p>{result.reason}</p>}
+            </div>
+          </div>
+
+          <div className="verifier-result-body">
+            {result.badgeImage && (
+              <div className="verifier-badge">
+                <img src={result.badgeImage} alt="" />
+              </div>
+            )}
+            <div className="verifier-detail-list">
+              {result.credentialName && <h3 className="verifier-cred-name">{result.credentialName}</h3>}
+
+              <div className="verifier-detail-row">
+                <span className="verifier-detail-label">Issued to</span>
+                <span className="verifier-detail-value">{result.holderName || 'N/A'}</span>
+              </div>
+              <div className="verifier-detail-row">
+                <span className="verifier-detail-label">Issued by</span>
+                <span className="verifier-detail-value">{result.issuerName || 'N/A'}</span>
+              </div>
+              <div className="verifier-detail-row">
+                <span className="verifier-detail-label">Status</span>
+                <span className="verifier-detail-value"><StatusPill status={result.status} /></span>
+              </div>
+              {result.expiryDate && (
+                <div className="verifier-detail-row">
+                  <span className="verifier-detail-label">Expires</span>
+                  <span className="verifier-detail-value">{new Date(result.expiryDate).toLocaleDateString()}</span>
+                </div>
+              )}
+
+              <div className="verifier-meta">
+                <p>Credential ID: <span className="verifier-mono">{result.credentialID || 'N/A'}</span></p>
+                <p>Verified via {result.sources?.primarySource || 'unknown'} · {result.verifiedAt ? new Date(result.verifiedAt).toLocaleString() : 'Unknown time'}</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

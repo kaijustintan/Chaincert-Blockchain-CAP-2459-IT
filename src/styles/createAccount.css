@@ -748,3 +748,49 @@
   color: #b0adc0;
   font-size: 13px;
 }
+
+/* ===== PHASE 2e — refined dark override (token-driven) ===== */
+.create-account-wrapper { background: var(--bg); color: var(--text); font-family: var(--font-ui); }
+.register-brand, .form-brand {
+  background: none !important; -webkit-text-fill-color: var(--text) !important;
+  color: var(--text) !important; animation: none !important; font-weight: var(--fw-bold);
+}
+.register-heading, .form-card-header h2 { color: var(--text); }
+.register-subtitle, .form-subtitle, .form-hint { color: var(--text-muted); }
+.role-button {
+  background: var(--surface) !important; border: 1px solid var(--border) !important;
+  border-radius: var(--radius-card) !important; font-family: inherit;
+  transition: transform var(--motion-fast) var(--ease), border-color var(--motion-fast) var(--ease), box-shadow var(--motion-fast) var(--ease);
+}
+.role-button::before { display: none !important; }
+.role-button:hover { transform: translateY(-2px) !important; border-color: var(--border-strong) !important; box-shadow: var(--shadow-md) !important; }
+.role-icon { color: var(--accent); margin-bottom: var(--s3); display: flex; justify-content: center; }
+.role-button h3 { color: var(--text); }
+.role-button p { color: var(--text-muted); }
+.btn-return-login { background: transparent; border: 1px solid var(--border-strong); color: var(--text); border-radius: var(--radius-control); font-family: inherit; }
+.btn-return-login:hover { background: var(--surface-2); color: var(--text); border-color: var(--border-strong); box-shadow: none; transform: none; }
+.form-card { background: var(--surface) !important; border: 1px solid var(--border) !important; border-radius: var(--radius-card) !important; box-shadow: var(--shadow-md) !important; }
+.form-card::before { background: var(--accent) !important; }
+.input-group label { color: var(--text-muted); }
+.input-group input, .input-group select {
+  background: var(--surface-3) !important; border: 1px solid var(--border-strong) !important;
+  border-radius: var(--radius-control) !important; color: var(--text) !important; font-family: inherit;
+}
+.input-group input:focus, .input-group select:focus { border-color: var(--border-accent) !important; box-shadow: var(--focus-ring) !important; background: var(--surface-3) !important; }
+.form-section-title { color: var(--text); border-bottom: 1px solid var(--border); }
+.form-error { background: var(--danger-weak); border: 1px solid transparent; border-left: 3px solid var(--danger); color: var(--danger); border-radius: var(--radius-control); }
+.btn-primary { background: var(--accent) !important; border-radius: var(--radius-control) !important; box-shadow: none !important; font-family: inherit; }
+.btn-primary::after { display: none !important; }
+.btn-primary:hover:not(:disabled) { background: var(--accent-strong) !important; transform: none !important; box-shadow: none !important; }
+.btn-link { color: var(--accent-strong); font-family: inherit; }
+.success-icon-circle { background: var(--ok) !important; box-shadow: none !important; }
+.file-input-group input[type="file"] { background: var(--surface-3); border: 1px dashed var(--border-strong); color: var(--text-muted); border-radius: var(--radius-control); }
+.file-input-group input[type="file"]::-webkit-file-upload-button { background: var(--accent); color: var(--text-on-accent); border-radius: var(--radius-control); font-family: inherit; }
+.file-name-display { color: var(--ok); }
+.search-select-input, .searchable-select-wrapper .search-select-input { background: var(--surface-3) !important; border: 1px solid var(--border-strong) !important; border-radius: var(--radius-control) !important; color: var(--text) !important; font-family: inherit; }
+.searchable-select-wrapper .search-select-input:focus { border-color: var(--border-accent) !important; box-shadow: var(--focus-ring) !important; }
+.searchable-select-list { background: var(--surface-2) !important; border: 1px solid var(--border-strong) !important; border-radius: var(--radius-control) !important; }
+.searchable-select-item:hover { background: var(--accent-weaker) !important; }
+.searchable-item-name { color: var(--text); }
+.searchable-item-meta, .searchable-select-empty { color: var(--text-muted); }
+.document-description { color: var(--text-subtle); }

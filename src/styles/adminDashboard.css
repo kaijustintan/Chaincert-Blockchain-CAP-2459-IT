@@ -492,3 +492,154 @@
 .admin-notification-item-message { font-size: 13px; font-weight: 600; color: #f8fafc; line-height: 1.45; }
 .admin-notification-item-meta { font-size: 12px; color: #9ca3af; margin-top: 6px; }
 .admin-notification-item-time { font-size: 11px; color: #888; margin-top: 8px; }
+
+/* =====================================================
+   PHASE 2d — REFINED DARK OVERRIDE LAYER (token-driven)
+   Last in cascade; !important only to defeat gradient titles, neon glows, and the
+   pre-existing !important button gradients. Biggest fix: left-aligned tables.
+   ===================================================== */
+
+.admin-container {
+  padding: var(--s5);
+  font-family: var(--font-ui);
+  color: var(--text);
+  background: transparent;
+  max-width: 1320px;
+  margin: 0 auto;
+  animation: ccFadeIn var(--motion) var(--ease);
+}
+
+/* Header: title left, bell right */
+.admin-header-row { justify-content: space-between !important; margin-bottom: var(--s5); }
+.admin-notification-bell-wrap { position: relative !important; right: auto; top: auto; }
+
+/* Kill gradient titles */
+.admin-title, .admin-title h1, h1.admin-title,
+.tab-card h2 {
+  background: none !important;
+  -webkit-text-fill-color: var(--text) !important;
+  color: var(--text) !important;
+  animation: none !important;
+  text-align: left !important;
+  font-size: var(--fs-h1);
+  font-weight: var(--fw-semibold);
+  letter-spacing: -0.01em;
+}
+.tab-card h2 { font-size: var(--fs-h2); margin-bottom: var(--s2); }
+.tab-subtitle { color: var(--text-muted) !important; text-align: left !important; margin-left: 0 !important; font-size: var(--fs-small); }
+
+/* Stats */
+.admin-stats-grid { gap: var(--s3); margin-bottom: var(--s5); }
+.admin-stat-card {
+  background: var(--surface) !important; border: 1px solid var(--border) !important;
+  border-radius: var(--radius-card) !important; box-shadow: none !important;
+  align-items: flex-start !important; padding: var(--s4); animation: none !important;
+}
+.admin-stat-num { font-size: var(--fs-h1); color: var(--text); }
+.admin-stat-label { color: var(--text-muted); letter-spacing: var(--tracking-label); }
+.admin-stat-card.stat-green { border-left: 3px solid var(--ok); }
+.admin-stat-card.stat-green .admin-stat-num { color: var(--ok); }
+.admin-stat-card.stat-red { border-left: 3px solid var(--danger); }
+.admin-stat-card.stat-red .admin-stat-num { color: var(--danger); }
+.admin-stat-card.stat-amber { border-left: 3px solid var(--warn); }
+.admin-stat-card.stat-amber .admin-stat-num { color: var(--warn); }
+.admin-stat-card.stat-blue { border-left: 3px solid var(--info); }
+.admin-stat-card.stat-blue .admin-stat-num { color: var(--info); }
+.admin-stat-card.stat-purple { border-left: 3px solid var(--accent); }
+.admin-stat-card.stat-purple .admin-stat-num { color: var(--accent-strong); }
+
+/* Tab card / chart card */
+.tab-card, .admin-chart-card {
+  background: var(--surface) !important; border: 1px solid var(--border) !important;
+  border-radius: var(--radius-card) !important; box-shadow: var(--shadow-sm) !important;
+  backdrop-filter: none !important; animation: none !important;
+}
+.tab-card::before, .admin-chart-card::before { display: none !important; }
+.admin-chart-card h3 { color: var(--text); }
+
+/* Tables — LEFT-ALIGN + tokenize */
+.table-wrapper { border: 1px solid var(--border); border-radius: var(--radius-card); }
+.admin-table {
+  background: transparent !important; border: none !important; box-shadow: none !important; border-radius: 0 !important;
+}
+.admin-table th {
+  background: var(--surface-2) !important; color: var(--text-muted) !important;
+  text-align: left !important; font-size: var(--fs-label); letter-spacing: var(--tracking-label);
+  border-bottom: 1px solid var(--border-strong) !important; padding: 12px 16px;
+}
+.admin-table td {
+  text-align: left !important; color: var(--text); font-size: var(--fs-small);
+  border-bottom: 1px solid var(--border) !important; padding: 12px 16px;
+}
+.admin-table tbody tr:nth-child(odd),
+.admin-table tbody tr:nth-child(even) { background: transparent !important; }
+.admin-table tbody tr:hover { background: var(--accent-weaker) !important; }
+.admin-table tbody tr:hover td { color: var(--text); }
+.admin-table button {
+  background: var(--surface-2) !important; border: 1px solid var(--border-strong) !important;
+  color: var(--text) !important; border-radius: var(--radius-control) !important;
+}
+.admin-table button:hover { background: var(--surface-3) !important; box-shadow: none !important; transform: none !important; }
+
+/* Filters */
+.filter-select, .filter-input,
+.filter-item select, .filter-item input,
+.issuer-filter-row select {
+  background: var(--surface-3) !important; border: 1px solid var(--border-strong) !important;
+  border-radius: var(--radius-control) !important; color: var(--text) !important; font-family: inherit;
+}
+.filter-select:focus, .filter-input:focus,
+.filter-item select:focus, .filter-item input:focus,
+.issuer-filter-row select:focus { border-color: var(--border-accent) !important; box-shadow: var(--focus-ring) !important; }
+.filter-item label, .issuer-filter-row label { color: var(--text-muted); }
+.filter-select option, .filter-item select option, .issuer-filter-row select option { background: var(--surface-2); color: var(--text); }
+
+/* Tab-card buttons (generic) */
+.tab-card button {
+  background: var(--surface-2) !important; border: 1px solid var(--border-strong) !important;
+  color: var(--text) !important; border-radius: var(--radius-control) !important;
+}
+.tab-card button:hover { background: var(--surface-3) !important; box-shadow: none !important; transform: none !important; }
+
+/* Approve / reject / history action buttons */
+.btn-approve { background: var(--ok) !important; box-shadow: none !important; border-radius: var(--radius-control) !important; }
+.btn-reject { background: var(--danger) !important; box-shadow: none !important; border-radius: var(--radius-control) !important; }
+.btn-approve:hover, .btn-reject:hover { transform: none !important; filter: brightness(1.08); box-shadow: none !important; }
+.btn-history {
+  background: var(--surface-2) !important; border: 1px solid var(--border-strong) !important;
+  color: var(--text) !important; border-radius: var(--radius-control) !important;
+}
+.btn-history:hover { background: var(--surface-3) !important; color: var(--text) !important; border-color: var(--border-strong) !important; box-shadow: none !important; transform: none !important; }
+
+/* Badges */
+.badge { border-radius: var(--radius-pill); text-transform: capitalize; border: 1px solid transparent; }
+.badge.green { background: var(--ok-weak); color: var(--ok); }
+.badge.red { background: var(--danger-weak); color: var(--danger); }
+.badge.purple { background: var(--accent-weak); color: var(--accent-strong); }
+.badge.blue { background: var(--info-weak); color: var(--info); }
+.badge.gray { background: var(--surface-3); color: var(--text-muted); }
+.status-pending { color: var(--warn); }
+.status-approved { color: var(--ok); }
+
+/* Placeholder + section */
+.tab-placeholder { background: var(--surface); border: 1px dashed var(--border-strong); color: var(--text-muted); border-radius: var(--radius-card); }
+.issuer-section { background: var(--surface) !important; border: 1px solid var(--border) !important; border-radius: var(--radius-card) !important; }
+.section-count { background: var(--accent) !important; box-shadow: none !important; }
+.admin-message { background: var(--ok-weak); border: 1px solid transparent; border-left: 3px solid var(--ok); color: var(--ok); border-radius: var(--radius-control); }
+
+/* Notification bell + panel */
+.admin-notification-bell-btn {
+  background: var(--surface) !important; border: 1px solid var(--border) !important;
+  color: var(--text-muted) !important; border-radius: var(--radius-control) !important;
+  width: 40px !important; height: 40px !important; display: inline-flex; align-items: center; justify-content: center;
+}
+.admin-notification-bell-btn:hover, .admin-notification-bell-btn.open { background: var(--surface-2) !important; color: var(--text) !important; border-color: var(--border-strong) !important; }
+.admin-notification-badge { background: var(--danger); border: 2px solid var(--bg); min-width: 18px; height: 18px; }
+.admin-notification-panel { background: var(--surface-2); border: 1px solid var(--border-strong); border-radius: var(--radius-card); box-shadow: var(--shadow-lg); }
+.admin-notification-panel-header { border-bottom: 1px solid var(--border); }
+.admin-notification-panel-header h3 { color: var(--text); }
+.admin-notification-item { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-control); }
+.admin-notification-item.unread { border-left: 3px solid var(--accent); }
+.admin-notification-item-type { color: var(--text-muted); }
+.admin-notification-item-message { color: var(--text); }
+

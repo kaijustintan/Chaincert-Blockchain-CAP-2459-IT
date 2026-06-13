@@ -5,22 +5,19 @@
 /* [ OUTLINE ]
   =====================================================================
   FILE: studentDashboard.js
-  TECHNICAL: Student/user dashboard — displays credentials from CouchDB (wallet_user_credentials)
+  TECHNICAL: Student/user dashboard — displays credentials from CouchDB (wallet_user_credentials).
   TROPA: Personal credential wallet ng student. Dito niya makikita lahat ng credentials na na-issue sa kanya.
   =====================================================================
 
-  CHANGES FROM STATIC → DYNAMIC (// - polo):
-  - Removed MOCK_CREDENTIALS static array
-  - Added useEffect to fetch real credentials from CouchDB via apiService.Get_UserCredentials(holderID)
-  - holderID pulled from localStorage "user" object (same pattern as issuerDashboardPage.js)
-  - Added loading + error states
-  - UI: credential name only on cards (first sight), click → modal with full details + See History
-  - See History uses apiService.Get_CredentialHistory (same as admin dashboard)
-
-  NOTIFICATION CHANGES:
-  - Added notification bell button with unread badge
-  - Notifications now appear in a floating panel instead of inline in the main body
-  - Clicking a notification marks it as read and opens the related credential if found
+  UI/UX REDESIGN (refined dark, Phase 2a):
+  - Wallet-first IA: a lightweight segmented control (My Wallet / Insights) replaces the
+    old single long scroll. Default = Wallet (the holder's core job). Analytics demoted
+    to the Insights tab.
+  - Adopts the shared design-system primitives (Card, Button, Modal, StatusPill, EmptyState,
+    Spinner) from src/components/ui — all token-driven; no more bespoke per-page styling.
+  - De-emojified: lucide line icons replace 📊🔗🧬🎓🔔 etc.
+  - All data logic, fetching, and handlers below the render are unchanged from the dynamic
+    version; only presentation was reworked.
 */
 
 import React, { useState, useEffect, useMemo, useRef } from "react";
@@ -37,6 +34,11 @@ import {
   computeHolderVerificationInsights,
   computeProvenance,
 } from "../components/analytics/analytics";
+import { Card, Button, Modal, StatusPill, EmptyState } from "../components/ui";
+import {
+  Bell, CheckCircle2, XCircle, Clock, Wallet, Activity, ShieldCheck,
+  Download, ScrollText, Globe, Lock, Award, Search, Inbox, AlertTriangle, GitBranch,
+} from "lucide-react";
 
 // ==========================================================================================================================================================================
 // HELPERS
@@ -51,32 +53,18 @@ const formatDate = (iso) => {
   return d.toLocaleDateString();
 };
 
+/* Notification type → lucide icon + label + semantic tone (de-emojified). */
 const getNotificationTypeMeta = (notificationType) => {
   switch (notificationType) {
     case "credential_issued":
-      return { icon: "✅", label: "Issued" };
+      return { Icon: CheckCircle2, label: "Issued", tone: "ok" };
     case "credential_revoked":
-      return { icon: "❌", label: "Revoked" };
+      return { Icon: XCircle, label: "Revoked", tone: "danger" };
     case "credential_expired":
-      return { icon: "⏰", label: "Expired" };
+      return { Icon: Clock, label: "Expired", tone: "warn" };
     default:
-      return { icon: "🔔", label: "Notification" };
+      return { Icon: Bell, label: "Notification", tone: "neutral" };
   }
-};
-
-/*
-  StatusPill
-  Technical: Maps CouchDB status values to display pills
-  CouchDB uses "issued" but we display as "Active" for readability
-  // - polo
-*/
-const StatusPill = ({ status }) => {
-  const normalized = status === "issued" ? "active" : status;
-  return (
-    <span className={`status-pill ${normalized}`}>
-      {normalized.charAt(0).toUpperCase() + normalized.slice(1)}
-    </span>
-  );
 };
 
 // ==========================================================================================================================================================================
@@ -103,10 +91,11 @@ export default function StudentDashboard() {
   const notificationPanelRef = useRef(null);
 
   /* UI state */
+  const [tab, setTab] = useState("wallet"); // 'wallet' | 'insights'
   const [view, setView] = useState("cards");
   const [query, setQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
-  const [sortBy, setSortBy] = useState("newest"); 
+  const [sortBy, setSortBy] = useState("newest");
 
   /* Credential detail modal
      Technical: selectedCred holds the full CouchDB doc when user clicks a card
@@ -135,14 +124,8 @@ export default function StudentDashboard() {
 
   /*
     Technical:
-    On component mount, reads logged-in user from localStorage (same as issuerDashboardPage.js line 78)
-    then calls:
-      - apiService.Get_UserCredentials(holderID)
-      - apiService.getUserNotifications(holderID)
-      - apiService.getUnreadUserNotifications(holderID)
-
-    Tropang Ex:
-    Pagload ng dashboard, kunin agad yung credentials at notifications ni student.
+    On component mount, reads logged-in user from localStorage (same as issuerDashboardPage.js)
+    then calls Get_UserCredentials / getUserNotifications / getUnreadUserNotifications.
   */
   useEffect(() => {
     const fetchDashboardData = async () => {
@@ -269,7 +252,6 @@ export default function StudentDashboard() {
   const health = useMemo(() => computeHealth(credentials), [credentials]);
   /* Phase 4 NICE: actionable renewal list (which credentials, soonest-first) */
   const renewal = useMemo(() => computeExpirationAlerts(credentials), [credentials]);
-  const [showHealth, setShowHealth] = useState(true);
 
   /* Phase 4: Verification Insights — the holder's OWN verification logs (server-side filtered) */
   const [myVerifications, setMyVerifications] = useState([]);
@@ -290,12 +272,9 @@ export default function StudentDashboard() {
   // ── See History handler ────────────────────────────────────────────────────
 
   /*
-    Technical:
-    Same flow as admin dashboard "See History" button.
-    Uses apiService.Get_CredentialHistory(blockchainId)
-    blockchainId is stored as cred.blockchainId in wallet_user_credentials docs.
-
-    // - polo
+    Technical: Same flow as admin dashboard "See History".
+    Uses apiService.Get_CredentialHistory(blockchainId); blockchainId stored as
+    cred.blockchainId in wallet_user_credentials docs. // - polo
   */
   const handleSeeHistory = async (cred) => {
     try {
@@ -342,7 +321,6 @@ export default function StudentDashboard() {
         const templates = await apiService.Get_IssuerTemplatesByID(cred.issuerID);
 
         // extract templateId: first 3 underscore-separated parts of blockchainId
-        // e.g. cred_1772386809672_bjmh2b0hs_holderID_timestamp → cred_1772386809672_bjmh2b0hs
         const parts = (cred.blockchainId || "").split("_");
         const templateId = parts.slice(0, 3).join("_");
 
@@ -443,707 +421,513 @@ export default function StudentDashboard() {
 
   // ── Render ─────────────────────────────────────────────────────────────────
 
+  const hasCreds = !loading && !error && credentials.length > 0;
+
   return (
-    <div className="dashboard-container">
-      {/* CSS-CHANGE: Greeting section - polo */}
-      <div className="greeting-section">
-        <div className="greeting-header-row" ref={notificationPanelRef}>
-          <div className="greeting-text">
-            <h1>Welcome back, {displayName}</h1>
-            <p>Your credential wallet at a glance</p>
+    <div className="holder-page">
+      {/* ── Header ── */}
+      <header className="holder-head">
+        <div className="holder-head-text">
+          <h1 className="holder-title">Welcome back, {displayName}</h1>
+          <p className="holder-sub">View, manage, and share your verified credentials.</p>
+        </div>
+
+        <div className="holder-head-actions" ref={notificationPanelRef}>
+          <button
+            type="button"
+            className={`holder-bell ${notificationsOpen ? "is-open" : ""}`}
+            onClick={() => setNotificationsOpen((prev) => !prev)}
+            aria-label="Toggle notifications"
+          >
+            <Bell size={18} aria-hidden="true" />
+            {unreadCount > 0 && <span className="holder-bell-badge">{unreadCount}</span>}
+          </button>
+
+          {notificationsOpen && (
+            <div className="holder-notif-panel">
+              <div className="holder-notif-head">
+                <h3>Notifications</h3>
+                {unreadNotifications.length > 0 && (
+                  <button type="button" className="holder-notif-markall" onClick={handleMarkAllRead}>
+                    Mark all as read
+                  </button>
+                )}
+              </div>
+
+              {notificationsLoading && <div className="holder-notif-state">Loading notifications…</div>}
+              {!notificationsLoading && notificationsError && (
+                <div className="holder-notif-state is-error">{notificationsError}</div>
+              )}
+              {!notificationsLoading && !notificationsError && notifications.length === 0 && (
+                <div className="holder-notif-state">No notifications yet.</div>
+              )}
+
+              {!notificationsLoading && !notificationsError && notifications.length > 0 && (
+                <div className="holder-notif-list">
+                  {notifications.map((notif) => {
+                    const meta = getNotificationTypeMeta(notif.notificationType);
+                    const NotifIcon = meta.Icon;
+                    const safeCreatedAt = notif.createdAt || new Date().toISOString();
+                    return (
+                      <button
+                        key={notif._id}
+                        type="button"
+                        className={`holder-notif-item ${notif.read ? "is-read" : "is-unread"}`}
+                        onClick={() => handleNotificationClick(notif)}
+                      >
+                        <span className={`holder-notif-type holder-notif-type--${meta.tone}`}>
+                          <NotifIcon size={13} aria-hidden="true" /> {meta.label}
+                        </span>
+                        <span className="holder-notif-msg">
+                          {notif.message || "A new credential has been issued to you."}
+                        </span>
+                        <span className="holder-notif-meta">
+                          {notif.credentialName || "Credential"} • {notif.issuerName || notif.issuerId || "Issuer"}
+                        </span>
+                        <span className="holder-notif-time">
+                          {formatDate(safeCreatedAt)} • {notif.read ? "Read" : "Unread"}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      </header>
+
+      {/* ── Segmented tabs ── */}
+      <div className="holder-tabs" role="tablist">
+        <button
+          type="button"
+          role="tab"
+          aria-selected={tab === "wallet"}
+          className={tab === "wallet" ? "is-active" : ""}
+          onClick={() => setTab("wallet")}
+        >
+          <Wallet size={16} aria-hidden="true" /> My Wallet
+        </button>
+        <button
+          type="button"
+          role="tab"
+          aria-selected={tab === "insights"}
+          className={tab === "insights" ? "is-active" : ""}
+          onClick={() => setTab("insights")}
+        >
+          <Activity size={16} aria-hidden="true" /> Insights
+        </button>
+      </div>
+
+      {/* ══════════════════ WALLET TAB ══════════════════ */}
+      {tab === "wallet" && (
+        <section className="holder-section">
+          {/* Stat chips — clickable filters */}
+          {hasCreds && (
+            <div className="holder-stats">
+              <button
+                type="button"
+                className={`holder-stat-chip ${statusFilter === "all" ? "is-selected" : ""}`}
+                onClick={() => setStatusFilter("all")}
+              >
+                <span className="holder-stat-num">{stats.total}</span>
+                <span className="holder-stat-label">Total</span>
+              </button>
+              <button
+                type="button"
+                className={`holder-stat-chip tone-ok ${statusFilter === "active" ? "is-selected" : ""}`}
+                onClick={() => setStatusFilter("active")}
+              >
+                <span className="holder-stat-num">{stats.active}</span>
+                <span className="holder-stat-label">Active</span>
+              </button>
+              {stats.revoked > 0 && (
+                <button
+                  type="button"
+                  className={`holder-stat-chip tone-danger ${statusFilter === "revoked" ? "is-selected" : ""}`}
+                  onClick={() => setStatusFilter("revoked")}
+                >
+                  <span className="holder-stat-num">{stats.revoked}</span>
+                  <span className="holder-stat-label">Revoked</span>
+                </button>
+              )}
+              {stats.expired > 0 && (
+                <button
+                  type="button"
+                  className={`holder-stat-chip tone-warn ${statusFilter === "expired" ? "is-selected" : ""}`}
+                  onClick={() => setStatusFilter("expired")}
+                >
+                  <span className="holder-stat-num">{stats.expired}</span>
+                  <span className="holder-stat-label">Expired</span>
+                </button>
+              )}
+            </div>
+          )}
+
+          {/* Toolbar */}
+          <div className="holder-toolbar">
+            <div className="holder-search">
+              <Search size={16} aria-hidden="true" />
+              <input
+                type="text"
+                placeholder="Search by name, type, or issuer…"
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+              />
+            </div>
+
+            <select className="cc-input holder-toolbar-select" value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
+              <option value="all">All statuses</option>
+              <option value="active">Active</option>
+              <option value="expired">Expired</option>
+              <option value="revoked">Revoked</option>
+            </select>
+
+            <select className="cc-input holder-toolbar-select" value={sortBy} onChange={(e) => setSortBy(e.target.value)}>
+              <option value="newest">Most recent</option>
+              <option value="oldest">Oldest first</option>
+              <option value="az">Name A–Z</option>
+              <option value="za">Name Z–A</option>
+            </select>
+
+            <div className="holder-view-toggle">
+              <button className={view === "cards" ? "is-active" : ""} onClick={() => setView("cards")}>Cards</button>
+              <button className={view === "list" ? "is-active" : ""} onClick={() => setView("list")}>List</button>
+            </div>
+
+            {hasCreds && (
+              <Button variant="secondary" size="sm" icon={Download} onClick={() => exportAllCredentialsToPDF(credentials, displayName)}>
+                Export all
+              </Button>
+            )}
           </div>
 
-          <div className="notification-bell-wrap">
-            <button
-              type="button"
-              className={`notification-bell-btn ${notificationsOpen ? "open" : ""}`}
-              onClick={() => setNotificationsOpen((prev) => !prev)}
-              aria-label="Toggle notifications"
-            >
-              🔔
-              {unreadCount > 0 && (
-                <span className="notification-badge">{unreadCount}</span>
-              )}
-            </button>
+          {/* Content */}
+          <div className="holder-content">
+            {loading && (
+              <Card><p className="holder-state">Loading credentials…</p></Card>
+            )}
+            {!loading && error && (
+              <Card><p className="holder-state is-error">{error}</p></Card>
+            )}
+            {!loading && !error && filtered.length === 0 && (
+              <Card flush>
+                <EmptyState
+                  icon={Inbox}
+                  title={credentials.length === 0 ? "No credentials yet" : "No matches"}
+                  message={
+                    credentials.length === 0
+                      ? "Credentials issued to you will appear here."
+                      : "No credentials match your current filters."
+                  }
+                />
+              </Card>
+            )}
 
-            {notificationsOpen && (
-              <div className="notification-panel">
-                <div className="notification-panel-header">
-                  <h3>Notifications</h3>
-                  {unreadNotifications.length > 0 && (
-                    <button
-                      type="button"
-                      onClick={handleMarkAllRead}
-                      style={{ padding: "6px 14px", fontSize: "12px", background: "rgba(139,92,246,0.12)", color: "#a78bfa", border: "1px solid rgba(139,92,246,0.25)", borderRadius: "8px", cursor: "pointer" }}
-                    >
-                      Mark All as Read
-                    </button>
-                  )}
-                </div>
+            {!loading && !error && filtered.length > 0 && view === "cards" && (
+              <div className="holder-wallet-grid">
+                {filtered.map((cred) => (
+                  <Card key={cred._id} interactive className="holder-cred-card" onClick={() => handleCardClick(cred)}>
+                    {cred.badgeImage ? (
+                      <img src={cred.badgeImage} alt="" className="holder-cred-badge" />
+                    ) : (
+                      <div className="holder-cred-badge-fallback"><Award size={24} aria-hidden="true" /></div>
+                    )}
+                    <div className="holder-cred-name">{cred.credentialName}</div>
+                    <StatusPill status={cred.status} />
+                    {cred.issuerName && <p className="holder-cred-issuer">{cred.issuerName}</p>}
+                    {cred.savedToUserWalletAt && (
+                      <p className="holder-cred-date">Issued {formatDate(cred.savedToUserWalletAt)}</p>
+                    )}
+                  </Card>
+                ))}
+              </div>
+            )}
 
-                {notificationsLoading && (
-                  <div className="notification-panel-state">
-                    Loading notifications...
-                  </div>
-                )}
-
-                {!notificationsLoading && notificationsError && (
-                  <div className="notification-panel-state error">
-                    {notificationsError}
-                  </div>
-                )}
-
-                {!notificationsLoading &&
-                  !notificationsError &&
-                  notifications.length === 0 && (
-                    <div className="notification-panel-state">
-                      No notifications yet.
-                    </div>
-                  )}
-
-                {!notificationsLoading &&
-                  !notificationsError &&
-                  notifications.length > 0 && (
-                    <div className="notification-list">
-                      {notifications.map((notif) => {
-                        const notifType = getNotificationTypeMeta(
-                          notif.notificationType
-                        );
-                        const safeCreatedAt =
-                          notif.createdAt || new Date().toISOString();
-
-                        return (
-                          <button
-                            key={notif._id}
-                            type="button"
-                            className={`notification-item ${
-                              notif.read ? "read" : "unread"
-                            }`}
-                            onClick={() => handleNotificationClick(notif)}
-                          >
-                            <div className="notification-item-type">
-                              {notifType.icon} {notifType.label}
-                            </div>
-
-                            <div className="notification-item-message">
-                              {notif.message ||
-                                "A new credential has been issued to you."}
-                            </div>
-
-                            <div className="notification-item-meta">
-                              Credential: {notif.credentialName || "Credential"}
-                            </div>
-
-                            <div className="notification-item-meta">
-                              Issuer:{" "}
-                              {notif.issuerName || notif.issuerId || "Issuer"}
-                            </div>
-
-                            <div className="notification-item-time">
-                              {formatDate(safeCreatedAt)} •{" "}
-                              {notif.read ? "Read" : "Unread"}
-                            </div>
-                          </button>
-                        );
-                      })}
-                    </div>
-                  )}
+            {!loading && !error && filtered.length > 0 && view === "list" && (
+              <div className="cc-table-wrap">
+                <table className="cc-table">
+                  <thead>
+                    <tr>
+                      <th>Credential</th>
+                      <th>Issuer</th>
+                      <th>Date issued</th>
+                      <th>Status</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {filtered.map((cred) => (
+                      <tr key={cred._id} className="holder-row-clickable" onClick={() => handleCardClick(cred)}>
+                        <td>{cred.credentialName}</td>
+                        <td>{cred.issuerName || "N/A"}</td>
+                        <td>{formatDate(cred.savedToUserWalletAt)}</td>
+                        <td><StatusPill status={cred.status} /></td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
               </div>
             )}
           </div>
-        </div>
-      </div>
-
-      {/* Stats bar — clickable counters */}
-      {!loading && !error && credentials.length > 0 && (
-        <div className="stats-bar">
-          <div
-            className={`stat-item stat-clickable${statusFilter === "all" ? " stat-selected" : ""}`}
-            onClick={() => setStatusFilter("all")}
-            title="Show all credentials"
-          >
-            <span className="stat-number">{stats.total}</span>
-            <span className="stat-label">Total</span>
-          </div>
-
-          <div
-            className={`stat-item stat-active stat-clickable${statusFilter === "active" ? " stat-selected" : ""}`}
-            onClick={() => setStatusFilter("active")}
-            title="Show active credentials"
-          >
-            <span className="stat-number">{stats.active}</span>
-            <span className="stat-label">Active</span>
-          </div>
-
-          {stats.revoked > 0 && (
-            <div
-              className={`stat-item stat-revoked stat-clickable${statusFilter === "revoked" ? " stat-selected" : ""}`}
-              onClick={() => setStatusFilter("revoked")}
-              title="Show revoked credentials"
-            >
-              <span className="stat-number">{stats.revoked}</span>
-              <span className="stat-label">Revoked</span>
-            </div>
-          )}
-
-          {stats.expired > 0 && (
-            <div
-              className={`stat-item stat-expired stat-clickable${statusFilter === "expired" ? " stat-selected" : ""}`}
-              onClick={() => setStatusFilter("expired")}
-              title="Show expired credentials"
-            >
-              <span className="stat-number">{stats.expired}</span>
-              <span className="stat-label">Expired</span>
-            </div>
-          )}
-        </div>
+        </section>
       )}
 
-      {/* Phase 4: Personal Credential Health report */}
-      {!loading && !error && credentials.length > 0 && (
-        <div className="analytics-card" style={{ marginTop: 16 }}>
-          <div
-            className="analytics-collapse-header"
-            onClick={() => setShowHealth((v) => !v)}
-            title={showHealth ? "Hide" : "Show"}
-          >
-            <h3 style={{ margin: 0 }}>📊 Credential Health</h3>
-            <span aria-hidden="true">{showHealth ? "▾" : "▸"}</span>
-          </div>
-          {showHealth && (
-            <div style={{ marginTop: 14 }}>
-              <DonutChart
-                slices={health.slices}
-                centerValue={health.total}
-                centerLabel="Credentials"
-              />
-              <InterpretationBox>{health.summary}</InterpretationBox>
+      {/* ══════════════════ INSIGHTS TAB ══════════════════ */}
+      {tab === "insights" && (
+        <section className="holder-section holder-insights">
+          {loading && <Card><p className="holder-state">Loading insights…</p></Card>}
+          {!loading && error && <Card><p className="holder-state is-error">{error}</p></Card>}
+          {!loading && !error && credentials.length === 0 && (
+            <Card flush>
+              <EmptyState icon={Activity} title="No insights yet" message="Once you have credentials, health and verification insights will appear here." />
+            </Card>
+          )}
 
-              {/* Phase 4: safe-to-share fold — verifiers see LIVE ledger status, not a frozen PDF */}
-              <div className="info-message" style={{ marginTop: 10 }}>
-                <strong>🔎 Before you share:</strong>{" "}
-                {health.revoked > 0
-                  ? `${health.revoked} of your credentials are revoked — do NOT share these; a verifier will see them as invalid. `
-                  : ""}
-                {health.expiringSoon > 0
-                  ? `${health.expiringSoon} expire soon — if an employer checks after the expiry date, they'll see "expired." `
-                  : ""}
-                Anyone you share with sees your credential's live blockchain status at the moment they
-                check it — not the version you sent.
-              </div>
+          {hasCreds && (
+            <>
+              {/* Credential Health */}
+              <Card>
+                <CardHeaderRow icon={ShieldCheck} title="Credential Health" />
+                <DonutChart slices={health.slices} centerValue={health.total} centerLabel="Credentials" />
+                <InterpretationBox>{health.summary}</InterpretationBox>
 
-              {/* Phase 4 NICE: Expiration & Renewal Alerts — actionable list, soonest-first */}
-              {renewal.alerts.length > 0 && (
-                <div style={{ marginTop: 18 }}>
-                  <h4 style={{ margin: "0 0 10px", color: "#fff", fontSize: 14 }}>
-                    🔔 Renewal Alerts
-                  </h4>
-                  <div className="analytics-flag-list">
-                    {renewal.alerts.map((a, i) => {
-                      const expired = a.urgency === "expired";
-                      const critical = a.urgency === "critical";
-                      const pillColor = expired || critical ? "#f87171" : "#fbbf24";
-                      return (
-                        <div
-                          key={`${a.credentialName}-${i}`}
-                          className={`analytics-flag-row${expired ? " flagged" : ""}`}
-                        >
-                          <div>
-                            <div className="analytics-flag-issuer">{a.credentialName}</div>
-                            <div className="analytics-flag-reason">
-                              {a.issuerName}
-                              {a.credentialType ? ` • ${a.credentialType}` : ""}
+                <div className="holder-note">
+                  <AlertTriangle size={16} aria-hidden="true" />
+                  <p>
+                    <strong>Before you share:</strong>{" "}
+                    {health.revoked > 0
+                      ? `${health.revoked} of your credentials are revoked — don't share these; a verifier will see them as invalid. `
+                      : ""}
+                    {health.expiringSoon > 0
+                      ? `${health.expiringSoon} expire soon — if an employer checks after the expiry date, they'll see "expired." `
+                      : ""}
+                    Anyone you share with sees your credential's live blockchain status at the moment they check it — not the version you sent.
+                  </p>
+                </div>
+
+                {renewal.alerts.length > 0 && (
+                  <div className="holder-subsection">
+                    <h4 className="holder-subhead">Renewal alerts</h4>
+                    <div className="analytics-flag-list">
+                      {renewal.alerts.map((a, i) => {
+                        const expired = a.urgency === "expired";
+                        const critical = a.urgency === "critical";
+                        const pillColor = expired || critical ? "var(--danger)" : "var(--warn)";
+                        return (
+                          <div key={`${a.credentialName}-${i}`} className={`analytics-flag-row${expired ? " flagged" : ""}`}>
+                            <div>
+                              <div className="analytics-flag-issuer">{a.credentialName}</div>
+                              <div className="analytics-flag-reason">
+                                {a.issuerName}{a.credentialType ? ` • ${a.credentialType}` : ""}
+                              </div>
+                            </div>
+                            <div className="holder-alert-actions">
+                              <span className="analytics-flag-rate" style={{ color: pillColor, fontSize: 14 }}>
+                                {expired ? `Expired ${Math.abs(a.daysLeft)}d ago` : `${a.daysLeft}d left`}
+                              </span>
+                              <Button size="sm" variant="secondary" onClick={() => handleCardClick(a.cred)}>View</Button>
                             </div>
                           </div>
-                          <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                            <span
-                              className="analytics-flag-rate"
-                              style={{ color: pillColor, fontSize: 15 }}
-                            >
-                              {expired
-                                ? `Expired ${Math.abs(a.daysLeft)}d ago`
-                                : `${a.daysLeft}d left`}
-                            </span>
-                            <button
-                              type="button"
-                              className="renewal-alert-view-btn"
-                              onClick={() => handleCardClick(a.cred)}
-                            >
-                              View
-                            </button>
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                  <InterpretationBox>{renewal.summary}</InterpretationBox>
-                </div>
-              )}
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* Phase 4: Verification Insights — "who checked my credentials, and do they hold up?" */}
-      {!loading && !error && credentials.length > 0 && (
-        <div className="analytics-card" style={{ marginTop: 16 }}>
-          <h3 style={{ margin: "0 0 14px" }}>🔗 Verification Insights</h3>
-
-          {viLoading ? (
-            <div className="analytics-chart-empty" style={{ height: 120 }}>
-              Loading your verification activity…
-            </div>
-          ) : vinsights.totalChecks === 0 ? (
-            <>
-              <div className="analytics-chart-empty" style={{ height: 120 }}>
-                No verifications yet.
-              </div>
-              <InterpretationBox>{vinsights.summary}</InterpretationBox>
-            </>
-          ) : (
-            <>
-              {/* Trust Signal stat row */}
-              <div className="stats-bar" style={{ marginBottom: 8 }}>
-                <div className="stat-item">
-                  <span className="stat-number">{vinsights.totalChecks}</span>
-                  <span className="stat-label">Total Checks</span>
-                </div>
-                <div className="stat-item">
-                  <span className="stat-number">{vinsights.distinctVerifiers}</span>
-                  <span className="stat-label">Distinct Verifiers</span>
-                </div>
-                <div className="stat-item">
-                  <span className="stat-number" style={{ color: vinsights.allValid ? "#4ade80" : "#fbbf24" }}>
-                    {vinsights.allValid ? "All Valid ✓" : `${vinsights.validCount}/${vinsights.totalChecks}`}
-                  </span>
-                  <span className="stat-label">Valid Results</span>
-                </div>
-              </div>
-
-              <div className="analytics-grid">
-                <div className="analytics-card">
-                  <h3>Outcomes</h3>
-                  <DonutChart
-                    slices={vinsights.slices}
-                    centerValue={vinsights.totalChecks}
-                    centerLabel="Checks"
-                  />
-                </div>
-                <div className="analytics-card">
-                  <h3>Verification Trend (last 6 months)</h3>
-                  <TrendBars data={vinsights.byMonth} xKey="label" yKey="count" color="#60a5fa" />
-                </div>
-              </div>
-
-              {/* Most-checked credentials */}
-              {vinsights.mostChecked.length > 0 && (
-                <div style={{ marginTop: 16 }}>
-                  <h4 style={{ margin: "0 0 10px", color: "#fff", fontSize: 14 }}>Most-Checked Credentials</h4>
-                  <div className="analytics-flag-list">
-                    {vinsights.mostChecked.map((m, i) => (
-                      <div className="analytics-flag-row" key={`mc-${i}`}>
-                        <div className="analytics-flag-issuer">{m.credentialName}</div>
-                        <span className="analytics-flag-rate" style={{ color: "#c4b5fd", fontSize: 15 }}>
-                          {m.count}×
-                        </span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {/* Outcome alerts (non-valid results an employer saw) */}
-              {vinsights.alerts.length > 0 && (
-                <div style={{ marginTop: 16 }}>
-                  <h4 style={{ margin: "0 0 10px", color: "#f87171", fontSize: 14 }}>⚠️ Attention</h4>
-                  <div className="analytics-flag-list">
-                    {vinsights.alerts.map((a, i) => (
-                      <div className="analytics-flag-row flagged" key={`va-${i}`}>
-                        <div>
-                          <div className="analytics-flag-issuer">{a.credentialName}</div>
-                          <div className="analytics-flag-reason">
-                            A verifier saw this as <strong>{a.outcome.replace("_", " ")}</strong>
-                            {a.when ? ` on ${formatDate(a.when)}` : ""}
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              <InterpretationBox>{vinsights.summary}</InterpretationBox>
-            </>
-          )}
-        </div>
-      )}
-
-      {/* CSS-CHANGE: Section title + controls row - polo */}
-      <div className="section-title-row">
-        <h2>My Credentials</h2>
-        <div className="view-toggle">
-          <button
-            className={view === "cards" ? "active" : ""}
-            onClick={() => setView("cards")}
-          >
-            Cards
-          </button>
-          <button
-            className={view === "list" ? "active" : ""}
-            onClick={() => setView("list")}
-          >
-            List
-          </button>
-        </div>
-      </div>
-
-      {/* Controls row with sort + export all */}
-      <div className="controls">
-        <input
-          type="text"
-          placeholder="Search credential name, type, issuer…"
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-        />
-
-        <select
-          value={statusFilter}
-          onChange={(e) => setStatusFilter(e.target.value)}
-        >
-          <option value="all">All statuses</option>
-          <option value="active">Active</option>
-          <option value="expired">Expired</option>
-          <option value="revoked">Revoked</option>
-        </select>
-
-        <select
-          value={sortBy}
-          onChange={(e) => setSortBy(e.target.value)}
-          className="controls-sort"
-        >
-          <option value="newest">📅 Most Recent</option>
-          <option value="oldest">📅 Oldest First</option>
-          <option value="az">🔤 Name A–Z</option>
-          <option value="za">🔤 Name Z–A</option>
-        </select>
-
-        {!loading && !error && credentials.length > 0 && (
-          <button
-            className="export-all-btn"
-            onClick={() => exportAllCredentialsToPDF(credentials, displayName)}
-          >
-            📄 Export All as PDF
-          </button>
-        )}
-      </div>
-
-      {/* Content */}
-      <div className="content">
-        {/* Loading state */}
-        {loading && <div className="empty-card">Loading credentials...</div>}
-
-        {/* Error state */}
-        {!loading && error && <div className="empty-card error">{error}</div>}
-
-        {/* Empty state */}
-        {!loading && !error && filtered.length === 0 && (
-          <div className="empty-card">
-            {credentials.length === 0
-              ? "No credentials have been issued to you yet."
-              : "No credentials match your filters."}
-          </div>
-        )}
-
-        {/* Cards view
-            Technical: Shows credential name + status only on first sight (per Kyle)
-            Click → opens detail modal
-            // - polo
-        */}
-        {!loading && !error && filtered.length > 0 && view === "cards" && (
-          <div className="card-grid">
-            {filtered.map((cred) => (
-              <div
-                key={cred._id}
-                className="cred-card clickable"
-                onClick={() => handleCardClick(cred)}
-              >
-                {cred.badgeImage ? (
-                  <img
-                    src={cred.badgeImage}
-                    alt="badge"
-                    className="cred-card-badge-img"
-                  />
-                ) : (
-                  <div className="cred-card-icon">🎓</div>
-                )}
-
-                <div className="cred-card-name">{cred.credentialName}</div>
-                <StatusPill status={cred.status} />
-                {cred.issuerName && (
-                  <p className="cred-card-issuer">{cred.issuerName}</p>
-                )}
-                {cred.savedToUserWalletAt && (
-                  <p className="cred-card-date">
-                    Issued {formatDate(cred.savedToUserWalletAt)}
-                  </p>
-                )}
-              </div>
-            ))}
-          </div>
-        )}
-
-        {/* List view
-            Technical: Shows credential name + status only (per Kyle), click for details
-            // - polo
-        */}
-        {!loading && !error && filtered.length > 0 && view === "list" && (
-          <table className="cred-table">
-            <thead>
-              <tr>
-                <th>Credential Name</th>
-                <th>Issuer</th>
-                <th>Date Issued</th>
-                <th>Status</th>
-              </tr>
-            </thead>
-            <tbody>
-              {filtered.map((cred) => (
-                <tr
-                  key={cred._id}
-                  className="clickable-row"
-                  onClick={() => handleCardClick(cred)}
-                >
-                  <td>{cred.credentialName}</td>
-                  <td>{cred.issuerName || "N/A"}</td>
-                  <td>{formatDate(cred.savedToUserWalletAt)}</td>
-                  <td>
-                    <StatusPill status={cred.status} />
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        )}
-      </div>
-
-      {/* ── Credential Detail Modal ──────────────────────────────────────────
-          Technical: Shows full details of selected credential
-          Kapag pinindot yung card → lalabas ito (per Kyle's Credly-style UX)
-          // - polo
-      */}
-      {selectedCred && (
-        <div className="modal-overlay" onClick={closeDetailModal}>
-          <div
-            className="modal detail-modal"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="modal-header">
-              <h2>{selectedCred.credentialName}</h2>
-              <button className="close-btn" onClick={closeDetailModal}>
-                ✕
-              </button>
-            </div>
-
-            <div className="modal-body">
-              {/* Badge image from template - polo */}
-              {templateLoading && (
-                <p style={{ textAlign: "center", opacity: 0.7 }}>
-                  Loading details...
-                </p>
-              )}
-
-              {!templateLoading && templateDetails?.badgeImage && (
-                <div style={{ textAlign: "center", marginBottom: 16 }}>
-                  <img
-                    src={templateDetails.badgeImage}
-                    alt="badge"
-                    style={{
-                      width: 96,
-                      height: 96,
-                      objectFit: "cover",
-                      borderRadius: 12
-                    }}
-                  />
-                </div>
-              )}
-
-              <div className="detail-row">
-                <span className="detail-label">Type</span>
-                <span className="detail-value">
-                  {selectedCred.credentialType || "N/A"}
-                </span>
-              </div>
-
-              <div className="detail-row">
-                <span className="detail-label">Issuer</span>
-                <span className="detail-value">
-                  {selectedCred.issuerName || "N/A"}
-                </span>
-              </div>
-
-              <div className="detail-row">
-                <span className="detail-label">Status</span>
-                <span className="detail-value">
-                  <StatusPill status={selectedCred.status} />
-                </span>
-              </div>
-
-              <div className="detail-row">
-                <span className="detail-label">Visibility</span>
-                <span className="detail-value">
-                  <button
-                    type="button"
-                    onClick={handleToggleVisibility}
-                    style={{
-                      padding: '4px 14px',
-                      borderRadius: '20px',
-                      fontSize: '12px',
-                      fontWeight: 600,
-                      cursor: 'pointer',
-                      border: '1px solid',
-                      borderColor: selectedCred.visibility === 'public' ? '#22c55e' : '#f59e0b',
-                      background: selectedCred.visibility === 'public' ? 'rgba(34,197,94,0.12)' : 'rgba(245,158,11,0.12)',
-                      color: selectedCred.visibility === 'public' ? '#22c55e' : '#f59e0b',
-                    }}
-                  >
-                    {selectedCred.visibility === 'public' ? '🌐 Public' : '🔒 Private'} — Click to toggle
-                  </button>
-                </span>
-              </div>
-
-              {(selectedCred.status === "revoked" ||
-                selectedCred.status === "REVOKED") &&
-                selectedCred.rejectionReason && (
-                  <div className="detail-row">
-                    <span className="detail-label">Rejection Reason</span>
-                    <span
-                      className="detail-value"
-                      style={{ color: "#ff6b6b" }}
-                    >
-                      {selectedCred.rejectionReason}
-                    </span>
-                  </div>
-                )}
-
-              <div className="detail-row">
-                <span className="detail-label">Issued On</span>
-                <span className="detail-value">
-                  {formatDate(selectedCred.savedToUserWalletAt)}
-                </span>
-              </div>
-
-              <div className="detail-row">
-                <span className="detail-label">Expiry Date</span>
-                <span className="detail-value">
-                  {formatDate(selectedCred.expiryDate)}
-                </span>
-              </div>
-
-              <div className="detail-row">
-                <span className="detail-label">Blockchain ID</span>
-                <span className="detail-value mono">
-                  {selectedCred.blockchainId || "N/A"}
-                </span>
-              </div>
-
-              {/* Skills from template - polo */}
-              {!templateLoading &&
-                templateDetails?.skills &&
-                templateDetails.skills.length > 0 && (
-                  <div
-                    className="detail-row"
-                    style={{
-                      flexDirection: "column",
-                      alignItems: "flex-start",
-                      gap: 8
-                    }}
-                  >
-                    <span className="detail-label">Skills</span>
-                    <div
-                      style={{
-                        display: "flex",
-                        flexWrap: "wrap",
-                        gap: 6,
-                        marginTop: 4
-                      }}
-                    >
-                      {templateDetails.skills.map((skill, i) => (
-                        <span
-                          key={i}
-                          style={{
-                            background: "rgba(139,92,246,0.2)",
-                            border: "1px solid rgba(139,92,246,0.4)",
-                            borderRadius: 20,
-                            padding: "3px 12px",
-                            fontSize: "0.8rem",
-                            color: "#c4b5fd"
-                          }}
-                        >
-                          {skill}
-                        </span>
-                      ))}
+                        );
+                      })}
                     </div>
+                    <InterpretationBox>{renewal.summary}</InterpretationBox>
                   </div>
                 )}
+              </Card>
+
+              {/* Verification Insights */}
+              <Card>
+                <CardHeaderRow icon={GitBranch} title="Verification Insights" />
+
+                {viLoading ? (
+                  <div className="analytics-chart-empty" style={{ height: 120 }}>Loading your verification activity…</div>
+                ) : vinsights.totalChecks === 0 ? (
+                  <>
+                    <div className="analytics-chart-empty" style={{ height: 120 }}>No verifications yet.</div>
+                    <InterpretationBox>{vinsights.summary}</InterpretationBox>
+                  </>
+                ) : (
+                  <>
+                    <div className="holder-trust-row">
+                      <div className="holder-trust-stat">
+                        <span className="holder-trust-num">{vinsights.totalChecks}</span>
+                        <span className="holder-trust-label">Total checks</span>
+                      </div>
+                      <div className="holder-trust-stat">
+                        <span className="holder-trust-num">{vinsights.distinctVerifiers}</span>
+                        <span className="holder-trust-label">Distinct verifiers</span>
+                      </div>
+                      <div className="holder-trust-stat">
+                        <span className="holder-trust-num" style={{ color: vinsights.allValid ? "var(--ok)" : "var(--warn)" }}>
+                          {vinsights.allValid ? "All valid" : `${vinsights.validCount}/${vinsights.totalChecks}`}
+                        </span>
+                        <span className="holder-trust-label">Valid results</span>
+                      </div>
+                    </div>
+
+                    <div className="analytics-grid">
+                      <div className="analytics-card">
+                        <h3>Outcomes</h3>
+                        <DonutChart slices={vinsights.slices} centerValue={vinsights.totalChecks} centerLabel="Checks" />
+                      </div>
+                      <div className="analytics-card">
+                        <h3>Verification trend (last 6 months)</h3>
+                        <TrendBars data={vinsights.byMonth} xKey="label" yKey="count" color="#5B8DEF" />
+                      </div>
+                    </div>
+
+                    {vinsights.mostChecked.length > 0 && (
+                      <div className="holder-subsection">
+                        <h4 className="holder-subhead">Most-checked credentials</h4>
+                        <div className="analytics-flag-list">
+                          {vinsights.mostChecked.map((m, i) => (
+                            <div className="analytics-flag-row" key={`mc-${i}`}>
+                              <div className="analytics-flag-issuer">{m.credentialName}</div>
+                              <span className="analytics-flag-rate" style={{ color: "var(--text-muted)", fontSize: 15 }}>{m.count}×</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {vinsights.alerts.length > 0 && (
+                      <div className="holder-subsection">
+                        <h4 className="holder-subhead holder-subhead--alert">Attention</h4>
+                        <div className="analytics-flag-list">
+                          {vinsights.alerts.map((a, i) => (
+                            <div className="analytics-flag-row flagged" key={`va-${i}`}>
+                              <div>
+                                <div className="analytics-flag-issuer">{a.credentialName}</div>
+                                <div className="analytics-flag-reason">
+                                  A verifier saw this as <strong>{a.outcome.replace("_", " ")}</strong>
+                                  {a.when ? ` on ${formatDate(a.when)}` : ""}
+                                </div>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    <InterpretationBox>{vinsights.summary}</InterpretationBox>
+                  </>
+                )}
+              </Card>
+            </>
+          )}
+        </section>
+      )}
+
+      {/* ── Credential Detail Modal ── */}
+      <Modal
+        open={!!selectedCred}
+        onClose={closeDetailModal}
+        title={selectedCred?.credentialName}
+        size="md"
+        footer={
+          selectedCred && (
+            <>
+              <Button variant="secondary" icon={ScrollText} onClick={() => handleSeeHistory(selectedCred)}>See history</Button>
+              <Button variant="primary" icon={Download} onClick={() => exportCredentialToPDF(selectedCred, templateDetails)}>Export PDF</Button>
+            </>
+          )
+        }
+      >
+        {selectedCred && (
+          <>
+            {templateLoading && <p className="holder-state">Loading details…</p>}
+
+            {!templateLoading && templateDetails?.badgeImage && (
+              <div className="holder-modal-badge">
+                <img src={templateDetails.badgeImage} alt="" />
+              </div>
+            )}
+
+            <div className="holder-detail-list">
+              <div className="holder-detail-row">
+                <span className="holder-detail-label">Type</span>
+                <span className="holder-detail-value">{selectedCred.credentialType || "N/A"}</span>
+              </div>
+              <div className="holder-detail-row">
+                <span className="holder-detail-label">Issuer</span>
+                <span className="holder-detail-value">{selectedCred.issuerName || "N/A"}</span>
+              </div>
+              <div className="holder-detail-row">
+                <span className="holder-detail-label">Status</span>
+                <span className="holder-detail-value"><StatusPill status={selectedCred.status} /></span>
+              </div>
+              <div className="holder-detail-row">
+                <span className="holder-detail-label">Visibility</span>
+                <span className="holder-detail-value">
+                  <Button
+                    size="sm"
+                    variant="secondary"
+                    icon={selectedCred.visibility === "public" ? Globe : Lock}
+                    onClick={handleToggleVisibility}
+                    title="Click to change"
+                  >
+                    {selectedCred.visibility === "public" ? "Public" : "Private"}
+                  </Button>
+                </span>
+              </div>
+
+              {(selectedCred.status === "revoked" || selectedCred.status === "REVOKED") && selectedCred.rejectionReason && (
+                <div className="holder-detail-row">
+                  <span className="holder-detail-label">Rejection reason</span>
+                  <span className="holder-detail-value" style={{ color: "var(--danger)" }}>{selectedCred.rejectionReason}</span>
+                </div>
+              )}
+
+              <div className="holder-detail-row">
+                <span className="holder-detail-label">Issued on</span>
+                <span className="holder-detail-value">{formatDate(selectedCred.savedToUserWalletAt)}</span>
+              </div>
+              <div className="holder-detail-row">
+                <span className="holder-detail-label">Expiry date</span>
+                <span className="holder-detail-value">{formatDate(selectedCred.expiryDate)}</span>
+              </div>
+              <div className="holder-detail-row">
+                <span className="holder-detail-label">Blockchain ID</span>
+                <span className="holder-detail-value holder-mono">{selectedCred.blockchainId || "N/A"}</span>
+              </div>
+
+              {!templateLoading && templateDetails?.skills && templateDetails.skills.length > 0 && (
+                <div className="holder-detail-row holder-detail-row--stack">
+                  <span className="holder-detail-label">Skills</span>
+                  <div className="holder-chips">
+                    {templateDetails.skills.map((skill, i) => (
+                      <span key={i} className="holder-chip">{skill}</span>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
 
-            {/* See History button — same as admin dashboard
-                Technical: Calls Get_CredentialHistory using cred.blockchainId
-                // - polo
-            */}
-            <div className="modal-footer">
-              <button
-                className="action-btn history"
-                onClick={() => handleSeeHistory(selectedCred)}
-              >
-                📜 See History
-              </button>
-              <button
-                className="action-btn history"
-                onClick={() => exportCredentialToPDF(selectedCred, templateDetails)}
-                style={{ marginLeft: 8 }}
-              >
-                📄 Export PDF
-              </button>
-            </div>
-
-            {/* History section (inside detail modal)
-                // - polo
-            */}
+            {/* History (expands inside the modal) */}
             {historyOpen && (
-              <div className="history-section">
-                <div className="history-header">
-                  <h3>Blockchain History</h3>
-                  <button className="close-btn small" onClick={closeHistoryModal}>
-                    ✕
-                  </button>
+              <div className="holder-history">
+                <div className="holder-history-head">
+                  <h4>Blockchain History</h4>
+                  <button className="holder-history-close" onClick={closeHistoryModal} aria-label="Close history"><XCircle size={16} /></button>
                 </div>
 
-                {historyLoading && (
-                  <p className="history-loading">Loading history...</p>
-                )}
-                {historyError && (
-                  <p className="history-error">{historyError}</p>
-                )}
+                {historyLoading && <p className="holder-state">Loading history…</p>}
+                {historyError && <p className="holder-state is-error">{historyError}</p>}
 
-                {/* Phase 4: processed Provenance Timeline (reuses the admin computeProvenance helper) */}
                 {historyData && historyData.history && (() => {
                   const prov = computeProvenance(historyData.history);
                   if (prov.events.length === 0) return null;
                   return (
                     <div className="analytics-card" style={{ marginBottom: 14 }}>
-                      <h4 style={{ margin: "0 0 12px", fontSize: 14 }}>🧬 Provenance Timeline</h4>
+                      <h4 style={{ margin: "0 0 12px", fontSize: 14 }}>Provenance Timeline</h4>
                       <div className="analytics-timeline">
                         {prov.events.map((e, i) => (
                           <div className="analytics-timeline-item" key={`hprov-${i}`}>
-                            <span className="analytics-timeline-dot" style={{ background: e.color }}>
-                              {e.icon}
-                            </span>
+                            <span className="analytics-timeline-dot" style={{ background: e.color }}>{e.icon}</span>
                             <div>
                               <div className="analytics-timeline-label">{e.label}</div>
-                              <div className="analytics-timeline-when">
-                                {e.when ? formatDate(e.when) : "N/A"}
-                              </div>
+                              <div className="analytics-timeline-when">{e.when ? formatDate(e.when) : "N/A"}</div>
                             </div>
                           </div>
                         ))}
@@ -1154,40 +938,20 @@ export default function StudentDashboard() {
                 })()}
 
                 {historyData && historyData.history && (
-                  <div className="history-list">
+                  <div className="holder-history-list">
                     {historyData.history.map((entry, idx) => (
-                      <div key={idx} className="history-entry">
-                        <div className="history-entry-header">
-                          <span className="history-tx-id">
-                            {entry.txId || `TX-${idx + 1}`}
-                          </span>
-                          <span className="history-timestamp">
-                            {entry.timestamp
-                              ? formatDate(entry.timestamp)
-                              : "N/A"}
-                          </span>
+                      <div key={idx} className="holder-history-entry">
+                        <div className="holder-history-entry-head">
+                          <span className="holder-mono">{entry.txId || `TX-${idx + 1}`}</span>
+                          <span className="holder-history-time">{entry.timestamp ? formatDate(entry.timestamp) : "N/A"}</span>
                         </div>
-
-                        <div className="history-entry-status">
-                          Status:{" "}
-                          <strong>
-                            {entry.value?.status || entry.status || "N/A"}
-                          </strong>
+                        <div className="holder-history-status">
+                          Status: <strong>{entry.value?.status || entry.status || "N/A"}</strong>
                         </div>
-
-                        {(entry.value?.status === "revoked" ||
-                          entry.status === "revoked") &&
-                          (entry.value?.rejectionReason ||
-                            entry.rejectionReason) && (
-                            <div
-                              className="history-entry-status"
-                              style={{ color: "#ff6b6b" }}
-                            >
-                              Rejection Reason:{" "}
-                              <strong>
-                                {entry.value?.rejectionReason ||
-                                  entry.rejectionReason}
-                              </strong>
+                        {(entry.value?.status === "revoked" || entry.status === "revoked") &&
+                          (entry.value?.rejectionReason || entry.rejectionReason) && (
+                            <div className="holder-history-status" style={{ color: "var(--danger)" }}>
+                              Rejection reason: <strong>{entry.value?.rejectionReason || entry.rejectionReason}</strong>
                             </div>
                           )}
                       </div>
@@ -1196,9 +960,19 @@ export default function StudentDashboard() {
                 )}
               </div>
             )}
-          </div>
-        </div>
-      )}
+          </>
+        )}
+      </Modal>
+    </div>
+  );
+}
+
+/* Small local header row for Insights cards (icon + title), token-driven. */
+function CardHeaderRow({ icon: Icon, title }) {
+  return (
+    <div className="holder-card-headrow">
+      {Icon && <Icon size={18} aria-hidden="true" />}
+      <h3>{title}</h3>
     </div>
   );
 }

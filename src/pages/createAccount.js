@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import apiService from "../services/apiService";
 import "../styles/createAccount.css";
 import AppToast from "../components/appToast";
+import { User, Building2 } from "lucide-react";
 
 const VALID_EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
 
@@ -562,7 +563,7 @@ const getDocumentDescription = (docKey) => {
               className="role-button user-role-btn"
               onClick={() => handleRoleSelection("user")}
             >
-              <div className="role-icon">👤</div>
+              <div className="role-icon"><User size={28} aria-hidden="true" /></div>
               <h3>Register as User</h3>
               <p>Submit and view credentials</p>
             </button>
@@ -571,7 +572,7 @@ const getDocumentDescription = (docKey) => {
               className="role-button issuer-role-btn"
               onClick={() => handleRoleSelection("issuer")}
             >
-              <div className="role-icon">🏢</div>
+              <div className="role-icon"><Building2 size={28} aria-hidden="true" /></div>
               <h3>Register as Issuer</h3>
               <p>Create and manage credentials</p>
             </button>

@@ -16,6 +16,8 @@ import {
   computeProvenance,
   computeProofTrail,
 } from "../components/analytics/analytics";
+import { AppShell, Sidebar } from "../components/ui";
+import { Bell, Layers, Building2, Users, ClipboardList, BarChart3 } from "lucide-react";
 
 export default function AdminDashboard() {
   const [tab, setTab] = useState("credentials");
@@ -1498,7 +1500,7 @@ const handleDownloadIssuerDocument = async (doc) => {
             onClick={() => setAdminNotificationsOpen((prev) => !prev)}
             aria-label="Toggle admin notifications"
           >
-            🔔
+            <Bell size={18} aria-hidden="true" />
             {adminUnreadCount > 0 && (
               <span className="admin-notification-badge">{adminUnreadCount}</span>
             )}
@@ -1542,7 +1544,7 @@ const handleDownloadIssuerDocument = async (doc) => {
                       className={`admin-notification-item ${notification.read ? "read" : "unread"}`}
                       onClick={() => handleAdminNotificationClick(notification)}
                     >
-                      <div className="admin-notification-item-type">🔔 {notification.title || "Admin Notification"}</div>
+                      <div className="admin-notification-item-type">{notification.title || "Admin Notification"}</div>
                       <div className="admin-notification-item-message">
                         {notification.message || "Notification update."}
                       </div>
@@ -1561,57 +1563,22 @@ const handleDownloadIssuerDocument = async (doc) => {
         </div>
       </div>
 
-      <div className="admin-tabs">
-        <button
-          onClick={() => setTab("credentials")}
-          className={tab === "credentials" ? "active" : ""}
-        >
-          Credentials
-        </button>
-        <button
-          onClick={() => setTab("issuers")}
-          className={tab === "issuers" ? "active" : ""}
-        >
-          Manage Issuers
-        </button>
-        <button
-          onClick={() => setTab("users")}
-          className={tab === "users" ? "active" : ""}
-        >
-          Manage Users
-        </button>
-        
-        <button
-          onClick={() => setTab("logs")}
-          className={tab === "logs" ? "active" : ""}
-        >
-          Logs
-        </button>
-
-        <button
-          onClick={() => setTab("analytics")}
-          className={tab === "analytics" ? "active" : ""}
-        >
-          Analytics &amp; Reports
-        </button>
-
-        {tab === "settings" && (
-          <div className="tab-card">
-            <h2>System Settings</h2>
-            <p className="tab-subtitle">
-              Configure administrative controls for institutions, infrastructure,
-              and integrations.
-            </p>
-            <div className="settings-grid">
-              <button>+ Add Institution</button>
-              <button>Configure Blockchain</button>
-              <button>Manage API Keys</button>
-              <button>Security Policies</button>
-              <button>User Roles</button>
-            </div>
-          </div>
-        )}
-      </div>
+      <AppShell
+        sidebar={
+          <Sidebar
+            title="Admin"
+            items={[
+              { key: "credentials", label: "Credentials", icon: Layers },
+              { key: "issuers", label: "Manage Issuers", icon: Building2 },
+              { key: "users", label: "Manage Users", icon: Users },
+              { key: "logs", label: "Logs", icon: ClipboardList },
+              { key: "analytics", label: "Analytics & Reports", icon: BarChart3 },
+            ]}
+            activeKey={tab}
+            onSelect={setTab}
+          />
+        }
+      >
 
       <AppToast show={!!message} message={message} type={messageType} />
 
@@ -3982,6 +3949,7 @@ const handleDownloadIssuerDocument = async (doc) => {
           </div>
         </div>
       )}
+      </AppShell>
     </div>
   );
 }

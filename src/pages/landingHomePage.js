@@ -79,17 +79,17 @@ function LandingHomePage() {
 
         <div className="features-grid">
           <div className="feature-card">
-            <h3>🏛️ Issuers</h3>
+            <h3>Issuers</h3>
             <p>Universities and organizations create credential templates, issue verifiable digital certificates, and manage their credential lifecycle through a dedicated dashboard.</p>
           </div>
 
           <div className="feature-card">
-            <h3>🎓 Holders</h3>
+            <h3>Holders</h3>
             <p>Students and professionals receive credentials in a secure digital wallet. Full ownership and control — share via QR codes, export as PDF, or send verification links.</p>
           </div>
 
           <div className="feature-card">
-            <h3>✅ Verifiers</h3>
+            <h3>Verifiers</h3>
             <p>Employers and agencies verify credentials instantly through the blockchain. No phone calls, no waiting — just scan, verify, and trust the result.</p>
           </div>
         </div>
@@ -129,10 +129,10 @@ function LandingHomePage() {
         <h2 className="section-title">Trusted by Modern Credential Ecosystems</h2>
         <p className="section-subtitle">Built for institutions that need security, interoperability, and auditability.</p>
         <div className="trust-grid">
-          <div className="trust-card">🔒 Enterprise-Grade Security</div>
-          <div className="trust-card">📜 W3C Verifiable Credentials Ready</div>
-          <div className="trust-card">🌐 Cross-Border Ready</div>
-          <div className="trust-card">🏫 Designed for Higher Education</div>
+          <div className="trust-card">Enterprise-Grade Security</div>
+          <div className="trust-card">W3C Verifiable Credentials Ready</div>
+          <div className="trust-card">Cross-Border Ready</div>
+          <div className="trust-card">Designed for Higher Education</div>
         </div>
       </section>
 

@@ -1,0 +1,177 @@
+/* analytics.css
+   Phase 4 analytics — layout-only styles for report panels/charts.
+   Reuses existing dashboard primitives (.info-message, .admin-stat-card, .issuer-stat-card,
+   .admin-chart-card). Nothing here overrides those; this file only handles grid/spacing,
+   the donut center overlay, empty states, and the suspicious-activity flag rows. */
+
+.analytics-section {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.analytics-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 18px;
+}
+
+.analytics-card {
+  background: rgba(12, 8, 32, 0.92);
+  border: 1px solid rgba(139, 92, 246, 0.2);
+  border-radius: 16px;
+  padding: 20px 22px;
+}
+
+.analytics-card h3 {
+  margin: 0 0 14px;
+  font-size: 15px;
+  font-weight: 700;
+  color: #fff;
+}
+
+/* Donut center overlay (total in the hole) */
+.analytics-donut-center {
+  position: absolute;
+  top: 45%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  pointer-events: none;
+}
+.analytics-donut-center-value {
+  font-size: 30px;
+  font-weight: 800;
+  color: #fff;
+  line-height: 1;
+}
+.analytics-donut-center-label {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  color: #c4b5fd;
+  margin-top: 2px;
+}
+
+.analytics-chart-empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #94a3b8;
+  font-size: 13px;
+  border: 1px dashed rgba(148, 163, 184, 0.3);
+  border-radius: 12px;
+}
+
+/* Interpretation box (extends the existing .info-message purple callout) */
+.analytics-interpretation {
+  margin-top: 14px;
+}
+.analytics-interpretation-title {
+  display: block;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  margin-bottom: 4px;
+}
+.analytics-interpretation-text {
+  margin: 0;
+  font-size: 13.5px;
+  line-height: 1.5;
+}
+
+/* Suspicious-activity flag rows */
+.analytics-flag-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.analytics-flag-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 16px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(148, 163, 184, 0.15);
+}
+.analytics-flag-row.flagged {
+  background: rgba(248, 113, 113, 0.08);
+  border-color: rgba(248, 113, 113, 0.4);
+}
+.analytics-flag-issuer {
+  font-weight: 700;
+  color: #fff;
+  font-size: 14px;
+}
+.analytics-flag-reason {
+  font-size: 12.5px;
+  color: #c4b5fd;
+  margin-top: 2px;
+}
+.analytics-flag-rate {
+  font-size: 22px;
+  font-weight: 800;
+  white-space: nowrap;
+}
+.analytics-flag-rate.flagged { color: #f87171; }
+.analytics-flag-rate.ok { color: #4ade80; }
+
+/* Collapsible holder health panel header */
+.analytics-collapse-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  cursor: pointer;
+  user-select: none;
+}
+
+/* Credential Dossier timeline (provenance + verification proof trail) */
+.analytics-timeline {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  position: relative;
+}
+.analytics-timeline-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 6px 0;
+  position: relative;
+}
+/* vertical connector line between dots */
+.analytics-timeline-item:not(:last-child)::before {
+  content: "";
+  position: absolute;
+  left: 13px;
+  top: 30px;
+  bottom: -6px;
+  width: 2px;
+  background: rgba(148, 163, 184, 0.25);
+}
+.analytics-timeline-dot {
+  flex: 0 0 auto;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 13px;
+  z-index: 1;
+  box-shadow: 0 0 0 3px rgba(12, 8, 32, 0.92);
+}
+.analytics-timeline-label {
+  font-weight: 700;
+  color: #fff;
+  font-size: 13.5px;
+}
+.analytics-timeline-when {
+  font-size: 12px;
+  color: #c4b5fd;
+  margin-top: 1px;
+}

@@ -26,7 +26,11 @@
 import React, { useState, useEffect, useMemo, useRef } from "react";
 import apiService from "../services/apiService";
 import "../styles/studentDashboard.css";
-import { exportCredentialToPDF, exportAllCredentialsToPDF } from '../services/pdfExportService'; 
+import "../styles/analytics.css";
+import { exportCredentialToPDF, exportAllCredentialsToPDF } from '../services/pdfExportService';
+import DonutChart from "../components/analytics/DonutChart";
+import InterpretationBox from "../components/analytics/InterpretationBox";
+import { computeHealth, computeExpirationAlerts } from "../components/analytics/analytics";
 
 // ==========================================================================================================================================================================
 // HELPERS
@@ -254,6 +258,12 @@ export default function StudentDashboard() {
 
     return { total: credentials.length, active, revoked, expired };
   }, [credentials]);
+
+  /* Phase 4: Personal Credential Health report (non-overlapping buckets + interpretation) */
+  const health = useMemo(() => computeHealth(credentials), [credentials]);
+  /* Phase 4 NICE: actionable renewal list (which credentials, soonest-first) */
+  const renewal = useMemo(() => computeExpirationAlerts(credentials), [credentials]);
+  const [showHealth, setShowHealth] = useState(true);
 
   // ── See History handler ────────────────────────────────────────────────────
 
@@ -562,6 +572,69 @@ export default function StudentDashboard() {
             >
               <span className="stat-number">{stats.expired}</span>
               <span className="stat-label">Expired</span>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Phase 4: Personal Credential Health report */}
+      {!loading && !error && credentials.length > 0 && (
+        <div className="analytics-card" style={{ marginTop: 16 }}>
+          <div
+            className="analytics-collapse-header"
+            onClick={() => setShowHealth((v) => !v)}
+            title={showHealth ? "Hide" : "Show"}
+          >
+            <h3 style={{ margin: 0 }}>📊 Credential Health</h3>
+            <span aria-hidden="true">{showHealth ? "▾" : "▸"}</span>
+          </div>
+          {showHealth && (
+            <div style={{ marginTop: 14 }}>
+              <DonutChart
+                slices={health.slices}
+                centerValue={health.total}
+                centerLabel="Credentials"
+              />
+              <InterpretationBox>{health.summary}</InterpretationBox>
+
+              {/* Phase 4 NICE: Expiration & Renewal Alerts — actionable list, soonest-first */}
+              {renewal.alerts.length > 0 && (
+                <div style={{ marginTop: 18 }}>
+                  <h4 style={{ margin: "0 0 10px", color: "#fff", fontSize: 14 }}>
+                    🔔 Renewal Alerts
+                  </h4>
+                  <div className="analytics-flag-list">
+                    {renewal.alerts.map((a, i) => {
+                      const expired = a.urgency === "expired";
+                      const critical = a.urgency === "critical";
+                      const pillColor = expired || critical ? "#f87171" : "#fbbf24";
+                      return (
+                        <div
+                          key={`${a.credentialName}-${i}`}
+                          className={`analytics-flag-row${expired ? " flagged" : ""}`}
+                        >
+                          <div>
+                            <div className="analytics-flag-issuer">{a.credentialName}</div>
+                            <div className="analytics-flag-reason">
+                              {a.issuerName}
+                              {a.credentialType ? ` • ${a.credentialType}` : ""}
+                            </div>
+                          </div>
+                          <span
+                            className="analytics-flag-rate"
+                            style={{ color: pillColor, fontSize: 15 }}
+                          >
+                            {expired
+                              ? `Expired ${Math.abs(a.daysLeft)}d ago`
+                              : `${a.daysLeft}d left`}
+                          </span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                  <InterpretationBox>{renewal.summary}</InterpretationBox>
+                </div>
+              )}
             </div>
           )}
         </div>

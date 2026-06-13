@@ -29,6 +29,11 @@ import apiService from "../services/apiService";
 import AppToast from "../components/appToast";
 import { getDisplayName } from "../utils/userDisplay";
 import "../styles/issuerDashboardPage.css";
+import "../styles/analytics.css";
+import DonutChart from "../components/analytics/DonutChart";
+import TrendBars from "../components/analytics/TrendBars";
+import InterpretationBox from "../components/analytics/InterpretationBox";
+import { computeIssuance, COLORS as ANALYTICS_COLORS } from "../components/analytics/analytics";
 
 export default function IssuerDashboard() {
   // - polo: get current issuer type to hide subordinate sections for subordinate issuers
@@ -724,6 +729,9 @@ export default function IssuerDashboard() {
 
   const goHome = () => { setSubordinateDirectoryFilter("all"); setActiveView("home"); };
 
+  // Phase 4: Issuance Performance report (computed from already-loaded issued credentials)
+  const issuance = useMemo(() => computeIssuance(credentials), [credentials]);
+
   // -------------------------------------------------------------------
   // LOADING / ERROR STATES
   // -------------------------------------------------------------------
@@ -744,6 +752,7 @@ export default function IssuerDashboard() {
     { id: "revoke", icon: "🚫", title: "Revoke Credential", desc: "Revoke issued credentials", color: "#ef4444" },
     { id: "viewall", icon: "📋", title: "View Credentials", desc: "View all templates, issued, revoked, expired", color: "#f59e0b" },
     { id: "history", icon: "🧾", title: "Credential History", desc: "View blockchain audit trail", color: "#f59e0b" },
+    { id: "analytics", icon: "📊", title: "Issuance Performance", desc: "Issuance totals, by type, and monthly trend", color: "#06b6d4" },
     ...(!isSubordinate ? [{ id: "subordinates", icon: "🏢", title: "Subordinates", desc: "Manage subordinate issuers & logs", color: "#22c55e" }] : []),
   ];
 
@@ -1149,6 +1158,44 @@ export default function IssuerDashboard() {
               </table>
             )}
           </div>
+        </>
+      )}
+
+      {/* ============================================================
+          ANALYTICS VIEW — Issuance Performance (Phase 4)
+          ============================================================ */}
+      {activeView === "analytics" && (
+        <>
+          <button className="btn-back-home" onClick={goHome}>← Back to Dashboard</button>
+          <h2>Issuance Performance</h2>
+
+          <div className="issuer-stats-row" style={{ marginTop: 16 }}>
+            <div className="issuer-stat-card">
+              <span className="issuer-stat-num">{issuance.total}</span>
+              <span className="issuer-stat-label">Total Issued</span>
+            </div>
+            <div className="issuer-stat-card">
+              <span className="issuer-stat-num">{issuance.byType.length}</span>
+              <span className="issuer-stat-label">Credential Types</span>
+            </div>
+            <div className="issuer-stat-card">
+              <span className="issuer-stat-num">{issuance.byMonth[issuance.byMonth.length - 1]?.count ?? 0}</span>
+              <span className="issuer-stat-label">This Month</span>
+            </div>
+          </div>
+
+          <div className="analytics-grid" style={{ marginTop: 18 }}>
+            <div className="analytics-card">
+              <h3>Issued by Type</h3>
+              <TrendBars data={issuance.byType} xKey="type" yKey="count" color={ANALYTICS_COLORS.purple} />
+            </div>
+            <div className="analytics-card">
+              <h3>Monthly Issuance Trend (last 6 months)</h3>
+              <TrendBars data={issuance.byMonth} xKey="label" yKey="count" color={ANALYTICS_COLORS.blue} />
+            </div>
+          </div>
+
+          <InterpretationBox>{issuance.summary}</InterpretationBox>
         </>
       )}
 

@@ -2918,6 +2918,12 @@ async function getAllIssuerCredentialsAdmin(options = {}) {
           doc.issuedDate ||
           null;
 
+        // Phase 4: revocation timestamp for admin Suspicious Activity report (30-day window).
+        const revokedAt =
+          doc.revokedAt ||
+          nested.revokedAt ||
+          null;
+
         allRows.push({
           issuerId,
           issuerName:
@@ -2941,7 +2947,8 @@ async function getAllIssuerCredentialsAdmin(options = {}) {
           holderID,
           holderName: null, // will enrich below
           status: doc.status || nested.status || 'unknown',
-          createdAt
+          createdAt,
+          revokedAt
         });
       }
     }

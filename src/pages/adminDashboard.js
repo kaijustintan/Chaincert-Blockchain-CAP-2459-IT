@@ -2,8 +2,20 @@
 import React, { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import ReactDOM from "react-dom";
 import "../styles/adminDashboard.css";
+import "../styles/analytics.css";
 import apiService from "../services/apiService";
 import AppToast from "../components/appToast";
+import DonutChart from "../components/analytics/DonutChart";
+import TrendBars from "../components/analytics/TrendBars";
+import InterpretationBox from "../components/analytics/InterpretationBox";
+import {
+  computeVerificationOutcomes,
+  computeSuspiciousIssuers,
+  computeDemand,
+  computeIntegritySummary,
+  computeProvenance,
+  computeProofTrail,
+} from "../components/analytics/analytics";
 
 export default function AdminDashboard() {
   const [tab, setTab] = useState("credentials");
@@ -421,6 +433,20 @@ const handleDownloadIssuerDocument = async (doc) => {
 
   const sortedVerificationLogs = useMemo(() => sortByDateThenName(verificationLogs, verificationSortBy, { dateFields: ["timestamp", "verifiedAt", "createdAt"], nameFields: ["verifierName", "holderName", "credentialId"], statusField: "resultMessage" }), [verificationLogs, verificationSortBy]);
 
+  // Phase 4: Analytics & Reports tab — Verification Result Summary + Suspicious Activity
+  const verificationOutcomes = useMemo(() => computeVerificationOutcomes(verificationLogs), [verificationLogs]);
+  const suspicious = useMemo(() => computeSuspiciousIssuers(adminCredentials), [adminCredentials]);
+  /* Phase 4 NICE: real-world demand per credential type (verifications ÷ issued) */
+  const demand = useMemo(() => computeDemand(verificationLogs, adminCredentials), [verificationLogs, adminCredentials]);
+  /* Phase 4 NICE: processed view of the last CouchDB-vs-ledger integrity check (reuses existing result) */
+  const integrity = useMemo(() => computeIntegritySummary(integrityResult), [integrityResult]);
+  /* Phase 4 GOOD: per-credential dossier (processed lifecycle timeline + immutable verification trail) */
+  const provenance = useMemo(() => computeProvenance(credentialHistory), [credentialHistory]);
+  const proofTrail = useMemo(
+    () => computeProofTrail(verificationLogs, selectedCredentialRow?.credentialId || selectedCredentialRow?.blockchainId || selectedCredentialRow?.id),
+    [verificationLogs, selectedCredentialRow]
+  );
+
   const issuerColumnConfig = {
     approved: ["orgName", "issuerId", "email", "issuerType", "rootAuthority", "status", "approvedAt", "approvedBy", "actions"],
     pending: ["orgName", "issuerId", "email", "issuerType", "rootAuthority", "rootApproval", "status", "createdAt", "actions"],
@@ -484,6 +510,12 @@ const handleDownloadIssuerDocument = async (doc) => {
       if (!credentialId) {
         setCredentialHistoryError('No blockchain ID found for this credential.');
         return;
+      }
+
+      // Phase 4 GOOD: the dossier's Verification Proof Trail reads from verificationLogs, which
+      // are only auto-loaded on the analytics/logs tabs. Load them on demand if empty.
+      if (!Array.isArray(verificationLogs) || verificationLogs.length === 0) {
+        fetchVerificationLogs();
       }
 
       const resp = await apiService.Get_CredentialHistory(credentialId);
@@ -1375,6 +1407,10 @@ const handleDownloadIssuerDocument = async (doc) => {
     } else if (tab === "users") {
       fetchUsers();
       setUserFilter("active");
+    } else if (tab === "analytics") {
+      // Phase 4: needs verification logs (Verification Summary) + cross-issuer credentials (Suspicious Activity)
+      fetchVerificationLogs();
+      fetchAdminCredentials();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tab, issuerStatsLoaded, logsLoaded, issuerDecisionFilter, refreshIssuerCollections, rootSubordinateDecisionFilter, statusLogEmailSearch, statusLogFilter]);
@@ -1547,6 +1583,13 @@ const handleDownloadIssuerDocument = async (doc) => {
           className={tab === "logs" ? "active" : ""}
         >
           Logs
+        </button>
+
+        <button
+          onClick={() => setTab("analytics")}
+          className={tab === "analytics" ? "active" : ""}
+        >
+          Analytics &amp; Reports
         </button>
 
         {tab === "settings" && (
@@ -1774,6 +1817,87 @@ const handleDownloadIssuerDocument = async (doc) => {
                   ✕ Close
                 </button>
               </div>
+
+              {/* Phase 4 GOOD: processed dossier — lifecycle timeline + immutable verification trail */}
+              {!credentialHistoryLoading && !credentialHistoryError && (
+                <>
+                  {provenance.events.length > 0 && (
+                    <div className="analytics-card" style={{ marginBottom: 14 }}>
+                      <h4 style={{ margin: "0 0 12px", color: "#fff", fontSize: 14 }}>
+                        🧬 Provenance Timeline
+                      </h4>
+                      <div className="analytics-timeline">
+                        {provenance.events.map((e, i) => (
+                          <div className="analytics-timeline-item" key={`prov-${i}`}>
+                            <span
+                              className="analytics-timeline-dot"
+                              style={{ background: e.color }}
+                            >
+                              {e.icon}
+                            </span>
+                            <div>
+                              <div className="analytics-timeline-label">{e.label}</div>
+                              <div className="analytics-timeline-when">
+                                {formatTimestamp(e.when)}
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                      <InterpretationBox>{provenance.summary}</InterpretationBox>
+                    </div>
+                  )}
+
+                  <div className="analytics-card" style={{ marginBottom: 14 }}>
+                    <h4 style={{ margin: "0 0 12px", color: "#fff", fontSize: 14 }}>
+                      🔗 Verification Proof Trail
+                    </h4>
+                    {proofTrail.count === 0 ? (
+                      <div className="analytics-chart-empty" style={{ height: 90 }}>
+                        Not independently verified yet.
+                      </div>
+                    ) : (
+                      <div className="analytics-timeline">
+                        {proofTrail.events.map((e, i) => {
+                          const color =
+                            e.outcome === "valid"
+                              ? "#4ade80"
+                              : e.outcome === "not_found"
+                              ? "#a78bfa"
+                              : "#f87171";
+                          const label =
+                            e.outcome === "valid"
+                              ? "Verified valid"
+                              : e.outcome === "not_found"
+                              ? "Forgery rejected (not found)"
+                              : e.outcome === "revoked"
+                              ? "Caught as revoked"
+                              : e.outcome === "expired"
+                              ? "Caught as expired"
+                              : "Checked";
+                          return (
+                            <div className="analytics-timeline-item" key={`proof-${i}`}>
+                              <span
+                                className="analytics-timeline-dot"
+                                style={{ background: color }}
+                              >
+                                ✓
+                              </span>
+                              <div>
+                                <div className="analytics-timeline-label">{label}</div>
+                                <div className="analytics-timeline-when">
+                                  {formatTimestamp(e.when)} • by {e.verifierName}
+                                </div>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                    <InterpretationBox>{proofTrail.summary}</InterpretationBox>
+                  </div>
+                </>
+              )}
 
               {credentialHistoryLoading ? (
                 <div style={{ padding: "16px", opacity: 0.9 }}>
@@ -3715,6 +3839,120 @@ const handleDownloadIssuerDocument = async (doc) => {
               )}
             </>
           )}
+        </div>
+      )}
+
+      {/* ANALYTICS & REPORTS TAB (Phase 4) */}
+      {tab === "analytics" && (
+        <div className="tab-card">
+          <h2>Analytics &amp; Reports</h2>
+          <p className="tab-subtitle">
+            Processed, interpreted insights from the blockchain audit trail —
+            not raw logs.
+          </p>
+
+          <div className="analytics-grid" style={{ marginTop: 8 }}>
+            {/* Verification Result Summary (Verifier report, hosted in admin) */}
+            <div className="analytics-card">
+              <h3>Verification Result Summary</h3>
+              <DonutChart
+                slices={verificationOutcomes.slices}
+                centerValue={verificationOutcomes.total}
+                centerLabel="Verifications"
+              />
+              <InterpretationBox>{verificationOutcomes.summary}</InterpretationBox>
+            </div>
+
+            {/* Suspicious Activity Insight (rule-based, transparent thresholds) */}
+            <div className="analytics-card">
+              <h3>Suspicious Activity Insight</h3>
+              <div className="analytics-flag-list">
+                {suspicious.issuers.length === 0 && (
+                  <div className="analytics-chart-empty" style={{ height: 120 }}>
+                    No issued-credential activity to analyze yet.
+                  </div>
+                )}
+                {suspicious.issuers.map((iss) => (
+                  <div
+                    key={iss.issuerId}
+                    className={`analytics-flag-row${iss.flagged ? " flagged" : ""}`}
+                  >
+                    <div>
+                      <div className="analytics-flag-issuer">
+                        {iss.flagged ? "⚠️ " : ""}{iss.issuerName}
+                      </div>
+                      <div className="analytics-flag-reason">{iss.reason}</div>
+                    </div>
+                    <span className={`analytics-flag-rate ${iss.flagged ? "flagged" : "ok"}`}>
+                      {iss.ratePct}%
+                    </span>
+                  </div>
+                ))}
+              </div>
+              <InterpretationBox>{suspicious.summary}</InterpretationBox>
+            </div>
+
+            {/* Demand Index — which credential TYPES verifiers actually check (blockchain value-proof) */}
+            <div className="analytics-card">
+              <h3>Demand Index</h3>
+              <TrendBars
+                data={demand.byType}
+                xKey="type"
+                yKey="verifications"
+                color="#60a5fa"
+              />
+              {demand.totalVerifications > 0 && (
+                <p className="analytics-flag-reason" style={{ marginTop: 8 }}>
+                  Ratio = verifications ÷ issued (how often each type is checked per credential awarded).
+                </p>
+              )}
+              <InterpretationBox>{demand.summary}</InterpretationBox>
+            </div>
+
+            {/* Integrity-Check Insight — surfaces the last CouchDB-vs-ledger check (no auto-run) */}
+            <div className="analytics-card">
+              <h3>Integrity-Check Insight</h3>
+              {integrity.available ? (
+                <>
+                  <DonutChart
+                    slices={integrity.slices}
+                    centerValue={integrity.totalChecked}
+                    centerLabel="Records"
+                  />
+                  {integrity.checkedAt && (
+                    <p className="analytics-flag-reason" style={{ marginTop: 8 }}>
+                      Last checked: {new Date(integrity.checkedAt).toLocaleString()}
+                    </p>
+                  )}
+                  <InterpretationBox>{integrity.summary}</InterpretationBox>
+                  {!integrity.healthy && (
+                    <button
+                      type="button"
+                      onClick={() => setShowIntegrityModal(true)}
+                      style={{ marginTop: 10 }}
+                    >
+                      View full integrity report
+                    </button>
+                  )}
+                </>
+              ) : (
+                <>
+                  <div className="analytics-chart-empty" style={{ height: 140 }}>
+                    No integrity check run yet this session.
+                  </div>
+                  <InterpretationBox>{integrity.summary}</InterpretationBox>
+                  <button
+                    type="button"
+                    onClick={handleIntegrityCheck}
+                    disabled={integrityLoading}
+                    style={{ marginTop: 10 }}
+                  >
+                    {integrityLoading ? "Running…" : "Run integrity check"}
+                  </button>
+                </>
+              )}
+            </div>
+          </div>
         </div>
       )}
 

@@ -1,308 +1,133 @@
 /* navBar.css */
+/*
+  Global top navigation bar (the app "topbar"). Refined-dark, token-driven.
+  Replaces the previous neon magenta→blue logo and #ff00cc accents with a single
+  purple accent and neutral text. Used on every route; the dashboard Sidebar
+  (cc-sidebar) layers in-page section nav beneath it.
+*/
+
 .navbar {
   display: flex;
-  align-items: center; 
-  padding: 15px 50px;
-  background-color: #000;
-  border-bottom: 1px solid #222;
+  align-items: center;
+  gap: var(--s5);
+  padding: 0 var(--s6);
+  height: 56px;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
 }
 
-
+/* Wordmark */
 .navbar .logo {
-  font-size: 1.5rem;
-  font-weight: bold;
-  background: linear-gradient(90deg, #ff00cc, #3333ff);
-  background-clip: text;
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  transition: none;
+  font-size: 1.25rem;
+  font-weight: var(--fw-bold);
+  letter-spacing: -0.01em;
+  margin: 0;
 }
-
-.navbar .logo:hover {
-  background: linear-gradient(90deg, #ff00cc, #3333ff);
-  background-clip: text;
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-}
-
+.navbar .logo,
+.navbar .logo:hover { color: var(--text); }
+.logo-link { text-decoration: none; color: inherit; cursor: pointer; }
+.logo-link:hover { color: var(--accent-strong); }
 
 .navbar .nav-links {
   list-style: none;
   display: flex;
   align-items: center;
-  gap: 25px;
-  margin-left: auto;
+  gap: var(--s5);
+  margin: 0 0 0 auto;
+  padding: 0;
 }
-
 
 .navbar .nav-links li {
   cursor: pointer;
-  transition: color 0.3s ease;
-  color: #aaa;
-  font-size: 0.95rem;
-  font-weight: 500;
+  color: var(--text-muted);
+  font-size: var(--fs-body);
+  font-weight: var(--fw-medium);
+  transition: color var(--motion-fast) var(--ease);
 }
+.navbar .nav-links li:hover { color: var(--text); }
+.navbar .nav-links li a { text-decoration: none; color: inherit; }
 
-
-.navbar .nav-links li:hover {
-  color: #fff;
-}
-
-
-/* Link styles */
-.navbar .nav-links li a {
-  text-decoration: none;
-  color: inherit;
-  transition: color 0.3s ease;
-}
-
-
-.navbar .nav-links li a:hover {
-  text-decoration: none;
-}
-
-
-/* Active state styles */
-.navbar .nav-links li.active {
-  color: #ff00cc;
-  position: relative;
-}
-
-
-.navbar .nav-links li.active a {
-  color: #ff00cc;
-}
-
-
+/* Active link: accent text + underline indicator */
+.navbar .nav-links li.active,
+.navbar .nav-links li.active a { color: var(--accent-strong); }
+.navbar .nav-links li.active { position: relative; }
 .navbar .nav-links li.active::after {
   content: '';
   position: absolute;
-  bottom: -5px;
-  left: 0;
-  width: 100%;
-  height: 2px;
-  background-color: #ff00cc;
+  bottom: -18px; left: 0;
+  width: 100%; height: 2px;
+  background: var(--accent);
 }
 
-
-/* Login button styling */
+/* Login = secondary button, Create Account = primary button */
 .nav-links .login-link {
-  background: #667eea;
-  color: white !important;
-  padding: 8px 16px;
-  border-radius: 4px;
-  transition: background 0.3s;
+  background: var(--surface-2);
+  border: 1px solid var(--border-strong);
+  color: var(--text) !important;
+  padding: 7px 14px;
+  border-radius: var(--radius-control);
+  transition: background var(--motion-fast) var(--ease), border-color var(--motion-fast) var(--ease);
 }
+.nav-links .login-link:hover { background: var(--surface-3); border-color: var(--text-subtle); }
 
-
-.nav-links .login-link:hover {
-  background: #764ba2;
-}
-
-
-/* Create Account button styling */
 .nav-links .create-account-link {
-  background: linear-gradient(135deg, #ff00ff, #8b00ff);
-  color: white !important;
-  padding: 8px 16px;
-  border-radius: 4px;
-  transition: background 0.3s;
+  background: var(--accent);
+  color: var(--text-on-accent) !important;
+  padding: 7px 14px;
+  border-radius: var(--radius-control);
+  transition: background var(--motion-fast) var(--ease);
 }
+.nav-links .create-account-link:hover { background: var(--accent-strong); box-shadow: none; }
 
-
-.nav-links .create-account-link:hover {
-  background: linear-gradient(135deg, #cc00cc, #6600cc);
-  box-shadow: 0 0 10px rgba(255, 0, 255, 0.5);
-}
-
-
-/* Profile Dropdown Container */
-.profile-dropdown-container {
-  position: relative;
-  display: inline-block;
-  display: flex;
-  align-items: center;
-}
-
-
-.profile-btn {
-  background: none;
-  border: none;
-  cursor: pointer;
-  margin-left: 20px;
-  padding: 0;
-  display: flex;
-  border-radius: 0;
-  outline: none;
-  box-shadow: none;
-}
-
-.profile-btn:hover {
-  background: none;
-  background-color: transparent;
-  outline: none;
-  box-shadow: none;
-}
-
-.profile-btn:focus {
-  outline: none;
-  box-shadow: none;
-}
-
+/* Profile button + avatar */
+.profile-dropdown-container { position: relative; display: flex; align-items: center; }
+.profile-btn { background: none; border: none; cursor: pointer; margin-left: var(--s2); padding: 0; display: flex; outline: none; box-shadow: none; }
+.profile-btn:hover, .profile-btn:focus { background: none; outline: none; box-shadow: none; }
 .profile-icon {
-  width: 36px;
-  height: 36px;
-  border-radius: 50%;
-  border: 2px solid rgba(255,255,255,0.88);
-  transition: transform 0.2s;
-  object-fit: cover;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
+  width: 34px; height: 34px; border-radius: 50%;
+  border: 1px solid var(--border-strong);
+  transition: transform var(--motion-fast) var(--ease);
+  object-fit: cover; display: inline-flex; align-items: center; justify-content: center;
 }
+.profile-icon-fallback { background: var(--accent); color: var(--text-on-accent); font-size: 14px; font-weight: var(--fw-bold); box-shadow: none; }
+.profile-btn:hover .profile-icon { transform: scale(1.06); }
 
-.profile-icon-fallback {
-  background: linear-gradient(135deg, rgba(167,139,250,0.95), rgba(79,70,229,0.95));
-  color: #fff;
-  font-size: 14px;
-  font-weight: 700;
-  box-shadow: 0 10px 20px rgba(79, 70, 229, 0.35);
-}
-
-.profile-btn:hover .profile-icon {
-  transform: scale(1.1);
-}
-
-
-/* Dropdown Menu */
+/* Dropdown */
 .profile-dropdown {
-  position: absolute;
-  right: 0;
-  top: 50px;
-  background-color: #1a1a2e;
-  border-radius: 12px;
-  box-shadow: 0 8px 24px rgba(139, 92, 246, 0.4);
-  min-width: 220px;
-  z-index: 1000;
-  border: 1px solid #8b5cf6;
+  position: absolute; right: 0; top: 48px;
+  background: var(--surface-2);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-card);
+  box-shadow: var(--shadow-lg);
+  min-width: 220px; z-index: var(--z-dropdown);
   overflow: hidden;
 }
-
-
-.profile-dropdown ul {
-  list-style: none;
-  padding: 0;
-  margin: 0;
-}
-
-
+.profile-dropdown ul { list-style: none; padding: var(--s1); margin: 0; }
 .profile-dropdown li {
-  padding: 12px 16px;
-  cursor: pointer;
-  transition: background-color 0.2s ease;
-  color: #fff;
-  border-bottom: 1px solid #222;
+  padding: 10px 12px; cursor: pointer; color: var(--text);
+  border-radius: var(--radius-control);
+  transition: background var(--motion-fast) var(--ease);
 }
+.profile-dropdown li a { text-decoration: none; color: inherit; display: block; width: 100%; }
+.profile-dropdown li:hover { background: var(--accent-weaker); }
 
-
-.profile-dropdown li:last-child {
-  border-bottom: none;
-}
-
-
-.profile-dropdown li:hover {
-  background-color: transparent;
-}
-
-
-.profile-dropdown li a {
-  text-decoration: none;
-  color: inherit;
-  display: block;
-  width: 100%;
-}
-
-
-.profile-dropdown li a:hover {
-  text-decoration: none;
-}
-
-
-/* User Info Header in Dropdown */
 .profile-dropdown .user-info {
-  padding: 12px 16px !important;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%) !important;
-  color: white !important;
-  text-align: center;
-  cursor: default !important;
-  border-bottom: 1px solid #555 !important;
+  background: var(--accent-weak) !important;
+  color: var(--text) !important;
+  text-align: left; cursor: default !important;
+  margin-bottom: var(--s1);
 }
+.profile-dropdown .user-info:hover { background: var(--accent-weak); }
+.profile-dropdown .user-info strong { display: block; font-size: var(--fs-body); margin-bottom: 2px; color: var(--text); }
+.profile-dropdown .user-info small { display: block; font-size: var(--fs-caption); color: var(--text-muted); text-transform: capitalize; }
 
+.profile-dropdown .divider { height: 1px; background: var(--border); margin: var(--s1) 0 !important; padding: 0 !important; list-style: none; border: none; }
+.profile-dropdown .divider:hover { background: var(--border); }
 
-.profile-dropdown .user-info strong {
-  display: block;
-  font-size: 14px;
-  margin-bottom: 4px;
-  color: white;
-}
+.signout-btn { background: none; border: none; color: var(--danger); cursor: pointer; width: 100%; text-align: left; padding: 0; font-weight: var(--fw-semibold); font-family: inherit; font-size: var(--fs-body); transition: filter var(--motion-fast) var(--ease); }
+.signout-btn:hover { filter: brightness(1.12); }
 
-
-.profile-dropdown .user-info small {
-  display: block;
-  font-size: 12px;
-  opacity: 0.9;
-  text-transform: capitalize;
-  color: white;
-}
-
-
-/* Divider line */
-.profile-dropdown .divider {
-  height: 1px;
-  background: #333;
-  margin: 4px 0 !important;
-  padding: 0 !important;
-  list-style: none;
-  border: none;
-}
-
-
-.profile-dropdown .divider:hover {
-  background-color: #333;
-}
-
-
-/* Sign out button */
-.signout-btn {
-  background: none;
-  border: none;
-  color: #ff4444;
-  cursor: pointer;
-  width: 100%;
-  text-align: left;
-  padding: 0;
-  font-weight: 600;
-  transition: color 0.2s;
-}
-
-
-.signout-btn:hover {
-  color: #ff6666;
-}
-
-
-/* Logo Link */
-.logo-link {
-  text-decoration: none;
-  color: inherit;
-  cursor: pointer;
-  transition: none;
-}
-
-.logo-link:hover {
-  color: inherit;
-  background: inherit;
-  background-clip: inherit;
-  -webkit-background-clip: inherit;
-  -webkit-text-fill-color: inherit;
+@media (max-width: 720px) {
+  .navbar { padding: 0 var(--s4); gap: var(--s3); }
+  .navbar .nav-links { gap: var(--s3); }
 }

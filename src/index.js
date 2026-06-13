@@ -9,6 +9,8 @@ import '@fontsource/inter/700.css';
 // Design tokens must load before any other stylesheet so var(--…) resolve.
 import './styles/tokens.css';
 import './styles/index.css';
+// Shared design-system primitives (cc-* classes), available app-wide.
+import './components/ui/ui.css';
 import App from './App';
 import reportWebVitals from './reportWebVitals';
 

@@ -14,8 +14,10 @@
     HOLDER
       - computeHealth(credentials)              non-overlapping health buckets + sentence
       - computeExpirationAlerts(credentials)    actionable renewal list (soonest-first) [NICE]
+      - computeHolderVerificationInsights(logs) trust signal + timeline + most-checked + alerts [BACKEND]
     ISSUER
       - computeIssuance(credentials)            issued totals, by-type, monthly trend
+      - computeRevocationAudit(credentials)     revoked-by-template + time-to-revoke buckets [GOOD]
     VERIFIER (rendered in admin)
       - computeVerificationOutcomes(logs)       valid/revoked/expired/not-found counts
     ADMIN
@@ -682,4 +684,207 @@ export function computeProofTrail(verificationLogs, credentialId) {
   }
 
   return { events, count, validCount, summary };
+}
+
+// Helper: parse a verification log's `result` into a normalized outcome string.
+function verificationOutcome(log) {
+  let r = log && log.result;
+  if (typeof r === 'string') {
+    try { r = JSON.parse(r); } catch { r = { reason: r }; }
+  }
+  r = r || {};
+  const status = lc(r.status);
+  const reason = lc(r.reason);
+  const valid = r.valid === true || r.isValid === true;
+  if (status === 'not_found' || reason.includes('not found')) return 'not_found';
+  if (valid) return 'valid';
+  if (status === 'revoked' || reason.includes('revoked')) return 'revoked';
+  if (status === 'expired' || reason.includes('expired')) return 'expired';
+  return 'other';
+}
+
+// Helper: last-6-months scaffold (oldest→newest), deterministic from "now".
+function lastSixMonths() {
+  const now = new Date();
+  const months = [];
+  for (let i = 5; i >= 0; i--) {
+    const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+    const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+    const label = d.toLocaleString('en-US', { month: 'short' });
+    months.push({ key, label, count: 0 });
+  }
+  return months;
+}
+
+/*
+  Function Name: computeHolderVerificationInsights
+
+  LAYMAN (Tropang Ex):
+  Para sa holder: "Sino at ilang beses na-check ang credentials ko, at lahat ba ay lumabas na
+  VALID?" Ito yung pinaka-personal na patunay ng halaga ng blockchain — hindi mo magagawa ito
+  sa PDF. Apat na cut sa iisang dataset: kabuuang trust signal, trend kada buwan, alin ang
+  pinakamadalas i-verify, at alerta kung may nakakita ng revoked/invalid.
+
+  TECHNICAL:
+  Operates on the holder's OWN verification logs (already filtered server-side by the
+  /api/wallet/my-verifications endpoint). Buckets each log by outcome (reuses verificationOutcome).
+  Verifier identity is used only for a distinct-count (display), never as a trust score.
+
+  PARAMS:
+  - logs — array of this holder's verification log objects. [] tolerated.
+
+  RETURNS:
+  { totalChecks, validCount, invalidCount, allValid, distinctVerifiers,
+    slices:[{name,value,color}], byMonth:[{label,count}],
+    mostChecked:[{credentialName,count}], alerts:[{credentialName,outcome,when}], summary }
+*/
+export function computeHolderVerificationInsights(logs) {
+  const list = Array.isArray(logs) ? logs : [];
+
+  let valid = 0, revoked = 0, expired = 0, notFound = 0, other = 0;
+  const verifiers = new Set();
+  const months = lastSixMonths();
+  const monthIndex = new Map(months.map((m, i) => [m.key, i]));
+  const checkedMap = new Map();   // credentialName -> count
+  const alerts = [];
+
+  for (const log of list) {
+    const outcome = verificationOutcome(log);
+    if (outcome === 'valid') valid++;
+    else if (outcome === 'revoked') revoked++;
+    else if (outcome === 'expired') expired++;
+    else if (outcome === 'not_found') notFound++;
+    else other++;
+
+    const who = lc(log.verifierEmail || log.verifierName);
+    if (who) verifiers.add(who);
+
+    const t = toTime(log.verifiedAt || log.timestamp || log.createdAt);
+    if (t !== null) {
+      const d = new Date(t);
+      const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+      if (monthIndex.has(key)) months[monthIndex.get(key)].count++;
+    }
+
+    const name = log.credentialName || log.credentialId || 'Unknown credential';
+    checkedMap.set(name, (checkedMap.get(name) || 0) + 1);
+
+    if (outcome !== 'valid') {
+      alerts.push({ credentialName: name, outcome, when: log.verifiedAt || log.timestamp || null });
+    }
+  }
+
+  const totalChecks = list.length;
+  const validCount = valid;
+  const invalidCount = revoked + expired + notFound + other;
+  const allValid = totalChecks > 0 && invalidCount === 0;
+  const distinctVerifiers = verifiers.size;
+
+  const slices = [
+    { name: 'Valid', value: valid, color: COLORS.green },
+    { name: 'Revoked', value: revoked, color: COLORS.red },
+    { name: 'Expired', value: expired, color: COLORS.amber },
+    { name: 'Not found', value: notFound, color: COLORS.purple },
+    { name: 'Other', value: other, color: COLORS.gray },
+  ].filter((s) => s.value > 0);
+
+  const byMonth = months.map((m) => ({ label: m.label, count: m.count }));
+
+  const mostChecked = [...checkedMap.entries()]
+    .map(([credentialName, count]) => ({ credentialName, count }))
+    .sort((a, b) => b.count - a.count)
+    .slice(0, 5);
+
+  let summary;
+  if (totalChecks === 0) {
+    summary = 'None of your credentials have been verified yet. When an employer or organization checks one, it is recorded immutably on the blockchain and appears here — independent proof you can point to.';
+  } else if (allValid) {
+    summary = `Your credentials have been independently verified ${totalChecks} time(s) by ${distinctVerifiers} verifier(s) — every check returned VALID. This is third-party-confirmed, tamper-proof evidence your credentials hold up to scrutiny, stronger than any PDF.`;
+  } else {
+    summary = `Your credentials were checked ${totalChecks} time(s) by ${distinctVerifiers} verifier(s); ${validCount} returned valid. ⚠️ ${invalidCount} check(s) returned a non-valid result — see the alerts below; an employer saw that outcome.`;
+  }
+
+  return {
+    totalChecks, validCount, invalidCount, allValid, distinctVerifiers,
+    slices, byMonth, mostChecked, alerts, summary,
+  };
+}
+
+/*
+  Function Name: computeRevocationAudit
+
+  LAYMAN (Tropang Ex):
+  Para sa issuer (paaralan): "Alin sa mga credential ko ang madalas ko nire-revoke, at gaano
+  kabilis pagkatapos i-issue?" Kung karamihan ay nire-revoke agad (loob ng 14 araw), ibig sabihin
+  may problema sa PAG-ISSUE (maling data/eligibility check) — hindi sa lifecycle. Ito ang
+  "self-audit" para makita kung saan sira ang proseso.
+
+  TECHNICAL:
+  Filters issued credentials with status 'revoked'. Groups by credentialName (the template the
+  holder recognizes) and by time-to-revoke buckets (≤14d / 15–30d / >30d) computed from
+  revokedAt − issue date. Logs with missing dates are counted in totals but skipped from the
+  speed buckets (noted via fastShare being over determinable revocations only).
+
+  PARAMS:
+  - credentials — issuer's credential objects (status, revokedAt, issuedDate/createdAt, credentialType). [] tolerated.
+
+  RETURNS:
+  { total, revokedTotal, byTemplate:[{label,count}], bySpeed:[{bucket,count}], topTemplate, fastShare, summary }
+*/
+export function computeRevocationAudit(credentials) {
+  const list = Array.isArray(credentials) ? credentials : [];
+  const issued = list.filter((c) => c.isTemplate !== true && lc(c.type) !== 'template');
+  const total = issued.length;
+
+  const revoked = issued.filter((c) => lc(c.status) === 'revoked');
+  const revokedTotal = revoked.length;
+
+  // by template (credentialName the user recognizes; fallback to type)
+  const tmplMap = new Map();
+  for (const c of revoked) {
+    const label = c.credentialName || c.credentialType || 'Uncategorized';
+    tmplMap.set(label, (tmplMap.get(label) || 0) + 1);
+  }
+  const byTemplate = [...tmplMap.entries()]
+    .map(([label, count]) => ({ label, count }))
+    .sort((a, b) => b.count - a.count);
+
+  // time-to-revoke buckets
+  const buckets = { '≤14 days': 0, '15–30 days': 0, '>30 days': 0 };
+  let determinable = 0;
+  const DAY = 24 * 60 * 60 * 1000;
+  for (const c of revoked) {
+    const rt = toTime(c.revokedAt || c.rejectedAt);
+    const it = toTime(c.issuedDate || c.createdAt || c.savedToCouchDBAt || c.savedToUserWalletAt);
+    if (rt === null || it === null) continue;
+    determinable++;
+    const days = Math.max(0, Math.round((rt - it) / DAY));
+    if (days <= 14) buckets['≤14 days']++;
+    else if (days <= 30) buckets['15–30 days']++;
+    else buckets['>30 days']++;
+  }
+  const bySpeed = Object.entries(buckets).map(([bucket, count]) => ({ bucket, count }));
+
+  const topTemplate = byTemplate.length ? byTemplate[0] : null;
+  const earlyCount = buckets['≤14 days'];
+  const fastShare = determinable > 0 ? Math.round((earlyCount / determinable) * 100) : 0;
+
+  let summary;
+  if (revokedTotal === 0) {
+    summary = total === 0
+      ? 'No issued credentials yet to audit.'
+      : `None of your ${total} issued credential(s) have been revoked — a clean record.`;
+  } else {
+    const tmplNote = topTemplate
+      ? ` "${topTemplate.label}" accounts for the most revocations (${topTemplate.count} of ${revokedTotal}).`
+      : '';
+    const speedNote = determinable > 0
+      ? (fastShare >= 50
+          ? ` ${fastShare}% were revoked within 14 days of issuing — this points to a problem at ISSUANCE (data entry / eligibility checks), not the credential lifecycle.`
+          : ` Most revocations happened well after issuance — consistent with normal lifecycle changes rather than issuance errors.`)
+      : '';
+    summary = `You have revoked ${revokedTotal} of ${total} issued credential(s).${tmplNote}${speedNote}`;
+  }
+
+  return { total, revokedTotal, byTemplate, bySpeed, topTemplate, fastShare, summary };
 }

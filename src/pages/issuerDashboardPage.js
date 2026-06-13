@@ -33,7 +33,7 @@ import "../styles/analytics.css";
 import DonutChart from "../components/analytics/DonutChart";
 import TrendBars from "../components/analytics/TrendBars";
 import InterpretationBox from "../components/analytics/InterpretationBox";
-import { computeIssuance, COLORS as ANALYTICS_COLORS } from "../components/analytics/analytics";
+import { computeIssuance, computeRevocationAudit, COLORS as ANALYTICS_COLORS } from "../components/analytics/analytics";
 
 export default function IssuerDashboard() {
   // - polo: get current issuer type to hide subordinate sections for subordinate issuers
@@ -731,6 +731,8 @@ export default function IssuerDashboard() {
 
   // Phase 4: Issuance Performance report (computed from already-loaded issued credentials)
   const issuance = useMemo(() => computeIssuance(credentials), [credentials]);
+  // Phase 4 GOOD: Revocation Self-Audit (by template + time-to-revoke; reuses revokedAt/issuedDate)
+  const revAudit = useMemo(() => computeRevocationAudit(credentials), [credentials]);
 
   // -------------------------------------------------------------------
   // LOADING / ERROR STATES
@@ -1196,6 +1198,44 @@ export default function IssuerDashboard() {
           </div>
 
           <InterpretationBox>{issuance.summary}</InterpretationBox>
+
+          {/* Phase 4 GOOD: Revocation Self-Audit — where is our issuance process breaking? */}
+          <h2 style={{ marginTop: 32 }}>Revocation Self-Audit</h2>
+          <div className="issuer-stats-row" style={{ marginTop: 16 }}>
+            <div className="issuer-stat-card">
+              <span className="issuer-stat-num">{revAudit.revokedTotal}</span>
+              <span className="issuer-stat-label">Revoked Total</span>
+            </div>
+            <div className="issuer-stat-card">
+              <span className="issuer-stat-num">{revAudit.topTemplate ? revAudit.topTemplate.count : 0}</span>
+              <span className="issuer-stat-label">Worst Template</span>
+            </div>
+            <div className="issuer-stat-card">
+              <span className="issuer-stat-num">{revAudit.fastShare}%</span>
+              <span className="issuer-stat-label">Revoked ≤14 Days</span>
+            </div>
+          </div>
+
+          {revAudit.revokedTotal > 0 ? (
+            <div className="analytics-grid" style={{ marginTop: 18 }}>
+              <div className="analytics-card">
+                <h3>Revocations by Template</h3>
+                <TrendBars data={revAudit.byTemplate} xKey="label" yKey="count" color={ANALYTICS_COLORS.red} />
+              </div>
+              <div className="analytics-card">
+                <h3>Time-to-Revoke (after issuance)</h3>
+                <TrendBars data={revAudit.bySpeed} xKey="bucket" yKey="count" color={ANALYTICS_COLORS.amber} />
+              </div>
+            </div>
+          ) : (
+            <div className="analytics-card" style={{ marginTop: 18 }}>
+              <div className="analytics-chart-empty" style={{ height: 120 }}>
+                No revocations to audit — a clean record.
+              </div>
+            </div>
+          )}
+
+          <InterpretationBox>{revAudit.summary}</InterpretationBox>
         </>
       )}
 

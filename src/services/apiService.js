@@ -1446,6 +1446,21 @@ Get_AllVerificationLogs: async () => {
   }
 },
 
+// Phase 4: the authenticated holder's OWN verification logs (server-side filtered).
+// No holderID param — the backend derives the holder from the JWT (req.user.id).
+Get_MyVerifications: async () => {
+  try {
+    const response = await axios.get('/wallet/my-verifications'); // baseURL already has /api
+    return response.data; // { success, logs, count, timestamp }
+  } catch (error) {
+    console.error(
+      'Error fetching my verifications:',
+      error.response?.data?.message || error.message
+    );
+    throw error;
+  }
+},
+
 // Get all issuer/user status-change logs (blockchain)
 Get_AllStatusLogs: async () => {
   try {

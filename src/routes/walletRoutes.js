@@ -12,6 +12,13 @@ const router = express.Router();
 // Get student wallet credentials (CouchDB reads).
 router.get('/credentials/:holderID', walletController.getUserCredentials);
 
+// GET /api/wallet/my-verifications
+// Phase 4: the authenticated holder's OWN verification logs (server-side filtered, no IDOR).
+// getContractAndGateway is injected from app.locals (set in sdk-server-fixed.js).
+router.get('/my-verifications', (req, res) =>
+  walletController.getMyVerifications(req, res, req.app.locals.getContractAndGateway)
+);
+
 // PATCH /api/wallet/visibility/:credentialId
 // Update credential visibility state.
 router.patch('/visibility/:credentialId', walletController.updateCredentialVisibility);

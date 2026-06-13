@@ -29,8 +29,14 @@ import "../styles/studentDashboard.css";
 import "../styles/analytics.css";
 import { exportCredentialToPDF, exportAllCredentialsToPDF } from '../services/pdfExportService';
 import DonutChart from "../components/analytics/DonutChart";
+import TrendBars from "../components/analytics/TrendBars";
 import InterpretationBox from "../components/analytics/InterpretationBox";
-import { computeHealth, computeExpirationAlerts } from "../components/analytics/analytics";
+import {
+  computeHealth,
+  computeExpirationAlerts,
+  computeHolderVerificationInsights,
+  computeProvenance,
+} from "../components/analytics/analytics";
 
 // ==========================================================================================================================================================================
 // HELPERS
@@ -264,6 +270,22 @@ export default function StudentDashboard() {
   /* Phase 4 NICE: actionable renewal list (which credentials, soonest-first) */
   const renewal = useMemo(() => computeExpirationAlerts(credentials), [credentials]);
   const [showHealth, setShowHealth] = useState(true);
+
+  /* Phase 4: Verification Insights — the holder's OWN verification logs (server-side filtered) */
+  const [myVerifications, setMyVerifications] = useState([]);
+  const [viLoading, setViLoading] = useState(false);
+  const vinsights = useMemo(() => computeHolderVerificationInsights(myVerifications), [myVerifications]);
+
+  useEffect(() => {
+    let active = true;
+    setViLoading(true);
+    apiService
+      .Get_MyVerifications()
+      .then((res) => { if (active) setMyVerifications(res?.logs || []); })
+      .catch(() => { if (active) setMyVerifications([]); })
+      .finally(() => { if (active) setViLoading(false); });
+    return () => { active = false; };
+  }, []);
 
   // ── See History handler ────────────────────────────────────────────────────
 
@@ -597,6 +619,19 @@ export default function StudentDashboard() {
               />
               <InterpretationBox>{health.summary}</InterpretationBox>
 
+              {/* Phase 4: safe-to-share fold — verifiers see LIVE ledger status, not a frozen PDF */}
+              <div className="info-message" style={{ marginTop: 10 }}>
+                <strong>🔎 Before you share:</strong>{" "}
+                {health.revoked > 0
+                  ? `${health.revoked} of your credentials are revoked — do NOT share these; a verifier will see them as invalid. `
+                  : ""}
+                {health.expiringSoon > 0
+                  ? `${health.expiringSoon} expire soon — if an employer checks after the expiry date, they'll see "expired." `
+                  : ""}
+                Anyone you share with sees your credential's live blockchain status at the moment they
+                check it — not the version you sent.
+              </div>
+
               {/* Phase 4 NICE: Expiration & Renewal Alerts — actionable list, soonest-first */}
               {renewal.alerts.length > 0 && (
                 <div style={{ marginTop: 18 }}>
@@ -645,6 +680,100 @@ export default function StudentDashboard() {
                 </div>
               )}
             </div>
+          )}
+        </div>
+      )}
+
+      {/* Phase 4: Verification Insights — "who checked my credentials, and do they hold up?" */}
+      {!loading && !error && credentials.length > 0 && (
+        <div className="analytics-card" style={{ marginTop: 16 }}>
+          <h3 style={{ margin: "0 0 14px" }}>🔗 Verification Insights</h3>
+
+          {viLoading ? (
+            <div className="analytics-chart-empty" style={{ height: 120 }}>
+              Loading your verification activity…
+            </div>
+          ) : vinsights.totalChecks === 0 ? (
+            <>
+              <div className="analytics-chart-empty" style={{ height: 120 }}>
+                No verifications yet.
+              </div>
+              <InterpretationBox>{vinsights.summary}</InterpretationBox>
+            </>
+          ) : (
+            <>
+              {/* Trust Signal stat row */}
+              <div className="stats-bar" style={{ marginBottom: 8 }}>
+                <div className="stat-item">
+                  <span className="stat-number">{vinsights.totalChecks}</span>
+                  <span className="stat-label">Total Checks</span>
+                </div>
+                <div className="stat-item">
+                  <span className="stat-number">{vinsights.distinctVerifiers}</span>
+                  <span className="stat-label">Distinct Verifiers</span>
+                </div>
+                <div className="stat-item">
+                  <span className="stat-number" style={{ color: vinsights.allValid ? "#4ade80" : "#fbbf24" }}>
+                    {vinsights.allValid ? "All Valid ✓" : `${vinsights.validCount}/${vinsights.totalChecks}`}
+                  </span>
+                  <span className="stat-label">Valid Results</span>
+                </div>
+              </div>
+
+              <div className="analytics-grid">
+                <div className="analytics-card">
+                  <h3>Outcomes</h3>
+                  <DonutChart
+                    slices={vinsights.slices}
+                    centerValue={vinsights.totalChecks}
+                    centerLabel="Checks"
+                  />
+                </div>
+                <div className="analytics-card">
+                  <h3>Verification Trend (last 6 months)</h3>
+                  <TrendBars data={vinsights.byMonth} xKey="label" yKey="count" color="#60a5fa" />
+                </div>
+              </div>
+
+              {/* Most-checked credentials */}
+              {vinsights.mostChecked.length > 0 && (
+                <div style={{ marginTop: 16 }}>
+                  <h4 style={{ margin: "0 0 10px", color: "#fff", fontSize: 14 }}>Most-Checked Credentials</h4>
+                  <div className="analytics-flag-list">
+                    {vinsights.mostChecked.map((m, i) => (
+                      <div className="analytics-flag-row" key={`mc-${i}`}>
+                        <div className="analytics-flag-issuer">{m.credentialName}</div>
+                        <span className="analytics-flag-rate" style={{ color: "#c4b5fd", fontSize: 15 }}>
+                          {m.count}×
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Outcome alerts (non-valid results an employer saw) */}
+              {vinsights.alerts.length > 0 && (
+                <div style={{ marginTop: 16 }}>
+                  <h4 style={{ margin: "0 0 10px", color: "#f87171", fontSize: 14 }}>⚠️ Attention</h4>
+                  <div className="analytics-flag-list">
+                    {vinsights.alerts.map((a, i) => (
+                      <div className="analytics-flag-row flagged" key={`va-${i}`}>
+                        <div>
+                          <div className="analytics-flag-issuer">{a.credentialName}</div>
+                          <div className="analytics-flag-reason">
+                            A verifier saw this as <strong>{a.outcome.replace("_", " ")}</strong>
+                            {a.when ? ` on ${formatDate(a.when)}` : ""}
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              <InterpretationBox>{vinsights.summary}</InterpretationBox>
+            </>
           )}
         </div>
       )}
@@ -996,6 +1125,33 @@ export default function StudentDashboard() {
                 {historyError && (
                   <p className="history-error">{historyError}</p>
                 )}
+
+                {/* Phase 4: processed Provenance Timeline (reuses the admin computeProvenance helper) */}
+                {historyData && historyData.history && (() => {
+                  const prov = computeProvenance(historyData.history);
+                  if (prov.events.length === 0) return null;
+                  return (
+                    <div className="analytics-card" style={{ marginBottom: 14 }}>
+                      <h4 style={{ margin: "0 0 12px", fontSize: 14 }}>🧬 Provenance Timeline</h4>
+                      <div className="analytics-timeline">
+                        {prov.events.map((e, i) => (
+                          <div className="analytics-timeline-item" key={`hprov-${i}`}>
+                            <span className="analytics-timeline-dot" style={{ background: e.color }}>
+                              {e.icon}
+                            </span>
+                            <div>
+                              <div className="analytics-timeline-label">{e.label}</div>
+                              <div className="analytics-timeline-when">
+                                {e.when ? formatDate(e.when) : "N/A"}
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                      <InterpretationBox>{prov.summary}</InterpretationBox>
+                    </div>
+                  );
+                })()}
 
                 {historyData && historyData.history && (
                   <div className="history-list">

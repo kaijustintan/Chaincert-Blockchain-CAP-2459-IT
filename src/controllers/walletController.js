@@ -65,6 +65,81 @@ const walletController = {
     }
   },
 
+  /*
+    Function Name: getMyVerifications
+
+    LAYMAN (Tropang Ex):
+    Ibinabalik nito kung ILANG beses na-verify ang credentials NG NAKA-LOGIN na holder lang —
+    ang "sino ang nag-check sa credential ko, kailan, at ano ang resulta." Galing ito sa
+    parehong immutable verification log na nasa blockchain, pero sinasala sa server para
+    HINDI mo makita ang verification ng ibang tao (privacy boundary).
+
+    TECHNICAL:
+    Phase 4 holder Verification Insights. Identity comes from the JWT (req.user.id) — never a
+    URL param (no IDOR). Resolves the holder's own credential IDs via
+    getUserCredentialsByHolderId, then reads the global on-chain verification log
+    (GetAllVerificationLogs) and filters server-side to ONLY this holder's credentialIds.
+    Mirrors verifierController.getAllVerificationLogs for the gateway call.
+
+    PARAMS:
+    - req, res — Express.
+    - getContractAndGateway — injected by the route from req.app.locals.
+
+    RETURNS:
+    200 { success, logs:[...own logs...], count, timestamp } | 401 if unauthenticated.
+  */
+  getMyVerifications: async (req, res, getContractAndGateway) => {
+    let gateway;
+    try {
+      const holderId = req.user?.id;
+      if (!holderId) {
+        return res.status(401).json({ success: false, message: 'Authentication required.' });
+      }
+
+      // Resolve this holder's own credential IDs (all id forms, prefix-stripped).
+      const ownDocs = await couchDB.getUserCredentialsByHolderId(holderId);
+      const ownIds = new Set();
+      (ownDocs || []).forEach((doc) => {
+        [doc._id, doc.blockchainId, doc.credentialId, doc.id]
+          .filter(Boolean)
+          .forEach((id) => ownIds.add(stripCredPrefix(id)));
+      });
+
+      // No credentials → no verifications. Skip the ledger round-trip.
+      if (ownIds.size === 0) {
+        return res.status(200).json({ success: true, logs: [], count: 0, timestamp: new Date().toISOString() });
+      }
+
+      // Read the immutable verification log (read-only), then filter server-side.
+      // Same gateway identity selection as verifierController.getAllVerificationLogs.
+      const identityName = req.user.role === 'admin' ? 'chaincert-admin' : 'admin';
+      const orgName = 'Org1';
+      const conn = await getContractAndGateway(identityName, orgName);
+      gateway = conn.gateway;
+      const resultBuffer = await conn.contract.evaluateTransaction('GetAllVerificationLogs');
+      const allLogs = JSON.parse(resultBuffer.toString()) || [];
+
+      // PRIVACY BOUNDARY: keep only logs for credentials this holder owns.
+      const myLogs = allLogs.filter((log) => {
+        const id = stripCredPrefix(log && log.credentialId);
+        return id && ownIds.has(id);
+      });
+
+      return res.status(200).json({
+        success: true,
+        logs: myLogs,
+        count: myLogs.length,
+        timestamp: new Date().toISOString(),
+      });
+    } catch (error) {
+      return sendServerError(res, error, 'WALLET'); // M9
+    } finally {
+      if (gateway) {
+        try { await gateway.disconnect(); } catch (_) { /* best-effort */ }
+      }
+    }
+  },
+
   updateCredentialVisibility: async (req, res) => {
     try {
       const { credentialId } = req.params;

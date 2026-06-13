@@ -92,7 +92,7 @@ Backend route mounting (sdk-server-fixed.js)
 /api/issuer   -> issuerRoutes        (issuerOnboardingController, issuerCredentialController)
 /api/credentials -> credentialRoutes (credential lifecycle: issue/revoke/history/verify)
 /api/verify   -> verificationRoutes  (verifierController)
-/api/wallet   -> walletRoutes        (walletController — student wallet UI state)
+/api/wallet   -> walletRoutes        (walletController — student wallet UI state; incl. GET /my-verifications: holder's own verification logs, server-side filtered by req.user.id)
 Where to put new backend code
 Per docs/Claude Reference - MD Files/CONTROLLER_Files_and_its_Responsibilities.md and docs/Claude Reference - MD Files/ROUTE_Files_and_its_Responsibilities.md — the team uses these as the canonical file-placement rules. Follow them when adding new endpoints; don't pile everything into authController.js just because it's the largest.
 ControllerResponsibilityauthControllerLogin, register, password change — authentication / access entry onlyaccountControllerProfile/account data: getUserInfo, updateProfile, uploadProfilePictureissuerOnboardingControllerIssuer registration, requirements lookup, onboarding document reviewissuerCredentialControllerIssuer credential lifecycle: create template, issue, revoke, history, eligible usersadminIssuerControllerAdmin managing issuer queues: pending/approved/rejected/disabled lists, approve/reject/enable/disablerootAuthorityControllerRoot authority over subordinates: list/approve/reject subordinate issuersadminAuditControllerAudit logs (status/decision logs), admin password change, admin enable/disable usersadminDashboardControllerAdmin dashboard aggregation + maintenance (e.g. triggerExpiryCheck, expiry cron init)walletControllerStudent wallet display state: visibility/order/credentials listverifierControllerCredential verification + verification logs/stats
@@ -164,19 +164,25 @@ Auth: tokens live in localStorage.token on the client; backend treats absence of
 Roles: student (holder), issuer (root or subordinate), admin, verifier. Plus the chaincode-level chaincert-admin Fabric identity used by the API for system-level invokes.
 When in doubt about layout: read docs/DIRECTORY - Ubuntu.txt and docs/Claude Reference - MD Files/DIRECTORY_-_Windows.md for the authoritative directory tree on each side.
 
-Phase 4 analytics/reports — investigation done June 2026; MVS defined, NOT YET CODED
-Panel tracker items S4/IMP7. Adviser Sir Danny directive: end-user-first (Holder → Verifier → Issuer → Admin), processed interpreted insights, not raw tables. Full GATE findings in project memory (project-phase4-analytics.md).
-Key facts — do NOT re-investigate:
-- Verification logging EXISTS AND IS WIRED: verifierDashboard → logVerificationOnChain → POST /api/credentials/:credentialId/log-verification → LogVerification chaincode. Stores credentialId, holderID, credentialName, issuerID, verifierName, verifierEmail, result, invokerMSP, blockchain timestamp. GetAllVerificationLogs / GetVerificationLogById are both exposed at /api/verify/verification-logs.
-- Not-found gap FIXED (2026-06-12): src/pages/verifierDashboard.js catch block now also logs status:'not_found' on 404 responses so forgery/fraud attempts appear in analytics.
-- Verifier identity is SELF-REPORTED (unauth'd name+email). Do not build trust-dependent analytics on it.
-- view_logs / performance_logs: DO NOT EXIST. Future Work only.
-- runIntegrityCheck results already surfaced in admin integrity modal (Phase 5 M13). Integrity-Check Insight = already done; mention as bonus in Final Doc.
-- MVS = 4 reports, NO chaincode redeploy, NO new CouchDB collections.
-MVS reports: (1) Holder — Personal Credential Health (client-side, studentDashboard loaded data), (2) Verifier — Verification Result Summary (GetAllVerificationLogs), (3) Issuer — Issuance Performance (CouchDB issued_credentials), (4) Admin — Suspicious Activity Insight (rule-based flags; revocation-spike logic queries issued_credentials by issuer+timestamp, NOT the decision logs which track issuer status changes only).
-Remaining 15 reports → documented as Future Work in Final Document (covers tracker item D2 limitations/recommendations).
-Blockchain-specific report ideas (panel-impressive, use these): Credential Provenance Timeline (Get_CredentialTemplateOrIssuedCredentialHistory), Verification Proof Trail (GetAllVerificationLogs filtered per credential).
-Demo sparseness: only DLSU + INNOCENCIO + LASALLECOMPUTERSOCIETY provisioned. Plan a seeding script for demo verifications. Mockup fake issuers (AWS, Google, Mapúa) must be labeled "illustrative."
+Phase 4 analytics/reports — SHIPPED June 2026 (tracker S4/IMP7). Adviser Sir Danny directive: end-user-first (Holder → Verifier → Issuer → Admin), processed interpreted insights, not raw tables — every chart has a "what this means" box. Full GATE findings + investigation history in project memory (project-phase4-analytics.md).
+
+Shared analytics layer (NEW files): src/components/analytics/ — analytics.js (pure aggregation helpers, doc-commented + null-tolerant; visible threshold constants), DonutChart.jsx / TrendBars.jsx (recharts wrappers), InterpretationBox.jsx ("what this means" box). Styles in src/styles/analytics.css (grid/card/flag-row/timeline primitives; reuses existing dashboard CSS). recharts@^2.15.4 added to package.json. NO chaincode redeploy, NO new CouchDB collections for the whole module.
+
+Shipped reports by role (helper in analytics.js → where rendered):
+- HOLDER (studentDashboard.js): Credential Health (computeHealth, donut) • Renewal Alerts w/ View button (computeExpirationAlerts) • Verification Insights panel — 4 cuts: trust signal + outcomes donut + 6-mo trend + most-checked + outcome alerts (computeHolderVerificationInsights) • Provenance Timeline in See History (computeProvenance) • safe-to-share verdict (inline).
+- ISSUER (issuerDashboardPage.js, "analytics" activeView): Issuance Performance (computeIssuance) • Revocation Self-Audit — by template + time-to-revoke buckets (computeRevocationAudit).
+- ADMIN (adminDashboard.js, "Analytics & Reports" tab): Verification Result Summary (computeVerificationOutcomes) • Suspicious Activity (computeSuspiciousIssuers) • Demand Index (computeDemand) • Integrity-Check Insight (computeIntegritySummary, reuses existing integrityResult). PLUS the per-credential "Credential Dossier" modal: Provenance Timeline + Verification Proof Trail (computeProvenance / computeProofTrail), raw audit table collapsed by default.
+
+CRITICAL architectural facts — do NOT re-investigate:
+- Verification logs are ADMIN-ONLY globally (GetAllVerificationLogs, exposed at /api/verify/verification-logs). Holder- or issuer-scoped verification reports REQUIRE a new server-side-filtered endpoint (can't filter client-side — would leak everyone's logs). The HOLDER one is built: GET /api/wallet/my-verifications (walletController.getMyVerifications) — derives holder from req.user.id (NOT a URL param → no IDOR), resolves own credentialIds via getUserCredentialsByHolderId, filters the global log server-side. The ISSUER equivalent is NOT built (Future Work).
+- Forged/not_found verification logs have EMPTY issuerID. LogVerification (chaincode/index.js:~484-492) enriches issuerID only from an existing credential's world-state record; a non-existent credential leaves issuerID=''. So forgery/not-found attempts CANNOT be attributed to an issuer — any "forgery-rate per issuer" report is infeasible.
+- Verifier identity is SELF-REPORTED (unauth'd name+email). Used only as display / distinct-count, NEVER as a trust score.
+- Not-found verifications ARE logged (verifierDashboard.js catch logs status:'not_found' on 404) so forgery attempts appear in analytics.
+- Bugfix shipped: verifierController.js getAllVerificationLogs/log enrichment null-guards getUser(holderID) (was throwing/​spamming "Cannot read properties of null (reading 'fullName')" for holders not in the users DB).
+- view_logs / performance_logs / share-link VIEW tracking: DO NOT EXIST (no instrumentation). Future Work only.
+
+Future Work (document in Final Document, tracker D2): issuer-scoped Verification Reach (#6, needs issuer-filtered endpoint), share-link view analytics (needs new logging/chaincode), issuer Trust Tiering (forgery-attribution infeasible per above).
+Demo sparseness: only DLSU + INNOCENCIO + LASALLECOMPUTERSOCIETY provisioned. SEED verifications before any demo (incl. one fake/non-existent ID + one revoked credential) or the verification-based reports render empty. Mockup fake issuers (AWS, Google, Mapúa) must be labeled "illustrative."
 
 Phase 5 security hardening (implemented June 2026 — these were FIXED; do not re-flag as holes)
 Two batches landed. Per-measure exploit/fix/test detail is in the session handoffs; short version:

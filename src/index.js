@@ -1,5 +1,13 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
+// Bundle the UI font (Inter) so it loads for everyone, not just machines that
+// happen to have it installed. Weights: regular/medium/semibold/bold.
+import '@fontsource/inter/400.css';
+import '@fontsource/inter/500.css';
+import '@fontsource/inter/600.css';
+import '@fontsource/inter/700.css';
+// Design tokens must load before any other stylesheet so var(--…) resolve.
+import './styles/tokens.css';
 import './styles/index.css';
 import App from './App';
 import reportWebVitals from './reportWebVitals';

@@ -1,0 +1,162 @@
+/* tokens.css */
+/*
+  FILE: tokens.css
+  LAYMAN (Tropang Ex): Ito yung "recipe card" ng buong app. Lahat ng kulay, font,
+  laki ng spacing, gaano ka-rounded yung corners, at gaano kabilis yung animations
+  — nakasulat dito ONCE. Imbes na mag-pick ng sariling kulay kada page (kaya dati
+  magkaka-iba't iba at magulo), lahat ngayon kumukuha dito. Baguhin mo dito, buong
+  app sabay-sabay na nagbabago. Ito yung dahilan kung bakit magmumukhang "designed"
+  at hindi "pinagdikit-dikit."
+
+  TECHNICAL: Single source of truth for the design system, exposed as CSS custom
+  properties on :root. Covers color (refined dark palette — one purple accent,
+  neutral grays, de-saturated semantics), typography scale, spacing (4/8), radius,
+  elevation (neutral shadows — no colored glow), and motion (purposeful, fast,
+  no overshoot). Imported first in index.js so every other stylesheet can consume
+  var(--…). Replaces the previously hardcoded/duplicated values across 23 CSS files.
+
+  OUTLINE:
+    COLOR
+      - surfaces, borders, text, accent ramp, semantic (ok/warn/danger/info)
+    TYPOGRAPHY
+      - --font-ui, --font-mono, type scale (--fs-*), weights, tracking
+    SPACING
+      - --s1..--s6 (4/8 scale)
+    SHAPE
+      - --radius-control / --radius-card / --radius-modal / --radius-pill
+    ELEVATION
+      - --shadow-sm / --shadow-md / --shadow-lg (neutral)
+    MOTION
+      - --motion-fast / --motion / --ease, refined @keyframes, reduced-motion reset
+*/
+
+:root {
+  /* ---------- COLOR: surfaces ---------- */
+  --bg: #0B0B14;            /* app background — calm charcoal-navy */
+  --surface: #14141F;       /* default card surface */
+  --surface-2: #1B1B29;     /* elevated surface (modals, popovers, hover) */
+  --surface-3: #232333;     /* highest elevation / input fields */
+
+  /* ---------- COLOR: borders ---------- */
+  --border: rgba(255, 255, 255, 0.08);        /* neutral hairline */
+  --border-strong: rgba(255, 255, 255, 0.14); /* dividers, table heads */
+  --border-accent: rgba(124, 92, 252, 0.55);  /* focus / active */
+
+  /* ---------- COLOR: text ---------- */
+  --text: #ECECF1;          /* primary */
+  --text-muted: #A8A8B8;    /* secondary / supporting */
+  --text-subtle: #6E6E80;   /* captions, placeholders, disabled */
+  --text-on-accent: #FFFFFF;
+
+  /* ---------- COLOR: accent (single purple identity) ---------- */
+  --accent: #7C5CFC;
+  --accent-strong: #9B7BFF; /* hover */
+  --accent-weak: rgba(124, 92, 252, 0.14);  /* tinted backgrounds (chips, active rows) */
+  --accent-weaker: rgba(124, 92, 252, 0.08);
+  /* Reserved, static, subtle — landing hero only. NOT for body text. */
+  --accent-gradient: linear-gradient(135deg, #7C5CFC 0%, #9B7BFF 100%);
+
+  /* ---------- COLOR: semantic (de-saturated for dark UI) ---------- */
+  --ok: #34B27B;
+  --ok-weak: rgba(52, 178, 123, 0.14);
+  --warn: #D9A23B;
+  --warn-weak: rgba(217, 162, 59, 0.14);
+  --danger: #E5645A;
+  --danger-weak: rgba(229, 100, 90, 0.14);
+  --info: #5B8DEF;
+  --info-weak: rgba(91, 141, 239, 0.14);
+
+  /* ---------- TYPOGRAPHY ---------- */
+  --font-ui: 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  --font-mono: 'JetBrains Mono', 'SF Mono', Menlo, Consolas, 'Courier New', monospace;
+
+  --fs-display: 28px;  /* landing hero only */
+  --fs-h1: 22px;       /* page title */
+  --fs-h2: 18px;       /* section header */
+  --fs-h3: 15px;       /* sub-section */
+  --fs-body: 14px;     /* default */
+  --fs-small: 13px;    /* table cells, meta */
+  --fs-label: 12px;    /* uppercase labels, KPI captions */
+  --fs-caption: 11px;  /* finest meta */
+
+  --fw-regular: 400;
+  --fw-medium: 500;
+  --fw-semibold: 600;
+  --fw-bold: 700;
+
+  --lh-body: 1.5;
+  --lh-tight: 1.25;
+  --tracking-label: 0.04em;
+
+  /* ---------- SPACING (4 / 8 scale) ---------- */
+  --s1: 4px;
+  --s2: 8px;
+  --s3: 12px;
+  --s4: 16px;
+  --s5: 24px;
+  --s6: 32px;
+  --s7: 48px;
+
+  /* ---------- SHAPE ---------- */
+  --radius-control: 8px;  /* buttons, inputs */
+  --radius-card: 10px;    /* cards, panels */
+  --radius-modal: 12px;   /* modals */
+  --radius-pill: 999px;   /* status badges only */
+
+  /* ---------- ELEVATION (neutral — no colored glow) ---------- */
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.30);
+  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.35);
+  --shadow-lg: 0 12px 32px rgba(0, 0, 0, 0.45);
+  --focus-ring: 0 0 0 3px var(--accent-weak);
+
+  /* ---------- MOTION (purposeful, fast, no overshoot) ---------- */
+  --motion-fast: 140ms;
+  --motion: 200ms;
+  --motion-slow: 300ms;
+  --ease: cubic-bezier(0.2, 0, 0.2, 1);
+
+  /* ---------- Z-INDEX ---------- */
+  --z-sidebar: 100;
+  --z-topbar: 110;
+  --z-dropdown: 500;
+  --z-modal: 1000;
+  --z-toast: 99999;
+}
+
+/* ---------- Refined, reusable motion ---------- */
+/* One-time entrance: subtle fade + small rise. No infinite loops. */
+@keyframes ccFadeInUp {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+@keyframes ccFadeIn {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+/* Modal pop: gentle scale-in, no bounce. */
+@keyframes ccModalIn {
+  from { opacity: 0; transform: scale(0.98); }
+  to   { opacity: 1; transform: scale(1); }
+}
+/* Neutral skeleton shimmer for loading states. */
+@keyframes ccSkeleton {
+  0%   { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+/* Accessibility: honor reduced-motion — collapse all motion to near-instant. */
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --motion-fast: 0.01ms;
+    --motion: 0.01ms;
+    --motion-slow: 0.01ms;
+  }
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

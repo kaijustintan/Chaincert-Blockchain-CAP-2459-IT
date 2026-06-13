@@ -1,9 +1,13 @@
 body {
   margin: 0;
-  font-family: 'Poppins', sans-serif;
-  background: linear-gradient(rgba(0,0,0,0.55), rgba(0,0,0,0.55)), url("https://i.pinimg.com/originals/82/fe/a8/82fea868e674a7c404f5c1a2f87e4c3b.jpg") no-repeat center/cover fixed;
-  background-color: #0a0a1e;
-  color: #fff;
+  font-family: var(--font-ui);
+  /* Calm, self-contained dark background (replaces the external stock photo).
+     A barely-there accent glow at the top adds depth without noise. */
+  background:
+    radial-gradient(1200px 600px at 50% -10%, rgba(124, 92, 252, 0.10), transparent 60%),
+    var(--bg);
+  background-attachment: fixed;
+  color: var(--text);
 }
 
 .App {

@@ -385,6 +385,7 @@ export function computeExpirationAlerts(credentials) {
       credentialType: c.credentialType || '',
       daysLeft,
       urgency,
+      cred: c, // original credential object so the UI can open the standard detail view
     });
   }
 

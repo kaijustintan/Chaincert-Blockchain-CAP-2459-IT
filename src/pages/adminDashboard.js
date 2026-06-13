@@ -125,6 +125,8 @@ export default function AdminDashboard() {
   const [credentialHistory, setCredentialHistory] = useState([]);
   const [credentialHistoryLoading, setCredentialHistoryLoading] = useState(false);
   const [credentialHistoryError, setCredentialHistoryError] = useState(null);
+  // Phase 4 GOOD: raw audit table collapsed by default so the processed dossier reads clean
+  const [showRawAudit, setShowRawAudit] = useState(false);
   const [descriptionModal, setDescriptionModal] = useState(null);
   const [integrityLoading, setIntegrityLoading] = useState(false);
   const [integrityResult, setIntegrityResult] = useState(null);
@@ -503,6 +505,7 @@ const handleDownloadIssuerDocument = async (doc) => {
       const credentialId = row?.credentialId || row?.blockchainId || row?.id;
       setSelectedCredentialRow(row);
       setShowHistoryModal(true);
+      setShowRawAudit(false); // each credential opens with the clean processed view
       setCredentialHistoryLoading(true);
       setCredentialHistoryError(null);
       setCredentialHistory([]);
@@ -1767,7 +1770,7 @@ const handleDownloadIssuerDocument = async (doc) => {
               >
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <h3 style={{ margin: "0 0 16px 0" }}>
-                    Credential History (Blockchain Audit Trail)
+                    🪪 Credential Dossier
                   </h3>
                   <div
                     style={{
@@ -1918,15 +1921,20 @@ const handleDownloadIssuerDocument = async (doc) => {
               ) : credentialHistory.length > 0 ? (
                 <div style={{ marginTop: "10px" }}>
                   <div
+                    className="analytics-collapse-header"
+                    onClick={() => setShowRawAudit((v) => !v)}
+                    title={showRawAudit ? "Hide raw records" : "Show raw records"}
                     style={{
-                      fontSize: "13px",
-                      opacity: 0.85,
-                      marginBottom: "10px",
+                      padding: "10px 0",
+                      borderTop: "1px solid rgba(255,255,255,0.08)",
                     }}
                   >
-                    Showing {credentialHistory.length} history record(s)
+                    <span style={{ fontSize: "13px", opacity: 0.85 }}>
+                      {showRawAudit ? "▾" : "▸"} Full audit records ({credentialHistory.length})
+                    </span>
                   </div>
 
+                  {showRawAudit && (
                   <div className="table-wrapper">
                     <table className="admin-table history-modal-table">
                       <thead>
@@ -2016,6 +2024,7 @@ const handleDownloadIssuerDocument = async (doc) => {
                       </tbody>
                     </table>
                   </div>
+                  )}
                 </div>
               ) : (
                 <div style={{ padding: "16px", opacity: 0.9 }}>

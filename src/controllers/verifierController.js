@@ -428,14 +428,17 @@ const logVerificationEvent = async (req, res, getContractAndGateway) => {
             // getUser() already chooses usersDb vs issuersDb based on ID prefix
             const user = await couchdbService.getUser(holderID);
 
-            // users doc (see Fauxton) has `fullName`, plus these fallbacks
-            holderName =
-              user.fullName ||
-              user.username ||
-              user.name ||
-              user.displayName ||
-              user.email ||
-              null;
+            // users doc (see Fauxton) has `fullName`, plus these fallbacks.
+            // getUser returns null for holders not in the users/issuers DB — guard it
+            // so the enrichment stays best-effort instead of throwing on null.fullName.
+            holderName = user
+              ? (user.fullName ||
+                 user.username ||
+                 user.name ||
+                 user.displayName ||
+                 user.email ||
+                 null)
+              : null;
           } catch (userErr) {
             console.warn(
               '[VERIFY-LOG] Failed to resolve holder user by holderID:',
@@ -577,13 +580,17 @@ const getAllVerificationLogs = async (req, res, getContractAndGateway) => {
             // getUser() already chooses usersDb vs issuersDb based on ID prefix
             const user = await couchdbService.getUser(holderID);
 
-            holderName =
-              user.fullName ||
-              user.username ||
-              user.name ||
-              user.displayName ||
-              user.email ||
-              null;
+            // getUser returns null for holders not in the users/issuers DB — guard it
+            // so the enrichment stays best-effort instead of throwing on null.fullName
+            // (this loop runs for every log, so an unguarded null spams the console).
+            holderName = user
+              ? (user.fullName ||
+                 user.username ||
+                 user.name ||
+                 user.displayName ||
+                 user.email ||
+                 null)
+              : null;
           }
         } catch (e) {
           console.warn(

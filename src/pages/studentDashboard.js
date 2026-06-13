@@ -620,14 +620,23 @@ export default function StudentDashboard() {
                               {a.credentialType ? ` • ${a.credentialType}` : ""}
                             </div>
                           </div>
-                          <span
-                            className="analytics-flag-rate"
-                            style={{ color: pillColor, fontSize: 15 }}
-                          >
-                            {expired
-                              ? `Expired ${Math.abs(a.daysLeft)}d ago`
-                              : `${a.daysLeft}d left`}
-                          </span>
+                          <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                            <span
+                              className="analytics-flag-rate"
+                              style={{ color: pillColor, fontSize: 15 }}
+                            >
+                              {expired
+                                ? `Expired ${Math.abs(a.daysLeft)}d ago`
+                                : `${a.daysLeft}d left`}
+                            </span>
+                            <button
+                              type="button"
+                              className="renewal-alert-view-btn"
+                              onClick={() => handleCardClick(a.cred)}
+                            >
+                              View
+                            </button>
+                          </div>
                         </div>
                       );
                     })}

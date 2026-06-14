@@ -41,7 +41,7 @@ export default function DonutChart({ slices = [], centerLabel, centerValue, heig
             ))}
           </Pie>
           <Tooltip
-            contentStyle={{ background: '#1e1b2e', border: '1px solid rgba(139,92,246,0.3)', borderRadius: 10, color: '#fff' }}
+            contentStyle={{ background: '#1B1B29', border: '1px solid rgba(255,255,255,0.14)', borderRadius: 10, color: '#ECECF1' }}
           />
           <Legend wrapperStyle={{ fontSize: 12 }} />
         </PieChart>

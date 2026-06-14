@@ -664,7 +664,7 @@ const handleDownloadIssuerDocument = async (doc) => {
         error.response?.data?.message ||
         error.response?.data?.error ||
         error.message ||
-        "❌ Failed to update issuer status";
+        "Failed to update issuer status";
       setIssuerStatusError(errorMessage);
       showFeedback("danger", `Failed to ${issuerStatusAction} issuer: ${errorMessage}`);
     } finally {
@@ -1612,11 +1612,11 @@ const handleDownloadIssuerDocument = async (doc) => {
 
               <div style={{ display: "grid", gridTemplateColumns: "repeat(5, minmax(0, 1fr))", gap: "12px", marginBottom: "18px" }}>
                 {[
-                  ["Total", integrityResult.totalChecked, "#a78bfa"],
-                  ["✅ Matched", integrityResult.matched, "#22c55e"],
-                  ["⚠️ Mismatched", integrityResult.mismatched, "#fbbf24"],
-                  ["❌ Missing", integrityResult.missing, "#ef4444"],
-                  ["🔴 Errors", integrityResult.errors, "#f87171"],
+                  ["Total", integrityResult.totalChecked, "#9B7BFF"],
+                  ["Matched", integrityResult.matched, "#34B27B"],
+                  ["Mismatched", integrityResult.mismatched, "#D9A23B"],
+                  ["Missing", integrityResult.missing, "#E5645A"],
+                  ["Errors", integrityResult.errors, "#E5645A"],
                 ].map(([label, value, color]) => (
                   <div key={label} style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: "12px", padding: "14px" }}>
                     <div style={{ color, fontWeight: 700, fontSize: "22px" }}>{value}</div>
@@ -1639,15 +1639,15 @@ const handleDownloadIssuerDocument = async (doc) => {
                 if (problems.length === 0) {
                   return (
                     <div style={{ padding: "16px", borderRadius: "12px", background: "rgba(34,197,94,0.08)", border: "1px solid rgba(34,197,94,0.25)", color: "#4ade80" }}>
-                      ✅ All checked credentials match the blockchain ledger. No issues found.
+                      All checked credentials match the blockchain ledger. No issues found.
                     </div>
                   );
                 }
 
                 const badgeFor = (v) =>
-                  v === "mismatched" ? { text: "⚠️ Mismatched", color: "#fbbf24" }
-                  : v === "missing" ? { text: "❌ Missing from blockchain", color: "#f87171" }
-                  : { text: "🔴 Error", color: "#f87171" };
+                  v === "mismatched" ? { text: "Mismatched", color: "#D9A23B" }
+                  : v === "missing" ? { text: "Missing from blockchain", color: "#E5645A" }
+                  : { text: "Error", color: "#E5645A" };
 
                 return (
                   <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>

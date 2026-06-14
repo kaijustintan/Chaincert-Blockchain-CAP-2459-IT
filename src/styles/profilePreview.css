@@ -33,7 +33,7 @@
 .profile-preview {
   min-height: 100vh;
   padding: 40px 20px;
-  font-family: 'Poppins', sans-serif;
+  font-family: var(--font-ui);
   display: flex;
   flex-direction: column;
   align-items: center;

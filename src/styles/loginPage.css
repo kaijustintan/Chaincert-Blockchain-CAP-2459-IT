@@ -39,7 +39,7 @@
 .login-wrapper {
   display: flex;
   min-height: 100vh;
-  font-family: 'Poppins', sans-serif;
+  font-family: var(--font-ui);
   color: #fff;
   position: relative;
   background: rgba(0, 0, 0, 0.55);
@@ -235,7 +235,7 @@
   border-radius: 10px;
   border: 1px solid rgba(99, 130, 201, 0.2);
   font-size: 13px;
-  font-family: 'Poppins', sans-serif;
+  font-family: var(--font-ui);
   background: rgba(15, 20, 40, 0.95);
   color: #e2e8f0;
   transition: all 0.3s ease;
@@ -272,7 +272,7 @@
   width: 100%;
   font-size: 14px;
   font-weight: 600;
-  font-family: 'Poppins', sans-serif;
+  font-family: var(--font-ui);
   transition: all 0.3s ease;
   box-shadow: 0 4px 20px rgba(59, 91, 219, 0.3);
   position: relative;

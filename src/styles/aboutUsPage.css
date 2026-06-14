@@ -14,7 +14,7 @@
 }
 
 .about-container {
-  font-family: 'Poppins', sans-serif;
+  font-family: var(--font-ui);
   color: #fff;
   overflow-x: hidden;
 }

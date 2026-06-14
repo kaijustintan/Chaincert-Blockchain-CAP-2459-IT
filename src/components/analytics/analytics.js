@@ -37,13 +37,16 @@ export const SUSPICIOUS_THRESHOLD = 0.25;   // flag issuers revoking >= 25% with
 export const SUSPICIOUS_MIN_SAMPLE = 4;     // ignore issuers with too few credentials (avoids 1/1 = 100% noise)
 
 // Shared chart palette (mirrors existing dashboard color vars)
+// Phase 3: de-saturated to match the design tokens (tokens.css). Constant values
+// only — slice/series assignments below are unchanged. Kept slightly brighter than
+// the raw tokens (e.g. accent-strong for purple) for legibility on the dark charts.
 export const COLORS = {
-  green: '#4ade80',
-  red: '#f87171',
-  amber: '#fbbf24',
-  blue: '#60a5fa',
-  purple: '#a78bfa',
-  gray: '#94a3b8',
+  green: '#34B27B',   // --ok
+  red: '#E5645A',     // --danger
+  amber: '#D9A23B',   // --warn
+  blue: '#5B8DEF',    // --info
+  purple: '#9B7BFF',  // --accent-strong
+  gray: '#A8A8B8',    // --text-muted
 };
 
 // Helper: safe date parse → ms, or null

@@ -42,7 +42,7 @@
   align-items: flex-start;
   padding: 48px 24px;
   min-height: calc(100vh - 80px);
-  font-family: 'Poppins', sans-serif;
+  font-family: var(--font-ui);
   color: #fff;
   animation: fadeIn 0.4s ease-out;
   background: rgba(0, 0, 0, 0.55);
@@ -109,7 +109,7 @@
   text-align: center;
   position: relative;
   overflow: hidden;
-  font-family: 'Poppins', sans-serif;
+  font-family: var(--font-ui);
 }
 
 /* Top glow on hover */
@@ -177,7 +177,7 @@
   cursor: pointer;
   font-size: 14px;
   font-weight: 600;
-  font-family: 'Poppins', sans-serif;
+  font-family: var(--font-ui);
   transition: all 0.3s ease;
 }
 
@@ -282,7 +282,7 @@
   border-radius: 12px;
   border: 1px solid rgba(139, 92, 246, 0.25);
   font-size: 14px;
-  font-family: 'Poppins', sans-serif;
+  font-family: var(--font-ui);
   background: rgba(18, 12, 45, 0.95);
   color: #e5e5e5;
   transition: all 0.3s ease;
@@ -343,7 +343,7 @@
   font-weight: 600;
   cursor: pointer;
   margin-right: 10px;
-  font-family: 'Poppins', sans-serif;
+  font-family: var(--font-ui);
 }
 
 .file-name-display {
@@ -424,7 +424,7 @@
   font-weight: 600;
   cursor: pointer;
   font-size: 15px;
-  font-family: 'Poppins', sans-serif;
+  font-family: var(--font-ui);
   transition: all 0.3s ease;
   box-shadow: 0 4px 20px rgba(102, 126, 234, 0.3);
   position: relative;
@@ -480,7 +480,7 @@
   cursor: pointer;
   font-size: 13px;
   font-weight: 600;
-  font-family: 'Poppins', sans-serif;
+  font-family: var(--font-ui);
   padding: 0;
   transition: color 0.3s ease;
 }
@@ -678,7 +678,7 @@
   border: 1px solid rgba(139, 92, 246, 0.28);
   background: rgba(18, 12, 45, 0.95);
   color: #fff;
-  font-family: 'Poppins', sans-serif;
+  font-family: var(--font-ui);
   box-sizing: border-box;
 }
 

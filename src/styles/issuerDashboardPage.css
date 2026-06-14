@@ -70,7 +70,7 @@
    ===================================================== */
 .issuer-dashboard {
   padding: 40px;
-  font-family: 'Poppins', sans-serif;
+  font-family: var(--font-ui);
   color: #fff;
   min-height: 100vh;
   background: rgba(0, 0, 0, 0.30);
@@ -115,7 +115,7 @@
   cursor: pointer;
   font-weight: 600;
   font-size: 15px;
-  font-family: 'Poppins', sans-serif;
+  font-family: var(--font-ui);
   transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
   text-align: center;
   letter-spacing: 0.02em;
@@ -185,7 +185,7 @@
   border: none !important;
   font-weight: 600 !important;
   cursor: pointer !important;
-  font-family: 'Poppins', sans-serif !important;
+  font-family: var(--font-ui) !important;
   transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1) !important;
   animation: fadeInUp 0.5s ease-out 0.3s both;
   position: relative;
@@ -233,7 +233,7 @@
   cursor: pointer;
   font-size: 14px;
   font-weight: 600;
-  font-family: 'Poppins', sans-serif;
+  font-family: var(--font-ui);
   transition: all 0.3s ease;
   width: auto;
   box-shadow: none;
@@ -326,7 +326,7 @@
   color: #e5e5e5;
   cursor: pointer;
   transition: all 0.3s ease;
-  font-family: 'Poppins', sans-serif;
+  font-family: var(--font-ui);
   -webkit-appearance: none;
   -moz-appearance: none;
   appearance: none;
@@ -493,7 +493,7 @@
   font-weight: 600;
   cursor: pointer;
   transition: all 0.25s ease;
-  font-family: 'Poppins', sans-serif;
+  font-family: var(--font-ui);
 }
 
 .template-table button:hover {
@@ -677,7 +677,7 @@
   background: rgba(18, 12, 45, 0.9);
   margin-bottom: 4px;
   transition: all 0.3s ease;
-  font-family: 'Poppins', sans-serif;
+  font-family: var(--font-ui);
 }
 
 .form-group input::placeholder,
@@ -745,7 +745,7 @@
   box-shadow: 0 4px 16px rgba(102, 126, 234, 0.3);
   display: block;
   width: 100%;
-  font-family: 'Poppins', sans-serif;
+  font-family: var(--font-ui);
   position: relative;
   overflow: hidden;
 }
@@ -880,7 +880,7 @@
   font-size: 13px;
   cursor: pointer;
   transition: all 0.3s ease;
-  font-family: 'Poppins', sans-serif;
+  font-family: var(--font-ui);
   width: auto;
   display: inline-block;
 }
@@ -951,7 +951,7 @@
   cursor: pointer;
   transition: all 0.3s ease;
   font-weight: 600;
-  font-family: 'Poppins', sans-serif;
+  font-family: var(--font-ui);
   width: auto;
   display: inline-block;
   box-shadow: none;
@@ -1237,7 +1237,7 @@
   font-size: 14px;
   background-color: rgba(18, 12, 45, 0.95);
   color: #e5e5e5;
-  font-family: 'Poppins', sans-serif;
+  font-family: var(--font-ui);
   cursor: pointer;
   transition: all 0.3s ease;
   -webkit-appearance: none;
@@ -1270,7 +1270,7 @@
   font-size: 14px;
   background: rgba(18, 12, 45, 0.95);
   color: #fff;
-  font-family: 'Poppins', sans-serif;
+  font-family: var(--font-ui);
   transition: all 0.3s ease;
   min-width: 200px;
 }
@@ -1293,7 +1293,7 @@
   border-radius: 10px;
   font-size: 14px;
   font-weight: 600;
-  font-family: 'Poppins', sans-serif;
+  font-family: var(--font-ui);
   cursor: pointer;
   transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
   white-space: nowrap;
@@ -1383,7 +1383,7 @@
   font-size: 14px;
   background-color: rgba(18, 12, 45, 0.95);
   color: #e5e5e5;
-  font-family: 'Poppins', sans-serif;
+  font-family: var(--font-ui);
   cursor: pointer;
   transition: all 0.3s ease;
   -webkit-appearance: none;
@@ -1645,7 +1645,7 @@
   font-size: 13px;
   background-color: rgba(18, 12, 45, 0.95);
   color: #e5e5e5;
-  font-family: 'Poppins', sans-serif;
+  font-family: var(--font-ui);
   cursor: pointer;
   transition: all 0.3s ease;
   -webkit-appearance: none;
@@ -1684,7 +1684,7 @@
   cursor: pointer;
   font-size: 13px;
   font-weight: 600;
-  font-family: 'Poppins', sans-serif;
+  font-family: var(--font-ui);
   transition: all 0.3s ease;
   margin-bottom: 20px;
 }
@@ -1837,7 +1837,7 @@
   display: flex;
   flex-direction: column;
   gap: 10px;
-  font-family: 'Poppins', sans-serif;
+  font-family: var(--font-ui);
 }
 
 .issuer-nav-card::before {
@@ -1923,7 +1923,7 @@
   cursor: pointer;
   font-size: 13px;
   font-weight: 600;
-  font-family: 'Poppins', sans-serif;
+  font-family: var(--font-ui);
   transition: all 0.3s ease;
   margin-bottom: 20px;
 }
@@ -1982,7 +1982,7 @@
 .modal textarea { min-height: 76px; }
 .modal input::placeholder, .modal textarea::placeholder, .search-select-input::placeholder { color: rgba(229, 231, 235, 0.46); }
 .field-helper { font-size: 12px; color: #a78bfa; margin-top: 2px; }
-.search-select-input { width: 100%; border-radius: 12px; border: 1px solid rgba(139,92,246,0.28); background: rgba(18,12,45,0.95); color: #fff; font-family: "Poppins", sans-serif; transition: all 0.25s ease; }
+.search-select-input { width: 100%; border-radius: 12px; border: 1px solid rgba(139,92,246,0.28); background: rgba(18,12,45,0.95); color: #fff; font-family: var(--font-ui); transition: all 0.25s ease; }
 .search-select-input:focus { outline: none; border-color: #8b5cf6; box-shadow: 0 0 0 3px rgba(139,92,246,0.18); }
 .selected-credential-card { padding: 12px 14px; border-radius: 12px; background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.12); color: #fff; font-size: 13px; line-height: 1.55; word-break: break-word; }
 .modal-two-col { align-items: start; gap: 18px; }

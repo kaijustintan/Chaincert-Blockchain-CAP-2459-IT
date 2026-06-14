@@ -2,7 +2,7 @@
 .settings-wrapper {
   display: flex;
   min-height: calc(100vh - 80px);
-  font-family: 'Poppins', sans-serif;
+  font-family: var(--font-ui);
   background: linear-gradient(135deg, #0a0a1e 0%, #1a1a3e 100%);
   color: #fff;
 }
@@ -312,7 +312,7 @@
   gap: 8px;
   transition: all 0.3s ease;
   box-shadow: 0 4px 15px rgba(239, 68, 68, 0.3);
-  font-family: "Poppins", sans-serif;
+  font-family: var(--font-ui);
 }
 
 .danger-btn:hover {
@@ -333,7 +333,7 @@
   align-items: center;
   gap: 8px;
   transition: all 0.3s ease;
-  font-family: "Poppins", sans-serif;
+  font-family: var(--font-ui);
 }
 
 .danger-btn-secondary:hover {
@@ -352,7 +352,7 @@
   font-weight: 500;
   cursor: pointer;
   transition: all 0.3s ease;
-  font-family: "Poppins", sans-serif;
+  font-family: var(--font-ui);
 }
 
 .revoke-btn:hover,

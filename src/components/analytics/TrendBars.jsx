@@ -11,7 +11,7 @@
 import React from 'react';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts';
 
-export default function TrendBars({ data = [], xKey = 'label', yKey = 'count', color = '#a78bfa', height = 240 }) {
+export default function TrendBars({ data = [], xKey = 'label', yKey = 'count', color = '#9B7BFF', height = 240 }) {
   const rows = Array.isArray(data) ? data : [];
   const hasData = rows.some((r) => Number(r[yKey]) > 0);
 
@@ -28,11 +28,11 @@ export default function TrendBars({ data = [], xKey = 'label', yKey = 'count', c
       <ResponsiveContainer width="100%" height="100%">
         <BarChart data={rows} margin={{ top: 8, right: 12, left: -12, bottom: 4 }}>
           <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.08)" vertical={false} />
-          <XAxis dataKey={xKey} tick={{ fill: '#c4b5fd', fontSize: 12 }} axisLine={false} tickLine={false} />
-          <YAxis allowDecimals={false} tick={{ fill: '#c4b5fd', fontSize: 12 }} axisLine={false} tickLine={false} />
+          <XAxis dataKey={xKey} tick={{ fill: '#A8A8B8', fontSize: 12 }} axisLine={false} tickLine={false} />
+          <YAxis allowDecimals={false} tick={{ fill: '#A8A8B8', fontSize: 12 }} axisLine={false} tickLine={false} />
           <Tooltip
-            cursor={{ fill: 'rgba(139,92,246,0.12)' }}
-            contentStyle={{ background: '#1e1b2e', border: '1px solid rgba(139,92,246,0.3)', borderRadius: 10, color: '#fff' }}
+            cursor={{ fill: 'rgba(124,92,252,0.12)' }}
+            contentStyle={{ background: '#1B1B29', border: '1px solid rgba(255,255,255,0.14)', borderRadius: 10, color: '#ECECF1' }}
           />
           <Bar dataKey={yKey} fill={color} radius={[6, 6, 0, 0]} maxBarSize={48} />
         </BarChart>

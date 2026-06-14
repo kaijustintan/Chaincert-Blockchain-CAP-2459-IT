@@ -20,7 +20,7 @@
 
 /* ── Container ── */
 .landing-container {
-  font-family: 'Poppins', sans-serif;
+  font-family: var(--font-ui);
   color: #fff;
   overflow-x: hidden;
 }
@@ -142,7 +142,7 @@
   border-radius: 12px;
   font-size: 14px;
   font-weight: 600;
-  font-family: 'Poppins', sans-serif;
+  font-family: var(--font-ui);
   cursor: pointer;
   transition: all 0.3s ease;
   border: none;

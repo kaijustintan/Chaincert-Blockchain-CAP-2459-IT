@@ -3322,6 +3322,18 @@ const handleDownloadIssuerDocument = async (doc) => {
                       );
                     })();
 
+                    // F04: a subordinate rejected by its root authority keeps
+                    // status 'pending' but is effectively rejected — show it as
+                    // such so the Rejected view doesn't read "pending".
+                    const isRootRejected =
+                      issuer.issuerType === "subordinate" &&
+                      issuer.rootApprovalStatus === "rejected" &&
+                      issuer.status !== "approved" &&
+                      !isDisabled;
+                    const effectiveStatus = isRootRejected
+                      ? "rejected"
+                      : issuer.status || (isDisabled ? "disabled" : "approved");
+
                     const issuerCellMap = {
                       issuerId: id || "N/A",
                       orgName: issuer.orgName || issuer.name || "N/A",
@@ -3330,11 +3342,11 @@ const handleDownloadIssuerDocument = async (doc) => {
                       rootAuthority: issuer.issuerType === "subordinate" ? (issuer.rootAuthorityName || "N/A") : "—",
                       rootApproval: rootApprovalBadge,
                       rootApprovedAt: issuer.issuerType === "subordinate" ? (issuer.rootApprovalStatus === "approved" ? formatTimestamp(issuer.rootApprovedAt) : issuer.rootApprovalStatus === "rejected" ? "Rejected by Root" : "Pending") : "—",
-                      status: renderStatusText(issuer.status || (isDisabled ? "disabled" : "approved"), isDisabled ? "disabled" : "approved"),
+                      status: renderStatusText(effectiveStatus, isDisabled ? "disabled" : "approved"),
                       approvedAt: formatTimestamp(issuer.approvedAt || issuer.updatedAt),
                       approvedBy: <span style={{ fontFamily: "monospace", fontSize: "12px" }}>{adminMeta.approvedBy}</span>,
-                      rejectedBy: <span style={{ fontFamily: "monospace", fontSize: "12px" }}>{adminMeta.rejectedBy}</span>,
-                      rejectedAt: formatTimestamp(issuer.rejectedAt || issuer.updatedAt),
+                      rejectedBy: <span style={{ fontFamily: "monospace", fontSize: "12px" }}>{isRootRejected ? "Root Authority" : adminMeta.rejectedBy}</span>,
+                      rejectedAt: formatTimestamp(issuer.rejectedAt || issuer.rootRejectedAt || issuer.updatedAt),
                       disabledBy: <span style={{ fontFamily: "monospace", fontSize: "12px" }}>{adminMeta.disabledBy}</span>,
                       disabledAt: formatTimestamp(issuer.disabledAt || issuer.updatedAt),
                       enabledBy: <span style={{ fontFamily: "monospace", fontSize: "12px" }}>{adminMeta.enabledBy}</span>,

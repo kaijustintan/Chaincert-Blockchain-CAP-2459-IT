@@ -549,12 +549,16 @@ async function getPendingIssuers() {
       sort: ['createdAt']
     });
 
-    /* Step 3: Return pending issuer documents
+    /* Step 3: Return pending issuer documents (F04: drop root-rejected subs)
 
-      Technical: Returns raw issuer docs.
-      Tropang Ex: Ibinabalik yung list ng pending issuers sa admin dashboard.
+      Technical: A subordinate that its root authority rejected keeps status
+      'pending' but rootApprovalStatus 'rejected'. That state is terminal
+      (the applicant must re-apply), so it must NOT sit in the actionable
+      pending queue — it surfaces under "Rejected" instead (getRejectedIssuers).
+      Tropang Ex: Ibinabalik yung pending issuers, pero tinatanggal yung mga
+      na-reject na ng root authority nila para hindi maipit sa pending list.
     */
-    return result.docs;
+    return result.docs.filter((d) => d.rootApprovalStatus !== 'rejected');
 
   } catch (error) {
     console.error('Error getting pending issuers:', error.message);
@@ -617,7 +621,9 @@ async function getPendingSubordinateIssuers() {
       sort: ['createdAt']
     });
 
-    return result.docs;
+    // F04: exclude subordinates already rejected by their root authority
+    // (terminal state — they live under "Rejected", not the pending queue).
+    return result.docs.filter((d) => d.rootApprovalStatus !== 'rejected');
   } catch (error) {
     console.error('Error getting pending subordinate issuers:', error.message);
     throw error;
@@ -2684,10 +2690,16 @@ async function getRejectedIssuers() {
          - Sorted by "createdAt" para consistent sa pending/approved.
        Tropang Ex: Pareho lang sa approved issuers, pero status = rejected.
     */
+    /* F04: also surface subordinates rejected by their ROOT authority. Those
+       keep status 'pending' but rootApprovalStatus 'rejected', so match either
+       the admin-rejected status OR the root-rejected flag. */
     const result = await issuersDB.find({
       selector: {
         type: 'issuer_registration',
-        status: 'rejected'
+        $or: [
+          { status: 'rejected' },
+          { status: 'pending', rootApprovalStatus: 'rejected' }
+        ]
       },
       sort: ['createdAt']
     });

@@ -3095,6 +3095,21 @@ async function Enable_User(userId, adminEmail, reason) {
   Called by: midnight cron job in sdk-server-fixed.js
   CouchDB update only — blockchain log handled separately by caller // - polo
 */
+/*
+  Helper (F01): is a credential expired given its expiryDate? Uses the canonical
+  "end of the expiry day in Asia/Manila (+08:00)" boundary — a bare "YYYY-MM-DD"
+  stays valid through 23:59:59.999 of that day in Manila. Returns false for a
+  missing/blank/unparseable expiryDate (never expires). Same rule as the chaincode
+  VerifyCredential boundary and the frontend badge, so all layers agree.
+*/
+function isExpiredManila(expiryDate, nowMs) {
+  if (!expiryDate || String(expiryDate).trim() === '') return false;
+  const datePart = String(expiryDate).slice(0, 10);
+  const endOfDayManila = Date.parse(`${datePart}T23:59:59.999+08:00`);
+  if (isNaN(endOfDayManila)) return false;
+  return nowMs > endOfDayManila;
+}
+
 async function checkAndExpireCredentials() {
   try {
     console.log('[EXPIRY] Starting credential expiry check...');
@@ -3119,8 +3134,9 @@ async function checkAndExpireCredentials() {
     for (const doc of result.docs) {
       if (!doc.expiryDate) continue;
 
-      const expiry = new Date(doc.expiryDate);
-      if (now <= expiry) continue;
+      // F01: expire only once past the end-of-day-Manila boundary (was
+      // `now <= new Date(doc.expiryDate)`, i.e. midnight UTC of the date).
+      if (!isExpiredManila(doc.expiryDate, now.getTime())) continue;
 
       /* Step 3: Update wallet_user_credentials - polo */
       doc.status = 'expired';
@@ -3432,9 +3448,10 @@ async function getBlockedHolderIDsByTemplate(templateId) {
         continue;
       }
 
-      // Step 5D: If expiryDate exists, compare to now
-      const expiry = new Date(doc.expiryDate);
-      if (!isNaN(expiry.getTime()) && expiry > now) {
+      // Step 5D: F01 — a credential blocks re-issue only while still valid
+      // (not past the end-of-day-Manila boundary). An effectively-expired one
+      // frees the holder to be re-issued, matching verify + the cron.
+      if (!isExpiredManila(doc.expiryDate, now.getTime())) {
         blockedSet.add(doc.holderID);
       }
     }

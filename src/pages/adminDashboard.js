@@ -18,6 +18,7 @@ import {
 } from "../components/analytics/analytics";
 import { AppShell, Sidebar } from "../components/ui";
 import NotesCard from "../components/ui/NotesCard";
+import { effectiveCredentialStatus } from "../utils/credentialStatus"; // F01: compute-on-read expiry
 import { Bell, Layers, Building2, Users, ClipboardList, BarChart3 } from "lucide-react";
 
 export default function AdminDashboard() {
@@ -2981,7 +2982,7 @@ const handleDownloadIssuerDocument = async (doc) => {
                       const historyCellMap = {
                         credentialName: row.credentialName || row.credentialType || "N/A",
                         credentialType: row.type || row.credentialType || "N/A",
-                        status: renderStatusText(row.status || "unknown", "unknown"),
+                        status: renderStatusText(isIssued ? effectiveCredentialStatus(row) : (row.status || "unknown"), "unknown"), // F01
                         createdAt: formatTimestamp(row.createdAt),
                         holderName: row.holderName || "—",
                         holderID: <span style={{ fontFamily: "monospace", fontSize: 12 }}>{row.holderID || "—"}</span>,

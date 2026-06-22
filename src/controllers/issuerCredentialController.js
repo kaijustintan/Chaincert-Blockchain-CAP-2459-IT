@@ -393,6 +393,22 @@ exports.Issue_Credential = async (req, res, getContractAndGateway) => {
       });
     }
 
+    /* Step 2b: F01 — block same-day (and past) expiry. A credential stays valid
+       through the END of its expiry day in Asia/Manila, so issuing one that
+       expires "today" makes it valid for only the remainder of the day — which
+       is what produced the active-but-already-expired confusion. Require the
+       expiry to be at least the day AFTER today (Manila). Empty = never expires. */
+    if (expiryDate && String(expiryDate).trim() !== '') {
+      const datePart = String(expiryDate).slice(0, 10);
+      const todayManila = new Date(Date.now() + 8 * 60 * 60 * 1000).toISOString().slice(0, 10);
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(datePart) || datePart <= todayManila) {
+        return res.status(400).json({
+          success: false,
+          error: 'Expiry date must be at least the day after today.'
+        });
+      }
+    }
+
     /* Step 3: Check if user is authenticated (JWT middleware attaches req.user)
 
       Tropang Ex:

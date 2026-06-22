@@ -36,6 +36,7 @@ import {
 } from "../components/analytics/analytics";
 import { Card, Button, Modal, StatusPill, EmptyState } from "../components/ui";
 import NotesCard from "../components/ui/NotesCard";
+import { effectiveCredentialStatus } from "../utils/credentialStatus"; // F01: compute-on-read expiry
 import {
   Bell, CheckCircle2, XCircle, Clock, Wallet, Activity, ShieldCheck,
   Download, ScrollText, Globe, Lock, Award, Search, Inbox, AlertTriangle, GitBranch,
@@ -211,7 +212,8 @@ export default function StudentDashboard() {
 
       const matchesQ = searchable.includes(query.toLowerCase());
 
-      const normalizedStatus = c.status === "issued" ? "active" : c.status;
+      const effStatus = effectiveCredentialStatus(c); // F01: reflect end-of-day-Manila expiry
+      const normalizedStatus = effStatus === "issued" ? "active" : effStatus;
       const matchesS = statusFilter === "all" ? true : normalizedStatus === statusFilter;
 
       return matchesQ && matchesS;
@@ -240,11 +242,11 @@ export default function StudentDashboard() {
 
   /* Compute stats from credentials for the stats bar */
   const stats = useMemo(() => {
-    const active = credentials.filter(
-      (c) => c.status === "issued" || c.status === "active"
-    ).length;
-    const revoked = credentials.filter((c) => c.status === "revoked").length;
-    const expired = credentials.filter((c) => c.status === "expired").length;
+    // F01: count by effective (end-of-day-Manila) status so the chips match the badges.
+    const eff = (c) => effectiveCredentialStatus(c);
+    const active = credentials.filter((c) => { const s = eff(c); return s === "issued" || s === "active"; }).length;
+    const revoked = credentials.filter((c) => eff(c) === "revoked").length;
+    const expired = credentials.filter((c) => eff(c) === "expired").length;
 
     return { total: credentials.length, active, revoked, expired };
   }, [credentials]);
@@ -638,7 +640,7 @@ export default function StudentDashboard() {
                       <div className="holder-cred-badge-fallback"><Award size={24} aria-hidden="true" /></div>
                     )}
                     <div className="holder-cred-name">{cred.credentialName}</div>
-                    <StatusPill status={cred.status} />
+                    <StatusPill status={effectiveCredentialStatus(cred)} />
                     {cred.issuerName && <p className="holder-cred-issuer">{cred.issuerName}</p>}
                     {cred.savedToUserWalletAt && (
                       <p className="holder-cred-date">Issued {formatDate(cred.savedToUserWalletAt)}</p>
@@ -665,7 +667,7 @@ export default function StudentDashboard() {
                         <td>{cred.credentialName}</td>
                         <td>{cred.issuerName || "N/A"}</td>
                         <td>{formatDate(cred.savedToUserWalletAt)}</td>
-                        <td><StatusPill status={cred.status} /></td>
+                        <td><StatusPill status={effectiveCredentialStatus(cred)} /></td>
                       </tr>
                     ))}
                   </tbody>
@@ -870,7 +872,7 @@ export default function StudentDashboard() {
               </div>
               <div className="holder-detail-row">
                 <span className="holder-detail-label">Status</span>
-                <span className="holder-detail-value"><StatusPill status={selectedCred.status} /></span>
+                <span className="holder-detail-value"><StatusPill status={effectiveCredentialStatus(selectedCred)} /></span>
               </div>
               <div className="holder-detail-row">
                 <span className="holder-detail-label">Visibility</span>

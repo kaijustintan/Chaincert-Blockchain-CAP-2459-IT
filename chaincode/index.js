@@ -375,9 +375,16 @@ async IssueCredential(ctx, templateId, holderID, expiryDate) {
        expired na sa totoong buhay, kaya invalid din.
     */
     if (credential.expiryDate) {
-      const now = new Date();
-      const expiry = new Date(credential.expiryDate);
-      if (now > expiry) {
+      // F01: a credential is valid through the END of its expiry day in
+      // Asia/Manila (+08:00). A bare "YYYY-MM-DD" parsed by new Date() is
+      // midnight UTC, which would (wrongly) expire it from the START of the day.
+      // We compute the end-of-day Manila instant explicitly so the boundary
+      // matches the cron, the eligibility check, and the dashboards.
+      // (VerifyCredential writes no state, so using wall-clock time here is
+      // endorsement-safe — the write set is empty regardless of the clock.)
+      const datePart = String(credential.expiryDate).slice(0, 10);
+      const endOfDayManila = Date.parse(`${datePart}T23:59:59.999+08:00`);
+      if (!isNaN(endOfDayManila) && Date.now() > endOfDayManila) {
         return JSON.stringify({
           valid: false,
           reason: 'Credential has expired'
@@ -941,9 +948,24 @@ async GetAllVerificationLogs(ctx) {
   const credential = JSON.parse(credentialJSON.toString());
 
   const txTimestamp = ctx.stub.getTxTimestamp();
-  const revokedAt = new Date(
-    txTimestamp.seconds * 1000 + Math.floor(txTimestamp.nanos / 1000000)
-  ).toISOString();
+  const nowMs = txTimestamp.seconds * 1000 + Math.floor(txTimestamp.nanos / 1000000);
+
+  // F02: only an active/issued credential may be revoked. Block re-revoking and
+  // block revoking something already expired — including a credential that is
+  // past its end-of-day-Manila expiry but not yet flipped by the cron. Uses the
+  // deterministic tx timestamp so every endorsing peer reaches the same verdict.
+  if (credential.status === 'revoked' || credential.status === 'expired') {
+    throw new Error(`Credential ${id} is already ${credential.status} and cannot be revoked.`);
+  }
+  if (credential.expiryDate) {
+    const datePart = String(credential.expiryDate).slice(0, 10);
+    const endOfDayManila = Date.parse(`${datePart}T23:59:59.999+08:00`);
+    if (!isNaN(endOfDayManila) && nowMs > endOfDayManila) {
+      throw new Error(`Credential ${id} has expired and cannot be revoked.`);
+    }
+  }
+
+  const revokedAt = new Date(nowMs).toISOString();
 
   // Instead of mutating and re‑stringify as‑is (na pwedeng iba ang field order per peer),
   // buuin natin ulit sa canonical / fixed field order para deterministic ang ProposalResponsePayload.

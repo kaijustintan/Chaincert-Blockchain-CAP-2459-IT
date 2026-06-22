@@ -36,6 +36,7 @@ import InterpretationBox from "../components/analytics/InterpretationBox";
 import { computeIssuance, computeRevocationAudit, COLORS as ANALYTICS_COLORS } from "../components/analytics/analytics";
 import { AppShell, Sidebar, Button } from "../components/ui";
 import NotesCard from "../components/ui/NotesCard";
+import { effectiveCredentialStatus, minIssueExpiryDate } from "../utils/credentialStatus"; // F01
 import { LayoutDashboard, FilePlus, Award, Ban, List, BarChart3, Receipt, Building2 } from "lucide-react";
 
 export default function IssuerDashboard() {
@@ -946,7 +947,7 @@ export default function IssuerDashboard() {
                         <td>{credential.credentialName || "N/A"}</td>
                         <td>{credential.credentialType || "N/A"}</td>
                         <td>{credential.issuedDate ? new Date(credential.issuedDate).toLocaleDateString() : "N/A"}</td>
-                        <td><span className={`status-badge status-${credential.status || "active"}`}>{credential.status || "active"}</span></td>
+                        <td><span className={`status-badge status-${effectiveCredentialStatus(credential)}`}>{effectiveCredentialStatus(credential)}</span></td>
                         <td>{credential.visibility === "public" ? "Public" : "Private"}</td>
                         <td>{getRevokedDateValue(credential) ? new Date(getRevokedDateValue(credential)).toLocaleDateString() : "—"}</td>
                         <td>{credential.expiryDate ? new Date(credential.expiryDate).toLocaleDateString() : "N/A"}</td>
@@ -1004,7 +1005,7 @@ export default function IssuerDashboard() {
                     <tr key={`${row.rowType}-${row.source?.id || row.source?._id || row.source?.blockchainId || index}`}>
                       <td>{row.name}</td>
                       <td>{row.type}</td>
-                      <td><span className={`status-badge status-${String(row.status || row.rowType).toLowerCase()}`} style={{ color: getStatusColor(row.status || row.rowType), borderColor: `${getStatusColor(row.status || row.rowType)}55` }}>{row.status}</span></td>
+                      <td>{(() => { const eff = row.rowType === "template" ? (row.status || row.rowType) : effectiveCredentialStatus(row); return <span className={`status-badge status-${String(eff).toLowerCase()}`} style={{ color: getStatusColor(eff), borderColor: `${getStatusColor(eff)}55` }}>{eff}</span>; })()}</td>
                       <td>{row.holderName}</td>
                       <td>{row.source?.visibility === "public" ? "Public" : "Private"}</td>
                       <td>{row.createdDate ? new Date(row.createdDate).toLocaleDateString() : "N/A"}</td>
@@ -1053,7 +1054,7 @@ export default function IssuerDashboard() {
                         <td>{credential.credentialName || "N/A"}</td>
                         <td>{credential.holderName || "N/A"}</td>
                         <td>{credential.credentialType || "N/A"}</td>
-                        <td><span className={`status-badge status-${credential.status || "active"}`}>{credential.status || "active"}</span></td>
+                        <td><span className={`status-badge status-${effectiveCredentialStatus(credential)}`}>{effectiveCredentialStatus(credential)}</span></td>
                         <td>{credential.issuedDate ? new Date(credential.issuedDate).toLocaleDateString() : "N/A"}</td>
                         <td>{getRevokedDateValue(credential) ? new Date(getRevokedDateValue(credential)).toLocaleDateString() : "—"}</td>
                         <td className="actions-cell">
@@ -1419,7 +1420,7 @@ export default function IssuerDashboard() {
                   )}
                 </div>
               </div>
-              <div className="form-group compact-form-group"><label>Expiry Date <span className="form-label-hint">(optional)</span></label><input type="date" name="expiryDate" value={issueForm.expiryDate} onChange={handleIssueFormChange} min={new Date().toISOString().split("T")[0]} /></div>
+              <div className="form-group compact-form-group"><label>Expiry Date <span className="form-label-hint">(optional)</span></label><input type="date" name="expiryDate" value={issueForm.expiryDate} onChange={handleIssueFormChange} min={minIssueExpiryDate()} /></div>
               {issueError && <div className="form-error">{issueError}</div>}
               {issueConfirmStep && (
                 <div style={{ marginTop:"12px",padding:"12px 14px",borderRadius:"10px",background:"rgba(245,158,11,0.10)",border:"1px solid rgba(245,158,11,0.35)",color:"#f59e0b",fontSize:"13px",lineHeight:1.6 }}>

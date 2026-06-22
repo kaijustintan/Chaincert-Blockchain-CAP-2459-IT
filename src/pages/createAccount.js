@@ -395,6 +395,14 @@ const getDocumentDescription = (docKey) => {
         setRootAuthorityOpen(false);
       }
 
+      // F06: the required-documents checklist depends on category + issuer type.
+      // When either changes, drop any already-attached files so stale/duplicate
+      // documents can't silently ride along to the wrong application (categories
+      // can share a doc key, e.g. board_resolution_chaincert_authorization).
+      if (name === "category" || name === "issuerType") {
+        updated.documentsByType = {};
+      }
+
       return updated;
     });
   };
@@ -879,7 +887,9 @@ const getDocumentDescription = (docKey) => {
                   </p>
 
                   {requiredDocuments.map((doc) => (
-                    <div key={doc.key} className="input-group file-input-group">
+                    // F06: key by doc + category so the native <input type="file">
+                    // re-mounts (and visually clears) whenever the category changes.
+                    <div key={`${doc.key}-${issuer.category}`} className="input-group file-input-group">
                       <label>{doc.label}</label>
 
                       <small className="document-description">

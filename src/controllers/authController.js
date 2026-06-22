@@ -2,6 +2,7 @@ const couchDB = require('../couchDB_service');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const { validatePasswordStrength, sendServerError } = require('../securityHelpers'); // Phase 5 Tier 2
+const mailerService = require('../mailerService'); // F28: password-change receipt
 
 // M4 (Phase 5 hardening): a real bcrypt hash used ONLY to equalize response timing when an email
 // doesn't exist. Without this, "no such user" returns instantly while "wrong password" spends time
@@ -163,6 +164,27 @@ const authController = {
 
       const hashedNewPassword = await bcrypt.hash(newPassword, 10);
       await couchDB.updateUser(user._id, { password: hashedNewPassword });
+
+      // F28: password-change security receipt (best-effort, non-fatal).
+      try {
+        const acctEmail = user.email || email;
+        if (acctEmail) {
+          await mailerService.sendMail({
+            to: acctEmail,
+            subject: 'Your ChainCert Password Was Changed',
+            html: mailerService.renderEmail({
+              heading: 'Password Changed',
+              bodyHtml: `
+                <p style="margin:0 0 14px;color:#374151;font-size:14px;line-height:1.6;">Hi,</p>
+                <p style="margin:0 0 14px;color:#374151;font-size:14px;line-height:1.6;">The password for your ChainCert account (<strong>${acctEmail}</strong>) was just <strong>changed</strong>. If this was you, no action is needed.</p>
+                <p style="margin:0;color:#6b7280;font-size:13px;line-height:1.6;">If you did <strong>not</strong> make this change, please contact the ChainCert administration team immediately.</p>`
+            }),
+            text: `The password for your ChainCert account (${acctEmail}) was just changed. If this was not you, contact the ChainCert administration team immediately.`
+          });
+        }
+      } catch (emailErr) {
+        console.error('[changePassword] Receipt email failed (non-fatal):', emailErr?.message || emailErr);
+      }
 
       return res.status(200).json({ success: true, message: 'Password updated successfully' });
     } catch (error) {

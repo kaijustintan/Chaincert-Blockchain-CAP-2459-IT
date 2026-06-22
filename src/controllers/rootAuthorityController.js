@@ -1,5 +1,6 @@
 const couchDB = require('../couchDB_service');
 const { sendServerError } = require('../securityHelpers'); // Phase 5 Tier 2 (M9)
+const mailerService = require('../mailerService'); // F28: subordinate decision emails
 
 const rootAuthorityController = {
   getPendingSubordinatesForRoot: async (req, res) => {
@@ -199,6 +200,26 @@ const rootAuthorityController = {
         console.warn('[ADMIN NOTIFICATION] Failed to create root approval notification:', notificationError.message);
       }
 
+      // F28: email the subordinate that its root authority approved it (best-effort).
+      try {
+        if (subordinateDoc?.email) {
+          await mailerService.sendMail({
+            to: subordinateDoc.email,
+            subject: 'Your ChainCert Subordinate Application Was Approved by Your Root Authority',
+            html: mailerService.renderEmail({
+              heading: 'Approved by Root Authority',
+              bodyHtml: `
+                <p style="margin:0 0 14px;color:#374151;font-size:14px;line-height:1.6;">Dear <strong>${subordinateDoc.orgName || 'Applicant'}</strong>,</p>
+                <p style="margin:0 0 14px;color:#374151;font-size:14px;line-height:1.6;">Your subordinate issuer application has been <strong style="color:#16a34a;">approved</strong> by your root authority, <strong>${rootAuthorityDoc.orgName || rootAuthorityDoc.email}</strong>.</p>
+                <p style="margin:0;color:#6b7280;font-size:13px;line-height:1.6;">Your application now moves to the ChainCert administration team for final approval. You will be notified once a decision is made.</p>`
+            }),
+            text: `Dear ${subordinateDoc.orgName || 'Applicant'},\n\nYour subordinate issuer application was approved by your root authority (${rootAuthorityDoc.orgName || rootAuthorityDoc.email}). It now awaits final approval by the ChainCert administration team.`
+          });
+        }
+      } catch (emailErr) {
+        console.error('[rootApproveSubordinateIssuer] Email failed (non-fatal):', emailErr?.message || emailErr);
+      }
+
       return res.status(200).json({
         success: true,
         message: blockchainWarning
@@ -292,6 +313,27 @@ const rootAuthorityController = {
         });
       } catch (notificationError) {
         console.warn('[ADMIN NOTIFICATION] Failed to create root rejection notification:', notificationError.message);
+      }
+
+      // F28: email the subordinate that its root authority rejected it (best-effort).
+      try {
+        if (subordinateDoc?.email) {
+          await mailerService.sendMail({
+            to: subordinateDoc.email,
+            subject: 'Update on Your ChainCert Subordinate Application',
+            html: mailerService.renderEmail({
+              heading: 'Not Approved by Root Authority',
+              bodyHtml: `
+                <p style="margin:0 0 14px;color:#374151;font-size:14px;line-height:1.6;">Dear <strong>${subordinateDoc.orgName || 'Applicant'}</strong>,</p>
+                <p style="margin:0 0 14px;color:#374151;font-size:14px;line-height:1.6;">Your subordinate issuer application was <strong style="color:#b91c1c;">not approved</strong> by your root authority, <strong>${rootAuthorityDoc.orgName || rootAuthorityDoc.email}</strong>.</p>
+                <p style="margin:0 0 14px;color:#374151;font-size:14px;line-height:1.6;"><strong>Reason:</strong> ${rejectionReason}</p>
+                <p style="margin:0;color:#6b7280;font-size:13px;line-height:1.6;">You may address the points above and submit a new application.</p>`
+            }),
+            text: `Dear ${subordinateDoc.orgName || 'Applicant'},\n\nYour subordinate issuer application was not approved by your root authority (${rootAuthorityDoc.orgName || rootAuthorityDoc.email}).\nReason: ${rejectionReason}\n\nYou may submit a new application.`
+          });
+        }
+      } catch (emailErr) {
+        console.error('[rootRejectSubordinateIssuer] Email failed (non-fatal):', emailErr?.message || emailErr);
       }
 
       return res.status(200).json({

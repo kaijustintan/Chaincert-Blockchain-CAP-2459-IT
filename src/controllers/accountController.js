@@ -470,6 +470,26 @@ const accountController = {
         resetOtpAttemptsAt: null
       });
 
+      // F28: password-change security receipt (best-effort, non-fatal).
+      try {
+        if (user.email) {
+          await mailerService.sendMail({
+            to: user.email,
+            subject: 'Your ChainCert Password Was Changed',
+            html: mailerService.renderEmail({
+              heading: 'Password Changed',
+              bodyHtml: `
+                <p style="margin:0 0 14px;color:#374151;font-size:14px;line-height:1.6;">Hi,</p>
+                <p style="margin:0 0 14px;color:#374151;font-size:14px;line-height:1.6;">The password for your ChainCert account (<strong>${user.email}</strong>) was just <strong>reset</strong>. If this was you, no action is needed.</p>
+                <p style="margin:0;color:#6b7280;font-size:13px;line-height:1.6;">If you did <strong>not</strong> request this, please contact the ChainCert administration team immediately.</p>`
+            }),
+            text: `The password for your ChainCert account (${user.email}) was just reset. If this was not you, contact the ChainCert administration team immediately.`
+          });
+        }
+      } catch (emailErr) {
+        console.error('[resetPassword] Receipt email failed (non-fatal):', emailErr?.message || emailErr);
+      }
+
       return res.status(200).json({ success: true, message: 'Password reset successful. You may now log in.' });
     } catch (error) {
       console.error('[FORGOT-PW] resetPassword error:', error);

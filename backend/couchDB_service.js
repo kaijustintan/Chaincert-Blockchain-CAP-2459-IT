@@ -2692,7 +2692,11 @@ async function getRejectedIssuers() {
     */
     /* F04: also surface subordinates rejected by their ROOT authority. Those
        keep status 'pending' but rootApprovalStatus 'rejected', so match either
-       the admin-rejected status OR the root-rejected flag. */
+       the admin-rejected status OR the root-rejected flag.
+
+       NOTE: no Mango `sort` here — an $or selector is NOT covered by the
+       existing idx-type-status-created index, and Mango requires a matching
+       index to sort ("No index exists for this sort"). We sort in JS instead. */
     const result = await issuersDB.find({
       selector: {
         type: 'issuer_registration',
@@ -2700,14 +2704,14 @@ async function getRejectedIssuers() {
           { status: 'rejected' },
           { status: 'pending', rootApprovalStatus: 'rejected' }
         ]
-      },
-      sort: ['createdAt']
+      }
     });
 
-    /* Step 3: Return rejected issuer documents
-       Tropang Ex: Ibinabalik yung buong info ng rejected issuers kasama rejection reason.
-    */
-    return result.docs;
+    /* Step 3: Return rejected issuer documents, oldest-first (matches the old
+       sort:['createdAt']); the frontend re-sorts anyway via issuerSortBy. */
+    return result.docs.sort((a, b) =>
+      String(a.createdAt || '').localeCompare(String(b.createdAt || ''))
+    );
 
   } catch (error) {
     /* Step 4: Error handling */
@@ -3219,6 +3223,14 @@ async function getAdminByEmail(adminEmail) {
   Tropang Ex:
   - Pang-check kung tama yung current password bago payagan magpalit.
 */
+async function getAdminEmails() {
+  if (!usersDb) await initializeDatabases();
+  const result = await usersDb.find({
+    selector: { type: 'user', role: 'admin' }
+  });
+  return (result.docs || []).map((d) => d.email).filter(Boolean);
+}
+
 async function verifyAdminCurrentPassword(adminEmail, currentPassword) {
   try {
     if (!adminEmail || !currentPassword) {
@@ -3755,6 +3767,7 @@ module.exports = {
   verifyAdminCurrentPassword,
   changeAdminPassword, 
   getAdminByEmail,
+  getAdminEmails,
   getBlockedHolderIDsByTemplate,
 
   getPendingSubordinatesForRoot,

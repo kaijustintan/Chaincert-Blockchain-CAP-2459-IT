@@ -412,12 +412,40 @@ const adminIssuerController = {
         console.warn('[ADMIN NOTIFICATION] Failed to create issuer rejection notification:', notificationError.message);
       }
 
+      // F28: notify the issuer by email (best-effort — never blocks the action).
+      let emailWarning = null;
+      try {
+        if (issuerEmail) {
+          await mailerService.sendMail({
+            to: issuerEmail,
+            subject: 'Update on Your ChainCert Issuer Application',
+            html: mailerService.renderEmail({
+              heading: 'Issuer Application Not Approved',
+              bodyHtml: `
+                <p style="margin:0 0 14px;color:#374151;font-size:14px;line-height:1.6;">Dear <strong>${orgName || 'Applicant'}</strong>,</p>
+                <p style="margin:0 0 14px;color:#374151;font-size:14px;line-height:1.6;">After review, your issuer application on ChainCert was <strong style="color:#b91c1c;">not approved</strong> at this time.</p>
+                <p style="margin:0 0 14px;color:#374151;font-size:14px;line-height:1.6;"><strong>Reason:</strong> ${rejectionReason}</p>
+                <p style="margin:0;color:#6b7280;font-size:13px;line-height:1.6;">You may address the points above and submit a new application.</p>`
+            }),
+            text: `Dear ${orgName || 'Applicant'},\n\nYour issuer application on ChainCert was not approved.\nReason: ${rejectionReason}\n\nYou may address the points above and submit a new application.`
+          });
+        }
+      } catch (emailErr) {
+        emailWarning = emailErr?.message || String(emailErr);
+        console.error('[Reject_Issuer] Rejection email failed:', emailWarning);
+      }
+
+      const warnings = [];
+      if (blockchainWarning) warnings.push('blockchain log failed');
+      if (emailWarning) warnings.push('notification email failed');
+
       return res.status(200).json({
         success: true,
-        message: blockchainWarning
-          ? 'Issuer rejected, but blockchain log failed.'
+        message: warnings.length
+          ? `Issuer rejected, but ${warnings.join(' and ')}.`
           : 'Issuer rejected successfully.',
         warning: blockchainWarning,
+        emailWarning,
         data: result
       });
     } catch (error) {
@@ -523,12 +551,40 @@ const adminIssuerController = {
         console.warn('[ADMIN NOTIFICATION] Failed to create issuer disable notification:', notificationError.message);
       }
 
+      // F28: notify the issuer their account was disabled (best-effort).
+      let emailWarning = null;
+      try {
+        if (issuer.email) {
+          await mailerService.sendMail({
+            to: issuer.email,
+            subject: 'Your ChainCert Issuer Account Has Been Disabled',
+            html: mailerService.renderEmail({
+              heading: 'Issuer Account Disabled',
+              bodyHtml: `
+                <p style="margin:0 0 14px;color:#374151;font-size:14px;line-height:1.6;">Dear <strong>${issuer.orgName || 'Issuer'}</strong>,</p>
+                <p style="margin:0 0 14px;color:#374151;font-size:14px;line-height:1.6;">Your issuer account on ChainCert has been <strong style="color:#b91c1c;">disabled</strong> by an administrator. While disabled, you cannot log in or issue credentials.</p>
+                <p style="margin:0 0 14px;color:#374151;font-size:14px;line-height:1.6;"><strong>Reason:</strong> ${reason}</p>
+                <p style="margin:0;color:#6b7280;font-size:13px;line-height:1.6;">If you believe this was in error, please contact the ChainCert administration team.</p>`
+            }),
+            text: `Dear ${issuer.orgName || 'Issuer'},\n\nYour issuer account on ChainCert has been disabled by an administrator.\nReason: ${reason}\n\nIf you believe this was in error, please contact the ChainCert administration team.`
+          });
+        }
+      } catch (emailErr) {
+        emailWarning = emailErr?.message || String(emailErr);
+        console.error('[Disable_Issuer] Disable email failed:', emailWarning);
+      }
+
+      const warnings = [];
+      if (blockchainLogWarning) warnings.push('blockchain log failed');
+      if (emailWarning) warnings.push('notification email failed');
+
       return res.status(200).json({
         success: true,
-        message: blockchainLogWarning
-          ? 'Issuer disabled successfully, but blockchain log failed.'
+        message: warnings.length
+          ? `Issuer disabled successfully, but ${warnings.join(' and ')}.`
           : 'Issuer disabled successfully.',
-        warning: blockchainLogWarning
+        warning: blockchainLogWarning,
+        emailWarning
       });
     } catch (error) {
       console.error('Disable_Issuer error:', error);
@@ -606,12 +662,69 @@ const adminIssuerController = {
         gateway = null;
       }
 
+      // F28: notify the issuer their account was re-enabled (best-effort).
+      let emailWarning = null;
+      try {
+        if (issuer.email) {
+          await mailerService.sendMail({
+            to: issuer.email,
+            subject: 'Your ChainCert Issuer Account Has Been Re-enabled',
+            html: mailerService.renderEmail({
+              heading: 'Issuer Account Re-enabled',
+              bodyHtml: `
+                <p style="margin:0 0 14px;color:#374151;font-size:14px;line-height:1.6;">Dear <strong>${issuer.orgName || 'Issuer'}</strong>,</p>
+                <p style="margin:0 0 14px;color:#374151;font-size:14px;line-height:1.6;">Good news &mdash; your issuer account on ChainCert has been <strong style="color:#16a34a;">re-enabled</strong>. You may log in again and resume issuing credentials.</p>
+                <p style="margin:0;color:#6b7280;font-size:13px;line-height:1.6;">Log in using the email and password you registered with.</p>`
+            }),
+            text: `Dear ${issuer.orgName || 'Issuer'},\n\nYour issuer account on ChainCert has been re-enabled. You may log in again and resume issuing credentials.`
+          });
+        }
+      } catch (emailErr) {
+        emailWarning = emailErr?.message || String(emailErr);
+        console.error('[Enable_Issuer] Re-enable email failed:', emailWarning);
+      }
+
+      // F28 / R41: Enable had no admin notification — add the in-app one, and
+      // email the whole admin team that this issuer was re-enabled (best-effort).
+      try {
+        await couchDB.createAdminNotification({
+          category: 'issuer_enabled',
+          title: 'Issuer Re-enabled',
+          message: `${issuer.orgName || issuer.email || issuerId} was re-enabled by admin ${adminEmail}.`,
+          issuerId,
+          issuerEmail: issuer.email || null
+        });
+      } catch (notifErr) {
+        console.warn('[ADMIN NOTIFICATION] Failed to create issuer enable notification:', notifErr.message);
+      }
+      try {
+        const adminEmails = await couchDB.getAdminEmails();
+        for (const aEmail of adminEmails) {
+          await mailerService.sendMail({
+            to: aEmail,
+            subject: 'ChainCert Issuer Re-enabled',
+            html: mailerService.renderEmail({
+              heading: 'Issuer Re-enabled',
+              bodyHtml: `<p style="margin:0;color:#374151;font-size:14px;line-height:1.6;"><strong>${issuer.orgName || issuer.email || issuerId}</strong> was re-enabled by admin <strong>${adminEmail}</strong>.</p>`
+            }),
+            text: `${issuer.orgName || issuer.email || issuerId} was re-enabled by admin ${adminEmail}.`
+          });
+        }
+      } catch (adminEmailErr) {
+        console.error('[Enable_Issuer] Admin-team email failed (non-fatal):', adminEmailErr?.message || adminEmailErr);
+      }
+
+      const warnings = [];
+      if (blockchainLogWarning) warnings.push('blockchain log failed');
+      if (emailWarning) warnings.push('notification email failed');
+
       return res.status(200).json({
         success: true,
-        message: blockchainLogWarning
-          ? 'Issuer re-enabled successfully, but blockchain log failed.'
+        message: warnings.length
+          ? `Issuer re-enabled successfully, but ${warnings.join(' and ')}.`
           : 'Issuer re-enabled successfully.',
-        warning: blockchainLogWarning
+        warning: blockchainLogWarning,
+        emailWarning
       });
     } catch (error) {
       console.error('Enable_Issuer error:', error);

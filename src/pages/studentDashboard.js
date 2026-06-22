@@ -35,6 +35,7 @@ import {
   computeProvenance,
 } from "../components/analytics/analytics";
 import { Card, Button, Modal, StatusPill, EmptyState } from "../components/ui";
+import NotesCard from "../components/ui/NotesCard";
 import {
   Bell, CheckCircle2, XCircle, Clock, Wallet, Activity, ShieldCheck,
   Download, ScrollText, Globe, Lock, Award, Search, Inbox, AlertTriangle, GitBranch,
@@ -602,6 +603,9 @@ export default function StudentDashboard() {
             )}
           </div>
 
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 16, alignItems: "flex-start" }}>
+            <div style={{ flex: "1 1 360px", minWidth: 0 }}>
+
           {/* Content */}
           <div className="holder-content">
             {loading && (
@@ -667,6 +671,17 @@ export default function StudentDashboard() {
                   </tbody>
                 </table>
               </div>
+            )}
+          </div>
+            </div>
+            {!loading && !error && credentials.length > 0 && (
+              <NotesCard
+                legend={[
+                  { label: "Active", color: "var(--ok)", meaning: "valid and in force" },
+                  { label: "Expired", color: "var(--warn)", meaning: "past its expiry date" },
+                  { label: "Revoked", color: "var(--danger)", meaning: "cancelled by the issuer" },
+                ]}
+              />
             )}
           </div>
         </section>

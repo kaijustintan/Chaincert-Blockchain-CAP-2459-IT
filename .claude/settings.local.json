@@ -10,7 +10,11 @@
       "Bash(grep -E \"\\(package\\\\.json|\\\\.js$\\)\")",
       "Bash(Get-ChildItem -Path src -Recurse -Include *.js, *.jsx, *.ts, *.tsx)",
       "Bash(Select-Object -ExpandProperty FullName)",
-      "Bash(Sort-Object)"
+      "Bash(Sort-Object)",
+      "Bash(which pdftotext *)",
+      "Bash(ls -la \"CAP2 - Final Gameplan \\(1\\).pdf\")",
+      "Bash(pdftotext -layout \"CAP2 - Final Gameplan \\(1\\).pdf\" -)",
+      "Bash(pdftotext \"CAP2 - Final Gameplan \\(1\\).pdf\" -)"
     ]
   }
 }

@@ -17,6 +17,7 @@ import {
   computeProofTrail,
 } from "../components/analytics/analytics";
 import { AppShell, Sidebar } from "../components/ui";
+import NotesCard from "../components/ui/NotesCard";
 import { Bell, Layers, Building2, Users, ClipboardList, BarChart3 } from "lucide-react";
 
 export default function AdminDashboard() {
@@ -62,7 +63,7 @@ export default function AdminDashboard() {
   const [issuerFilter, setIssuerFilter] = useState("approved");
 
   // ✅ NEW: secondary filter for pending issuers only
-  const [pendingIssuerFilter, setPendingIssuerFilter] = useState("admin_actionable");
+  const [pendingIssuerFilter, setPendingIssuerFilter] = useState("all_pending");
 
   const [users, setUsers] = useState([]);
   const [usersLoading, setUsersLoading] = useState(false);
@@ -1272,6 +1273,7 @@ const handleDownloadIssuerDocument = async (doc) => {
     {
       label: "Total Records",
       value: getStatDisplayValue(adminCredentialsLoading, adminCredentials.length),
+      categoryKey: "all",
     },
     {
       label: "Issued",
@@ -1280,6 +1282,7 @@ const handleDownloadIssuerDocument = async (doc) => {
         adminCredentials.filter((r) => (r.type || "").toLowerCase() === "issued").length
       ),
       className: "stat-green",
+      categoryKey: "issued",
     },
     {
       label: "Revoked",
@@ -1288,6 +1291,7 @@ const handleDownloadIssuerDocument = async (doc) => {
         adminCredentials.filter((r) => (r.status || "").toLowerCase() === "revoked").length
       ),
       className: "stat-red",
+      categoryKey: "revoked",
     },
     {
       label: "Expired",
@@ -1296,6 +1300,7 @@ const handleDownloadIssuerDocument = async (doc) => {
         adminCredentials.filter((r) => (r.status || "").toLowerCase() === "expired").length
       ),
       className: "stat-blue",
+      categoryKey: "expired",
     },
     {
       label: "Templates",
@@ -1304,6 +1309,7 @@ const handleDownloadIssuerDocument = async (doc) => {
         adminCredentials.filter((r) => (r.type || "").toLowerCase() === "template").length
       ),
       className: "stat-purple",
+      categoryKey: "template",
     },
   ];
 
@@ -1316,21 +1322,25 @@ const handleDownloadIssuerDocument = async (doc) => {
       label: "Active Issuers",
       value: getStatDisplayValue(loading, approvedIssuers.length),
       className: "stat-green",
+      categoryKey: "approved",
     },
     {
       label: "Disabled Issuers",
       value: getStatDisplayValue(loading, disabledIssuers.length),
       className: "stat-red",
+      categoryKey: "disabled",
     },
     {
       label: "Pending Issuers",
       value: getStatDisplayValue(loading, pendingIssuerCount),
       className: "stat-blue",
+      categoryKey: "pending",
     },
     {
       label: "Rejected Issuers",
       value: getStatDisplayValue(loading, rejectedIssuers.length),
       className: "stat-red",
+      categoryKey: "rejected",
     },
   ];
 
@@ -1338,16 +1348,19 @@ const handleDownloadIssuerDocument = async (doc) => {
     {
       label: "Total Users",
       value: getStatDisplayValue(usersLoading, users.length),
+      categoryKey: "all",
     },
     {
       label: "Active Users",
       value: getStatDisplayValue(usersLoading, users.filter((u) => u.isActive !== false).length),
       className: "stat-green",
+      categoryKey: "active",
     },
     {
       label: "Disabled Users",
       value: getStatDisplayValue(usersLoading, users.filter((u) => u.isActive === false).length),
       className: "stat-red",
+      categoryKey: "disabled",
     },
   ];
 
@@ -1355,16 +1368,19 @@ const handleDownloadIssuerDocument = async (doc) => {
     {
       label: "Verification Logs",
       value: getStatDisplayValue(logsLoading, verificationLogsCount),
+      categoryKey: "verification",
     },
     {
       label: "Status Logs",
       value: getStatDisplayValue(logsLoading, statusLogsCount),
       className: "stat-blue",
+      categoryKey: "status",
     },
     {
       label: "Issuer Decisions",
       value: getStatDisplayValue(logsLoading, issuerDecisionLogsCount),
       className: "stat-purple",
+      categoryKey: "decision",
     },
     {
       label: "Root Decisions",
@@ -1373,22 +1389,61 @@ const handleDownloadIssuerDocument = async (doc) => {
         rootSubordinateLogsCount
       ),
       className: "stat-green",
+      categoryKey: "root_subordinate_decision",
     },
   ];
 
-  const renderStatsGrid = (stats) => (
-    <div className="admin-stats-grid">
-      {stats.map((stat) => (
-        <div
-          key={stat.label}
-          className={`admin-stat-card${stat.className ? ` ${stat.className}` : ""}`}
-        >
-          <span className="admin-stat-num">{stat.value}</span>
-          <span className="admin-stat-label">{stat.label}</span>
-        </div>
-      ))}
-    </div>
-  );
+  // renderStatsGrid stays a plain display grid by default. Pass
+  // { onCardClick, activeKey } to make cards act as clickable category
+  // switchers (used by the Logs tab so cards + dropdown both navigate).
+  const renderStatsGrid = (stats, options = {}) => {
+    const { onCardClick, activeKey } = options;
+    return (
+      <div className="admin-stats-grid">
+        {stats.map((stat) => {
+          const clickable = typeof onCardClick === "function" && !!stat.categoryKey;
+          const isActive = clickable && activeKey === stat.categoryKey;
+          return (
+            <div
+              key={stat.label}
+              className={`admin-stat-card${stat.className ? ` ${stat.className}` : ""}${clickable ? " admin-stat-card-clickable" : ""}${isActive ? " admin-stat-card-active" : ""}`}
+              onClick={clickable ? () => onCardClick(stat.categoryKey) : undefined}
+              role={clickable ? "button" : undefined}
+              tabIndex={clickable ? 0 : undefined}
+              onKeyDown={
+                clickable
+                  ? (e) => {
+                      if (e.key === "Enter" || e.key === " ") {
+                        e.preventDefault();
+                        onCardClick(stat.categoryKey);
+                      }
+                    }
+                  : undefined
+              }
+              style={
+                clickable
+                  ? {
+                      cursor: "pointer",
+                      transition: "border-color .15s ease, transform .15s ease",
+                      ...(isActive
+                        ? {
+                            outline: "2px solid var(--accent, #7c5cfc)",
+                            outlineOffset: "1px",
+                          }
+                        : {}),
+                    }
+                  : undefined
+              }
+            >
+              <span className="admin-stat-num">{stat.value}</span>
+              <span className="admin-stat-label">{stat.label}</span>
+            </div>
+          );
+        })}
+      </div>
+    );
+  };
+
 
   // -------------------------------------------------------------------
   // EFFECTS
@@ -1396,7 +1451,7 @@ const handleDownloadIssuerDocument = async (doc) => {
   useEffect(() => {
     if (tab === "issuers" && !issuerStatsLoaded) {
       setIssuerFilter("approved");
-      setPendingIssuerFilter("admin_actionable");
+      setPendingIssuerFilter("all_pending");
       refreshIssuerCollections();
     } else if (tab === "credentials") {
       fetchApprovedIssuers();
@@ -2694,7 +2749,10 @@ const handleDownloadIssuerDocument = async (doc) => {
       {tab === "credentials" && (
         <>
           {/* ── Analytics Overview ── */}
-          {renderStatsGrid(credentialStats)}
+          {renderStatsGrid(credentialStats, {
+            onCardClick: setAdminCredStatusFilter,
+            activeKey: adminCredStatusFilter,
+          })}
 
           {/* ── Charts Row ── */}
           <div className="admin-analytics-row">
@@ -2794,8 +2852,9 @@ const handleDownloadIssuerDocument = async (doc) => {
                 onClick={handleIntegrityCheck}
                 disabled={integrityLoading}
                 className="action-btn"
+                style={{ width: "auto" }}
               >
-                {integrityLoading ? 'Checking...' : '🔍 Run Integrity Check'}
+                {integrityLoading ? 'Checking…' : 'Run Integrity Check'}
               </button>
             </div>
 
@@ -2804,6 +2863,9 @@ const handleDownloadIssuerDocument = async (doc) => {
                 Last integrity check: {integrityResult.totalChecked} checked • {integrityResult.matched} matched • {integrityResult.mismatched} mismatched • {integrityResult.missing} missing • {integrityResult.errors} errors.
               </div>
             )}
+
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 16, alignItems: "flex-start" }}>
+            <div style={{ flex: "1 1 380px", minWidth: 0 }}>
 
             <div className="issuer-filter-row filter-row" style={{ gap: 12, flexWrap: "wrap" }}>
               <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
@@ -2968,6 +3030,16 @@ const handleDownloadIssuerDocument = async (doc) => {
             ) : (
               <div className="tab-placeholder">No credentials found for selected filters.</div>
             )}
+            </div>
+            <NotesCard
+              legend={[
+                { label: "Issued / Active", color: "#22c55e", meaning: "issued and currently valid" },
+                { label: "Revoked", color: "#ef4444", meaning: "cancelled by the issuer" },
+                { label: "Expired", color: "#f59e0b", meaning: "past its expiry date" },
+                { label: "Template", color: "#3b82f6", meaning: "a reusable template (not yet issued)" },
+              ]}
+            />
+            </div>
           </div>
         </>
       )}
@@ -2976,7 +3048,13 @@ const handleDownloadIssuerDocument = async (doc) => {
       {tab === "issuers" && (
         <div className="tab-card">
           <h2>Issuer Management</h2>
-          {renderStatsGrid(issuerStats)}
+          {renderStatsGrid(issuerStats, {
+            onCardClick: setIssuerFilter,
+            activeKey: issuerFilter,
+          })}
+
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 16, alignItems: "flex-start" }}>
+          <div style={{ flex: "1 1 380px", minWidth: 0 }}>
 
           <div className="issuer-filter-row filter-row" style={{ gap: 12, flexWrap: "wrap" }}>
             <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
@@ -2990,7 +3068,7 @@ const handleDownloadIssuerDocument = async (doc) => {
                   setIssuerFilter(value);
 
                   if (value === "pending") {
-                    setPendingIssuerFilter("admin_actionable");
+                    setPendingIssuerFilter("all_pending");
                   }
                 }}
               >
@@ -3051,12 +3129,9 @@ const handleDownloadIssuerDocument = async (doc) => {
                 value={pendingIssuerFilter}
                 onChange={(e) => setPendingIssuerFilter(e.target.value)}
               >
-                <option value="admin_actionable">Admin Actionable Pending</option>
                 <option value="all_pending">All Pending</option>
-                <option value="root_only">Pending Root Issuers</option>
-                <option value="subordinate_only">Pending Subordinate Issuers</option>
-                <option value="awaiting_root">Subordinate Awaiting Root Approval</option>
-                <option value="root_approved">Subordinate Root-Approved</option>
+                <option value="admin_actionable">Ready for Review</option>
+                <option value="awaiting_root">Awaiting Root Approval</option>
               </select>
             </div>
           )}
@@ -3179,10 +3254,14 @@ const handleDownloadIssuerDocument = async (doc) => {
                         return <span style={{ opacity: 0.65 }}>—</span>;
                       }
 
-                      const isAwaitingRoot = pendingIssuerFilter === "awaiting_root";
-                      const isPendingRoot = pendingIssuerFilter === "root_only";
-                      const isRootApproved = pendingIssuerFilter === "root_approved" || pendingIssuerFilter === "admin_actionable";
-                      const showAdminDecision = !isAwaitingRoot && (isPendingRoot || isRootApproved || pendingIssuerFilter === "all_pending" || pendingIssuerFilter === "subordinate_only");
+                      // Gate Approve/Reject per ROW, not by the selected filter:
+                      // a subordinate is only admin-actionable once its root
+                      // authority has approved it. Root authorities have no gate.
+                      // This keeps the mixed "All Pending" view correct (F05).
+                      const isSubordinate = issuer.issuerType === "subordinate";
+                      const rootHasApproved = !isSubordinate || issuer.rootApprovalStatus === "approved";
+                      const showAdminDecision =
+                        pendingIssuerFilter !== "awaiting_root" && rootHasApproved;
 
                       return (
                         <>
@@ -3277,6 +3356,33 @@ const handleDownloadIssuerDocument = async (doc) => {
           ) : (
             <div className="tab-placeholder">No issuers found for selected view.</div>
           )}
+          </div>
+            <NotesCard
+              description={
+                issuerFilter === "pending"
+                  ? {
+                      all_pending:
+                        "every application still awaiting a decision (mixed — some you can act on now, some are still waiting on a root authority).",
+                      admin_actionable:
+                        "applications you can approve or reject right now — root authorities, plus subordinates already approved by their root authority.",
+                      awaiting_root:
+                        "subordinate applications still waiting on their root authority's approval — you can't act on these yet.",
+                    }[pendingIssuerFilter]
+                  : {
+                      approved:
+                        "issuers that are fully approved and can issue credentials (filter further by type below).",
+                      rejected: "applications that were denied.",
+                      disabled: "previously-approved issuers that an admin has turned off.",
+                    }[issuerFilter]
+              }
+              legend={[
+                { label: "Approved / Active", color: "#22c55e", meaning: "fully approved, can issue" },
+                { label: "Pending", color: "#eab308", meaning: "awaiting admin decision" },
+                { label: "Rejected / Disabled", color: "#ef4444", meaning: "denied, or turned off by admin" },
+                { label: "Awaiting Root", color: "#a78bfa", meaning: "subordinate waiting on its root authority (purple badge)" },
+              ]}
+            />
+          </div>
         </div>
       )}
 
@@ -3287,7 +3393,10 @@ const handleDownloadIssuerDocument = async (doc) => {
           <p className="tab-subtitle">
             View all registered users (holders and admins) in the system.
           </p>
-          {renderStatsGrid(userStats)}
+          {renderStatsGrid(userStats, {
+            onCardClick: setUserFilter,
+            activeKey: userFilter,
+          })}
 
           <div className="issuer-filter-row filter-row" style={{ gap: 12, flexWrap: "wrap" }}>
             <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
@@ -3462,7 +3571,13 @@ const handleDownloadIssuerDocument = async (doc) => {
           <p className="tab-subtitle">
             Blockchain audit logs for verification events and issuer/user status changes.
           </p>
-          {renderStatsGrid(logStats)}
+          {renderStatsGrid(logStats, {
+            onCardClick: setLogCategory,
+            activeKey: logCategory,
+          })}
+
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 16, alignItems: "flex-start" }}>
+          <div style={{ flex: "1 1 380px", minWidth: 0 }}>
 
           <div className="issuer-filter-row" style={{ gap: 12, flexWrap: "wrap" }}>
             <label htmlFor="logCategory">Category:</label>
@@ -3751,7 +3866,43 @@ const handleDownloadIssuerDocument = async (doc) => {
                             {log.holderID || "N/A"}
                           </td>
                           <td>{log.holderName || "N/A"}</td>
-                          <td>{log.result?.reason || log.resultMessage || "N/A"}</td>
+                          <td>
+                            {(() => {
+                              const r = log.result || {};
+                              const reason = (r.reason || log.resultMessage || "").toLowerCase();
+                              const status = (r.status || "").toLowerCase();
+                              let label = "Checked";
+                              let color = "#9ca3af";
+                              if (status === "not_found" || reason.includes("not found")) {
+                                label = "Not Found"; color = "#a78bfa";
+                              } else if (r.valid === true || reason.includes("valid")) {
+                                label = "Valid"; color = "#4ade80";
+                              } else if (reason.includes("revoked")) {
+                                label = "Revoked"; color = "#f87171";
+                              } else if (reason.includes("expired")) {
+                                label = "Expired"; color = "#fbbf24";
+                              } else if (r.valid === false) {
+                                label = "Invalid"; color = "#f87171";
+                              }
+                              return (
+                                <span
+                                  title={r.reason || log.resultMessage || ""}
+                                  style={{
+                                    display: "inline-block",
+                                    padding: "2px 10px",
+                                    borderRadius: 999,
+                                    fontWeight: 700,
+                                    fontSize: 12,
+                                    color,
+                                    background: `${color}1f`,
+                                    border: `1px solid ${color}55`,
+                                  }}
+                                >
+                                  {label}
+                                </span>
+                              );
+                            })()}
+                          </td>
                           <td>{formatTimestamp(log.timestamp || log.verifiedAt)}</td>
                         </tr>
                       ))}
@@ -3815,6 +3966,28 @@ const handleDownloadIssuerDocument = async (doc) => {
               )}
             </>
           )}
+          </div>
+            <NotesCard
+              description={
+                {
+                  verification: "logs a verification, showing who verified and its outcome.",
+                  status: "logs admin activity of enabling/disabling a user/issuer account, including who performed the activity and the reason given.",
+                  decision: "logs admin activity of approving or rejecting an issuer application, including the reason, recorded on-chain.",
+                  root_subordinate_decision: "logs root authority activity of approving or rejecting a subordinate issuer that applied under them.",
+                }[logCategory]
+              }
+              legend={
+                logCategory === "verification"
+                  ? [
+                      { label: "Valid", color: "#4ade80", meaning: "authentic and active" },
+                      { label: "Revoked", color: "#f87171", meaning: "cancelled by the issuer" },
+                      { label: "Expired", color: "#fbbf24", meaning: "past its expiry date" },
+                      { label: "Not Found", color: "#a78bfa", meaning: "no such credential (likely a fake / forged ID)" },
+                    ]
+                  : []
+              }
+            />
+          </div>
         </div>
       )}
 

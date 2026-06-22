@@ -42,10 +42,9 @@ export default function SettingsPage() {
       setPasswordError('New passwords do not match');
       return;
     }
-    if (passwordData.newPassword.length < 6) {
-      setPasswordError('New password must be at least 6 characters');
-      return;
-    }
+    // Password-strength policy is enforced server-side (single source of truth).
+    // No hardcoded client-side length check here so the displayed rules never
+    // drift from the real policy.
     if (passwordData.currentPassword === passwordData.newPassword) {
       setPasswordError('New password must be different from current password');
       return;
@@ -235,7 +234,7 @@ export default function SettingsPage() {
                     name="newPassword"
                     value={passwordData.newPassword}
                     onChange={handlePasswordChange}
-                    placeholder="Enter new password (min 6 characters)"
+                    placeholder="Enter new password"
                     required
                   />
                 </div>

@@ -73,6 +73,8 @@
   font-family: var(--font-ui);
   color: #fff;
   min-height: 100vh;
+  max-width: 1700px;
+  margin: 0 auto;
   background: rgba(0, 0, 0, 0.30);
   animation: fadeIn 0.6s ease-out;
 }
@@ -81,15 +83,12 @@
    TITLE STYLING
    ===================================================== */
 .issuer-dashboard h2 {
-  margin-bottom: 28px;
-  font-size: 32px;
-  font-weight: 700;
-  background: linear-gradient(135deg, #a78bfa, #c4b5fd, #818cf8, #a78bfa);
-  background-size: 300% 100%;
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  animation: gradientShift 4s ease infinite, fadeInUp 0.5s ease-out;
-  letter-spacing: -0.02em;
+  margin-bottom: 20px;
+  font-size: 26px;
+  font-weight: 600;
+  color: #fff;
+  animation: fadeInUp 0.5s ease-out;
+  letter-spacing: -0.01em;
 }
 
 .issuer-dashboard h3 {
@@ -261,38 +260,23 @@
    FILTER SECTION - Opaque Dark Glass
    ===================================================== */
 .filter-section {
-  background: rgba(12, 8, 32, 0.92);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
-  padding: 28px;
-  border-radius: 16px;
-  margin: 24px 0;
-  border: 1px solid rgba(139, 92, 246, 0.25);
-  border-left: 4px solid #8b5cf6;
-  box-shadow: 
-    0 8px 32px rgba(0, 0, 0, 0.5),
-    inset 0 1px 0 rgba(139, 92, 246, 0.1);
-  animation: fadeInUp 0.5s ease-out 0.4s both, borderGlow 3s ease-in-out infinite;
+  background: rgba(255, 255, 255, 0.03);
+  padding: 20px;
+  border-radius: 14px;
+  margin: 20px 0;
+  border: 1px solid rgba(255, 255, 255, 0.10);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25);
+  animation: fadeInUp 0.5s ease-out 0.4s both;
   position: relative;
 }
 
-/* Subtle top highlight line */
-.filter-section::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: 24px;
-  right: 24px;
-  height: 1px;
-  background: linear-gradient(90deg, transparent, rgba(139, 92, 246, 0.35), transparent);
-  border-radius: 1px;
-}
+.filter-section::before { display: none; }
 
 .filter-section h3 {
   margin-top: 0;
   color: #fff;
-  margin-bottom: 20px;
-  font-size: 20px;
+  margin-bottom: 16px;
+  font-size: 16px;
   font-weight: 600;
 }
 
@@ -310,22 +294,22 @@
 
 .filter-group label {
   font-weight: 600;
-  margin-bottom: 8px;
-  color: #a78bfa;
+  margin-bottom: 6px;
+  color: var(--text-muted, #b0adc0);
   font-size: 11px;
   text-transform: uppercase;
-  letter-spacing: 1px;
+  letter-spacing: 0.6px;
 }
 
 .filter-select {
-  padding: 12px 16px;
-  border: 1px solid rgba(139, 92, 246, 0.3);
-  border-radius: 10px;
-  font-size: 14px;
-  background-color: rgba(18, 12, 45, 0.95);
+  padding: 9px 12px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 8px;
+  font-size: 13px;
+  background-color: rgba(255, 255, 255, 0.05);
   color: #e5e5e5;
   cursor: pointer;
-  transition: all 0.3s ease;
+  transition: border-color 0.2s ease;
   font-family: var(--font-ui);
   -webkit-appearance: none;
   -moz-appearance: none;
@@ -338,16 +322,13 @@
 }
 
 .filter-select:hover {
-  border-color: #8b5cf6;
-  background-color: rgba(25, 18, 55, 0.98);
-  box-shadow: 0 0 16px rgba(139, 92, 246, 0.12);
+  border-color: rgba(255, 255, 255, 0.22);
 }
 
 .filter-select:focus {
   outline: none;
   border-color: #8b5cf6;
-  box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.25);
-  background-color: rgba(25, 18, 55, 0.98);
+  box-shadow: 0 0 0 2px rgba(139, 92, 246, 0.2);
 }
 
 .filter-select option {
@@ -383,13 +364,11 @@
   width: 100%;
   border-collapse: separate;
   border-spacing: 0;
-  background: rgba(10, 6, 28, 0.96);
-  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.02);
+  border-radius: 14px;
   overflow: hidden;
-  border: 1px solid rgba(139, 92, 246, 0.2);
-  box-shadow: 
-    0 8px 40px rgba(0, 0, 0, 0.55),
-    inset 0 1px 0 rgba(139, 92, 246, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.10);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25);
 }
 
 .template-table th {
@@ -1768,7 +1747,7 @@
 .issuer-home-subtitle {
   color: #b0adc0;
   font-size: 14px;
-  margin: -16px 0 24px 0;
+  margin: 4px 0 24px 0;
   text-align: center;
   animation: fadeInUp 0.5s ease-out 0.1s both;
 }
@@ -2471,4 +2450,85 @@
 .no-template-warning { background: var(--warn-weak); border: 1px solid transparent; border-left: 3px solid var(--warn); color: var(--warn); border-radius: var(--radius-control); padding: 10px 14px; margin-top: var(--s3); font-size: var(--fs-small); }
 .skill-tag, .skills-tags .skill-tag { background: var(--accent-weak); color: var(--accent-strong); border-radius: var(--radius-pill); }
 .file-input-label { background: var(--surface-2); border: 1px solid var(--border-strong); color: var(--text); border-radius: var(--radius-control); }
+
+/* =====================================================
+   DE-CLUTTER CALM PASS (appended last so it wins source order).
+   Softens the heavy purple glow-shadows + glass blur that made the
+   issuer dashboard feel busy. Layout untouched — decoration only.
+   ===================================================== */
+.issuer-dashboard .filter-section,
+.issuer-dashboard .table-container,
+.issuer-dashboard .template-table,
+.issuer-dashboard .issuer-stat-card {
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25) !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+.issuer-dashboard .issuer-stat-card {
+  background: rgba(255, 255, 255, 0.03) !important;
+  border: 1px solid rgba(255, 255, 255, 0.10) !important;
+}
+.issuer-dashboard .modal,
+.issuer-dashboard .modal-wide,
+.issuer-dashboard .history-modal {
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.4) !important;
+}
+
+/* =====================================================
+   DE-CLUTTER PASS 2 — left-align everything (titles, headings,
+   result counts, stat cards) so each page reads top-to-bottom in
+   order, and shrink the full-width banner buttons to normal inline
+   buttons. Mirrors the clean left-aligned admin/reference layout.
+   ===================================================== */
+.issuer-dashboard h1,
+.issuer-dashboard h2,
+.issuer-dashboard h3,
+.issuer-dashboard h4,
+.issuer-dashboard .issuer-home-header,
+.issuer-dashboard .issuer-page-head,
+.issuer-dashboard .results-info,
+.issuer-dashboard .filter-section h3 {
+  text-align: left !important;
+}
+.issuer-dashboard h2 { font-size: 22px !important; margin-bottom: 18px !important; }
+.issuer-dashboard h3 { font-size: 16px !important; }
+
+/* Stat / collection cards: left-aligned, consistent with admin */
+.issuer-dashboard .issuer-stat-card,
+.issuer-dashboard .collection-card {
+  text-align: left !important;
+  align-items: flex-start !important;
+}
+
+/* Banner buttons → normal left-aligned buttons, not full-width bars */
+.issuer-dashboard .create-btn,
+.issuer-dashboard .revoke-btn,
+.issuer-dashboard .action-btn.create-btn,
+.issuer-dashboard .action-btn.revoke-btn {
+  display: flex !important;
+  width: fit-content !important;
+  max-width: 100% !important;
+  margin-left: 0 !important;
+  margin-right: auto !important;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 10px 18px !important;
+}
+.issuer-dashboard .create-btn::after,
+.issuer-dashboard .revoke-btn::after { display: none !important; }
+
+/* Filters: tight, left-aligned group (was a spread full-width grid) */
+.issuer-dashboard .filter-row {
+  display: flex !important;
+  grid-template-columns: none !important;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: flex-end;
+  justify-content: flex-start;
+  margin-bottom: 16px;
+}
+.issuer-dashboard .filter-group { min-width: 150px; }
+.issuer-dashboard .filter-group label { text-align: left !important; }
+.issuer-dashboard .results-info { margin: 6px 0 14px !important; color: var(--text-muted); font-size: 13px; }
 

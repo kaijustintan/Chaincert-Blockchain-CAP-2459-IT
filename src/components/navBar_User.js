@@ -11,6 +11,7 @@ function NavBar() {
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [storedUser, setStoredUser] = useState(() => JSON.parse(localStorage.getItem('user') || '{}'));
   const profileFetchedRef = useRef(false);
+  const dropdownRef = useRef(null);
 
   useEffect(() => {
     const syncUser = () => setStoredUser(JSON.parse(localStorage.getItem('user') || '{}'));
@@ -21,6 +22,30 @@ function NavBar() {
       window.removeEventListener(USER_SYNC_EVENT, syncUser);
     };
   }, []);
+
+  // Close the profile dropdown when clicking outside it, or when the route changes.
+  useEffect(() => {
+    if (!dropdownOpen) return undefined;
+    const handleClickOutside = (event) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
+        setDropdownOpen(false);
+      }
+    };
+    const handleEscape = (event) => {
+      if (event.key === 'Escape') setDropdownOpen(false);
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    document.addEventListener('keydown', handleEscape);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener('keydown', handleEscape);
+    };
+  }, [dropdownOpen]);
+
+  // Collapse the dropdown automatically whenever the user navigates to a new page.
+  useEffect(() => {
+    setDropdownOpen(false);
+  }, [location.pathname]);
 
   useEffect(() => {
     const token = localStorage.getItem('token');
@@ -50,17 +75,6 @@ function NavBar() {
     setDropdownOpen(false);
     console.log('✅ Logout complete - redirecting to login');
     navigate('/login');
-  };
-
-  const getDashboardRoute = (role) => {
-    const routes = {
-      student: '/student/dashboard',
-      user: '/student/dashboard',
-      admin: '/admin/dashboard',
-      issuer: '/issuer/dashboard',
-      verifier: '/verifier/dashboard'
-    };
-    return routes[role] || '/student/dashboard';
   };
 
   return (
@@ -113,7 +127,7 @@ function NavBar() {
         )}
 
         {isLoggedIn && (
-          <div className="profile-dropdown-container">
+          <div className="profile-dropdown-container" ref={dropdownRef}>
             <button
               className="profile-btn"
               onClick={() => setDropdownOpen(!dropdownOpen)}
@@ -139,9 +153,6 @@ function NavBar() {
                     <small>{getRoleLabel(userRole)}</small>
                   </li>
                   <li className="divider"></li>
-                  <li>
-                    <Link to={getDashboardRoute(userRole)}>Dashboard</Link>
-                  </li>
                   <li className={location.pathname === '/profile' ? 'active' : ''}>
                     <Link to="/profile">Profile</Link>
                   </li>

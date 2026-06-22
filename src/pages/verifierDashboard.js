@@ -11,6 +11,7 @@ import { useSearchParams } from 'react-router-dom';
 import "../styles/verifierDashboard.css";
 import apiService from "../services/apiService";
 import { Card, Button, Field, Input, StatusPill } from "../components/ui";
+import NotesCard from "../components/ui/NotesCard";
 import { ShieldCheck, CheckCircle2, XCircle, AlertTriangle, Search } from "lucide-react";
 
 const VALID_EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
@@ -204,6 +205,8 @@ export default function VerifierDashboard() {
       </div>
 
       {/* Hero search */}
+      <div style={{ display: "flex", flexWrap: "wrap", gap: 16, alignItems: "flex-start" }}>
+        <div style={{ flex: "1 1 360px", minWidth: 0 }}>
       <div className="verifier-searchbar">
         <Search size={18} aria-hidden="true" />
         <input
@@ -215,6 +218,17 @@ export default function VerifierDashboard() {
           disabled={loading}
         />
         <Button onClick={handleVerify} loading={loading} disabled={loading}>Verify</Button>
+      </div>
+        </div>
+        <NotesCard
+          legendLabel="What a result means"
+          legend={[
+            { label: "Valid", color: "var(--ok)", meaning: "authentic and active" },
+            { label: "Revoked", color: "var(--danger)", meaning: "cancelled by the issuer" },
+            { label: "Expired", color: "var(--warn)", meaning: "past its expiry date" },
+            { label: "Not Found", color: "var(--accent-strong)", meaning: "no such credential — likely a fake / forged ID" },
+          ]}
+        />
       </div>
 
       {/* Inline error */}

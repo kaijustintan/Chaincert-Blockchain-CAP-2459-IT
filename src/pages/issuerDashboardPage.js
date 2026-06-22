@@ -35,6 +35,7 @@ import TrendBars from "../components/analytics/TrendBars";
 import InterpretationBox from "../components/analytics/InterpretationBox";
 import { computeIssuance, computeRevocationAudit, COLORS as ANALYTICS_COLORS } from "../components/analytics/analytics";
 import { AppShell, Sidebar, Button } from "../components/ui";
+import NotesCard from "../components/ui/NotesCard";
 import { LayoutDashboard, FilePlus, Award, Ban, List, BarChart3, Receipt, Building2 } from "lucide-react";
 
 export default function IssuerDashboard() {
@@ -795,26 +796,35 @@ export default function IssuerDashboard() {
             <p>Welcome back, {displayName}</p>
           </div>
 
-          {/* Stats row */}
+          {/* Stats row — each card jumps to its matching view */}
           <div className="issuer-stats-row">
-            <div className="issuer-stat-card">
-              <span className="issuer-stat-num">{templateOptions.length}</span>
-              <span className="issuer-stat-label">Templates</span>
-            </div>
-            <div className="issuer-stat-card">
-              <span className="issuer-stat-num">{credentials.length}</span>
-              <span className="issuer-stat-label">Issued</span>
-            </div>
-            <div className="issuer-stat-card">
-              <span className="issuer-stat-num">{credentials.filter(c => c.status === "revoked").length}</span>
-              <span className="issuer-stat-label">Revoked</span>
-            </div>
-            {!isSubordinate && (
-              <div className="issuer-stat-card">
-                <span className="issuer-stat-num">{totalSubordinateCount}</span>
-                <span className="issuer-stat-label">Subordinates</span>
+            {[
+              { num: templateOptions.length, label: "Templates", view: "create" },
+              { num: credentials.length, label: "Issued", view: "issue" },
+              { num: credentials.filter(c => c.status === "revoked").length, label: "Revoked", view: "revoke" },
+              ...(!isSubordinate
+                ? [{ num: totalSubordinateCount, label: "Subordinates", view: "subordinates" }]
+                : []),
+            ].map((card) => (
+              <div
+                key={card.label}
+                className="issuer-stat-card"
+                role="button"
+                tabIndex={0}
+                style={{ cursor: "pointer" }}
+                onClick={() => openDashboardView(card.view)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" || e.key === " ") {
+                    e.preventDefault();
+                    openDashboardView(card.view);
+                  }
+                }}
+                title={`Go to ${card.label}`}
+              >
+                <span className="issuer-stat-num">{card.num}</span>
+                <span className="issuer-stat-label">{card.label}</span>
               </div>
-            )}
+            ))}
           </div>
 
           {/* Quick actions */}
@@ -916,6 +926,9 @@ export default function IssuerDashboard() {
             <div className="filter-row"><div className="filter-group"><label htmlFor="issueSearch">Search:</label><input id="issueSearch" value={issueSearch} onChange={(e) => setIssueSearch(e.target.value)} placeholder="Search by credential, holder, or ID..." className="filter-select" /></div></div><div className="results-info">Showing <strong>{issueTableCredentials.length}</strong> of <strong>{credentials.length}</strong> credentials</div>
           </div>
 
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 16, alignItems: "flex-start" }}>
+            <div style={{ flex: "1 1 380px", minWidth: 0 }}>
+
           {/* Issued credentials table */}
           {issueTableCredentials.length === 0 ? (
             <div className="no-results"><p>{credentials.length === 0 ? "No credentials found. Issue your first credential." : "No credentials match your filters."}</p></div>
@@ -955,6 +968,17 @@ export default function IssuerDashboard() {
               </table>
             </div>
           )}
+            </div>
+            {issueTableCredentials.length > 0 && (
+              <NotesCard
+                legend={[
+                  { label: "Active / Issued", color: "var(--ok)", meaning: "issued and currently valid" },
+                  { label: "Revoked", color: "var(--danger)", meaning: "you cancelled it" },
+                  { label: "Expired", color: "var(--warn)", meaning: "past its expiry date" },
+                ]}
+              />
+            )}
+          </div>
         </>
       )}
 
@@ -1082,6 +1106,18 @@ export default function IssuerDashboard() {
                   <option value="disabled">Disabled</option>
                 </select>
               </div>
+            </div>
+
+            <div style={{ margin: "0 0 12px", fontSize: 12.5, color: "rgba(255,255,255,0.62)", lineHeight: 1.4 }}>
+              <strong style={{ color: "rgba(255,255,255,0.85)" }}>Description:</strong>{" "}
+              {{
+                all: "every subordinate that applied under you, in any state.",
+                pending: "subordinates awaiting your approval (you're their root authority).",
+                root_approved: "you've approved them — now awaiting ChainCert admin's final approval.",
+                root_rejected: "applications you rejected at the root-authority stage.",
+                approved: "fully approved (by you and admin) — they can issue credentials.",
+                disabled: "approved subordinates that an admin has turned off.",
+              }[subordinateDirectoryFilter]}
             </div>
 
             {subordinateDirectoryLoading ? <div className="no-results"><p>Loading subordinate directory...</p></div>

@@ -206,15 +206,15 @@ select.cc-input {
 .cc-table--zebra tbody tr:nth-child(even) { background: rgba(255, 255, 255, 0.02); }
 
 /* ============================= APP SHELL + SIDEBAR ============================= */
-.cc-shell { display: flex; gap: var(--s5); align-items: flex-start; width: 100%; box-sizing: border-box; }
+.cc-shell { display: flex; gap: var(--s5); align-items: stretch; width: 100%; box-sizing: border-box; }
 .cc-shell-main { flex: 1; min-width: 0; }
 
 .cc-sidebar {
   width: 232px; flex-shrink: 0; box-sizing: border-box;
-  position: sticky; top: var(--s4);
+  align-self: stretch;
   background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-card);
   padding: var(--s3); display: flex; flex-direction: column; gap: 2px;
-  max-height: calc(100vh - 2 * var(--s4)); overflow-y: auto;
+  min-height: calc(100vh - 140px);
 }
 .cc-sidebar-head { padding: var(--s2) var(--s3) var(--s3); border-bottom: 1px solid var(--border); margin-bottom: var(--s2); }
 .cc-sidebar-title { font-size: var(--fs-h3); font-weight: var(--fw-semibold); color: var(--text); margin: 0; }
@@ -236,7 +236,7 @@ select.cc-input {
 
 @media (max-width: 900px) {
   .cc-shell { flex-direction: column; gap: var(--s4); }
-  .cc-sidebar { width: 100%; position: static; max-height: none; flex-direction: row; overflow-x: auto; gap: var(--s1); }
+  .cc-sidebar { width: 100%; position: static; max-height: none; min-height: 0; align-self: auto; flex-direction: row; overflow-x: auto; gap: var(--s1); }
   .cc-sidebar-head { display: none; }
   .cc-sidebar-foot { display: none; }
   .cc-sidebar-item { width: auto; white-space: nowrap; }

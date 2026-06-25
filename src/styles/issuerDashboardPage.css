@@ -2248,6 +2248,18 @@
   opacity: 0.85;
 }
 
+/* G2/I1: confirmation dialog stacked on top of a form modal. Lighter, blurred overlay
+   so the form behind stays visible-but-blurred (not fully hidden). */
+.modal-overlay.confirm-overlay {
+  background: rgba(10, 6, 30, 0.45) !important;
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+}
+.confirm-modal {
+  max-width: 460px;
+  width: 100%;
+}
+
 /* Holder line in the revoke picker option (between name and meta) */
 .searchable-item-sub {
   color: rgba(245,243,255,0.72);

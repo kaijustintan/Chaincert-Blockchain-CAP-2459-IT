@@ -715,24 +715,21 @@ export default function IssuerDashboard() {
     }
   };
 
-  const handleIssueCredential = async (e) => {
+  // G2/I1: form submit only validates and opens the SEPARATE confirmation modal.
+  const handleIssueCredential = (e) => {
     e.preventDefault();
     setIssueError("");
-
-    // Validation — runs regardless of confirm step
     if (!issueForm.credentialId || !issueForm.recipientId) {
       setIssueError("Please select both a credential and a recipient");
       return;
     }
+    setIssueConfirmStep(true);
+  };
 
-    // Step 1: Show confirmation — don't call API yet
-    if (!issueConfirmStep) {
-      setIssueConfirmStep(true);
-      return;
-    }
-
-    // Step 2: Confirmed — call API
+  // G2/I1: the actual issuance — invoked from the confirmation modal's Confirm button.
+  const confirmIssueCredential = async () => {
     setIssueLoading(true);
+    setIssueError("");
     try {
       await apiService.Issue_Credential(issueForm.credentialId, issueForm.recipientId, issueForm.expiryDate);
       showToast("Credential issued successfully!");
@@ -1457,32 +1454,37 @@ export default function IssuerDashboard() {
                 </div>
               </div>
               <div className="form-group compact-form-group"><label>Expiry Date <span className="form-label-hint">(optional)</span></label><input type="date" name="expiryDate" value={issueForm.expiryDate} onChange={handleIssueFormChange} /* TEMP-TEST (F01): min={minIssueExpiryDate()} removed so past dates are selectable for expiry testing — RESTORE before demo */ /></div>
-              {issueError && <div className="form-error">{issueError}</div>}
-              {issueConfirmStep && (
-                <div style={{ marginTop:"12px",padding:"12px 14px",borderRadius:"10px",background:"rgba(245,158,11,0.10)",border:"1px solid rgba(245,158,11,0.35)",color:"#f59e0b",fontSize:"13px",lineHeight:1.6 }}>
-                  <strong>Are you sure?</strong> This will issue the credential to the selected recipient. The action is recorded on the blockchain and cannot be undone.
-                </div>
-              )}
+              {!issueConfirmStep && issueError && <div className="form-error">{issueError}</div>}
               <div className="form-actions">
-                {issueConfirmStep ? (
-                  <>
-                    <button type="submit" className="action-btn issue-btn" disabled={issueLoading}>
-                      {issueLoading ? "Issuing..." : "Confirm Issue"}
-                    </button>
-                    <button type="button" onClick={() => setIssueConfirmStep(false)} className="action-btn btn-cancel" disabled={issueLoading}>
-                      Go Back
-                    </button>
-                  </>
-                ) : (
-                  <>
-                    <button type="submit" className="action-btn issue-btn">Issue Credential</button>
-                    <button type="button" onClick={closeIssueModal} className="action-btn btn-cancel">Cancel</button>
-                  </>
-                )}
+                <button type="submit" className="action-btn issue-btn">Issue Credential</button>
+                <button type="button" onClick={closeIssueModal} className="action-btn btn-cancel">Cancel</button>
               </div>
             </form>
           </div>
           <div className="modal-backdrop" onClick={closeIssueModal}></div>
+        </div>
+      )}
+
+      {/* G2/I1: separate confirmation modal, stacked on top of the Issue modal. The
+          overlay's backdrop-filter blurs the issue form behind it. */}
+      {showIssueModal && issueConfirmStep && (
+        <div className="modal-overlay confirm-overlay">
+          <div className="modal confirm-modal">
+            <div className="modal-header"><h3>Confirm Issuance</h3></div>
+            <p style={{ margin: "12px 0 4px", fontSize: "14px", lineHeight: 1.6, color: "#fff" }}>
+              <strong style={{ color: "#f59e0b" }}>Are you sure?</strong> This will issue the credential to the selected recipient. The action is recorded on the blockchain and <strong>cannot be undone</strong>.
+            </p>
+            {issueError && <div className="form-error">{issueError}</div>}
+            <div className="form-actions">
+              <button type="button" className="action-btn issue-btn" onClick={confirmIssueCredential} disabled={issueLoading}>
+                {issueLoading ? "Issuing..." : "Confirm Issue"}
+              </button>
+              <button type="button" className="action-btn btn-cancel" onClick={() => { setIssueConfirmStep(false); setIssueError(""); }} disabled={issueLoading}>
+                Go Back
+              </button>
+            </div>
+          </div>
+          <div className="modal-backdrop" onClick={() => { if (!issueLoading) { setIssueConfirmStep(false); setIssueError(""); } }}></div>
         </div>
       )}
 

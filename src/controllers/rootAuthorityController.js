@@ -321,16 +321,8 @@ const rootAuthorityController = {
       } catch (notificationError) {
         console.warn('[ADMIN NOTIFICATION] Failed to create root rejection notification:', notificationError.message);
       }
-
-      // N1: notify the SUBORDINATE issuer (their own account) in-app.
-      try {
-        await couchDB.createNotification({
-          targetRole: 'issuer', issuerId, issuerEmail: subordinateDoc?.email || null,
-          category: 'subordinate_root_rejected',
-          title: 'Update on your subordinate application',
-          message: `Your root authority did not approve your application.${rejectionReason ? ` Reason: ${rejectionReason}` : ''}`
-        });
-      } catch (e) { console.warn('[ISSUER NOTIFICATION] root-reject:', e.message); }
+      // N1: no in-app notification — a root-rejected subordinate can't log in, so it would
+      // never be seen. The rejection EMAIL (above) is the channel.
 
       // F28 + G3: email the subordinate that its root authority rejected it,
       // fire-and-forget so the action responds immediately.

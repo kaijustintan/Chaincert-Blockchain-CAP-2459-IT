@@ -415,16 +415,8 @@ const adminIssuerController = {
       } catch (notificationError) {
         console.warn('[ADMIN NOTIFICATION] Failed to create issuer rejection notification:', notificationError.message);
       }
-
-      // N1: notify the issuer (their own account) in-app.
-      try {
-        await couchDB.createNotification({
-          targetRole: 'issuer', issuerId, issuerEmail,
-          category: 'issuer_rejected',
-          title: 'Update on your issuer application',
-          message: `Your issuer application was not approved.${rejectionReason ? ` Reason: ${rejectionReason}` : ''}`
-        });
-      } catch (e) { console.warn('[ISSUER NOTIFICATION] reject:', e.message); }
+      // N1: no in-app notification for the issuer here — a rejected issuer can't log in,
+      // so they'd never see it. The rejection EMAIL (above) is the right channel.
 
       // F28 + G3: notify the issuer by email, fire-and-forget so rejection responds
       // immediately (no emailWarning in the response — send completes after we reply).
@@ -557,16 +549,8 @@ const adminIssuerController = {
       } catch (notificationError) {
         console.warn('[ADMIN NOTIFICATION] Failed to create issuer disable notification:', notificationError.message);
       }
-
-      // N1: notify the issuer (their own account) in-app.
-      try {
-        await couchDB.createNotification({
-          targetRole: 'issuer', issuerId, issuerEmail: issuer.email || null,
-          category: 'issuer_disabled',
-          title: 'Your issuer account was disabled',
-          message: `Your issuer account has been disabled by an administrator.${reason ? ` Reason: ${reason}` : ''}`
-        });
-      } catch (e) { console.warn('[ISSUER NOTIFICATION] disable:', e.message); }
+      // N1: no in-app notification — a disabled issuer can't log in (authController blocks
+      // disabled logins), so they'd never see it. The disable EMAIL (above) is the channel.
 
       // F28 + G3: notify the issuer their account was disabled, fire-and-forget so the
       // action responds immediately (no emailWarning in the response anymore).

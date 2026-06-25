@@ -1757,10 +1757,10 @@ export default function IssuerDashboard() {
               <div className="cred-lineage" style={{ marginBottom: 18, border: "1px solid rgba(139,92,246,0.28)", borderRadius: 12, padding: "14px 16px", background: "rgba(139,92,246,0.06)" }}>
                 <div style={{ fontWeight: 600, fontSize: 14, marginBottom: 4 }}>Credential Lineage</div>
                 <div style={{ fontSize: 12.5, color: "rgba(255,255,255,0.62)", marginBottom: 10 }}>
-                  {historyLineage.length} issuances of <strong>{historyCredential?.credentialName || "this credential"}</strong> to <strong>{historyCredential?.holderName || historyCredential?.holderID || "this holder"}</strong>, oldest first. Highlighted = the one you opened.
+                  {historyLineage.length} issuances of <strong>{historyCredential?.credentialName || "this credential"}</strong> to <strong>{historyCredential?.holderName || historyCredential?.holderID || "this holder"}</strong>, oldest first. The <strong>highlighted</strong> row's blockchain history is shown below — click another row's <strong>View</strong> to switch.
                 </div>
                 <table className="template-table">
-                  <thead><tr><th>#</th><th>Status</th><th>Issued</th><th>Expiry</th><th>Revoked</th></tr></thead>
+                  <thead><tr><th>#</th><th>Status</th><th>Issued</th><th>Expiry</th><th>Revoked</th><th>Blockchain History</th></tr></thead>
                   <tbody>
                     {historyLineage.map((inst, i) => {
                       const eff = effectiveCredentialStatus(inst);
@@ -1773,6 +1773,13 @@ export default function IssuerDashboard() {
                           <td>{formatIssuedDate(inst) || "N/A"}</td>
                           <td>{inst.expiryDate ? new Date(inst.expiryDate).toLocaleDateString() : "—"}</td>
                           <td>{revoked ? new Date(revoked).toLocaleDateString() : "—"}</td>
+                          <td>
+                            {current ? (
+                              <span style={{ opacity: 0.55, fontSize: 12 }}>Shown below</span>
+                            ) : (
+                              <button type="button" className="action-btn" onClick={() => handleSeeHistory(inst)} style={{ padding: "4px 10px", fontSize: 12, background: "rgba(139,92,246,0.15)", color: "#a78bfa", border: "1px solid rgba(255,255,255,0.18)", borderRadius: 6, cursor: "pointer" }}>View</button>
+                            )}
+                          </td>
                         </tr>
                       );
                     })}
@@ -1789,6 +1796,11 @@ export default function IssuerDashboard() {
 
               return cleanHistory.length > 0 ? (
                 <div>
+                  {historyLineage.length > 1 && (
+                    <div style={{ fontWeight: 600, fontSize: 14, margin: "4px 0 8px" }}>
+                      Blockchain history — selected instance ({historyCredential?.blockchainId || historyCredential?.id || "current"})
+                    </div>
+                  )}
                   <div style={{ fontSize: "13px", color: "#a78bfa", marginBottom: "12px" }}>
                     Showing {cleanHistory.length} history record(s)
                   </div>

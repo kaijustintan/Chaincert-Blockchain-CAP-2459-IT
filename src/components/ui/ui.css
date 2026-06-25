@@ -53,7 +53,7 @@
 
 .cc-btn--sm { padding: 6px 12px; font-size: var(--fs-small); }
 
-.cc-btn--primary { background: var(--accent); color: var(--text-on-accent); }
+.cc-btn--primary { background: var(--accent); color: var(--text-on-accent); box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08); }
 .cc-btn--primary:hover { background: var(--accent-strong); }
 
 .cc-btn--secondary { background: var(--surface-2); color: var(--text); border-color: var(--border-strong); }

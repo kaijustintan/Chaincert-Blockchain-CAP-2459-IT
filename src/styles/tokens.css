@@ -157,6 +157,17 @@
   100% { background-position: 200% 0; }
 }
 
+/* ---------- Numerics: monospace for tabular metrics (Halo-inspired) ---------- */
+.admin-stat-num,
+.stat-value,
+.issuer-stat-num,
+.holder-stat-num,
+.analytics-donut-center-value,
+.analytics-flag-rate {
+  font-family: var(--font-mono);
+  letter-spacing: -0.01em;
+}
+
 /* Accessibility: honor reduced-motion — collapse all motion to near-instant. */
 @media (prefers-reduced-motion: reduce) {
   :root {

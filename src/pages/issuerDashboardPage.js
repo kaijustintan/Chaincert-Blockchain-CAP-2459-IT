@@ -32,6 +32,7 @@ import "../styles/issuerDashboardPage.css";
 import "../styles/analytics.css";
 import DonutChart from "../components/analytics/DonutChart";
 import TrendBars from "../components/analytics/TrendBars";
+import Sparkline from "../components/analytics/Sparkline";
 import InterpretationBox from "../components/analytics/InterpretationBox";
 import { computeIssuance, computeRevocationAudit, COLORS as ANALYTICS_COLORS } from "../components/analytics/analytics";
 import { AppShell, Sidebar, Button, StatusPill } from "../components/ui";
@@ -1329,6 +1330,7 @@ export default function IssuerDashboard() {
             <div className="issuer-stat-card">
               <span className="issuer-stat-num">{issuance.total}</span>
               <span className="issuer-stat-label">Total Issued</span>
+              <Sparkline data={issuance.byMonth} dataKey="count" />
             </div>
             <div className="issuer-stat-card">
               <span className="issuer-stat-num">{issuance.byType.length}</span>

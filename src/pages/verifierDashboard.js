@@ -37,8 +37,28 @@ export default function VerifierDashboard() {
   const [hasVerifierInfo, setHasVerifierInfo] = useState(false);
   const [verifierFormError, setVerifierFormError] = useState("");
 
-  // Optional: prefill saved verifier info from localStorage, but always require confirmation first
+  // V1: proven-email token + OTP gate state (verifier must confirm email ownership once
+  // per session/window before any verification is LOGGED with their email).
+  const [verifierToken, setVerifierToken] = useState("");
+  const [otpSent, setOtpSent] = useState(false);
+  const [otpCode, setOtpCode] = useState("");
+  const [otpLoading, setOtpLoading] = useState(false);
+  const [otpError, setOtpError] = useState("");
+  const [otpInfo, setOtpInfo] = useState("");
+
+  // On mount: restore a still-valid proven-email token from this session (once-per-window).
+  // Otherwise just prefill the name/email fields; OTP is always required to enter the dashboard.
   useEffect(() => {
+    const t = sessionStorage.getItem("verifierToken");
+    const te = sessionStorage.getItem("verifierTokenEmail");
+    const tx = Number(sessionStorage.getItem("verifierTokenExp") || 0);
+    if (t && te && Date.now() < tx) {
+      setVerifierToken(t);
+      setVerifierEmail(te);
+      setVerifierName(localStorage.getItem("verifierName") || "");
+      setHasVerifierInfo(true);
+      return;
+    }
     const savedName = localStorage.getItem("verifierName") || "";
     const savedEmail = localStorage.getItem("verifierEmail") || "";
     if (savedName) setVerifierName(savedName);
@@ -90,10 +110,15 @@ export default function VerifierDashboard() {
               reason: response.reason,
               status: response.status,
               source: response.sources?.primarySource || 'unknown'
-            })
+            }),
+            verifierToken
           );
           console.log('[VERIFY] On-chain log written successfully');
         } catch (logErr) {
+          if (logErr.response?.status === 401) {
+            resetVerifierEmail();
+            setError("Your email session expired. Please verify your email again to record verifications.");
+          }
           console.warn('[VERIFY] On-chain log write failed (non-fatal):', logErr.message);
         }
       } else {
@@ -114,10 +139,15 @@ export default function VerifierDashboard() {
             query,
             verifierName,
             verifierEmail,
-            JSON.stringify({ valid: false, reason: 'Credential not found', status: 'not_found', source: 'not_found' })
+            JSON.stringify({ valid: false, reason: 'Credential not found', status: 'not_found', source: 'not_found' }),
+            verifierToken
           );
           console.log('[VERIFY] Not-found attempt logged on-chain');
         } catch (logErr) {
+          if (logErr.response?.status === 401) {
+            resetVerifierEmail();
+            setError("Your email session expired. Please verify your email again to record verifications.");
+          }
           console.warn('[VERIFY] Not-found log failed (non-fatal):', logErr.message);
         }
       }
@@ -135,55 +165,114 @@ export default function VerifierDashboard() {
     }
   };
 
-  // NEW: submit handler for verifier info form
-  const handleVerifierFormSubmit = (e) => {
+  // V1 step 1: validate name+email, send the OTP to the email.
+  const handleSendOtp = async (e) => {
     e.preventDefault();
     const trimmedName = verifierName.trim();
     const trimmedEmail = verifierEmail.trim();
-
     if (!trimmedName || !trimmedEmail) {
       setVerifierFormError("Please provide both your name and email to continue.");
       return;
     }
-
     if (!VALID_EMAIL_REGEX.test(trimmedEmail)) {
       setVerifierFormError("Please enter a valid email address (e.g., name@example.com).");
       return;
     }
-
-    setVerifierFormError("");
-    setHasVerifierInfo(true);
-
-    // Optional: persist for next visits
-    localStorage.setItem("verifierName", trimmedName);
-    localStorage.setItem("verifierEmail", trimmedEmail);
+    setVerifierFormError(""); setOtpError(""); setOtpInfo(""); setOtpLoading(true);
+    try {
+      await apiService.requestVerifierOtp(trimmedEmail);
+      localStorage.setItem("verifierName", trimmedName);
+      localStorage.setItem("verifierEmail", trimmedEmail);
+      setOtpSent(true);
+      setOtpInfo(`We sent a 6-digit code to ${trimmedEmail}. Enter it below to continue.`);
+    } catch (err) {
+      setOtpError(err.response?.data?.message || "Could not send the code. Please try again.");
+    } finally { setOtpLoading(false); }
   };
 
-  // If walang verifier info pa, show prereq form card
+  // V1 step 2: confirm OTP → receive the proven-email token → enter the dashboard.
+  const handleConfirmOtp = async (e) => {
+    e.preventDefault();
+    const trimmedEmail = verifierEmail.trim();
+    if (!otpCode.trim()) { setOtpError("Enter the 6-digit code from your email."); return; }
+    setOtpError(""); setOtpLoading(true);
+    try {
+      const res = await apiService.confirmVerifierOtp(trimmedEmail, otpCode.trim());
+      const expMs = Date.now() + 2 * 60 * 60 * 1000; // mirror the 2h token window (UX only; server enforces the real expiry)
+      setVerifierToken(res.token);
+      sessionStorage.setItem("verifierToken", res.token);
+      sessionStorage.setItem("verifierTokenEmail", trimmedEmail);
+      sessionStorage.setItem("verifierTokenExp", String(expMs));
+      setHasVerifierInfo(true);
+    } catch (err) {
+      setOtpError(err.response?.data?.message || "Invalid or expired code. Please try again.");
+    } finally { setOtpLoading(false); }
+  };
+
+  // V1: clear the proven-email session (the "Change" link, or when the token expires).
+  const resetVerifierEmail = () => {
+    setHasVerifierInfo(false); setOtpSent(false); setOtpCode("");
+    setVerifierToken(""); setOtpError(""); setOtpInfo("");
+    sessionStorage.removeItem("verifierToken");
+    sessionStorage.removeItem("verifierTokenEmail");
+    sessionStorage.removeItem("verifierTokenExp");
+  };
+
+  // Gate: verifier must provide name+email AND prove email ownership via OTP (V1) before
+  // entering the dashboard. Step 1 = details + send code; step 2 = enter code.
   if (!hasVerifierInfo) {
     return (
       <div className="verifier-page verifier-gate">
         <Card className="verifier-gate-card">
           <div className="verifier-head-icon"><ShieldCheck size={26} aria-hidden="true" /></div>
           <h1 className="verifier-gate-title">Verifier Information</h1>
-          <p className="verifier-gate-sub">Enter your details before accessing the verification dashboard.</p>
+          <p className="verifier-gate-sub">
+            {otpSent
+              ? "Enter the code we emailed you to confirm it's really your address."
+              : "Enter your details — we'll email you a code to confirm your address before you verify."}
+          </p>
 
-          <form onSubmit={handleVerifierFormSubmit}>
-            <Field label="Your Name" htmlFor="vName">
-              <Input id="vName" type="text" placeholder="e.g. Kai Verifier" value={verifierName} onChange={(e) => setVerifierName(e.target.value)} />
-            </Field>
-            <Field label="Your Email" htmlFor="vEmail">
-              <Input id="vEmail" type="email" placeholder="e.g. verifier@example.com" value={verifierEmail} onChange={(e) => setVerifierEmail(e.target.value)} />
-            </Field>
+          {!otpSent ? (
+            <form onSubmit={handleSendOtp}>
+              <Field label="Your Name" htmlFor="vName">
+                <Input id="vName" type="text" placeholder="e.g. Kai Verifier" value={verifierName} onChange={(e) => setVerifierName(e.target.value)} />
+              </Field>
+              <Field label="Your Email" htmlFor="vEmail">
+                <Input id="vEmail" type="email" placeholder="e.g. verifier@example.com" value={verifierEmail} onChange={(e) => setVerifierEmail(e.target.value)} />
+              </Field>
 
-            {verifierFormError && (
-              <div className="verifier-banner is-error"><XCircle size={16} aria-hidden="true" /><span>{verifierFormError}</span></div>
-            )}
+              {verifierFormError && (
+                <div className="verifier-banner is-error"><XCircle size={16} aria-hidden="true" /><span>{verifierFormError}</span></div>
+              )}
+              {otpError && (
+                <div className="verifier-banner is-error"><XCircle size={16} aria-hidden="true" /><span>{otpError}</span></div>
+              )}
 
-            <Button as="button" type="submit" variant="primary" style={{ width: '100%', marginTop: 8 }}>
-              Continue to dashboard
-            </Button>
-          </form>
+              <Button as="button" type="submit" variant="primary" loading={otpLoading} disabled={otpLoading} style={{ width: '100%', marginTop: 8 }}>
+                {otpLoading ? "Sending code…" : "Send verification code"}
+              </Button>
+            </form>
+          ) : (
+            <form onSubmit={handleConfirmOtp}>
+              {otpInfo && (
+                <div className="verifier-banner"><CheckCircle2 size={16} aria-hidden="true" /><span>{otpInfo}</span></div>
+              )}
+              <Field label="6-digit code" htmlFor="vOtp">
+                <Input id="vOtp" type="text" inputMode="numeric" maxLength={6} placeholder="123456" value={otpCode} onChange={(e) => setOtpCode(e.target.value)} />
+              </Field>
+
+              {otpError && (
+                <div className="verifier-banner is-error"><XCircle size={16} aria-hidden="true" /><span>{otpError}</span></div>
+              )}
+
+              <Button as="button" type="submit" variant="primary" loading={otpLoading} disabled={otpLoading} style={{ width: '100%', marginTop: 8 }}>
+                {otpLoading ? "Verifying…" : "Verify & continue"}
+              </Button>
+              <button type="button" className="verifier-change" style={{ marginTop: 10 }} onClick={() => { setOtpSent(false); setOtpCode(""); setOtpError(""); setOtpInfo(""); }}>
+                Use a different email
+              </button>
+            </form>
+          )}
         </Card>
       </div>
     );
@@ -200,8 +289,8 @@ export default function VerifierDashboard() {
 
       {/* Who is verifying */}
       <div className="verifier-summary">
-        <span>Verifying as <strong>{verifierName}</strong> · {verifierEmail}</span>
-        <button className="verifier-change" onClick={() => setHasVerifierInfo(false)}>Change</button>
+        <span>Verifying as <strong>{verifierName}</strong> · {verifierEmail} <span style={{ color: "var(--ok, #22c55e)", fontSize: 12 }}>✓ email verified</span></span>
+        <button className="verifier-change" onClick={resetVerifierEmail}>Change</button>
       </div>
 
       {/* Hero search */}

@@ -1398,16 +1398,40 @@ Check_IssuerHasTemplates: async () => {
       - anong credential ang chineck,
       - ano ang naging result.
   */
-  logVerificationOnChain: async (credentialId, name, email, resultJson) => {
+  logVerificationOnChain: async (credentialId, name, email, resultJson, verifierToken) => {
     try {
+      // V1: verifierToken (proven-email JWT from confirm-otp) is required by the backend;
+      // sent in the body to avoid the axios auth interceptor (verifiers have no account token).
       const response = await axios.post(`/credentials/${credentialId}/log-verification`, {
         name,
         email,
-        resultJson
+        resultJson,
+        verifierToken
       });
       return response.data;
     } catch (error) {
       console.error('Error logging verification on-chain:', error.response?.data?.message || error.message);
+      throw error;
+    }
+  },
+
+  // V1: verifier email OTP (prove ownership once per window).
+  requestVerifierOtp: async (email) => {
+    try {
+      const response = await axios.post('/credentials/verify/request-otp', { email });
+      return response.data;
+    } catch (error) {
+      console.error('Error requesting verifier OTP:', error.response?.data?.message || error.message);
+      throw error;
+    }
+  },
+
+  confirmVerifierOtp: async (email, otp) => {
+    try {
+      const response = await axios.post('/credentials/verify/confirm-otp', { email, otp });
+      return response.data;
+    } catch (error) {
+      console.error('Error confirming verifier OTP:', error.response?.data?.message || error.message);
       throw error;
     }
   },

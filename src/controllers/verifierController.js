@@ -22,10 +22,102 @@
 */
 
 const nano = require('nano');
+const jwt = require('jsonwebtoken');                  // V1: proven-email token
+const mailerService = require('../mailerService');    // V1: OTP email
 const couchdbService = require('../couchDB_service'); // for future issuer/admin lookups if needed
 
 // couchDB connection where wallet_user_credentials is
 const COUCHDB_URL = 'http://admin:adminpw@localhost:5985';
+
+// ==========================================================================================================================================================================
+// V1: VERIFIER EMAIL OTP (prove email ownership once per window before a verification is LOGGED)
+// ==========================================================================================================================================================================
+/*
+  In-memory transient OTP store, keyed by lowercased email → { otp, expiresAt, attempts, windowStart }.
+  Single-instance capstone scope: not persisted on purpose (no DB schema change). OTPs are short-lived,
+  so a server restart just forces a re-request. On successful OTP confirm we issue a short-lived JWT
+  ('verifier_email_proof') that the verify-LOG endpoint requires — so the logged verifier email is
+  server-PROVEN, not self-reported. The credential VERIFY (read) endpoint stays public/unchanged.
+*/
+const verifierOtpStore = new Map();
+const VERIFIER_OTP_TTL_MS = 10 * 60 * 1000;     // code valid 10 min
+const VERIFIER_OTP_MAX = 3;                      // max sends per window
+const VERIFIER_OTP_WINDOW_MS = 10 * 60 * 1000;   // rate-limit window
+const VERIFIER_TOKEN_TTL = '2h';                 // proven-email token = the "once per window" lifetime
+const EMAIL_RE = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
+
+// V1: request an email OTP. Synchronous send so a failure surfaces (verifier waits for the code).
+const requestVerifierOtp = async (req, res) => {
+  try {
+    const email = String(req.body?.email || '').trim().toLowerCase();
+    if (!email || !EMAIL_RE.test(email)) {
+      return res.status(400).json({ success: false, message: 'A valid email is required.' });
+    }
+    const now = Date.now();
+    const existing = verifierOtpStore.get(email);
+    let attempts = 1, windowStart = now;
+    if (existing && now - existing.windowStart < VERIFIER_OTP_WINDOW_MS) {
+      if (existing.attempts >= VERIFIER_OTP_MAX) {
+        return res.status(429).json({ success: false, message: 'Too many code requests. Please wait a few minutes and try again.' });
+      }
+      attempts = existing.attempts + 1;
+      windowStart = existing.windowStart;
+    }
+    const otp = String(Math.floor(100000 + Math.random() * 900000));
+    verifierOtpStore.set(email, { otp, expiresAt: now + VERIFIER_OTP_TTL_MS, attempts, windowStart });
+
+    try {
+      await mailerService.sendMail({
+        to: email,
+        realRecipient: true, // a verifier is a real person — deliver to their inbox
+        subject: 'Your ChainCert Verification Code',
+        html: mailerService.renderOtpEmail({
+          heading: 'Verify your email',
+          intro: 'Enter this code in ChainCert to confirm your email before verifying credentials.',
+          otp,
+          note: 'This code expires in 10 minutes. If you did not request it, you can ignore this email.'
+        }),
+        text: `Your ChainCert verification code is: ${otp}\nIt expires in 10 minutes.`
+      });
+    } catch (mailErr) {
+      console.error('[VERIFIER OTP] send failed:', mailErr.message);
+      return res.status(502).json({ success: false, message: 'Could not send the code. Check your email and try again.' });
+    }
+    return res.status(200).json({ success: true, message: 'Verification code sent.' });
+  } catch (e) {
+    console.error('[VERIFIER OTP] request error:', e.message);
+    return res.status(500).json({ success: false, message: 'Failed to send code.' });
+  }
+};
+
+// V1: confirm the OTP → issue a short-lived proven-email token (the "window").
+const confirmVerifierOtp = async (req, res) => {
+  try {
+    const email = String(req.body?.email || '').trim().toLowerCase();
+    const otp = String(req.body?.otp || '').trim();
+    if (!email || !otp) {
+      return res.status(400).json({ success: false, message: 'Email and code are required.' });
+    }
+    const entry = verifierOtpStore.get(email);
+    if (!entry || entry.otp !== otp) {
+      return res.status(400).json({ success: false, message: 'Invalid verification code.' });
+    }
+    if (Date.now() > entry.expiresAt) {
+      verifierOtpStore.delete(email);
+      return res.status(400).json({ success: false, message: 'Code has expired. Please request a new one.' });
+    }
+    verifierOtpStore.delete(email); // single-use
+    const token = jwt.sign(
+      { verifierEmail: email, purpose: 'verifier_email_proof' },
+      process.env.JWT_SECRET,
+      { expiresIn: VERIFIER_TOKEN_TTL }
+    );
+    return res.status(200).json({ success: true, token, email });
+  } catch (e) {
+    console.error('[VERIFIER OTP] confirm error:', e.message);
+    return res.status(500).json({ success: false, message: 'Failed to confirm code.' });
+  }
+};
 
 /**
  * Helper: normalize credential ID to user_cred_<cleanId> (CouchDB convention)
@@ -400,8 +492,30 @@ const logVerificationEvent = async (req, res, getContractAndGateway) => {
       });
     }
 
+    // V1: require a PROVEN-email token (issued by confirm-otp). The logged verifier email
+    // comes from the token, never from the client body — so it can't be spoofed. The
+    // credential VERIFY (read) endpoint stays public; only LOGGING requires proof.
+    // Prefer the explicit body token (the axios interceptor may put a logged-in user's
+    // ACCOUNT token in the Authorization header, which must not shadow the verifier proof).
+    const authHeader = req.headers.authorization || '';
+    const bearer = String(req.body?.verifierToken || '') ||
+      (authHeader.startsWith('Bearer ') ? authHeader.slice(7) : '');
+    let provenEmail = '';
+    try {
+      const decoded = jwt.verify(bearer, process.env.JWT_SECRET);
+      if (decoded?.purpose !== 'verifier_email_proof' || !decoded?.verifierEmail) {
+        throw new Error('wrong token purpose');
+      }
+      provenEmail = String(decoded.verifierEmail).toLowerCase();
+    } catch (tokErr) {
+      return res.status(401).json({
+        success: false,
+        message: 'Email verification required. Please confirm your email with the code before verifying.'
+      });
+    }
+
     const resolvedName = verifierName || name || '';
-    const resolvedEmail = verifierEmail || email || '';
+    const resolvedEmail = provenEmail; // V1: proven, not self-reported
 
     // --- Try to resolve holderID + holderName from CouchDB ---
     let holderID = null;
@@ -692,4 +806,6 @@ module.exports = {
   logVerificationEvent,
   getAllVerificationLogs,
   getVerificationLogById,
+  requestVerifierOtp,   // V1
+  confirmVerifierOtp,   // V1
 };

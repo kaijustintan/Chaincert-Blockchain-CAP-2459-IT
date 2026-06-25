@@ -196,6 +196,13 @@ router.post('/:credentialId/revoke', (req, res) => {
 // VERIFICATION-RELATED CREDENTIAL ROUTES
 // ======================================================
 
+// V1: verifier email OTP (prove email ownership once per window before logging a verification).
+// Literal paths declared BEFORE the /:credentialId/* routes so they never get param-matched.
+// POST /api/credentials/verify/request-otp
+router.post('/verify/request-otp', (req, res) => verifierController.requestVerifierOtp(req, res));
+// POST /api/credentials/verify/confirm-otp
+router.post('/verify/confirm-otp', (req, res) => verifierController.confirmVerifierOtp(req, res));
+
 // GET /api/credentials/:credentialId/verify
 // Verify credential by id.
 router.get('/:credentialId/verify', (req, res) => {

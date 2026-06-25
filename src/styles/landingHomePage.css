@@ -43,6 +43,7 @@
   inset: 0;
   overflow: hidden;
   z-index: 0;
+  background: var(--bg) url('../assets/hero-rings.jpg') center / cover no-repeat;
 }
 
 .hero-video {
@@ -84,7 +85,7 @@
 }
 
 .landing-hero.video-fallback .hero-media-layer {
-  background: radial-gradient(circle at top, var(--accent-weak), transparent 32%), radial-gradient(circle at top, var(--border-accent), transparent 35%), linear-gradient(180deg, var(--bg) 0%, #090513 48%, #07040f 100%);
+  background: linear-gradient(180deg, rgba(8, 6, 21, 0.55) 0%, rgba(7, 4, 15, 0.88) 100%), url('../assets/hero-rings.jpg') center / cover no-repeat;
 }
 
 .hero-badge {

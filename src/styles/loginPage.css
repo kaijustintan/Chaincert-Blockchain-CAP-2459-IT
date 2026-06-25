@@ -440,3 +440,7 @@
 .error-banner { background: var(--danger-weak); border: 1px solid transparent; border-left: 3px solid var(--danger); color: var(--danger); border-radius: var(--radius-control); }
 .extra-links a { color: var(--accent-strong); }
 .extra-links a:hover { color: var(--accent); }
+/* ── Branding panel image: Fuchsia (auth-login) ── */
+.login-left {
+  background: linear-gradient(160deg, rgba(8, 6, 21, 0.70), rgba(8, 6, 21, 0.90)), url('../assets/auth-login.jpg') center / cover no-repeat;
+}

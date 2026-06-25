@@ -85,6 +85,8 @@ pages/ are role-scoped dashboards: studentDashboard, issuerDashboardPage, verifi
 services/pdfExportService.js handles credential PDF rendering (jsPDF + qrcode).
 ⚠️ src/services/authenticationService.js is a backend file that lives under src/ for historical reasons — it deploys to ~/chaincert-api/authenticationService.js, not the React bundle. Don't import it from frontend code.
 
+Design system (src/styles/tokens.css + src/components/ui/) — the SINGLE source of truth for UI; do NOT rebuild it or accept any "no design tokens" premise. tokens.css holds every design token as CSS variables (one --accent purple, semantic --ok/--warn/--danger/--info, --text*/--surface*/--border*, type scale --fs-*, spacing --s1..--s7, --radius-*, --shadow-*, --motion/--ease). components/ui/ holds the cc-* primitives (Button, Card, Badge/StatusPill, Field, Modal, DataTable, EmptyState, AppShell/Sidebar). CONVENTION: use tokens not hardcoded hex/px and the cc-* primitives not hand-rolled buttons/modals; chart colors must use the literal token hex in components/analytics/analytics.js COLORS because recharts SVG can't read var(). As of the June 2026 overhaul every page is tokenized, FontAwesome is gone (lucide-react only), and framer-motion@12 powers opacity-only page transitions in App.js (AnimatedRoutes). Design inspiration (NOT app code) lives in docs/design-reference/halo/. Full state + what's deferred is in project memory project-ui-design-system.md.
+
 Backend route mounting (sdk-server-fixed.js)
 /api          -> systemRoutes        (health checks)
 /api/auth     -> authRoutes          (authController, accountController)

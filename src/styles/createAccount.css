@@ -794,3 +794,8 @@
 .searchable-item-name { color: var(--text); }
 .searchable-item-meta, .searchable-select-empty { color: var(--text-muted); }
 .document-description { color: var(--text-subtle); }
+
+/* ── Ambient page background: Lavendery (auth-register) ── */
+.create-account-wrapper {
+  background: linear-gradient(180deg, rgba(7, 5, 18, 0.82), rgba(7, 5, 18, 0.92)), url('../assets/auth-register.jpg') center / cover no-repeat fixed;
+}

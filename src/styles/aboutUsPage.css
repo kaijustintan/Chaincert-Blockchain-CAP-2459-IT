@@ -245,3 +245,8 @@
   .about-section-wrap { padding: 32px 16px; }
 }
 .about-powered-badge { margin-left: 10px; }
+
+/* ── Ambient page background: Phantom (about-bg) ── */
+.about-container {
+  background: linear-gradient(180deg, rgba(7, 5, 18, 0.85), rgba(7, 5, 18, 0.93)), url('../assets/about-bg.jpg') center / cover no-repeat fixed;
+}

@@ -1831,6 +1831,39 @@ Get_VerificationLogById: async (logId) => {
     }
   },
 
+  // N1: issuer in-app notifications. Scope comes from the JWT (req.user.id) server-side,
+  // so no issuerId param is sent.
+  getIssuerNotifications: async () => {
+    try {
+      const response = await axios.get('/issuer/notifications');
+      return response.data;
+    } catch (error) {
+      console.error('Error fetching issuer notifications:', error.response?.data?.message || error.message);
+      throw error;
+    }
+  },
+
+  getUnreadIssuerNotifications: async () => {
+    try {
+      const response = await axios.get('/issuer/notifications/unread');
+      return response.data;
+    } catch (error) {
+      console.error('Error fetching unread issuer notifications:', error.response?.data?.message || error.message);
+      throw error;
+    }
+  },
+
+  markIssuerNotificationAsRead: async (notificationId) => {
+    try {
+      if (!notificationId) throw new Error('notificationId is required');
+      const response = await axios.patch(`/issuer/notifications/${notificationId}/read`);
+      return response.data;
+    } catch (error) {
+      console.error('Error marking issuer notification as read:', error.response?.data?.message || error.message);
+      throw error;
+    }
+  },
+
 
   /*
     Function Name: getAdminNotifications

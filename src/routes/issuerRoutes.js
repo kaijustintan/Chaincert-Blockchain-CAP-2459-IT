@@ -105,4 +105,17 @@ router.post('/credentials/create', (req, res) => {
   );
 });
 
+// ======================================================
+// N1: ISSUER IN-APP NOTIFICATIONS (scope derived from req.user.id — no IDOR)
+// ======================================================
+
+// GET /api/issuer/notifications — this issuer's notifications
+router.get('/notifications', issuerCredentialController.getIssuerNotifications);
+
+// GET /api/issuer/notifications/unread — unread only (badge count)
+router.get('/notifications/unread', issuerCredentialController.getUnreadIssuerNotifications);
+
+// PATCH /api/issuer/notifications/:notificationId/read — mark one read (ownership-checked)
+router.patch('/notifications/:notificationId/read', issuerCredentialController.markIssuerNotificationAsRead);
+
 module.exports = router;

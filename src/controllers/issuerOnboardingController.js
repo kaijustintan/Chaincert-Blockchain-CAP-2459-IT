@@ -254,6 +254,18 @@ const issuerOnboardingController = {
           }),
           text: `A subordinate issuer (${issuerData.orgName}, ${issuerData.email}) has applied under your authority and is awaiting your approval. Log in to ChainCert to review it.`
         }, '[registerIssuer]');
+
+        // N1: in-app notification to the ROOT AUTHORITY issuer that a subordinate is pending.
+        try {
+          await couchDB.createNotification({
+            targetRole: 'issuer',
+            issuerId: issuerData.rootAuthorityId,
+            issuerEmail: rootAuthorityEmail,
+            category: 'subordinate_pending',
+            title: 'A subordinate is pending your approval',
+            message: `${issuerData.orgName} (${issuerData.email}) applied under your authority and is awaiting your approval.`
+          });
+        } catch (e) { console.warn('[ISSUER NOTIFICATION] subordinate-pending:', e.message); }
       }
 
       // REG3 + F28: confirm to the APPLICANT that their application was received and is

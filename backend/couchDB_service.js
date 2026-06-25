@@ -1883,6 +1883,48 @@ async function getUnreadUserNotifications(holderID) {
     .sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
 }
 
+/*
+  Function Name: getIssuerNotifications  (N1)
+
+  Technical:
+  Fetches notifications targeted at ONE issuer, newest first. These are the role-targeted
+  docs created by createNotification with type:'notification', targetRole:'issuer' and the
+  affected issuer's issuerId (e.g. account approved/rejected/disabled/enabled, root decision,
+  subordinate pending). Scoped by issuerId so an issuer only ever sees its own.
+  Tropang Ex: Lahat ng abiso para sa SARILING issuer account — wala nang iba.
+*/
+async function getIssuerNotifications(issuerId) {
+  if (!notificationsDb) await initializeDatabases();
+  if (!issuerId) throw new Error('issuerId is required');
+
+  const result = await notificationsDb.find({
+    selector: { type: 'notification', targetRole: 'issuer', issuerId },
+    limit: 1000
+  });
+
+  return (result.docs || [])
+    .filter((doc) => doc && !String(doc._id || '').startsWith('_design/'))
+    .sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
+}
+
+/*
+  Function Name: getUnreadIssuerNotifications  (N1)
+  Technical: Same as getIssuerNotifications but unread-only (for the bell badge count).
+*/
+async function getUnreadIssuerNotifications(issuerId) {
+  if (!notificationsDb) await initializeDatabases();
+  if (!issuerId) throw new Error('issuerId is required');
+
+  const result = await notificationsDb.find({
+    selector: { type: 'notification', targetRole: 'issuer', issuerId, read: false },
+    limit: 1000
+  });
+
+  return (result.docs || [])
+    .filter((doc) => doc && !String(doc._id || '').startsWith('_design/'))
+    .sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
+}
+
 // ==========================================================================================================================================================================
 //                                                                       CREDENTIAL TEMPLATE Functions
 // ==========================================================================================================================================================================
@@ -3768,6 +3810,8 @@ module.exports = {
   getUnreadNotifications,
   getUserNotifications,
   getUnreadUserNotifications,
+  getIssuerNotifications,
+  getUnreadIssuerNotifications,
   markNotificationAsRead,
 
   // Credentials (Star Feature!)

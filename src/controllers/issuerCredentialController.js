@@ -1673,3 +1673,57 @@ exports.getIssuerCredentials = async (req, res) => {
     });
   }
 };
+
+// ==========================================================================================================================================================================
+//                                                                       N1: ISSUER IN-APP NOTIFICATIONS
+// ==========================================================================================================================================================================
+/*
+  N1: issuer notifications. The issuer scope is ALWAYS derived from req.user.id (never a URL
+  param), so an issuer can only ever read/mark its own notifications — no IDOR. Notifications
+  are created elsewhere (admin approve/reject/disable/enable, root approve/reject, subordinate
+  registration) via couchDB.createNotification({ targetRole:'issuer', issuerId, ... }).
+*/
+exports.getIssuerNotifications = async (req, res) => {
+  try {
+    if (!req.user || !req.user.id) {
+      return res.status(401).json({ success: false, message: 'Authentication required.' });
+    }
+    const notifications = await couchdbService.getIssuerNotifications(req.user.id);
+    return res.status(200).json({ success: true, notifications, count: notifications.length });
+  } catch (error) {
+    console.error('[ISSUER NOTIFICATIONS] list error:', error.message);
+    return res.status(500).json({ success: false, message: 'Failed to load notifications.' });
+  }
+};
+
+exports.getUnreadIssuerNotifications = async (req, res) => {
+  try {
+    if (!req.user || !req.user.id) {
+      return res.status(401).json({ success: false, message: 'Authentication required.' });
+    }
+    const notifications = await couchdbService.getUnreadIssuerNotifications(req.user.id);
+    return res.status(200).json({ success: true, notifications, unreadCount: notifications.length });
+  } catch (error) {
+    console.error('[ISSUER NOTIFICATIONS] unread error:', error.message);
+    return res.status(500).json({ success: false, message: 'Failed to load notifications.' });
+  }
+};
+
+exports.markIssuerNotificationAsRead = async (req, res) => {
+  try {
+    if (!req.user || !req.user.id) {
+      return res.status(401).json({ success: false, message: 'Authentication required.' });
+    }
+    const { notificationId } = req.params;
+    // Ownership check: the notification must belong to THIS issuer before we mark it.
+    const own = await couchdbService.getIssuerNotifications(req.user.id);
+    if (!own.some((n) => n._id === notificationId)) {
+      return res.status(403).json({ success: false, message: 'Not your notification.' });
+    }
+    await couchdbService.markNotificationAsRead(notificationId);
+    return res.status(200).json({ success: true, notificationId });
+  } catch (error) {
+    console.error('[ISSUER NOTIFICATIONS] mark-read error:', error.message);
+    return res.status(500).json({ success: false, message: 'Failed to update notification.' });
+  }
+};

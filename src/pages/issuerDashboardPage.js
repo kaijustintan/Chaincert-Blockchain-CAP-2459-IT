@@ -22,7 +22,7 @@
   =====================================================================
 */
 
-import React, { useState, useEffect, useCallback, useMemo } from "react";
+import React, { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import ReactDOM from "react-dom";
 import { useNavigate } from "react-router-dom";
 import apiService from "../services/apiService";
@@ -38,7 +38,7 @@ import { AppShell, Sidebar, Button } from "../components/ui";
 import NotesCard from "../components/ui/NotesCard";
 import { effectiveCredentialStatus, minIssueExpiryDate } from "../utils/credentialStatus"; // F01
 import { getCredentialLineage, isSameInstance } from "../utils/credentialLineage"; // Q1
-import { LayoutDashboard, FilePlus, Award, Ban, List, BarChart3, Receipt, Building2 } from "lucide-react";
+import { LayoutDashboard, FilePlus, Award, Ban, List, BarChart3, Receipt, Building2, Bell } from "lucide-react";
 
 export default function IssuerDashboard() {
   // - polo: get current issuer type to hide subordinate sections for subordinate issuers
@@ -144,6 +144,12 @@ export default function IssuerDashboard() {
   const [subHistoryOpen, setSubHistoryOpen] = useState(false);
   const [subHistorySubordinate, setSubHistorySubordinate] = useState(null);
 
+  // N1: issuer in-app notifications (bell + panel on the dashboard home).
+  const [issuerNotifications, setIssuerNotifications] = useState([]);
+  const [issuerUnreadCount, setIssuerUnreadCount] = useState(0);
+  const [issuerNotifOpen, setIssuerNotifOpen] = useState(false);
+  const issuerNotifRef = useRef(null);
+
   // Toast notification state
   const [toast, setToast] = useState({ show: false, message: "", type: "success" });
   const showToast = (message, type = "success") => {
@@ -180,7 +186,55 @@ export default function IssuerDashboard() {
     fetchTemplateOptions();
     fetchSubordinateDirectory("all");
     fetchRootSubordinateLogs("all");
+    fetchIssuerNotifications();
   }, []);
+
+  // N1: load this issuer's notifications (scope derived server-side from the JWT).
+  const fetchIssuerNotifications = async () => {
+    try {
+      const [all, unread] = await Promise.all([
+        apiService.getIssuerNotifications(),
+        apiService.getUnreadIssuerNotifications(),
+      ]);
+      setIssuerNotifications(all?.notifications || []);
+      setIssuerUnreadCount(unread?.unreadCount || 0);
+    } catch (e) {
+      console.error("[ISSUER NOTIFICATIONS] load failed:", e?.message || e);
+    }
+  };
+
+  // N1: close the notification panel when clicking outside it.
+  useEffect(() => {
+    if (!issuerNotifOpen) return undefined;
+    const onDown = (e) => {
+      if (issuerNotifRef.current && !issuerNotifRef.current.contains(e.target)) {
+        setIssuerNotifOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", onDown);
+    return () => document.removeEventListener("mousedown", onDown);
+  }, [issuerNotifOpen]);
+
+  // N1: mark one notification read.
+  const handleIssuerNotifClick = async (notif) => {
+    if (notif.read) return;
+    try {
+      await apiService.markIssuerNotificationAsRead(notif._id);
+      setIssuerNotifications((prev) => prev.map((n) => (n._id === notif._id ? { ...n, read: true } : n)));
+      setIssuerUnreadCount((c) => Math.max(c - 1, 0));
+    } catch (e) { console.error("[ISSUER NOTIFICATIONS] mark failed:", e?.message || e); }
+  };
+
+  // N1: mark all read.
+  const handleIssuerMarkAllRead = async () => {
+    const unread = issuerNotifications.filter((n) => !n.read);
+    if (unread.length === 0) return;
+    try {
+      await Promise.all(unread.map((n) => apiService.markIssuerNotificationAsRead(n._id)));
+      setIssuerNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
+      setIssuerUnreadCount(0);
+    } catch (e) { console.error("[ISSUER NOTIFICATIONS] mark-all failed:", e?.message || e); }
+  };
 
   const applyFilters = useCallback(() => {
     let result = [...credentials];
@@ -841,9 +895,43 @@ export default function IssuerDashboard() {
           ============================================================ */}
       {activeView === "home" && (
         <>
-          <div className="issuer-page-head">
-            <h1>Dashboard</h1>
-            <p>Welcome back, {displayName}</p>
+          <div className="issuer-page-head" style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 16 }}>
+            <div>
+              <h1>Dashboard</h1>
+              <p>Welcome back, {displayName}</p>
+            </div>
+            {/* N1: issuer notification bell + panel */}
+            <div ref={issuerNotifRef} style={{ position: "relative" }}>
+              <button type="button" onClick={() => setIssuerNotifOpen((o) => !o)} aria-label="Notifications"
+                style={{ position: "relative", background: "rgba(139,92,246,0.15)", border: "1px solid rgba(255,255,255,0.18)", color: "#a78bfa", borderRadius: 10, padding: "8px 10px", cursor: "pointer" }}>
+                <Bell size={18} aria-hidden="true" />
+                {issuerUnreadCount > 0 && (
+                  <span style={{ position: "absolute", top: -6, right: -6, background: "#ef4444", color: "#fff", fontSize: 11, fontWeight: 700, minWidth: 18, height: 18, borderRadius: 9, display: "flex", alignItems: "center", justifyContent: "center", padding: "0 4px" }}>{issuerUnreadCount}</span>
+                )}
+              </button>
+              {issuerNotifOpen && (
+                <div style={{ position: "absolute", right: 0, top: "calc(100% + 8px)", width: 340, maxHeight: 420, overflowY: "auto", background: "#1c1445", border: "1px solid rgba(139,92,246,0.35)", borderRadius: 12, boxShadow: "0 12px 32px rgba(0,0,0,0.45)", zIndex: 50, padding: 12 }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+                    <strong style={{ fontSize: 14 }}>Notifications</strong>
+                    {issuerNotifications.some((n) => !n.read) && (
+                      <button type="button" onClick={handleIssuerMarkAllRead} style={{ background: "none", border: "none", color: "#a78bfa", cursor: "pointer", fontSize: 12 }}>Mark all as read</button>
+                    )}
+                  </div>
+                  {issuerNotifications.length === 0 ? (
+                    <div style={{ padding: "12px 4px", color: "rgba(255,255,255,0.5)", fontSize: 13 }}>No notifications yet.</div>
+                  ) : (
+                    issuerNotifications.map((n) => (
+                      <button key={n._id} type="button" onClick={() => handleIssuerNotifClick(n)}
+                        style={{ display: "block", width: "100%", textAlign: "left", background: n.read ? "transparent" : "rgba(139,92,246,0.12)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 8, padding: "8px 10px", marginBottom: 6, cursor: "pointer", color: "#fff" }}>
+                        <div style={{ fontSize: 13, fontWeight: 600 }}>{n.title || "Notification"}</div>
+                        <div style={{ fontSize: 12.5, color: "rgba(255,255,255,0.78)", lineHeight: 1.4, margin: "2px 0" }}>{n.message}</div>
+                        <div style={{ fontSize: 11, color: "rgba(255,255,255,0.45)" }}>{n.createdAt ? new Date(n.createdAt).toLocaleString() : ""}{n.read ? "" : " • Unread"}</div>
+                      </button>
+                    ))
+                  )}
+                </div>
+              )}
+            </div>
           </div>
 
           {/* Stats row — each card jumps to its matching view */}

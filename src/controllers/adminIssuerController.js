@@ -300,6 +300,16 @@ const adminIssuerController = {
         console.warn('[ADMIN NOTIFICATION] Failed to create issuer approval notification:', notificationError.message);
       }
 
+      // N1: notify the issuer (their own account) in-app.
+      try {
+        await couchDB.createNotification({
+          targetRole: 'issuer', issuerId, issuerEmail,
+          category: 'issuer_approved',
+          title: 'Your issuer application was approved',
+          message: 'Your issuer account has been approved. You can now log in and issue credentials.'
+        });
+      } catch (e) { console.warn('[ISSUER NOTIFICATION] approve:', e.message); }
+
       // F28 + G3: fire-and-forget so approval responds immediately (no emailWarning in
       // the response anymore — the send completes after we've already replied).
       mailerService.sendMailFireAndForget({
@@ -405,6 +415,16 @@ const adminIssuerController = {
       } catch (notificationError) {
         console.warn('[ADMIN NOTIFICATION] Failed to create issuer rejection notification:', notificationError.message);
       }
+
+      // N1: notify the issuer (their own account) in-app.
+      try {
+        await couchDB.createNotification({
+          targetRole: 'issuer', issuerId, issuerEmail,
+          category: 'issuer_rejected',
+          title: 'Update on your issuer application',
+          message: `Your issuer application was not approved.${rejectionReason ? ` Reason: ${rejectionReason}` : ''}`
+        });
+      } catch (e) { console.warn('[ISSUER NOTIFICATION] reject:', e.message); }
 
       // F28 + G3: notify the issuer by email, fire-and-forget so rejection responds
       // immediately (no emailWarning in the response — send completes after we reply).
@@ -537,6 +557,16 @@ const adminIssuerController = {
       } catch (notificationError) {
         console.warn('[ADMIN NOTIFICATION] Failed to create issuer disable notification:', notificationError.message);
       }
+
+      // N1: notify the issuer (their own account) in-app.
+      try {
+        await couchDB.createNotification({
+          targetRole: 'issuer', issuerId, issuerEmail: issuer.email || null,
+          category: 'issuer_disabled',
+          title: 'Your issuer account was disabled',
+          message: `Your issuer account has been disabled by an administrator.${reason ? ` Reason: ${reason}` : ''}`
+        });
+      } catch (e) { console.warn('[ISSUER NOTIFICATION] disable:', e.message); }
 
       // F28 + G3: notify the issuer their account was disabled, fire-and-forget so the
       // action responds immediately (no emailWarning in the response anymore).
@@ -672,6 +702,16 @@ const adminIssuerController = {
       } catch (notifErr) {
         console.warn('[ADMIN NOTIFICATION] Failed to create issuer enable notification:', notifErr.message);
       }
+
+      // N1: notify the issuer (their own account) in-app.
+      try {
+        await couchDB.createNotification({
+          targetRole: 'issuer', issuerId, issuerEmail: issuer.email || null,
+          category: 'issuer_enabled',
+          title: 'Your issuer account was re-enabled',
+          message: 'Your issuer account has been re-enabled. You can log in and resume issuing credentials.'
+        });
+      } catch (e) { console.warn('[ISSUER NOTIFICATION] enable:', e.message); }
       // G3: fire-and-forget each send; the try/catch stays because getAdminEmails()
       // above is a DB read that can throw.
       try {

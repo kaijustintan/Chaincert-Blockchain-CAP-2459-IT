@@ -200,6 +200,16 @@ const rootAuthorityController = {
         console.warn('[ADMIN NOTIFICATION] Failed to create root approval notification:', notificationError.message);
       }
 
+      // N1: notify the SUBORDINATE issuer (their own account) in-app.
+      try {
+        await couchDB.createNotification({
+          targetRole: 'issuer', issuerId, issuerEmail: subordinateDoc?.email || null,
+          category: 'subordinate_root_approved',
+          title: 'Your root authority approved you',
+          message: 'Your root authority approved your application. It now awaits final approval by the ChainCert admin.'
+        });
+      } catch (e) { console.warn('[ISSUER NOTIFICATION] root-approve:', e.message); }
+
       // F28 + G3: email the subordinate that its root authority approved it,
       // fire-and-forget so the action responds immediately.
       if (subordinateDoc?.email) {
@@ -311,6 +321,16 @@ const rootAuthorityController = {
       } catch (notificationError) {
         console.warn('[ADMIN NOTIFICATION] Failed to create root rejection notification:', notificationError.message);
       }
+
+      // N1: notify the SUBORDINATE issuer (their own account) in-app.
+      try {
+        await couchDB.createNotification({
+          targetRole: 'issuer', issuerId, issuerEmail: subordinateDoc?.email || null,
+          category: 'subordinate_root_rejected',
+          title: 'Update on your subordinate application',
+          message: `Your root authority did not approve your application.${rejectionReason ? ` Reason: ${rejectionReason}` : ''}`
+        });
+      } catch (e) { console.warn('[ISSUER NOTIFICATION] root-reject:', e.message); }
 
       // F28 + G3: email the subordinate that its root authority rejected it,
       // fire-and-forget so the action responds immediately.

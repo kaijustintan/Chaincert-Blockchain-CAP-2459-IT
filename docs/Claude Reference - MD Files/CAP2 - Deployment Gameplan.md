@@ -321,6 +321,33 @@ One building:
 - storage (CouchDB)
 - storefront (frontend)
 
+### Will email (SMTP) work once deployed to the cloud VM?
+
+**Tropang Explanation / Summary of Answer**
+
+Hindi sigurado — kailangan i-test. Maraming cloud VM (AWS EC2, DigitalOcean, CCSCloud) ang naka-block by default ang outbound SMTP (yung email ports 465/587) para hindi magamit sa spam. Na-confirm na rin natin June 2026 na ganito rin sa restricted WiFi: na-block ng office WiFi ko (kaya nag-timeout lahat ng email), pero gumana naman agad nang naka-hotspot ako. So kung ma-block sa VM, lilipat tayo sa email API na dumadaan sa port 443 (yung HTTPS, laging bukas).
+
+**In-depth / Technical Answer**
+
+ChainCert sends mail via Gmail SMTP in `mailerService.js` (nodemailer, ports 465/587). Two separate things were diagnosed:
+
+- **WSL2 IPv6 (already fixed in code):** WSL2 has no IPv6 route, so Node hit `ENETUNREACH` on Gmail's IPv6 address. Fixed by forcing IPv4 — `family: 4` on the transport plus `dns.setDefaultResultOrder('ipv4first')` at boot in `sdk-server-fixed.js`. Keep this.
+- **Network blocks outbound SMTP (the deployment risk):** even over IPv4, ports 465 and 587 time out on restrictive networks while HTTPS/443 connects in ~20–130ms. Confirmed via a `net.connect` probe — office WiFi blocked 465/587, hotspot allowed them. The **same block is the default on most cloud VMs.** Forcing IPv4 does NOT help here, because the port itself is closed.
+
+Mitigation if the VM blocks SMTP: switch the transport in `mailerService.js` from SMTP to an **HTTP email API over port 443** (e.g. Brevo or SendGrid). Node 24 has built-in `fetch`, so no new dependency; all call sites, the `sendMailFireAndForget` helper, the `realRecipient` routing, and the HTML templates stay unchanged — only the send mechanism changes. Alternatively, ask the cloud provider to unblock outbound SMTP (some allow it on request).
+
+Action sequence at deployment:
+
+1. Test the VM: `node -e "require('net').connect({host:'smtp.gmail.com',port:465,family:4},()=>{console.log('OK');process.exit()}).on('error',e=>console.log(e.message))"`
+2. If it times out → implement the HTTP email API path in `mailerService.js` and add the provider API key to `~/chaincert-api/.env`.
+3. Unset `SMTP_OVERRIDE_TO` so real recipients receive mail (the demo catch-all is no longer needed in production).
+
+**Analogy / Example / Scenario**
+
+- SMTP port (465/587) = yung side gate na madalas naka-kandado sa cloud para walang spam.
+- HTTPS port (443) = yung main entrance na laging bukas.
+- Instead of forcing the locked side gate, dumaan na lang sa main entrance — same email, ibang daan lang.
+
 ## Alternative for AWS EC2
 
 ### DigitalOcean

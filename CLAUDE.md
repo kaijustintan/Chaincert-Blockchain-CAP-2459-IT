@@ -196,6 +196,12 @@ New env vars (~/chaincert-api/.env — NOT in git, Ubuntu only):
 - DISABLE_PASSWORD_POLICY=true — TESTING ONLY toggle to bypass M8. Loud startup warning while on. Remove before demo.
 (Plus the existing SMTP_USER / SMTP_APP_PASSWORD / SMTP_OVERRIDE_TO from Phase 5.5.)
 
+Email delivery + routing (June 2026 — shipped, do NOT re-flag) — mailerService.js + sdk-server-fixed.js.
+- E1 fix: outbound mail was failing with ENETUNREACH because WSL2 has no IPv6 route and Node preferred Gmail's AAAA record. Fixed with family:4 on the nodemailer transport + dns.setDefaultResultOrder('ipv4first') at boot. Not a code-logic/auth bug — purely IPv6 routing.
+- G3 fire-and-forget: notification emails go out via mailerService.sendMailFireAndForget(opts, label) — non-blocking, logs on failure, never throws into the caller. 13 notification sites converted; the 2 OTP-code sends (forgot-pw, profile-access) and the integrity-cron send stay SYNCHRONOUS on purpose (user/cron waits on those).
+- Recipient routing: sendMail takes a realRecipient flag. true = deliver to the real address (bypass SMTP_OVERRIDE_TO); false/unset = honor the central catch-all. Holder credential emails + the profile-access code set it true; the 3 account-owner sends compute it via a test-account check (role issuer/admin, or _id prefixed 'issuer_' → central). So holders/viewers (legit emails) get mail directly; issuer/admin (fake demo addresses) funnel to the central inbox.
+- DEPLOYMENT NOTE: SMTP_OVERRIDE_TO is a DEMO catch-all for the fake issuer/admin addresses. In real deployment, UNSET it — every email then goes to its true recipient and the realRecipient flag becomes a no-op. With it SET, holder/viewer emails still go to real inboxes (the flag bypasses it), so use a real address for the holder account when demoing.
+
 Accepted limitations (still conscious capstone-scope decisions — don't "fix" without explicit ask)
 Rationale per item lives in docs/Claude Reference - MD Files/Defense_Knowledge_-_March_25.md.
 

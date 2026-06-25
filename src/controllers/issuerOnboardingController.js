@@ -256,6 +256,27 @@ const issuerOnboardingController = {
         }, '[registerIssuer]');
       }
 
+      // REG3 + F28: confirm to the APPLICANT that their application was received and is
+      // pending review. Fire-and-forget (G3). Applicant is an issuer account (test
+      // address in the demo), so realRecipient is left unset → routes to the central
+      // inbox while SMTP_OVERRIDE_TO is set; in production it reaches the real applicant.
+      const nextStep = issuerData.issuerType === 'subordinate'
+        ? 'Your application will first be reviewed by your root authority, then by the ChainCert administration team.'
+        : 'Your application will be reviewed by the ChainCert administration team.';
+      mailerService.sendMailFireAndForget({
+        to: issuerData.email,
+        subject: 'We Received Your ChainCert Issuer Application',
+        html: mailerService.renderEmail({
+          heading: 'Application Received',
+          bodyHtml: `
+                <p style="margin:0 0 14px;color:#374151;font-size:14px;line-height:1.6;">Dear <strong>${issuerData.orgName || issuerData.contactName || 'Applicant'}</strong>,</p>
+                <p style="margin:0 0 14px;color:#374151;font-size:14px;line-height:1.6;">Thank you for registering as an issuer on ChainCert. Your application has been <strong>received</strong> and is now <strong>pending review</strong>.</p>
+                <p style="margin:0 0 14px;color:#374151;font-size:14px;line-height:1.6;">${nextStep}</p>
+                <p style="margin:0;color:#6b7280;font-size:13px;line-height:1.6;">You will be notified by email once a decision is made. No action is needed from you in the meantime.</p>`
+        }),
+        text: `Dear ${issuerData.orgName || issuerData.contactName || 'Applicant'},\n\nThank you for registering as an issuer on ChainCert. Your application has been received and is now pending review.\n${nextStep}\n\nYou will be notified once a decision is made.`
+      }, '[registerIssuer]');
+
       console.log('[REGISTER ISSUER] ✅ Result:', result);
       console.log('=== ISSUER REGISTRATION DEBUG END ===\n');
 

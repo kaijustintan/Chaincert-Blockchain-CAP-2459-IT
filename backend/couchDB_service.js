@@ -189,7 +189,18 @@ async function isEmailAlreadyUsed(email) {
     const issuerDoc = issuerRes.docs[0];
     const issuerStatus = String(issuerDoc.status || '').trim().toLowerCase();
 
-    if (issuerStatus === 'rejected') {
+    // REG1/REG2: a rejected applicant must be allowed to RE-APPLY. This covers BOTH
+    // admin-rejection (status === 'rejected') AND root-rejection of a subordinate —
+    // which keeps status === 'pending' but sets rootApprovalStatus === 'rejected'
+    // (that root-rejected case was the bug: it fell through to exists:true and got
+    // blocked with "Email is already registered"). Returning previouslyRejected lets
+    // the controller delete this stale doc and proceed with a fresh registration, so
+    // re-applying under a DIFFERENT root authority also works.
+    // NOTE: 'disabled' is intentionally NOT re-registerable — a disabled issuer is an
+    // approved account an admin restricted; allowing re-registration would let them
+    // bypass that action. It stays blocked (exists: true) below.
+    const rootApprovalStatus = String(issuerDoc.rootApprovalStatus || '').trim().toLowerCase();
+    if (issuerStatus === 'rejected' || rootApprovalStatus === 'rejected') {
       return {
         exists: false,
         where: 'issuers',

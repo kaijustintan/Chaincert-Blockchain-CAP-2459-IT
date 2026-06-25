@@ -116,6 +116,8 @@ export default function AdminDashboard() {
   const [adminCredentialSortBy, setAdminCredentialSortBy] = useState("newest");
   const [issuerSortBy, setIssuerSortBy] = useState("newest");
   const [issuerTypeFilter, setIssuerTypeFilter] = useState("all");
+  const [rejectedByFilter, setRejectedByFilter] = useState("all"); // A1: all | root | admin
+  const [disabledByFilter, setDisabledByFilter] = useState("all"); // A2: all | me | others
   const [issuerSearch, setIssuerSearch] = useState("");
   const [userSortBy, setUserSortBy] = useState("newest");
   const [verificationSortBy, setVerificationSortBy] = useState("newest");
@@ -352,6 +354,10 @@ const handleDownloadIssuerDocument = async (doc) => {
 
   const visibleIssuers = getVisibleIssuers();
 
+  // Current admin's email (for the A2 "disabled by me" filter). disabledBy/rejectedBy
+  // are stored as the admin's email (req.user.email) on the backend.
+  const currentAdminEmail = (JSON.parse(localStorage.getItem("user") || "{}").email || localStorage.getItem("email") || "").toLowerCase();
+
   const filteredVisibleIssuers = useMemo(() => {
     let result = [...visibleIssuers];
     const query = issuerSearch.trim().toLowerCase();
@@ -360,12 +366,30 @@ const handleDownloadIssuerDocument = async (doc) => {
       result = result.filter((issuer) => String(issuer.issuerType || 'root').toLowerCase() === issuerTypeFilter);
     }
 
+    // A1: distinguish who rejected. A subordinate rejected by its ROOT keeps
+    // rootApprovalStatus='rejected'; an admin rejection does not (it sets status='rejected').
+    if (issuerFilter === 'rejected' && rejectedByFilter !== 'all') {
+      result = result.filter((issuer) => {
+        const rootRejected = String(issuer.rootApprovalStatus || '').toLowerCase() === 'rejected';
+        return rejectedByFilter === 'root' ? rootRejected : !rootRejected;
+      });
+    }
+
+    // A2: disabled by me vs others (disabledBy = the admin email who disabled it).
+    if (issuerFilter === 'disabled' && disabledByFilter !== 'all') {
+      result = result.filter((issuer) => {
+        const by = String(issuer.disabledBy || '').toLowerCase();
+        if (!by) return false; // unknown disabler shows only under "All"
+        return disabledByFilter === 'me' ? by === currentAdminEmail : by !== currentAdminEmail;
+      });
+    }
+
     if (query) {
       result = result.filter((issuer) => [issuer.orgName, issuer.name, issuer.email].filter(Boolean).join(' ').toLowerCase().includes(query));
     }
 
     return result;
-  }, [issuerFilter, issuerSearch, issuerTypeFilter, visibleIssuers]);
+  }, [issuerFilter, issuerSearch, issuerTypeFilter, rejectedByFilter, disabledByFilter, currentAdminEmail, visibleIssuers]);
 
   // ✅ keep ONLY one declaration
   const credentialIssuerOptions = [...approvedIssuers, ...disabledIssuers].filter(
@@ -3108,6 +3132,38 @@ const handleDownloadIssuerDocument = async (doc) => {
                   <option value="all">All</option>
                   <option value="root">Root Authority</option>
                   <option value="subordinate">Subordinate</option>
+                </select>
+              </div>
+            )}
+
+            {issuerFilter === "rejected" && (
+              <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                <label htmlFor="rejectedByFilter">Rejected by:</label>
+                <select
+                  className="filter-select"
+                  id="rejectedByFilter"
+                  value={rejectedByFilter}
+                  onChange={(e) => setRejectedByFilter(e.target.value)}
+                >
+                  <option value="all">All</option>
+                  <option value="root">Root Authority</option>
+                  <option value="admin">Admin</option>
+                </select>
+              </div>
+            )}
+
+            {issuerFilter === "disabled" && (
+              <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                <label htmlFor="disabledByFilter">Disabled by:</label>
+                <select
+                  className="filter-select"
+                  id="disabledByFilter"
+                  value={disabledByFilter}
+                  onChange={(e) => setDisabledByFilter(e.target.value)}
+                >
+                  <option value="all">All</option>
+                  <option value="me">Me</option>
+                  <option value="others">Others</option>
                 </select>
               </div>
             )}

@@ -139,7 +139,9 @@ export default function IssuerDashboard() {
   const [rootSubordinateLogs, setRootSubordinateLogs] = useState([]);
   const [rootSubordinateLogsLoading, setRootSubordinateLogsLoading] = useState(false);
   const [rootSubordinateLogsError, setRootSubordinateLogsError] = useState("");
-  const [rootSubordinateLogFilter, setRootSubordinateLogFilter] = useState("all");
+  // RA2: per-subordinate on-chain history modal (replaces the standalone decision-logs table)
+  const [subHistoryOpen, setSubHistoryOpen] = useState(false);
+  const [subHistorySubordinate, setSubHistorySubordinate] = useState(null);
 
   // Toast notification state
   const [toast, setToast] = useState({ show: false, message: "", type: "success" });
@@ -195,7 +197,6 @@ export default function IssuerDashboard() {
 
   useEffect(() => { applyFilters(); }, [applyFilters]);
   useEffect(() => { fetchSubordinateDirectory(subordinateDirectoryFilter); }, [subordinateDirectoryFilter]);
-  useEffect(() => { fetchRootSubordinateLogs(rootSubordinateLogFilter); }, [rootSubordinateLogFilter]);
 
   // -------------------------------------------------------------------
   // ALL FETCH / HANDLER FUNCTIONS (unchanged — preserved exactly)
@@ -242,7 +243,7 @@ export default function IssuerDashboard() {
     } finally { setSubordinateDirectoryLoading(false); }
   };
 
-  const fetchRootSubordinateLogs = async (filter = rootSubordinateLogFilter) => {
+  const fetchRootSubordinateLogs = async (filter = "all") => {
     try {
       setRootSubordinateLogsLoading(true);
       setRootSubordinateLogsError("");
@@ -260,12 +261,25 @@ export default function IssuerDashboard() {
     } finally { setRootSubordinateLogsLoading(false); }
   };
 
+  // RA2: open the on-chain history for one subordinate (filters the already-fetched logs).
+  const openSubordinateHistory = (issuer) => { setSubHistorySubordinate(issuer); setSubHistoryOpen(true); };
+  const closeSubordinateHistory = () => { setSubHistoryOpen(false); setSubHistorySubordinate(null); };
+  const subHistoryLogs = useMemo(() => {
+    if (!subHistorySubordinate) return [];
+    const sid = subHistorySubordinate._id || subHistorySubordinate.id;
+    const semail = String(subHistorySubordinate.email || "").toLowerCase();
+    return rootSubordinateLogs.filter((log) =>
+      (log.issuerId && log.issuerId === sid) ||
+      (log.issuerEmail && String(log.issuerEmail).toLowerCase() === semail)
+    );
+  }, [subHistorySubordinate, rootSubordinateLogs]);
+
   const handleRootApproveSubordinate = async (issuerId) => {
     try {
       await apiService.rootApproveSubordinateIssuer(issuerId, "");
       showToast("Subordinate issuer approved successfully!");
       fetchSubordinateDirectory(subordinateDirectoryFilter);
-      fetchRootSubordinateLogs(rootSubordinateLogFilter);
+      fetchRootSubordinateLogs("all");
     } catch (err) {
       showToast(err.response?.data?.message || "Failed to approve subordinate issuer.", "danger");
     }
@@ -286,7 +300,7 @@ export default function IssuerDashboard() {
       showToast("Subordinate issuer rejected successfully!");
       closeRejectSubordinateModal();
       fetchSubordinateDirectory(subordinateDirectoryFilter);
-      fetchRootSubordinateLogs(rootSubordinateLogFilter);
+      fetchRootSubordinateLogs("all");
     } catch (err) { setRejectSubordinateError(err.response?.data?.message || "Failed to reject subordinate issuer."); }
     finally { setRejectSubordinateLoading(false); }
   };
@@ -1179,12 +1193,13 @@ export default function IssuerDashboard() {
                         <td>{issuer.createdAt ? new Date(issuer.createdAt).toLocaleString() : "N/A"}</td>
                         <td><button type="button" onClick={() => openIssuerDocumentsModal(issuer)} className="action-btn" style={{ padding: "6px 10px", fontSize: "12px", background: "rgba(139,92,246,0.15)", color: "#a78bfa", border: "1px solid rgba(255,255,255,0.18)" }}>See Documents</button></td>
                         <td style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                          {isPendingRootApproval ? (
+                          <button type="button" onClick={() => openSubordinateHistory(issuer)} className="action-btn" style={{ padding: "6px 10px", fontSize: "12px", background: "rgba(139,92,246,0.15)", color: "#a78bfa", border: "1px solid rgba(255,255,255,0.18)" }}>View BC History</button>
+                          {isPendingRootApproval && (
                             <>
                               <button type="button" onClick={() => handleRootApproveSubordinate(issuerId)} className="action-btn" style={{ padding: "6px 10px", fontSize: "12px", background: "rgba(74,222,128,0.12)", color: "#4ade80", border: "1px solid rgba(255,255,255,0.18)" }}>Approve</button>
                               <button type="button" onClick={() => openRejectSubordinateModal(issuer)} className="action-btn" style={{ padding: "6px 10px", fontSize: "12px", background: "rgba(255,107,107,0.12)", color: "#ff6b6b", border: "1px solid rgba(255,255,255,0.18)" }}>Reject</button>
                             </>
-                          ) : <span style={{ opacity: 0.7 }}>No actions</span>}
+                          )}
                         </td>
                       </tr>
                     );
@@ -1194,46 +1209,9 @@ export default function IssuerDashboard() {
             )}
           </div>
 
-          {/* Subordinate Decision Logs */}
-          <div className="table-container" style={{ marginTop: 24 }}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12, gap: 12, flexWrap: "wrap" }}>
-              <h3 style={{ margin: 0 }}>Subordinate Decision Logs</h3>
-              <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-                <label htmlFor="rootSubordinateLogFilter">View:</label>
-                <select id="rootSubordinateLogFilter" value={rootSubordinateLogFilter} onChange={(e) => setRootSubordinateLogFilter(e.target.value)} className="filter-select">
-                  <option value="all">All</option>
-                  <option value="approved">Approved</option>
-                  <option value="rejected">Rejected</option>
-                </select>
-              </div>
-            </div>
-
-            {rootSubordinateLogsLoading ? <div className="no-results"><p>Loading subordinate decision logs...</p></div>
-            : rootSubordinateLogsError ? <div className="no-results"><p style={{ color: "#ff6b6b" }}>{rootSubordinateLogsError}</p></div>
-            : rootSubordinateLogs.length === 0 ? <div className="no-results"><p>No subordinate decision logs found.</p></div>
-            : (
-              <table className="template-table">
-                <thead><tr><th>Subordinate Issuer ID</th><th>Subordinate Email</th><th>Organization Name</th><th>Decision</th><th>Reason</th><th>Performed By MSP</th><th>Timestamp</th><th>Tx ID</th></tr></thead>
-                <tbody>
-                  {rootSubordinateLogs.map((log, index) => {
-                    const isApproved = String(log.decision || "").toLowerCase() === "approved";
-                    return (
-                      <tr key={log.txId || `${log.issuerId || "issuer"}-${index}`}>
-                        <td style={{ fontFamily: "monospace", fontSize: 12 }}>{log.issuerId || "N/A"}</td>
-                        <td>{log.issuerEmail || "N/A"}</td>
-                        <td>{log.orgName || "N/A"}</td>
-                        <td><span className={isApproved ? "badge green" : "badge red"} style={{ textTransform: "capitalize" }}>{log.decision || "N/A"}</span></td>
-                        <td>{log.reason || "—"}</td>
-                        <td style={{ fontFamily: "monospace", fontSize: 12 }}>{log.performedByMSP || "N/A"}</td>
-                        <td>{log.timestamp ? new Date(log.timestamp).toLocaleString() : "N/A"}</td>
-                        <td style={{ fontFamily: "monospace", fontSize: 12 }}>{log.txId ? `${String(log.txId).slice(0, 18)}...` : "N/A"}</td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            )}
-          </div>
+          {/* RA2: the standalone "Subordinate Decision Logs" table was removed — on-chain
+              decision history is now per-subordinate via the "View BC History" button in
+              the My Subordinates table above (openSubordinateHistory). */}
         </>
       )}
 
@@ -1612,6 +1590,48 @@ export default function IssuerDashboard() {
             </form>
           </div>
           <div className="modal-backdrop" onClick={closeRevokeModal}></div>
+        </div>
+      )}
+
+      {/* RA2: per-subordinate on-chain decision history */}
+      {subHistoryOpen && (
+        <div className="modal-overlay">
+          <div className="modal modal-wide">
+            <div className="modal-header">
+              <h3>Subordinate BC History — {subHistorySubordinate?.orgName || subHistorySubordinate?.email || "Subordinate"}</h3>
+              <button type="button" className="modal-close" onClick={closeSubordinateHistory}>✕</button>
+            </div>
+            <div className="modal-section-heading" style={{ marginTop: 8 }}>
+              Immutable root-authority decisions recorded on the blockchain for this subordinate.
+            </div>
+            {rootSubordinateLogsLoading ? (
+              <div className="no-results"><p>Loading history...</p></div>
+            ) : subHistoryLogs.length === 0 ? (
+              <div className="no-results"><p>No on-chain decisions recorded for this subordinate yet.</p></div>
+            ) : (
+              <table className="template-table">
+                <thead><tr><th>Decision</th><th>Reason</th><th>Performed By MSP</th><th>Timestamp</th><th>Tx ID</th></tr></thead>
+                <tbody>
+                  {subHistoryLogs.map((log, index) => {
+                    const isApproved = String(log.decision || "").toLowerCase() === "approved";
+                    return (
+                      <tr key={log.txId || `${log.issuerId || "issuer"}-${index}`}>
+                        <td><span className={isApproved ? "badge green" : "badge red"} style={{ textTransform: "capitalize" }}>{log.decision || "N/A"}</span></td>
+                        <td>{log.reason || "—"}</td>
+                        <td style={{ fontFamily: "monospace", fontSize: 12 }}>{log.performedByMSP || "N/A"}</td>
+                        <td>{log.timestamp ? new Date(log.timestamp).toLocaleString() : "N/A"}</td>
+                        <td style={{ fontFamily: "monospace", fontSize: 12 }}>{log.txId ? `${String(log.txId).slice(0, 18)}...` : "N/A"}</td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            )}
+            <div className="form-actions" style={{ marginTop: 16 }}>
+              <button type="button" onClick={closeSubordinateHistory} className="action-btn btn-cancel">Close</button>
+            </div>
+          </div>
+          <div className="modal-backdrop" onClick={closeSubordinateHistory}></div>
         </div>
       )}
 

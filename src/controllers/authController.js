@@ -166,24 +166,25 @@ const authController = {
       await couchDB.updateUser(user._id, { password: hashedNewPassword });
 
       // F28: password-change security receipt (best-effort, non-fatal).
-      try {
-        const acctEmail = user.email || email;
-        if (acctEmail) {
-          await mailerService.sendMail({
-            to: acctEmail,
-            subject: 'Your ChainCert Password Was Changed',
-            html: mailerService.renderEmail({
-              heading: 'Password Changed',
-              bodyHtml: `
+      // G3: fire-and-forget so the password change responds immediately.
+      // Route by account type: holders use legit emails → real inbox; issuer/admin
+      // accounts are test addresses → central inbox (SMTP_OVERRIDE_TO).
+      const acctEmail = user.email || email;
+      const acctIsTest = ['issuer', 'admin'].includes(String(user.role || '').toLowerCase()) || String(user._id || '').startsWith('issuer_');
+      if (acctEmail) {
+        mailerService.sendMailFireAndForget({
+          to: acctEmail,
+          realRecipient: !acctIsTest,
+          subject: 'Your ChainCert Password Was Changed',
+          html: mailerService.renderEmail({
+            heading: 'Password Changed',
+            bodyHtml: `
                 <p style="margin:0 0 14px;color:#374151;font-size:14px;line-height:1.6;">Hi,</p>
                 <p style="margin:0 0 14px;color:#374151;font-size:14px;line-height:1.6;">The password for your ChainCert account (<strong>${acctEmail}</strong>) was just <strong>changed</strong>. If this was you, no action is needed.</p>
                 <p style="margin:0;color:#6b7280;font-size:13px;line-height:1.6;">If you did <strong>not</strong> make this change, please contact the ChainCert administration team immediately.</p>`
-            }),
-            text: `The password for your ChainCert account (${acctEmail}) was just changed. If this was not you, contact the ChainCert administration team immediately.`
-          });
-        }
-      } catch (emailErr) {
-        console.error('[changePassword] Receipt email failed (non-fatal):', emailErr?.message || emailErr);
+          }),
+          text: `The password for your ChainCert account (${acctEmail}) was just changed. If this was not you, contact the ChainCert administration team immediately.`
+        }, '[changePassword]');
       }
 
       return res.status(200).json({ success: true, message: 'Password updated successfully' });

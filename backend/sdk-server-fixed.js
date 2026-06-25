@@ -3,6 +3,7 @@
 // ==========================================================================================================================================================================
 
 require('dotenv').config();
+require('dns').setDefaultResultOrder('ipv4first'); // E1: prefer IPv4 globally (WSL2 has no IPv6 egress → Gmail SMTP fails on AAAA)
 const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');

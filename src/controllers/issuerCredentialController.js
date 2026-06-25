@@ -629,25 +629,23 @@ exports.Issue_Credential = async (req, res, getContractAndGateway) => {
       }
 
       // F28: email the holder that a new credential was issued (best-effort, non-fatal).
-      try {
-        if (holderEmail) {
-          const credName = credentialDataExtended.credentialName || credentialDataExtended.credentialType || 'a credential';
-          const issuerName = credentialDataExtended.issuerName || issuerDoc?.orgName || user.orgName || 'an issuer';
-          await mailerService.sendMail({
-            to: holderEmail,
-            subject: 'A New Credential Has Been Issued to You',
-            html: mailerService.renderEmail({
-              heading: 'New Credential Issued',
-              bodyHtml: `
+      // G3: fire-and-forget so issuance responds immediately.
+      if (holderEmail) {
+        const credName = credentialDataExtended.credentialName || credentialDataExtended.credentialType || 'a credential';
+        const issuerName = credentialDataExtended.issuerName || issuerDoc?.orgName || user.orgName || 'an issuer';
+        mailerService.sendMailFireAndForget({
+          to: holderEmail,
+          realRecipient: true, // holder email is legit → deliver for real, bypass central inbox
+          subject: 'A New Credential Has Been Issued to You',
+          html: mailerService.renderEmail({
+            heading: 'New Credential Issued',
+            bodyHtml: `
                 <p style="margin:0 0 14px;color:#374151;font-size:14px;line-height:1.6;">Hi <strong>${holderName || 'there'}</strong>,</p>
                 <p style="margin:0 0 14px;color:#374151;font-size:14px;line-height:1.6;"><strong>${issuerName}</strong> has issued you a new credential: <strong>${credName}</strong>.</p>
                 <p style="margin:0;color:#6b7280;font-size:13px;line-height:1.6;">Log in to your ChainCert wallet to view, share, or export it.</p>`
-            }),
-            text: `Hi ${holderName || 'there'},\n\n${issuerName} has issued you a new credential: ${credName}.\nLog in to your ChainCert wallet to view it.`
-          });
-        }
-      } catch (emailErr) {
-        console.error('[ISSUE] Credential-issued email failed (non-fatal):', emailErr?.message || emailErr);
+          }),
+          text: `Hi ${holderName || 'there'},\n\n${issuerName} has issued you a new credential: ${credName}.\nLog in to your ChainCert wallet to view it.`
+        }, '[ISSUE]');
       }
 
       /* Step 10: Return COMPLETE success response (blockchain + CouchDB ok) */
@@ -1389,8 +1387,11 @@ exports.revoke_Credential = async (req, res, getContractAndGateway) => {
         if (holderEmail) {
           const credName = revokedCredential.credentialName || revokedCredential.credentialType || 'a credential';
           const issuerName = issuerDoc?.orgName || user.email || 'an issuer';
-          await mailerService.sendMail({
+          // G3: fire-and-forget the send; the try/catch around it stays because the
+          // getUser() lookup above is a DB read that can throw.
+          mailerService.sendMailFireAndForget({
             to: holderEmail,
+            realRecipient: true, // holder email is legit → deliver for real, bypass central inbox
             subject: 'A Credential in Your ChainCert Wallet Was Revoked',
             html: mailerService.renderEmail({
               heading: 'Credential Revoked',
@@ -1401,10 +1402,10 @@ exports.revoke_Credential = async (req, res, getContractAndGateway) => {
                 <p style="margin:0;color:#6b7280;font-size:13px;line-height:1.6;">If you have questions, please contact the issuing organization.</p>`
             }),
             text: `Hi ${holderName},\n\n${issuerName} has revoked your credential: ${credName}. It will now show as invalid when verified.${rejectionReason ? `\nReason: ${rejectionReason}` : ''}`
-          });
+          }, '[REVOKE]');
         }
       } catch (emailErr) {
-        console.error('[REVOKE] Revocation email failed (non-fatal):', emailErr?.message || emailErr);
+        console.error('[REVOKE] Holder lookup for revocation email failed (non-fatal):', emailErr?.message || emailErr);
       }
 
       /* Step 8: Return COMPLETE success response (blockchain + CouchDB ok) */

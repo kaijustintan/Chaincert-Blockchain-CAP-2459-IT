@@ -233,8 +233,11 @@ const accountController = {
       await couchDB.saveOTPToShareLink(token, otp, otpExpiresAt);
 
       // Send OTP email via Gmail SMTP - polo
+      // Recipient is the external viewer the holder explicitly shared with (validated
+      // against doc.recipientEmail above) → always a real address, deliver directly.
       await mailerService.sendMail({
         to: email,
+        realRecipient: true,
         subject: `Your ChainCert Profile Access Code (for ${email})`,
         html: mailerService.renderOtpEmail({
           heading: 'Profile Access Code',
@@ -384,9 +387,12 @@ const accountController = {
       // Send OTP email via Gmail SMTP - polo
       // Inner try/catch: email failure is non-fatal here — anti-enumeration: always return
       // the same generic 200 response whether email lands or not.
+      // Route by account type: holders → real inbox; issuer/admin (test) → central.
+      const acctIsTest = ['issuer', 'admin'].includes(String(user.role || '').toLowerCase()) || String(user._id || '').startsWith('issuer_');
       try {
         await mailerService.sendMail({
           to: email,
+          realRecipient: !acctIsTest,
           subject: 'ChainCert Password Reset Code',
           html: mailerService.renderOtpEmail({
             heading: 'Password Reset Code',
@@ -471,23 +477,24 @@ const accountController = {
       });
 
       // F28: password-change security receipt (best-effort, non-fatal).
-      try {
-        if (user.email) {
-          await mailerService.sendMail({
-            to: user.email,
-            subject: 'Your ChainCert Password Was Changed',
-            html: mailerService.renderEmail({
-              heading: 'Password Changed',
-              bodyHtml: `
+      // G3: fire-and-forget so the reset responds immediately (this is a notification,
+      // not the OTP itself — the reset CODE email above stays synchronous).
+      // Route by account type: holders → real inbox; issuer/admin (test) → central.
+      const acctIsTest = ['issuer', 'admin'].includes(String(user.role || '').toLowerCase()) || String(user._id || '').startsWith('issuer_');
+      if (user.email) {
+        mailerService.sendMailFireAndForget({
+          to: user.email,
+          realRecipient: !acctIsTest,
+          subject: 'Your ChainCert Password Was Changed',
+          html: mailerService.renderEmail({
+            heading: 'Password Changed',
+            bodyHtml: `
                 <p style="margin:0 0 14px;color:#374151;font-size:14px;line-height:1.6;">Hi,</p>
                 <p style="margin:0 0 14px;color:#374151;font-size:14px;line-height:1.6;">The password for your ChainCert account (<strong>${user.email}</strong>) was just <strong>reset</strong>. If this was you, no action is needed.</p>
                 <p style="margin:0;color:#6b7280;font-size:13px;line-height:1.6;">If you did <strong>not</strong> request this, please contact the ChainCert administration team immediately.</p>`
-            }),
-            text: `The password for your ChainCert account (${user.email}) was just reset. If this was not you, contact the ChainCert administration team immediately.`
-          });
-        }
-      } catch (emailErr) {
-        console.error('[resetPassword] Receipt email failed (non-fatal):', emailErr?.message || emailErr);
+          }),
+          text: `The password for your ChainCert account (${user.email}) was just reset. If this was not you, contact the ChainCert administration team immediately.`
+        }, '[resetPassword]');
       }
 
       return res.status(200).json({ success: true, message: 'Password reset successful. You may now log in.' });

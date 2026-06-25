@@ -219,8 +219,10 @@ const issuerOnboardingController = {
       try {
         const adminEmails = await couchDB.getAdminEmails();
         const typeLabel = issuerData.issuerType === 'subordinate' ? 'subordinate issuer' : 'root authority issuer';
+        // G3: fire-and-forget each send; the try/catch stays because getAdminEmails()
+        // above is a DB read that can throw.
         for (const adminEmail of adminEmails) {
-          await mailerService.sendMail({
+          mailerService.sendMailFireAndForget({
             to: adminEmail,
             subject: 'New ChainCert Issuer Registration Pending Approval',
             html: mailerService.renderEmail({
@@ -231,30 +233,27 @@ const issuerOnboardingController = {
                 <p style="margin:0;color:#6b7280;font-size:13px;line-height:1.6;">Open the ChainCert admin dashboard to review and approve or reject this application.</p>`
             }),
             text: `A new ${typeLabel} has registered and is pending approval: ${issuerData.orgName} (${issuerData.email}). Review it in the ChainCert admin dashboard.`
-          });
+          }, '[registerIssuer]');
         }
       } catch (emailErr) {
-        console.error('[registerIssuer] Admin notification email failed (non-fatal):', emailErr?.message || emailErr);
+        console.error('[registerIssuer] Admin email lookup failed (non-fatal):', emailErr?.message || emailErr);
       }
 
       // F28: for a subordinate, also notify its chosen root authority (best-effort).
+      // G3: fire-and-forget so registration responds immediately.
       if (issuerData.issuerType === 'subordinate' && rootAuthorityEmail) {
-        try {
-          await mailerService.sendMail({
-            to: rootAuthorityEmail,
-            subject: 'A Subordinate Issuer Is Pending Your Approval',
-            html: mailerService.renderEmail({
-              heading: 'Subordinate Pending Your Approval',
-              bodyHtml: `
+        mailerService.sendMailFireAndForget({
+          to: rootAuthorityEmail,
+          subject: 'A Subordinate Issuer Is Pending Your Approval',
+          html: mailerService.renderEmail({
+            heading: 'Subordinate Pending Your Approval',
+            bodyHtml: `
                 <p style="margin:0 0 14px;color:#374151;font-size:14px;line-height:1.6;">Dear <strong>${issuerData.rootAuthorityName || 'Root Authority'}</strong>,</p>
                 <p style="margin:0 0 14px;color:#374151;font-size:14px;line-height:1.6;">A subordinate issuer, <strong>${issuerData.orgName}</strong> (${issuerData.email}), has applied under your authority and is awaiting your approval.</p>
                 <p style="margin:0;color:#6b7280;font-size:13px;line-height:1.6;">Log in to ChainCert to review and approve or reject this subordinate.</p>`
-            }),
-            text: `A subordinate issuer (${issuerData.orgName}, ${issuerData.email}) has applied under your authority and is awaiting your approval. Log in to ChainCert to review it.`
-          });
-        } catch (emailErr) {
-          console.error('[registerIssuer] Root-authority notification email failed (non-fatal):', emailErr?.message || emailErr);
-        }
+          }),
+          text: `A subordinate issuer (${issuerData.orgName}, ${issuerData.email}) has applied under your authority and is awaiting your approval. Log in to ChainCert to review it.`
+        }, '[registerIssuer]');
       }
 
       console.log('[REGISTER ISSUER] ✅ Result:', result);

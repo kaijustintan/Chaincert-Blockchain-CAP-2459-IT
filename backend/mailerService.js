@@ -52,6 +52,7 @@ function getTransporter() {
 
   _transporter = nodemailer.createTransport({
     service: 'gmail',
+    family: 4,            // E1: force IPv4 — WSL2 has no IPv6 route to Gmail SMTP (ENETUNREACH on AAAA)
     auth: { user, pass }
   });
 
@@ -83,19 +84,26 @@ function isMailerConfigured() {
   (title ng email), at "html" o "text" (laman). Kung may SMTP_OVERRIDE_TO sa .env (demo mode),
   lahat ng email napupunta sa iisang inbox (e.g. chaincert.notify@gmail.com) kahit sino pa
   ang nakasulat sa "to" — para demo-able kahit puro fake email addresses ang ginagamit.
+  PERO kung `realRecipient: true` (e.g. para sa mga HOLDER na totoo ang email), dumederetso
+  ito sa tunay na recipient — hindi dumadaan sa central inbox. Ginagamit ito para sa credential
+  emails ng holder; ang issuer/admin emails (peke ang address) ay nasa central pa rin.
 
   TECHNICAL:
-  Calls getTransporter() for lazy init. Resolves physical delivery address: uses
-  SMTP_OVERRIDE_TO if set (demo catchall), else the provided `to`. Sets `from` to the
-  authenticated SMTP_USER address to satisfy Gmail's sender-domain requirement — using a
-  different from address would be silently overridden by Gmail anyway. Logs [MAILER] on
-  success. Throws on any SMTP or auth failure; callers handle errors per their own policy.
+  Calls getTransporter() for lazy init. Resolves physical delivery address: if `realRecipient`
+  is true, ALWAYS delivers to the provided `to` (bypasses the demo catch-all — used for holder
+  emails that are real addresses). Otherwise uses SMTP_OVERRIDE_TO if set (demo catchall), else
+  `to`. Sets `from` to the authenticated SMTP_USER address to satisfy Gmail's sender-domain
+  requirement — using a different from address would be silently overridden by Gmail anyway.
+  Logs [MAILER] on success. Throws on any SMTP or auth failure; callers handle errors per policy.
 
   PARAMS:
-  - to      — intended recipient email string.
-  - subject — email subject line string.
-  - html    — HTML body string (optional; provide html OR text, not both).
-  - text    — plain-text body string (optional; provide html OR text, not both).
+  - to            — intended recipient email string.
+  - subject       — email subject line string.
+  - html          — HTML body string (optional; provide html OR text, not both).
+  - text          — plain-text body string (optional; provide html OR text, not both).
+  - realRecipient — boolean (optional, default false). True = bypass SMTP_OVERRIDE_TO and
+                    deliver to `to` directly. Use for HOLDER emails (legit addresses);
+                    leave false/unset for issuer/admin emails (test addresses → central inbox).
 
   RETURNS:
   nodemailer SentMessageInfo object on success. Throws Error on SMTP or auth failure.
@@ -167,10 +175,12 @@ function renderOtpEmail({ heading, intro, otp, note }) {
   return renderEmail({ heading, bodyHtml });
 }
 
-async function sendMail({ to, subject, html, text }) {
+async function sendMail({ to, subject, html, text, realRecipient = false }) {
   const transporter = getTransporter();
 
-  const deliverTo = process.env.SMTP_OVERRIDE_TO || to;
+  // realRecipient = true → deliver to the real address (HOLDER emails are legit).
+  // Otherwise honor the demo catch-all (issuer/admin emails are test addresses).
+  const deliverTo = realRecipient ? to : (process.env.SMTP_OVERRIDE_TO || to);
 
   const mailOptions = {
     from: `"ChainCert" <${process.env.SMTP_USER}>`,
@@ -186,4 +196,33 @@ async function sendMail({ to, subject, html, text }) {
   return info;
 }
 
-module.exports = { sendMail, isMailerConfigured, renderEmail, renderOtpEmail };
+/*
+  Function Name: sendMailFireAndForget
+
+  LAYMAN (Tropang Ex):
+  Pang-padala ng email sa BACKGROUND. Hindi hinihintay ng caller — babalik agad ang
+  controller sa user, tapos tahimik na magpapadala ito. Kung pumalpak (e.g. walang
+  internet o mali ang SMTP creds), naka-log lang (non-fatal) — hindi babagsak ang
+  main action (issue, approve, revoke, etc.).
+
+  TECHNICAL:
+  Schedules sendMail() WITHOUT awaiting and swallows + logs any SMTP/auth error so it
+  can never reject into the caller. Use for NOTIFICATION emails only — NOT for OTP
+  flows, where the user is actively waiting for the code and a silent failure would
+  leave them stuck. The Promise.resolve().then() wrapper also guards a synchronous
+  throw from getTransporter() (e.g. missing SMTP_USER/SMTP_APP_PASSWORD).
+
+  PARAMS:
+  - opts  — same shape as sendMail ({ to, subject, html, text }).
+  - label — log prefix for tracing (e.g. '[ISSUE]'). Optional, defaults to '[MAILER]'.
+
+  RETURNS:
+  (none) — fire-and-forget; resolves/rejects are handled internally.
+*/
+function sendMailFireAndForget(opts, label = '[MAILER]') {
+  Promise.resolve()
+    .then(() => sendMail(opts))
+    .catch((err) => console.error(`${label} email failed (non-fatal):`, err?.message || err));
+}
+
+module.exports = { sendMail, sendMailFireAndForget, isMailerConfigured, renderEmail, renderOtpEmail };

@@ -104,6 +104,11 @@ export default function IssuerDashboard() {
   const [revokeError, setRevokeError] = useState("");
   const [revokeLoading, setRevokeLoading] = useState(false);
 
+  // R2: when the revoke modal is opened from a specific credential's row, lock the
+  // holder + credential to that record (read-only) instead of showing the pickers.
+  const [revokeLocked, setRevokeLocked] = useState(false);
+  const [revokeLockedCred, setRevokeLockedCred] = useState(null);
+
   // separate state for TEMPLATE options (for dropdown)
   const [templateOptions, setTemplateOptions] = useState([]);
 
@@ -356,14 +361,18 @@ export default function IssuerDashboard() {
       credentialId: credential?.blockchainId || credential?.id || "",
       rejectionReason: "",
     });
+    // R2: lock the modal to this specific credential — no holder/credential pickers.
+    setRevokeLockedCred(credential || null);
+    setRevokeLocked(true);
+    setRevokeError("");
     setShowRevokeModal(true);
   };
 
   const applySorting = (array, sortOption) => {
     const sorted = [...array];
     switch (sortOption) {
-      case "issuedDate-desc": sorted.sort((a, b) => new Date(b.issuedDate || b.createdAt || 0) - new Date(a.issuedDate || a.createdAt || 0)); break;
-      case "issuedDate-asc": sorted.sort((a, b) => new Date(a.issuedDate || a.createdAt || 0) - new Date(b.issuedDate || b.createdAt || 0)); break;
+      case "issuedDate-desc": sorted.sort((a, b) => new Date(b.assignedDate || b.issuedDate || b.createdAt || 0) - new Date(a.assignedDate || a.issuedDate || a.createdAt || 0)); break;
+      case "issuedDate-asc": sorted.sort((a, b) => new Date(a.assignedDate || a.issuedDate || a.createdAt || 0) - new Date(b.assignedDate || b.issuedDate || b.createdAt || 0)); break;
       case "expiryDate-desc": sorted.sort((a, b) => new Date(b.expiryDate || 0) - new Date(a.expiryDate || 0)); break;
       case "expiryDate-asc": sorted.sort((a, b) => new Date(a.expiryDate || 0) - new Date(b.expiryDate || 0)); break;
       case "credentialType-asc": sorted.sort((a, b) => (a.credentialType || "").localeCompare(b.credentialType || "")); break;
@@ -375,7 +384,13 @@ export default function IssuerDashboard() {
   const getUniqueCredentialTypes = () => { const types = new Set(credentials.map((cred) => cred.credentialType).filter(Boolean)); return Array.from(types).sort(); };
 
 
-  const searchableIssuedCredentials = useMemo(() => credentials.filter((c) => c.status === "issued" || !c.status || c.status === "active"), [credentials]);
+  // R1: only genuinely revokable credentials. Use EFFECTIVE status so a credential
+  // past its end-of-day-Manila expiry (stored status still "issued") is excluded too,
+  // and drop the old `!c.status` loophole. Revoked/expired never appear here.
+  const searchableIssuedCredentials = useMemo(() => credentials.filter((c) => {
+    const eff = effectiveCredentialStatus(c);
+    return eff === "issued" || eff === "active";
+  }), [credentials]);
   const issueTemplateTypeOptions = useMemo(() => Array.from(new Set(templateOptions.map((template) => template.credentialType).filter(Boolean))).sort((a, b) => a.localeCompare(b)), [templateOptions]);
 
   const filteredTemplateOptions = useMemo(() => {
@@ -404,6 +419,14 @@ export default function IssuerDashboard() {
   }, [revokeHolderOptions, revokeHolderSearch]);
 
   const getRevokedDateValue = useCallback((credential) => credential?.revokedAt || credential?.rejectedAt || (String(credential?.status || "").toLowerCase() === "revoked" ? credential?.updatedAt : ""), []);
+
+  // R3: issued-date string for a credential (disambiguates same-type credentials for the
+  // same holder). Prefer assignedDate = when it was actually issued TO THE HOLDER; the
+  // chaincode's issuedDate is the TEMPLATE's creation date, so it's not per-issuance.
+  const formatIssuedDate = useCallback((cred) => {
+    const d = cred?.assignedDate || cred?.issuedDate || cred?.createdAt;
+    return d ? new Date(d).toLocaleDateString() : "";
+  }, []);
 
   const uniqueTemplateTypes = useMemo(() => Array.from(new Set(templateOptions.map((template) => template.credentialType).filter(Boolean))).sort((a, b) => a.localeCompare(b)), [templateOptions]);
 
@@ -442,12 +465,12 @@ export default function IssuerDashboard() {
     const query = revokeSectionSearch.trim().toLowerCase();
     if (query) result = result.filter((cred) => [cred.credentialName, cred.holderName, cred.holderID, cred.blockchainId, cred.id].filter(Boolean).join(" ").toLowerCase().includes(query));
     switch (revokeSortBy) {
-      case "oldest": result.sort((a, b) => new Date(a.issuedDate || a.createdAt || 0) - new Date(b.issuedDate || b.createdAt || 0)); break;
+      case "oldest": result.sort((a, b) => new Date(a.assignedDate || a.issuedDate || a.createdAt || 0) - new Date(b.assignedDate || b.issuedDate || b.createdAt || 0)); break;
       case "name-asc": result.sort((a, b) => String(a.credentialName || "").localeCompare(String(b.credentialName || ""))); break;
       case "name-desc": result.sort((a, b) => String(b.credentialName || "").localeCompare(String(a.credentialName || ""))); break;
       case "status-asc": result.sort((a, b) => String(a.status || "").localeCompare(String(b.status || ""))); break;
       case "newest":
-      default: result.sort((a, b) => new Date(b.issuedDate || b.createdAt || 0) - new Date(a.issuedDate || a.createdAt || 0)); break;
+      default: result.sort((a, b) => new Date(b.assignedDate || b.issuedDate || b.createdAt || 0) - new Date(a.assignedDate || a.issuedDate || a.createdAt || 0)); break;
     }
     return result;
   }, [credentials, revokeStatusFilter, revokeTypeFilter, revokeSectionSearch, revokeSortBy]);
@@ -469,7 +492,7 @@ export default function IssuerDashboard() {
       type: cred.credentialType || "N/A",
       status: cred.status || "issued",
       holderName: cred.holderName || cred.holderID || "—",
-      createdDate: cred.issuedDate || cred.createdAt,
+      createdDate: cred.assignedDate || cred.issuedDate || cred.createdAt,
       expiryDate: cred.expiryDate,
       source: cred,
     }));
@@ -521,7 +544,7 @@ export default function IssuerDashboard() {
 
   const filteredRevokableCredentials = useMemo(() => {
     const query = revokeCredentialSearch.trim().toLowerCase();
-    return searchableIssuedCredentials.filter((cred) => {
+    const result = searchableIssuedCredentials.filter((cred) => {
       const holderValue = cred.holderName || cred.holderID || "";
       const templateValue = cred.credentialName || cred.credentialType || "";
       const blockchainId = cred.blockchainId || cred.id || "";
@@ -529,6 +552,13 @@ export default function IssuerDashboard() {
       const matchesSearch = !query || [holderValue, cred.holderID, templateValue, cred.credentialType, blockchainId].filter(Boolean).join(" ").toLowerCase().includes(query);
       return matchesHolder && matchesSearch;
     });
+    // BUGFIX: the picker was unsorted (raw fetch order), so the most-recent credential
+    // wasn't on top. Sort most-recent-first by ACTUAL issuance time (assignedDate), which
+    // matches the date now shown on each option (formatIssuedDate).
+    return result.sort((a, b) =>
+      new Date(b.assignedDate || b.issuedDate || b.createdAt || 0) -
+      new Date(a.assignedDate || a.issuedDate || a.createdAt || 0)
+    );
   }, [revokeCredentialSearch, revokeSelectedHolder, searchableIssuedCredentials]);
 
   const filterHistoryEntries = useCallback((history) => (Array.isArray(history) ? history : []).filter((entry) => {
@@ -562,8 +592,8 @@ export default function IssuerDashboard() {
   };
 
   // Revoke Modal handlers
-  const openRevokeModal = () => { setShowRevokeModal(true); setRevokeError(""); setRevokeHolderOpen(false); setRevokeHolderSearch(""); setRevokeSelectedHolder(""); setRevokeCredentialOpen(false); setRevokeCredentialSearch(""); setRevokeForm({ credentialId: "", rejectionReason: "" }); };
-  const closeRevokeModal = () => { setShowRevokeModal(false); setRevokeError(""); setRevokeLoading(false); setRevokeHolderOpen(false); setRevokeHolderSearch(""); setRevokeSelectedHolder(""); setRevokeCredentialOpen(false); setRevokeCredentialSearch(""); };
+  const openRevokeModal = () => { setShowRevokeModal(true); setRevokeError(""); setRevokeLocked(false); setRevokeLockedCred(null); setRevokeHolderOpen(false); setRevokeHolderSearch(""); setRevokeSelectedHolder(""); setRevokeCredentialOpen(false); setRevokeCredentialSearch(""); setRevokeForm({ credentialId: "", rejectionReason: "" }); };
+  const closeRevokeModal = () => { setShowRevokeModal(false); setRevokeError(""); setRevokeLoading(false); setRevokeLocked(false); setRevokeLockedCred(null); setRevokeHolderOpen(false); setRevokeHolderSearch(""); setRevokeSelectedHolder(""); setRevokeCredentialOpen(false); setRevokeCredentialSearch(""); };
   const handleRevokeFormChange = (e) => { const { name, value } = e.target; setRevokeForm((prev) => ({ ...prev, [name]: value })); };
 
   const handleSelectRevokeHolder = (holderName) => {
@@ -946,7 +976,7 @@ export default function IssuerDashboard() {
                         <td>{credential.holderName || "N/A"}</td>
                         <td>{credential.credentialName || "N/A"}</td>
                         <td>{credential.credentialType || "N/A"}</td>
-                        <td>{credential.issuedDate ? new Date(credential.issuedDate).toLocaleDateString() : "N/A"}</td>
+                        <td>{(credential.assignedDate || credential.issuedDate) ? new Date(credential.assignedDate || credential.issuedDate).toLocaleDateString() : "N/A"}</td>
                         <td><span className={`status-badge status-${effectiveCredentialStatus(credential)}`}>{effectiveCredentialStatus(credential)}</span></td>
                         <td>{credential.visibility === "public" ? "Public" : "Private"}</td>
                         <td>{getRevokedDateValue(credential) ? new Date(getRevokedDateValue(credential)).toLocaleDateString() : "—"}</td>
@@ -1055,7 +1085,7 @@ export default function IssuerDashboard() {
                         <td>{credential.holderName || "N/A"}</td>
                         <td>{credential.credentialType || "N/A"}</td>
                         <td><span className={`status-badge status-${effectiveCredentialStatus(credential)}`}>{effectiveCredentialStatus(credential)}</span></td>
-                        <td>{credential.issuedDate ? new Date(credential.issuedDate).toLocaleDateString() : "N/A"}</td>
+                        <td>{(credential.assignedDate || credential.issuedDate) ? new Date(credential.assignedDate || credential.issuedDate).toLocaleDateString() : "N/A"}</td>
                         <td>{getRevokedDateValue(credential) ? new Date(getRevokedDateValue(credential)).toLocaleDateString() : "—"}</td>
                         <td className="actions-cell">
                           <button
@@ -1067,13 +1097,19 @@ export default function IssuerDashboard() {
                             View BC History
                           </button>
                           {renderDescriptionCell(credential, false)}
-                          {(credential.status === "issued" || credential.status === "active") ? (
-                            <button onClick={() => openRevokeForCredential(credential)} className="action-btn revoke-btn">Revoke</button>
-                          ) : (
-                            <span style={{ opacity: 0.5, fontSize: "12px", fontStyle: "italic" }}>
-                              {credential.status === "revoked" ? "Revoked" : credential.status === "expired" ? "Expired" : (credential.status || "Unknown")}
-                            </span>
-                          )}
+                          {(() => {
+                            // R1: gate on EFFECTIVE status so an effectively-expired credential
+                            // (cron hasn't flipped it yet) shows "Expired", not a Revoke button the
+                            // backend would reject.
+                            const eff = effectiveCredentialStatus(credential);
+                            return (eff === "issued" || eff === "active") ? (
+                              <button onClick={() => openRevokeForCredential(credential)} className="action-btn revoke-btn">Revoke</button>
+                            ) : (
+                              <span style={{ opacity: 0.5, fontSize: "12px", fontStyle: "italic" }}>
+                                {eff === "revoked" ? "Revoked" : eff === "expired" ? "Expired" : (eff || "Unknown")}
+                              </span>
+                            );
+                          })()}
                         </td>
                       </tr>
                     );
@@ -1459,6 +1495,27 @@ export default function IssuerDashboard() {
               This action is <strong>irreversible</strong> and will be permanently recorded on the blockchain.
             </p>
             <form onSubmit={handleRevokeSubmit}>
+              {revokeLocked ? (
+                /* R2: launched from a specific credential row — show it read-only, no pickers. */
+                <div className="form-group">
+                  <div className="modal-section-heading">You are revoking this credential:</div>
+                  {(() => {
+                    const c = revokeLockedCred || {};
+                    const dateStr = formatIssuedDate(c);
+                    return (
+                      <div className="selected-credential-card revoke-locked-card">
+                        <div className="rlc-name">{c.credentialName || "Untitled"}</div>
+                        <dl className="rlc-rows">
+                          <div className="rlc-row"><dt>Type</dt><dd>{c.credentialType || "N/A"}</dd></div>
+                          <div className="rlc-row"><dt>Holder</dt><dd>{c.holderName || c.holderID || "Unknown"}</dd></div>
+                          {dateStr && <div className="rlc-row"><dt>Issued</dt><dd>{dateStr}</dd></div>}
+                        </dl>
+                      </div>
+                    );
+                  })()}
+                </div>
+              ) : (
+              <>
               <div className="modal-section-heading">Select a holder then choose the credential to revoke.</div>
               <div className="form-group">
                 <label>Holder / Recipient <span className="required-star">*</span></label>
@@ -1515,10 +1572,12 @@ export default function IssuerDashboard() {
                     <ul className="searchable-select-list">
                       {filteredRevokableCredentials.length > 0 ? filteredRevokableCredentials.map((cred) => {
                         const blockchainId = cred.blockchainId || cred.id;
+                        const issuedStr = formatIssuedDate(cred); // R3
                         return (
                           <li key={blockchainId} className="searchable-select-item" onMouseDown={() => handleSelectRevokeCredential(cred)}>
-                            <span className="searchable-item-name">{cred.credentialName || "Untitled"} — {cred.holderName || "Unknown"}</span>
-                            <span className="searchable-item-meta">{cred.credentialType || ""}</span>
+                            <span className="searchable-item-name">{cred.credentialName || "Untitled"}</span>
+                            <span className="searchable-item-sub">{cred.holderName || cred.holderID || "Unknown holder"}</span>
+                            <span className="searchable-item-meta">{[cred.credentialType, issuedStr ? `Issued ${issuedStr}` : ""].filter(Boolean).join("  ·  ")}</span>
                           </li>
                         );
                       }) : (
@@ -1527,17 +1586,24 @@ export default function IssuerDashboard() {
                     </ul>
                   )}
                 </div>
-                {revokeForm.credentialId && (
-                  <div className="selected-credential-card">
-                    {(() => {
-                      const found = credentials.find((c) => (c.blockchainId || c.id) === revokeForm.credentialId);
-                      return found
-                        ? `${found.credentialName || "Untitled"} (${found.credentialType || "N/A"}) • ${found.holderName || "No holder"}`
-                        : revokeForm.credentialId;
-                    })()}
-                  </div>
-                )}
+                {revokeForm.credentialId && (() => {
+                  const found = credentials.find((c) => (c.blockchainId || c.id) === revokeForm.credentialId);
+                  if (!found) return <div className="selected-credential-card">{revokeForm.credentialId}</div>;
+                  const dateStr = formatIssuedDate(found);
+                  return (
+                    <div className="selected-credential-card revoke-locked-card">
+                      <div className="rlc-name">{found.credentialName || "Untitled"}</div>
+                      <dl className="rlc-rows">
+                        <div className="rlc-row"><dt>Type</dt><dd>{found.credentialType || "N/A"}</dd></div>
+                        <div className="rlc-row"><dt>Holder</dt><dd>{found.holderName || found.holderID || "No holder"}</dd></div>
+                        {dateStr && <div className="rlc-row"><dt>Issued</dt><dd>{dateStr}</dd></div>}
+                      </dl>
+                    </div>
+                  );
+                })()}
               </div>
+              </>
+              )}
               <div className="form-group"><label>Revocation Reason:</label><textarea name="rejectionReason" value={revokeForm.rejectionReason} onChange={handleRevokeFormChange} rows={3} placeholder="State the reason for revoking this credential..." required /></div>
               {revokeError && <div className="form-error">{revokeError}</div>}
               <div className="form-actions"><button type="submit" className="action-btn revoke-btn" disabled={revokeLoading}>{revokeLoading ? "Revoking..." : "Revoke"}</button><button type="button" onClick={closeRevokeModal} className="action-btn btn-cancel">Cancel</button></div>

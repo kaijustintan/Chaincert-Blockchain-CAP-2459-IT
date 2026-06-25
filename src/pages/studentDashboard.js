@@ -109,6 +109,11 @@ export default function StudentDashboard() {
   const [templateDetails, setTemplateDetails] = useState(null);
   const [templateLoading, setTemplateLoading] = useState(false);
 
+  // G1: in-flight guards for the wallet write-actions so double-clicks can't fire
+  // duplicate API calls.
+  const [visibilityLoading, setVisibilityLoading] = useState(false);
+  const [markAllLoading, setMarkAllLoading] = useState(false);
+
   /* See History modal (inside detail modal)
      Technical: Same pattern as admin dashboard See History
      // - polo
@@ -399,26 +404,33 @@ export default function StudentDashboard() {
   };
 
   const handleMarkAllRead = async () => {
+    if (markAllLoading) return; // G1: ignore re-clicks while in flight
+    setMarkAllLoading(true);
     try {
       await Promise.all(unreadNotifications.map((notification) => apiService.markNotificationAsRead(notification._id)));
       setNotifications((prev) => prev.map((notification) => ({ ...notification, read: true, readAt: notification.readAt || new Date().toISOString() })));
       setUnreadCount(0);
     } catch (err) {
       console.error('[STUDENT DASHBOARD] Failed to mark all notifications as read:', err);
+    } finally {
+      setMarkAllLoading(false);
     }
   };
 
   const handleToggleVisibility = async () => {
-    if (!selectedCred) return;
+    if (!selectedCred || visibilityLoading) return; // G1: ignore re-clicks while in flight
     const credentialKey = selectedCred.blockchainId || selectedCred._id;
     const newVisibility = selectedCred.visibility === 'public' ? 'private' : 'public';
 
+    setVisibilityLoading(true);
     try {
       await apiService.Update_CredentialVisibility(credentialKey, newVisibility);
       setCredentials((prev) => prev.map((cred) => ((cred.blockchainId || cred._id) === credentialKey ? { ...cred, visibility: newVisibility } : cred)));
       setSelectedCred((prev) => (prev ? { ...prev, visibility: newVisibility } : prev));
     } catch (err) {
       console.error('[STUDENT DASHBOARD] Failed to update credential visibility:', err);
+    } finally {
+      setVisibilityLoading(false);
     }
   };
 
@@ -451,8 +463,8 @@ export default function StudentDashboard() {
               <div className="holder-notif-head">
                 <h3>Notifications</h3>
                 {unreadNotifications.length > 0 && (
-                  <button type="button" className="holder-notif-markall" onClick={handleMarkAllRead}>
-                    Mark all as read
+                  <button type="button" className="holder-notif-markall" onClick={handleMarkAllRead} disabled={markAllLoading}>
+                    {markAllLoading ? "Marking..." : "Mark all as read"}
                   </button>
                 )}
               </div>
@@ -882,9 +894,10 @@ export default function StudentDashboard() {
                     variant="secondary"
                     icon={selectedCred.visibility === "public" ? Globe : Lock}
                     onClick={handleToggleVisibility}
+                    disabled={visibilityLoading}
                     title="Click to change"
                   >
-                    {selectedCred.visibility === "public" ? "Public" : "Private"}
+                    {visibilityLoading ? "Updating…" : (selectedCred.visibility === "public" ? "Public" : "Private")}
                   </Button>
                 </span>
               </div>

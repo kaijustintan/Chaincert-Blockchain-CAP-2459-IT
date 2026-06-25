@@ -21,6 +21,7 @@ body {
 .app-content {
   /* flex:1 makes this area consume available space so Footer sits at the bottom */
   flex: 1 0 auto;
+  background: linear-gradient(180deg, rgba(11, 11, 20, 0.86) 0%, rgba(11, 11, 20, 0.93) 100%), url('../assets/about-bg.jpg') center / cover no-repeat fixed;
 }
 
 .App-logo {

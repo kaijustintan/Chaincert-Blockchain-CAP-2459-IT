@@ -4,7 +4,7 @@
 
 .transcript-page {
   min-height: 100vh;
-  background: linear-gradient(135deg, var(--bg) 0%, var(--surface-2) 50%, var(--surface-2) 100%);
+  background: transparent;
   padding: 40px 20px;
   font-family: var(--font-ui);
 }

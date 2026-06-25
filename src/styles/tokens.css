@@ -30,6 +30,19 @@
       - --motion-fast / --motion / --ease, refined @keyframes, reduced-motion reset
 */
 
+/*
+  DESIGN CONVENTIONS (read before adding styles — keep the UI consistent)
+  1. COLOR: never hardcode hex/rgba. Use tokens — var(--accent) for brand purple,
+     var(--ok|warn|danger|info)(-weak) for status, var(--text|--text-muted|--text-subtle)
+     for text, var(--surface*|--border*) for chrome. ONE purple only (no #a78bfa/#8b5cf6).
+  2. SIZING: font-size from the --fs-* scale; spacing/gaps/padding from --s1..--s7;
+     corners from --radius-*; elevation from --shadow-*. No off-scale px.
+  3. CHARTS (recharts) are the ONE exception: SVG fill/stroke can't read var(), so chart
+     color props use the literal token hex from COLORS in components/analytics/analytics.js.
+  4. Prefer the cc-* primitives in components/ui/ (Button, Card, Badge, Modal, Field…)
+     over hand-rolling buttons/modals/cards with inline styles.
+*/
+
 :root {
   /* ---------- COLOR: surfaces ---------- */
   --bg: #0B0B14;            /* app background — calm charcoal-navy */

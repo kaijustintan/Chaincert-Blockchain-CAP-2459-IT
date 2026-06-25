@@ -21,7 +21,7 @@
 /* ── Container ── */
 .landing-container {
   font-family: var(--font-ui);
-  color: #fff;
+  color: var(--text);
   overflow-x: hidden;
 }
 
@@ -35,7 +35,7 @@
   padding: 60px 24px 80px;
   position: relative;
   overflow: hidden;
-  background: #06040f;
+  background: var(--bg);
 }
 
 .hero-media-layer {
@@ -70,8 +70,8 @@
   opacity: 0.32;
 }
 
-.hero-glow-left { left: -8%; top: 8%; background: rgba(139, 92, 246, 0.72); }
-.hero-glow-right { right: -10%; bottom: 4%; background: rgba(59, 130, 246, 0.5); }
+.hero-glow-left { left: -8%; top: 8%; background: var(--border-accent); }
+.hero-glow-right { right: -10%; bottom: 4%; background: var(--info-weak); }
 
 .hero-content {
   position: relative;
@@ -84,16 +84,16 @@
 }
 
 .landing-hero.video-fallback .hero-media-layer {
-  background: radial-gradient(circle at top, rgba(139, 92, 246, 0.22), transparent 32%), radial-gradient(circle at top, rgba(76, 29, 149, 0.35), transparent 35%), linear-gradient(180deg, #06040f 0%, #090513 48%, #07040f 100%);
+  background: radial-gradient(circle at top, var(--accent-weak), transparent 32%), radial-gradient(circle at top, var(--border-accent), transparent 35%), linear-gradient(180deg, var(--bg) 0%, #090513 48%, #07040f 100%);
 }
 
 .hero-badge {
   display: inline-block;
   padding: 6px 20px;
   border-radius: 30px;
-  background: rgba(139, 92, 246, 0.12);
-  border: 1px solid rgba(139, 92, 246, 0.3);
-  color: #c4b5fd;
+  background: var(--accent-weak);
+  border: 1px solid var(--accent-weak);
+  color: var(--accent-strong);
   font-size: 12px;
   font-weight: 600;
   letter-spacing: 0.8px;
@@ -107,13 +107,13 @@
   font-weight: 700;
   line-height: 1.2;
   margin: 0 0 20px 0;
-  color: #fff;
+  color: var(--text);
   animation: fadeInUp 0.5s ease-out 0.1s both;
   letter-spacing: -0.03em;
 }
 
 .hero-gradient {
-  background: linear-gradient(135deg, #a78bfa, #c4b5fd, #818cf8, #a78bfa);
+  background: linear-gradient(135deg, var(--accent-strong), var(--accent-strong), var(--accent), var(--accent-strong));
   background-size: 300% 100%;
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
@@ -123,7 +123,7 @@
 .hero-desc {
   max-width: 640px;
   font-size: 1.05rem;
-  color: #d4d4d8;
+  color: var(--text-muted);
   line-height: 1.7;
   margin: 0 auto 32px;
   animation: fadeInUp 0.5s ease-out 0.2s both;
@@ -149,26 +149,26 @@
 }
 
 .hero-btn-primary {
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  color: #fff;
-  box-shadow: 0 4px 24px rgba(102, 126, 234, 0.35);
+  background: linear-gradient(135deg, var(--accent) 0%, var(--accent-strong) 100%);
+  color: var(--text);
+  box-shadow: 0 4px 24px var(--border-accent);
 }
 
 .hero-btn-primary:hover {
   transform: translateY(-3px);
-  box-shadow: 0 8px 36px rgba(102, 126, 234, 0.5);
+  box-shadow: 0 8px 36px var(--border-accent);
 }
 
 .hero-btn-secondary {
-  background: rgba(139, 92, 246, 0.1);
-  border: 1px solid rgba(139, 92, 246, 0.3);
-  color: #c4b5fd;
+  background: var(--accent-weak);
+  border: 1px solid var(--accent-weak);
+  color: var(--accent-strong);
 }
 
 .hero-btn-secondary:hover {
-  background: rgba(139, 92, 246, 0.2);
-  border-color: #8b5cf6;
-  color: #fff;
+  background: var(--accent-weak);
+  border-color: var(--accent);
+  color: var(--text);
   transform: translateY(-2px);
 }
 
@@ -180,7 +180,7 @@
   margin-top: 56px;
   padding: 24px 40px;
   background: rgba(12, 8, 32, 0.85);
-  border: 1px solid rgba(139, 92, 246, 0.18);
+  border: 1px solid var(--accent-weak);
   border-radius: 16px;
   animation: fadeInUp 0.5s ease-out 0.4s both;
 }
@@ -197,7 +197,7 @@
 .metric-num {
   font-size: 28px;
   font-weight: 700;
-  color: #fff;
+  color: var(--text);
 }
 
 .metric-label {
@@ -205,13 +205,13 @@
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.8px;
-  color: #a78bfa;
+  color: var(--accent-strong);
 }
 
 .metric-divider {
   width: 1px;
   height: 40px;
-  background: rgba(139, 92, 246, 0.25);
+  background: var(--accent-weak);
   flex-shrink: 0;
 }
 
@@ -227,13 +227,13 @@
   font-size: 2rem;
   font-weight: 700;
   margin: 0 0 8px 0;
-  color: #fff;
+  color: var(--text);
 }
 
 .section-subtitle {
   text-align: center;
   font-size: 14px;
-  color: #d4d4d8;
+  color: var(--text-muted);
   margin: 0 0 48px 0;
 }
 
@@ -245,7 +245,7 @@
 
 .feature-card {
   background: rgba(12, 8, 32, 0.9);
-  border: 1px solid rgba(139, 92, 246, 0.18);
+  border: 1px solid var(--accent-weak);
   border-radius: 20px;
   padding: 32px 28px;
   transition: all 0.35s cubic-bezier(0.16, 1, 0.3, 1);
@@ -260,7 +260,7 @@
   left: -1px;
   right: -1px;
   height: 3px;
-  background: linear-gradient(90deg, transparent, rgba(139, 92, 246, 0.4), transparent);
+  background: linear-gradient(90deg, transparent, var(--border-accent), transparent);
   opacity: 0;
   transition: opacity 0.3s ease;
 }
@@ -269,20 +269,20 @@
 
 .feature-card:hover {
   transform: translateY(-6px);
-  border-color: rgba(139, 92, 246, 0.4);
-  box-shadow: 0 16px 48px rgba(139, 92, 246, 0.15);
+  border-color: var(--border-accent);
+  box-shadow: 0 16px 48px var(--accent-weak);
 }
 
 .feature-card h3 {
   font-size: 18px;
   font-weight: 600;
-  color: #f5f3ff;
+  color: var(--text);
   margin: 0 0 10px 0;
 }
 
 .feature-card p {
   font-size: 13px;
-  color: #d4d4d8;
+  color: var(--text-muted);
   line-height: 1.65;
   margin: 0;
 }
@@ -302,7 +302,7 @@
 
 .why-card {
   background: rgba(12, 8, 32, 0.88);
-  border: 1px solid rgba(139, 92, 246, 0.15);
+  border: 1px solid var(--accent-weak);
   border-radius: 16px;
   padding: 28px 24px;
   transition: all 0.3s ease;
@@ -310,15 +310,15 @@
 }
 
 .why-card:hover {
-  border-color: rgba(139, 92, 246, 0.35);
+  border-color: var(--border-accent);
   transform: translateY(-3px);
-  box-shadow: 0 8px 32px rgba(139, 92, 246, 0.1);
+  box-shadow: 0 8px 32px var(--accent-weak);
 }
 
 .why-num {
   font-size: 32px;
   font-weight: 800;
-  color: rgba(139, 92, 246, 0.2);
+  color: var(--accent-weak);
   position: absolute;
   top: 20px;
   right: 24px;
@@ -328,13 +328,13 @@
 .why-card h4 {
   font-size: 16px;
   font-weight: 600;
-  color: #f5f3ff;
+  color: var(--text);
   margin: 0 0 8px 0;
 }
 
 .why-card p {
   font-size: 13px;
-  color: #d4d4d8;
+  color: var(--text-muted);
   line-height: 1.6;
   margin: 0;
 }
@@ -348,7 +348,7 @@
 
 .cta-card {
   background: rgba(12, 8, 32, 0.92);
-  border: 1px solid rgba(139, 92, 246, 0.25);
+  border: 1px solid var(--accent-weak);
   border-radius: 24px;
   padding: 48px 40px;
   text-align: center;
@@ -363,19 +363,19 @@
   left: 0;
   right: 0;
   height: 3px;
-  background: linear-gradient(90deg, #667eea, #764ba2, #667eea);
+  background: linear-gradient(90deg, var(--accent), var(--accent-strong), var(--accent));
 }
 
 .cta-card h2 {
   font-size: 1.8rem;
   font-weight: 700;
-  color: #fff;
+  color: var(--text);
   margin: 0 0 12px 0;
 }
 
 .cta-card p {
   font-size: 14px;
-  color: #d4d4d8;
+  color: var(--text-muted);
   margin: 0 0 28px 0;
   max-width: 500px;
   margin-left: auto;
@@ -421,10 +421,10 @@
 
 .trust-card {
   background: rgba(12, 8, 32, 0.9);
-  border: 1px solid rgba(139, 92, 246, 0.2);
+  border: 1px solid var(--accent-weak);
   border-radius: 16px;
   padding: 18px 20px;
-  color: #f5f3ff;
+  color: var(--text);
   font-weight: 600;
   box-shadow: 0 8px 28px rgba(0,0,0,0.2);
 }
@@ -434,8 +434,8 @@
    else flattens to the design system (no animated text, calmer glows, flat cards). */
 .landing-container { font-family: var(--font-ui); color: var(--text); }
 .landing-hero { background: var(--bg); }
-.hero-glow-left { background: rgba(124, 92, 252, 0.35) !important; opacity: 0.22 !important; }
-.hero-glow-right { background: rgba(91, 141, 239, 0.28) !important; opacity: 0.2 !important; }
+.hero-glow-left { background: var(--border-accent) !important; opacity: 0.22 !important; }
+.hero-glow-right { background: var(--info-weak) !important; opacity: 0.2 !important; }
 .hero-badge { background: var(--accent-weak); border: 1px solid transparent; color: var(--accent-strong); border-radius: var(--radius-pill); }
 .hero-title { color: var(--text); }
 /* Static accent gradient (animation removed) — the one allowed flourish */

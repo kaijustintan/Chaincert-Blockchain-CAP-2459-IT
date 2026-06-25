@@ -289,7 +289,7 @@ export default function VerifierDashboard() {
 
       {/* Who is verifying */}
       <div className="verifier-summary">
-        <span>Verifying as <strong>{verifierName}</strong> · {verifierEmail} <span style={{ color: "var(--ok, #22c55e)", fontSize: 12 }}>✓ email verified</span></span>
+        <span>Verifying as <strong>{verifierName}</strong> · {verifierEmail} <span style={{ color: "var(--ok, var(--ok))", fontSize: 12 }}>✓ email verified</span></span>
         <button className="verifier-change" onClick={resetVerifierEmail}>Change</button>
       </div>
 

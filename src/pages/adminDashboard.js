@@ -196,11 +196,11 @@ const [issuerDocumentsError, setIssuerDocumentsError] = useState(null);
 
   const getStatusColor = (status) => {
     const s = String(status || "").toLowerCase();
-    if (["issued", "active", "approved", "enabled"].includes(s)) return "#22c55e";
-    if (["revoked", "disabled", "rejected"].includes(s)) return "#ef4444";
-    if (["expired"].includes(s)) return "#f59e0b";
-    if (["pending"].includes(s)) return "#eab308";
-    if (["template"].includes(s)) return "#3b82f6";
+    if (["issued", "active", "approved", "enabled"].includes(s)) return "var(--ok)";
+    if (["revoked", "disabled", "rejected"].includes(s)) return "var(--danger)";
+    if (["expired"].includes(s)) return "var(--warn)";
+    if (["pending"].includes(s)) return "var(--warn)";
+    if (["template"].includes(s)) return "var(--info)";
     return "inherit";
   };
 
@@ -238,7 +238,7 @@ const [issuerDocumentsError, setIssuerDocumentsError] = useState(null);
         type="button"
         className="action-btn"
         onClick={() => setDescriptionModal({ name: row?.credentialName || row?.credentialType || "Credential", description: trimmedDescription })}
-        style={{ padding: "4px 10px", fontSize: "11px", background: "rgba(139,92,246,0.12)", color: "#a78bfa", border: "1px solid rgba(139,92,246,0.25)", borderRadius: "6px", cursor: "pointer" }}
+        style={{ padding: "4px 10px", fontSize: "11px", background: "var(--accent-weak)", color: "var(--accent-strong)", border: "1px solid var(--accent-weak)", borderRadius: "6px", cursor: "pointer" }}
       >
         View Description
       </button>
@@ -1452,7 +1452,7 @@ const handleDownloadIssuerDocument = async (doc) => {
                       transition: "border-color .15s ease, transform .15s ease",
                       ...(isActive
                         ? {
-                            outline: "2px solid var(--accent, #7c5cfc)",
+                            outline: "2px solid var(--accent, var(--accent))",
                             outlineOffset: "1px",
                           }
                         : {}),
@@ -1594,7 +1594,7 @@ const handleDownloadIssuerDocument = async (doc) => {
                   <button
                     type="button"
                     onClick={handleMarkAllAdminNotificationsRead}
-                    style={{ padding: "6px 14px", fontSize: "12px", background: "rgba(139,92,246,0.12)", color: "#a78bfa", border: "1px solid rgba(139,92,246,0.25)", borderRadius: "8px", cursor: "pointer" }}
+                    style={{ padding: "6px 14px", fontSize: "12px", background: "var(--accent-weak)", color: "var(--accent-strong)", border: "1px solid var(--accent-weak)", borderRadius: "8px", cursor: "pointer" }}
                   >
                     Mark All as Read
                   </button>
@@ -1671,7 +1671,7 @@ const handleDownloadIssuerDocument = async (doc) => {
           >
             <div
               onClick={(e) => e.stopPropagation()}
-              style={{ width: "min(1180px, 95vw)", maxHeight: "85vh", overflow: "auto", background: "#101018", borderRadius: "12px", border: "1px solid rgba(255,255,255,0.15)", padding: "24px", boxShadow: "0 10px 40px rgba(0,0,0,0.4)", color: "#fff" }}
+              style={{ width: "min(1180px, 95vw)", maxHeight: "85vh", overflow: "auto", background: "var(--surface-2)", borderRadius: "12px", border: "1px solid var(--border-strong)", padding: "24px", boxShadow: "0 10px 40px rgba(0,0,0,0.4)", color: "var(--text)" }}
             >
               <div style={{ display: "flex", justifyContent: "space-between", gap: "16px", alignItems: "flex-start", marginBottom: "16px" }}>
                 <div>
@@ -1685,22 +1685,22 @@ const handleDownloadIssuerDocument = async (doc) => {
                     )}
                   </div>
                 </div>
-                <button type="button" onClick={() => setShowIntegrityModal(false)} style={{ background: "transparent", border: "1px solid rgba(255,255,255,0.25)", color: "#fff", borderRadius: "8px", padding: "8px 10px", cursor: "pointer" }}>
+                <button type="button" onClick={() => setShowIntegrityModal(false)} style={{ background: "transparent", border: "1px solid rgba(255,255,255,0.25)", color: "var(--text)", borderRadius: "8px", padding: "8px 10px", cursor: "pointer" }}>
                   ✕ Close
                 </button>
               </div>
 
               <div style={{ display: "grid", gridTemplateColumns: "repeat(5, minmax(0, 1fr))", gap: "12px", marginBottom: "18px" }}>
                 {[
-                  ["Total", integrityResult.totalChecked, "#9B7BFF"],
+                  ["Total", integrityResult.totalChecked, "var(--accent-strong)"],
                   ["Matched", integrityResult.matched, "#34B27B"],
-                  ["Mismatched", integrityResult.mismatched, "#D9A23B"],
-                  ["Missing", integrityResult.missing, "#E5645A"],
-                  ["Errors", integrityResult.errors, "#E5645A"],
+                  ["Mismatched", integrityResult.mismatched, "var(--warn)"],
+                  ["Missing", integrityResult.missing, "var(--danger)"],
+                  ["Errors", integrityResult.errors, "var(--danger)"],
                 ].map(([label, value, color]) => (
-                  <div key={label} style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: "12px", padding: "14px" }}>
+                  <div key={label} style={{ background: "var(--border)", border: "1px solid var(--border)", borderRadius: "12px", padding: "14px" }}>
                     <div style={{ color, fontWeight: 700, fontSize: "22px" }}>{value}</div>
-                    <div style={{ fontSize: "12px", color: "#d1d5db" }}>{label}</div>
+                    <div style={{ fontSize: "12px", color: "var(--text-muted)" }}>{label}</div>
                   </div>
                 ))}
               </div>
@@ -1718,50 +1718,50 @@ const handleDownloadIssuerDocument = async (doc) => {
 
                 if (problems.length === 0) {
                   return (
-                    <div style={{ padding: "16px", borderRadius: "12px", background: "rgba(34,197,94,0.08)", border: "1px solid rgba(34,197,94,0.25)", color: "#4ade80" }}>
+                    <div style={{ padding: "16px", borderRadius: "12px", background: "var(--ok-weak)", border: "1px solid var(--ok-weak)", color: "var(--ok)" }}>
                       All checked credentials match the blockchain ledger. No issues found.
                     </div>
                   );
                 }
 
                 const badgeFor = (v) =>
-                  v === "mismatched" ? { text: "Mismatched", color: "#D9A23B" }
-                  : v === "missing" ? { text: "Missing from blockchain", color: "#E5645A" }
-                  : { text: "Error", color: "#E5645A" };
+                  v === "mismatched" ? { text: "Mismatched", color: "var(--warn)" }
+                  : v === "missing" ? { text: "Missing from blockchain", color: "var(--danger)" }
+                  : { text: "Error", color: "var(--danger)" };
 
                 return (
                   <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
                     {problems.map((row, i) => {
                       const badge = badgeFor(row.verdict);
                       return (
-                        <div key={`${row.blockchainId}-${i}`} style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: "12px", padding: "14px 16px" }}>
+                        <div key={`${row.blockchainId}-${i}`} style={{ background: "var(--border)", border: "1px solid var(--border)", borderRadius: "12px", padding: "14px 16px" }}>
                           <div style={{ display: "flex", justifyContent: "space-between", gap: "12px", flexWrap: "wrap", alignItems: "baseline" }}>
                             <div style={{ fontWeight: 700, fontSize: "15px" }}>{row.credentialName || "Unknown credential"}</div>
                             <div style={{ color: badge.color, fontWeight: 700, fontSize: "13px" }}>{badge.text}</div>
                           </div>
-                          <div style={{ fontSize: "12px", color: "#9ca3af", margin: "2px 0 10px" }}>
+                          <div style={{ fontSize: "12px", color: "var(--text-muted)", margin: "2px 0 10px" }}>
                             Issuer: {row.issuerOrgName || "Unknown"} &nbsp;·&nbsp; ID: <span style={{ fontFamily: "monospace" }}>{row.blockchainId || "N/A"}</span>
                           </div>
 
                           {row.verdict === "mismatched" && (row.mismatches || []).map((m, j) => (
-                            <div key={j} style={{ fontSize: "13px", padding: "7px 0", borderTop: j === 0 ? "none" : "1px solid rgba(255,255,255,0.06)" }}>
+                            <div key={j} style={{ fontSize: "13px", padding: "7px 0", borderTop: j === 0 ? "none" : "1px solid var(--border)" }}>
                               <span style={{ color: "#e5e7eb", fontWeight: 600 }}>{fieldLabel(m.field)}: </span>
-                              <span style={{ color: "#f87171", textDecoration: "line-through" }}>{String(m.couchValue || "—")}</span>
-                              <span style={{ color: "#6b7280", fontSize: "11px" }}> (database) </span>
-                              <span style={{ color: "#9ca3af" }}>→ </span>
-                              <span style={{ color: "#4ade80", fontWeight: 700 }}>{String(m.blockchainValue || "—")}</span>
-                              <span style={{ color: "#6b7280", fontSize: "11px" }}> (blockchain ✓)</span>
+                              <span style={{ color: "var(--danger)", textDecoration: "line-through" }}>{String(m.couchValue || "—")}</span>
+                              <span style={{ color: "var(--text-muted)", fontSize: "11px" }}> (database) </span>
+                              <span style={{ color: "var(--text-muted)" }}>→ </span>
+                              <span style={{ color: "var(--ok)", fontWeight: 700 }}>{String(m.blockchainValue || "—")}</span>
+                              <span style={{ color: "var(--text-muted)", fontSize: "11px" }}> (blockchain ✓)</span>
                             </div>
                           ))}
 
                           {row.verdict === "missing" && (
-                            <div style={{ fontSize: "13px", color: "#fca5a5" }}>
+                            <div style={{ fontSize: "13px", color: "var(--danger)" }}>
                               This credential exists in the database but was <strong>not found on the blockchain ledger</strong>.
                             </div>
                           )}
 
                           {row.verdict === "error" && (
-                            <div style={{ fontSize: "13px", color: "#fca5a5" }}>
+                            <div style={{ fontSize: "13px", color: "var(--danger)" }}>
                               Could not verify against the blockchain: {row.error || "unknown error"}
                             </div>
                           )}
@@ -1798,12 +1798,12 @@ const handleDownloadIssuerDocument = async (doc) => {
                 maxWidth: "900px",
                 maxHeight: "80vh",
                 overflowY: "auto",
-                background: "#101018",
+                background: "var(--surface-2)",
                 borderRadius: "12px",
-                border: "1px solid rgba(255,255,255,0.15)",
+                border: "1px solid var(--border-strong)",
                 padding: "28px",
                 boxShadow: "0 10px 40px rgba(0,0,0,0.4)",
-                color: "#fff",
+                color: "var(--text)",
               }}
             >
               <div
@@ -1858,7 +1858,7 @@ const handleDownloadIssuerDocument = async (doc) => {
                   style={{
                     background: "transparent",
                     border: "1px solid rgba(255,255,255,0.25)",
-                    color: "#fff",
+                    color: "var(--text)",
                     borderRadius: "8px",
                     padding: "8px 10px",
                     cursor: "pointer",
@@ -1873,7 +1873,7 @@ const handleDownloadIssuerDocument = async (doc) => {
                 <>
                   {provenance.events.length > 0 && (
                     <div className="analytics-card" style={{ marginBottom: 14 }}>
-                      <h4 style={{ margin: "0 0 12px", color: "#fff", fontSize: 14 }}>
+                      <h4 style={{ margin: "0 0 12px", color: "var(--text)", fontSize: 14 }}>
                         🧬 Provenance Timeline
                       </h4>
                       <div className="analytics-timeline">
@@ -1899,7 +1899,7 @@ const handleDownloadIssuerDocument = async (doc) => {
                   )}
 
                   <div className="analytics-card" style={{ marginBottom: 14 }}>
-                    <h4 style={{ margin: "0 0 12px", color: "#fff", fontSize: 14 }}>
+                    <h4 style={{ margin: "0 0 12px", color: "var(--text)", fontSize: 14 }}>
                       🔗 Verification Proof Trail
                     </h4>
                     {proofTrail.count === 0 ? (
@@ -1911,10 +1911,10 @@ const handleDownloadIssuerDocument = async (doc) => {
                         {proofTrail.events.map((e, i) => {
                           const color =
                             e.outcome === "valid"
-                              ? "#4ade80"
+                              ? "var(--ok)"
                               : e.outcome === "not_found"
-                              ? "#a78bfa"
-                              : "#f87171";
+                              ? "var(--accent-strong)"
+                              : "var(--danger)";
                           const label =
                             e.outcome === "valid"
                               ? "Verified valid"
@@ -1957,10 +1957,10 @@ const handleDownloadIssuerDocument = async (doc) => {
                 <div
                   style={{
                     padding: "12px",
-                    background: "rgba(255,0,0,0.12)",
-                    border: "1px solid rgba(255,0,0,0.25)",
+                    background: "var(--danger-weak)",
+                    border: "1px solid var(--danger-weak)",
                     borderRadius: "10px",
-                    color: "#ffd2d2",
+                    color: "var(--danger)",
                   }}
                 >
                   ❌ {credentialHistoryError}
@@ -1973,7 +1973,7 @@ const handleDownloadIssuerDocument = async (doc) => {
                     title={showRawAudit ? "Hide raw records" : "Show raw records"}
                     style={{
                       padding: "10px 0",
-                      borderTop: "1px solid rgba(255,255,255,0.08)",
+                      borderTop: "1px solid var(--border)",
                     }}
                   >
                     <span style={{ fontSize: "13px", opacity: 0.85 }}>
@@ -2022,7 +2022,7 @@ const handleDownloadIssuerDocument = async (doc) => {
                                   <div
                                     style={{
                                       marginTop: "6px",
-                                      color: "#ff6b6b",
+                                      color: "var(--danger)",
                                       fontSize: "12px",
                                     }}
                                   >
@@ -2102,12 +2102,12 @@ const handleDownloadIssuerDocument = async (doc) => {
               onClick={(e) => e.stopPropagation()}
               style={{
                 width: "min(600px, 95vw)",
-                background: "#101018",
+                background: "var(--surface-2)",
                 borderRadius: "12px",
-                border: "1px solid rgba(255,255,255,0.15)",
+                border: "1px solid var(--border-strong)",
                 padding: "24px",
                 boxShadow: "0 10px 40px rgba(0,0,0,0.4)",
-                color: "#fff",
+                color: "var(--text)",
               }}
             >
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "16px" }}>
@@ -2118,7 +2118,7 @@ const handleDownloadIssuerDocument = async (doc) => {
                   style={{
                     background: "transparent",
                     border: "1px solid rgba(255,255,255,0.25)",
-                    color: "#fff",
+                    color: "var(--text)",
                     borderRadius: "8px",
                     padding: "8px 10px",
                     cursor: "pointer",
@@ -2143,21 +2143,21 @@ const handleDownloadIssuerDocument = async (doc) => {
           >
             <div
               onClick={(e) => e.stopPropagation()}
-              style={{ width:"min(480px,95vw)",background:"#101018",borderRadius:"12px",border:"1px solid rgba(255,255,255,0.15)",padding:"24px",boxShadow:"0 10px 40px rgba(0,0,0,0.4)",color:"#fff" }}
+              style={{ width:"min(480px,95vw)",background:"var(--surface-2)",borderRadius:"12px",border:"1px solid var(--border-strong)",padding:"24px",boxShadow:"0 10px 40px rgba(0,0,0,0.4)",color:"var(--text)" }}
             >
               <h3 style={{ marginTop:0 }}>Approve Issuer</h3>
               <p style={{ opacity:0.85,marginTop:"6px",lineHeight:1.6 }}>
                 You are about to approve <strong>{approveIssuerName}</strong>. This grants them issuer access on ChainCert and is permanently recorded on the blockchain.
               </p>
               {approveIssuerError && (
-                <div style={{ color:"#ff6b6b",marginTop:"10px" }}>❌ {approveIssuerError}</div>
+                <div style={{ color:"var(--danger)",marginTop:"10px" }}>❌ {approveIssuerError}</div>
               )}
               <div style={{ display:"flex",gap:"10px",justifyContent:"flex-end",marginTop:"20px" }}>
                 <button
                   type="button"
                   onClick={closeApproveIssuerModal}
                   disabled={approveIssuerLoading}
-                  style={{ padding:"10px 14px",borderRadius:"10px",border:"1px solid rgba(255,255,255,0.18)",background:"transparent",color:"#fff",cursor:approveIssuerLoading?"not-allowed":"pointer",opacity:approveIssuerLoading?0.65:1,fontWeight:700 }}
+                  style={{ padding:"10px 14px",borderRadius:"10px",border:"1px solid rgba(255,255,255,0.18)",background:"transparent",color:"var(--text)",cursor:approveIssuerLoading?"not-allowed":"pointer",opacity:approveIssuerLoading?0.65:1,fontWeight:700 }}
                 >
                   Cancel
                 </button>
@@ -2165,7 +2165,7 @@ const handleDownloadIssuerDocument = async (doc) => {
                   type="button"
                   onClick={submitApproveIssuer}
                   disabled={approveIssuerLoading}
-                  style={{ padding:"10px 14px",borderRadius:"10px",border:"1px solid rgba(255,255,255,0.18)",background:"rgba(74,222,128,0.12)",color:"#4ade80",cursor:approveIssuerLoading?"not-allowed":"pointer",opacity:approveIssuerLoading?0.65:1,fontWeight:800 }}
+                  style={{ padding:"10px 14px",borderRadius:"10px",border:"1px solid rgba(255,255,255,0.18)",background:"var(--ok-weak)",color:"var(--ok)",cursor:approveIssuerLoading?"not-allowed":"pointer",opacity:approveIssuerLoading?0.65:1,fontWeight:800 }}
                 >
                   {approveIssuerLoading ? "Approving..." : "Confirm Approve"}
                 </button>
@@ -2194,12 +2194,12 @@ const handleDownloadIssuerDocument = async (doc) => {
               onClick={(e) => e.stopPropagation()}
               style={{
                 width: "min(520px, 95vw)",
-                background: "#101018",
+                background: "var(--surface-2)",
                 borderRadius: "12px",
-                border: "1px solid rgba(255,255,255,0.15)",
+                border: "1px solid var(--border-strong)",
                 padding: "18px",
                 boxShadow: "0 10px 40px rgba(0,0,0,0.4)",
-                color: "#fff",
+                color: "var(--text)",
               }}
             >
               <h3 style={{ marginTop: 0 }}>Reject Issuer</h3>
@@ -2219,16 +2219,16 @@ const handleDownloadIssuerDocument = async (doc) => {
                     borderRadius: "10px",
                     padding: "10px",
                     marginTop: "10px",
-                    background: "rgba(255,255,255,0.06)",
-                    border: "1px solid rgba(255,255,255,0.12)",
-                    color: "#fff",
+                    background: "var(--border)",
+                    border: "1px solid var(--border-strong)",
+                    color: "var(--text)",
                     outline: "none",
                     resize: "vertical",
                   }}
                 />
 
                 {Reject_IssuerError ? (
-                  <div style={{ color: "#ff6b6b", marginTop: "10px" }}>
+                  <div style={{ color: "var(--danger)", marginTop: "10px" }}>
                     ❌ {Reject_IssuerError}
                   </div>
                 ) : null}
@@ -2250,7 +2250,7 @@ const handleDownloadIssuerDocument = async (doc) => {
                       borderRadius: "10px",
                       border: "1px solid rgba(255,255,255,0.18)",
                       background: "transparent",
-                      color: "#fff",
+                      color: "var(--text)",
                       cursor: Reject_IssuerLoading ? "not-allowed" : "pointer",
                       opacity: Reject_IssuerLoading ? 0.65 : 1,
                       fontWeight: 700,
@@ -2266,8 +2266,8 @@ const handleDownloadIssuerDocument = async (doc) => {
                       padding: "10px 14px",
                       borderRadius: "10px",
                       border: "1px solid rgba(255,255,255,0.18)",
-                      background: "rgba(255,107,107,0.12)",
-                      color: "#ff6b6b",
+                      background: "var(--danger-weak)",
+                      color: "var(--danger)",
                       cursor: Reject_IssuerLoading ? "not-allowed" : "pointer",
                       opacity: Reject_IssuerLoading ? 0.65 : 1,
                       fontWeight: 800,
@@ -2301,12 +2301,12 @@ const handleDownloadIssuerDocument = async (doc) => {
               onClick={(e) => e.stopPropagation()}
               style={{
                 width: "min(520px, 95vw)",
-                background: "#101018",
+                background: "var(--surface-2)",
                 borderRadius: "12px",
-                border: "1px solid rgba(255,255,255,0.15)",
+                border: "1px solid var(--border-strong)",
                 padding: "18px",
                 boxShadow: "0 10px 40px rgba(0,0,0,0.4)",
-                color: "#fff",
+                color: "var(--text)",
               }}
             >
               <h3 style={{ marginTop: 0 }}>
@@ -2327,16 +2327,16 @@ const handleDownloadIssuerDocument = async (doc) => {
                     borderRadius: "10px",
                     padding: "10px",
                     marginTop: "10px",
-                    background: "rgba(255,255,255,0.06)",
-                    border: "1px solid rgba(255,255,255,0.12)",
-                    color: "#fff",
+                    background: "var(--border)",
+                    border: "1px solid var(--border-strong)",
+                    color: "var(--text)",
                     outline: "none",
                     resize: "vertical",
                   }}
                 />
 
                 {issuerStatusError ? (
-                  <div style={{ color: "#ff6b6b", marginTop: "10px" }}>
+                  <div style={{ color: "var(--danger)", marginTop: "10px" }}>
                     ❌ {issuerStatusError}
                   </div>
                 ) : null}
@@ -2358,7 +2358,7 @@ const handleDownloadIssuerDocument = async (doc) => {
                       borderRadius: "10px",
                       border: "1px solid rgba(255,255,255,0.18)",
                       background: "transparent",
-                      color: "#fff",
+                      color: "var(--text)",
                       cursor: issuerStatusLoading ? "not-allowed" : "pointer",
                       opacity: issuerStatusLoading ? 0.65 : 1,
                       fontWeight: 700,
@@ -2376,10 +2376,10 @@ const handleDownloadIssuerDocument = async (doc) => {
                       border: "1px solid rgba(255,255,255,0.18)",
                       background:
                         issuerStatusAction === "disable"
-                          ? "rgba(255,107,107,0.12)"
-                          : "rgba(74,222,128,0.12)",
+                          ? "var(--danger-weak)"
+                          : "var(--ok-weak)",
                       color:
-                        issuerStatusAction === "disable" ? "#ff6b6b" : "#4ade80",
+                        issuerStatusAction === "disable" ? "var(--danger)" : "var(--ok)",
                       cursor: issuerStatusLoading ? "not-allowed" : "pointer",
                       opacity: issuerStatusLoading ? 0.65 : 1,
                       fontWeight: 800,
@@ -2417,12 +2417,12 @@ const handleDownloadIssuerDocument = async (doc) => {
               onClick={(e) => e.stopPropagation()}
               style={{
                 width: "min(520px, 95vw)",
-                background: "#101018",
+                background: "var(--surface-2)",
                 borderRadius: "12px",
-                border: "1px solid rgba(255,255,255,0.15)",
+                border: "1px solid var(--border-strong)",
                 padding: "18px",
                 boxShadow: "0 10px 40px rgba(0,0,0,0.4)",
-                color: "#fff",
+                color: "var(--text)",
               }}
             >
               <h3 style={{ marginTop: 0 }}>
@@ -2443,16 +2443,16 @@ const handleDownloadIssuerDocument = async (doc) => {
                     borderRadius: "10px",
                     padding: "10px",
                     marginTop: "10px",
-                    background: "rgba(255,255,255,0.06)",
-                    border: "1px solid rgba(255,255,255,0.12)",
-                    color: "#fff",
+                    background: "var(--border)",
+                    border: "1px solid var(--border-strong)",
+                    color: "var(--text)",
                     outline: "none",
                     resize: "vertical",
                   }}
                 />
 
                 {userStatusError ? (
-                  <div style={{ color: "#ff6b6b", marginTop: "10px" }}>
+                  <div style={{ color: "var(--danger)", marginTop: "10px" }}>
                     ❌ {userStatusError}
                   </div>
                 ) : null}
@@ -2474,7 +2474,7 @@ const handleDownloadIssuerDocument = async (doc) => {
                       borderRadius: "10px",
                       border: "1px solid rgba(255,255,255,0.18)",
                       background: "transparent",
-                      color: "#fff",
+                      color: "var(--text)",
                       cursor: userStatusLoading ? "not-allowed" : "pointer",
                       opacity: userStatusLoading ? 0.65 : 1,
                       fontWeight: 700,
@@ -2492,10 +2492,10 @@ const handleDownloadIssuerDocument = async (doc) => {
                       border: "1px solid rgba(255,255,255,0.18)",
                       background:
                         userStatusAction === "disable"
-                          ? "rgba(255,107,107,0.12)"
-                          : "rgba(74,222,128,0.12)",
+                          ? "var(--danger-weak)"
+                          : "var(--ok-weak)",
                       color:
-                        userStatusAction === "disable" ? "#ff6b6b" : "#4ade80",
+                        userStatusAction === "disable" ? "var(--danger)" : "var(--ok)",
                       cursor: userStatusLoading ? "not-allowed" : "pointer",
                       opacity: userStatusLoading ? 0.65 : 1,
                       fontWeight: 800,
@@ -2535,12 +2535,12 @@ const handleDownloadIssuerDocument = async (doc) => {
                 width: "min(900px, 95vw)",
                 maxHeight: "85vh",
                 overflow: "auto",
-                background: "#101018",
+                background: "var(--surface-2)",
                 borderRadius: "12px",
-                border: "1px solid rgba(255,255,255,0.15)",
+                border: "1px solid var(--border-strong)",
                 padding: "18px",
                 boxShadow: "0 10px 40px rgba(0,0,0,0.4)",
-                color: "#fff",
+                color: "var(--text)",
               }}
             >
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "12px" }}>
@@ -2557,7 +2557,7 @@ const handleDownloadIssuerDocument = async (doc) => {
                   style={{
                     background: "transparent",
                     border: "1px solid rgba(255,255,255,0.25)",
-                    color: "#fff",
+                    color: "var(--text)",
                     borderRadius: "8px",
                     padding: "8px 10px",
                     cursor: "pointer",
@@ -2570,7 +2570,7 @@ const handleDownloadIssuerDocument = async (doc) => {
               {historyStatusLoading ? (
                 <div style={{ padding: "16px", opacity: 0.9 }}>Loading history...</div>
               ) : historyStatusError ? (
-                <div style={{ padding: "12px", background: "rgba(255,0,0,0.12)", border: "1px solid rgba(255,0,0,0.25)", borderRadius: "10px", color: "#ffd2d2" }}>
+                <div style={{ padding: "12px", background: "var(--danger-weak)", border: "1px solid var(--danger-weak)", borderRadius: "10px", color: "var(--danger)" }}>
                   ❌ {historyStatusError}
                 </div>
               ) : historyStatusLogs.length > 0 ? (
@@ -2635,12 +2635,12 @@ const handleDownloadIssuerDocument = async (doc) => {
                   width: "min(1100px, 95vw)",
                   maxHeight: "85vh",
                   overflow: "auto",
-                  background: "#101018",
+                  background: "var(--surface-2)",
                   borderRadius: "12px",
-                  border: "1px solid rgba(255,255,255,0.15)",
+                  border: "1px solid var(--border-strong)",
                   padding: "18px",
                   boxShadow: "0 10px 40px rgba(0,0,0,0.4)",
-                  color: "#fff",
+                  color: "var(--text)",
                 }}
               >
                 <div
@@ -2673,7 +2673,7 @@ const handleDownloadIssuerDocument = async (doc) => {
                     style={{
                       background: "transparent",
                       border: "1px solid rgba(255,255,255,0.25)",
-                      color: "#fff",
+                      color: "var(--text)",
                       borderRadius: "8px",
                       padding: "8px 10px",
                       cursor: "pointer",
@@ -2691,10 +2691,10 @@ const handleDownloadIssuerDocument = async (doc) => {
                   <div
                     style={{
                       padding: "12px",
-                      background: "rgba(255,0,0,0.12)",
-                      border: "1px solid rgba(255,0,0,0.25)",
+                      background: "var(--danger-weak)",
+                      border: "1px solid var(--danger-weak)",
                       borderRadius: "10px",
-                      color: "#ffd2d2",
+                      color: "var(--danger)",
                     }}
                   >
                     ❌ {issuerDocumentsError}
@@ -2732,8 +2732,8 @@ const handleDownloadIssuerDocument = async (doc) => {
                                   border: "1px solid rgba(255,255,255,0.18)",
                                   cursor: "pointer",
                                   fontWeight: 700,
-                                  background: "rgba(139,92,246,0.15)",
-                                  color: "#a78bfa",
+                                  background: "var(--accent-weak)",
+                                  color: "var(--accent-strong)",
                                 }}
                               >
                                 View
@@ -2748,8 +2748,8 @@ const handleDownloadIssuerDocument = async (doc) => {
                                   border: "1px solid rgba(255,255,255,0.18)",
                                   cursor: "pointer",
                                   fontWeight: 700,
-                                  background: "rgba(74,222,128,0.12)",
-                                  color: "#4ade80",
+                                  background: "var(--ok-weak)",
+                                  color: "var(--ok)",
                                 }}
                               >
                                 Download
@@ -2793,7 +2793,7 @@ const handleDownloadIssuerDocument = async (doc) => {
                   });
                   const entries = Object.entries(issuerCounts).sort((a, b) => b[1] - a[1]).slice(0, 6);
                   const max = Math.max(...entries.map(e => e[1]), 1);
-                  const colors = ["#667eea", "#8b5cf6", "#a78bfa", "#22c55e", "#f59e0b", "#60a5fa"];
+                  const colors = ["var(--accent)", "var(--accent)", "var(--accent-strong)", "var(--ok)", "var(--warn)", "var(--info)"];
                   return entries.length > 0 ? entries.map(([name, count], i) => (
                     <div
                       key={name}
@@ -2809,7 +2809,7 @@ const handleDownloadIssuerDocument = async (doc) => {
                       <span className="chart-bar-label">{name.length > 12 ? name.slice(0, 12) + "…" : name}</span>
                     </div>
                   )) : (
-                    <div style={{ color: "#888", fontSize: 13, textAlign: "center", width: "100%", paddingTop: 40 }}>No credential data yet</div>
+                    <div style={{ color: "var(--text-muted)", fontSize: 13, textAlign: "center", width: "100%", paddingTop: 40 }}>No credential data yet</div>
                   );
                 })()}
               </div>
@@ -2828,10 +2828,10 @@ const handleDownloadIssuerDocument = async (doc) => {
                   const total = active + revoked + expired + templates || 1;
 
                   const segments = [
-                    { label: "Active", count: active, color: "#4ade80" },
-                    { label: "Revoked", count: revoked, color: "#f87171" },
-                    { label: "Expired", count: expired, color: "#fbbf24" },
-                    { label: "Templates", count: templates, color: "#a78bfa" },
+                    { label: "Active", count: active, color: "var(--ok)" },
+                    { label: "Revoked", count: revoked, color: "var(--danger)" },
+                    { label: "Expired", count: expired, color: "var(--warn)" },
+                    { label: "Templates", count: templates, color: "var(--accent-strong)" },
                   ];
 
                   let cumPercent = 0;
@@ -2884,7 +2884,7 @@ const handleDownloadIssuerDocument = async (doc) => {
             </div>
 
             {integrityResult && (
-              <div style={{ marginBottom: "16px", padding: "16px", background: "rgba(139,92,246,0.08)", border: "1px solid rgba(139,92,246,0.2)", borderRadius: "12px", color: "#ddd6fe" }}>
+              <div style={{ marginBottom: "16px", padding: "16px", background: "var(--accent-weaker)", border: "1px solid var(--accent-weak)", borderRadius: "12px", color: "var(--accent-strong)" }}>
                 Last integrity check: {integrityResult.totalChecked} checked • {integrityResult.matched} matched • {integrityResult.mismatched} mismatched • {integrityResult.missing} missing • {integrityResult.errors} errors.
               </div>
             )}
@@ -3032,8 +3032,8 @@ const handleDownloadIssuerDocument = async (doc) => {
                                     borderRadius: 10,
                                     border: "1px solid rgba(255,255,255,0.18)",
                                     cursor: "pointer",
-                                    background: "rgba(255,255,255,0.06)",
-                                    color: "#fff",
+                                    background: "var(--border)",
+                                    color: "var(--text)",
                                     fontWeight: 700,
                                   }}
                                   title="View blockchain audit history"
@@ -3058,10 +3058,10 @@ const handleDownloadIssuerDocument = async (doc) => {
             </div>
             <NotesCard
               legend={[
-                { label: "Issued / Active", color: "#22c55e", meaning: "issued and currently valid" },
-                { label: "Revoked", color: "#ef4444", meaning: "cancelled by the issuer" },
-                { label: "Expired", color: "#f59e0b", meaning: "past its expiry date" },
-                { label: "Template", color: "#3b82f6", meaning: "a reusable template (not yet issued)" },
+                { label: "Issued / Active", color: "var(--ok)", meaning: "issued and currently valid" },
+                { label: "Revoked", color: "var(--danger)", meaning: "cancelled by the issuer" },
+                { label: "Expired", color: "var(--warn)", meaning: "past its expiry date" },
+                { label: "Template", color: "var(--info)", meaning: "a reusable template (not yet issued)" },
               ]}
             />
             </div>
@@ -3241,8 +3241,8 @@ const handleDownloadIssuerDocument = async (doc) => {
                                 border: "1px solid rgba(255,255,255,0.18)",
                                 cursor: "pointer",
                                 fontWeight: 700,
-                                background: isDisabled ? "rgba(74,222,128,0.12)" : "rgba(255,107,107,0.12)",
-                                color: isDisabled ? "#4ade80" : "#ff6b6b",
+                                background: isDisabled ? "var(--ok-weak)" : "var(--danger-weak)",
+                                color: isDisabled ? "var(--ok)" : "var(--danger)",
                               }}
                               title={isDisabled ? "Re-enable issuer" : "Disable issuer"}
                             >
@@ -3257,8 +3257,8 @@ const handleDownloadIssuerDocument = async (doc) => {
                                 border: "1px solid rgba(255,255,255,0.18)",
                                 cursor: "pointer",
                                 fontWeight: 700,
-                                background: "rgba(139,92,246,0.15)",
-                                color: "#a78bfa",
+                                background: "var(--accent-weak)",
+                                color: "var(--accent-strong)",
                               }}
                               title="View status change history"
                             >
@@ -3274,8 +3274,8 @@ const handleDownloadIssuerDocument = async (doc) => {
                                   border: "1px solid rgba(255,255,255,0.18)",
                                   cursor: "pointer",
                                   fontWeight: 700,
-                                  background: "rgba(139,92,246,0.15)",
-                                  color: "#a78bfa",
+                                  background: "var(--accent-weak)",
+                                  color: "var(--accent-strong)",
                                 }}
                                 title="View submitted documents"
                               >
@@ -3297,8 +3297,8 @@ const handleDownloadIssuerDocument = async (doc) => {
                               border: "1px solid rgba(255,255,255,0.18)",
                               cursor: "pointer",
                               fontWeight: 700,
-                              background: "rgba(74,222,128,0.12)",
-                              color: "#4ade80",
+                              background: "var(--ok-weak)",
+                              color: "var(--ok)",
                             }}
                             title="Re-enable issuer"
                           >
@@ -3332,8 +3332,8 @@ const handleDownloadIssuerDocument = async (doc) => {
                                   border: "1px solid rgba(255,255,255,0.18)",
                                   cursor: "pointer",
                                   fontWeight: 700,
-                                  background: "rgba(74,222,128,0.12)",
-                                  color: "#4ade80",
+                                  background: "var(--ok-weak)",
+                                  color: "var(--ok)",
                                 }}
                               >
                                 Approve
@@ -3346,8 +3346,8 @@ const handleDownloadIssuerDocument = async (doc) => {
                                   border: "1px solid rgba(255,255,255,0.18)",
                                   cursor: "pointer",
                                   fontWeight: 700,
-                                  background: "rgba(255,107,107,0.12)",
-                                  color: "#ff6b6b",
+                                  background: "var(--danger-weak)",
+                                  color: "var(--danger)",
                                 }}
                               >
                                 Reject
@@ -3367,8 +3367,8 @@ const handleDownloadIssuerDocument = async (doc) => {
                                 border: "1px solid rgba(255,255,255,0.18)",
                                 cursor: "pointer",
                                 fontWeight: 700,
-                                background: "rgba(139,92,246,0.15)",
-                                color: "#a78bfa",
+                                background: "var(--accent-weak)",
+                                color: "var(--accent-strong)",
                               }}
                               title="View submitted documents"
                             >
@@ -3445,10 +3445,10 @@ const handleDownloadIssuerDocument = async (doc) => {
                     }[issuerFilter]
               }
               legend={[
-                { label: "Approved / Active", color: "#22c55e", meaning: "fully approved, can issue" },
-                { label: "Pending", color: "#eab308", meaning: "awaiting admin decision" },
-                { label: "Rejected / Disabled", color: "#ef4444", meaning: "denied, or turned off by admin" },
-                { label: "Awaiting Root", color: "#a78bfa", meaning: "subordinate waiting on its root authority (purple badge)" },
+                { label: "Approved / Active", color: "var(--ok)", meaning: "fully approved, can issue" },
+                { label: "Pending", color: "var(--warn)", meaning: "awaiting admin decision" },
+                { label: "Rejected / Disabled", color: "var(--danger)", meaning: "denied, or turned off by admin" },
+                { label: "Awaiting Root", color: "var(--accent-strong)", meaning: "subordinate waiting on its root authority (purple badge)" },
               ]}
             />
           </div>
@@ -3546,9 +3546,9 @@ const handleDownloadIssuerDocument = async (doc) => {
                               cursor: "pointer",
                               fontWeight: 700,
                               background: isDisabled
-                                ? "rgba(74,222,128,0.12)"
-                                : "rgba(255,107,107,0.12)",
-                              color: isDisabled ? "#4ade80" : "#ff6b6b",
+                                ? "var(--ok-weak)"
+                                : "var(--danger-weak)",
+                              color: isDisabled ? "var(--ok)" : "var(--danger)",
                             }}
                             title={isDisabled ? "Re-enable user" : "Disable user"}
                           >
@@ -3563,8 +3563,8 @@ const handleDownloadIssuerDocument = async (doc) => {
                               border: "1px solid rgba(255,255,255,0.18)",
                               cursor: "pointer",
                               fontWeight: 700,
-                              background: "rgba(139,92,246,0.15)",
-                              color: "#a78bfa",
+                              background: "var(--accent-weak)",
+                              color: "var(--accent-strong)",
                             }}
                             title="View status change history"
                           >
@@ -3705,8 +3705,8 @@ const handleDownloadIssuerDocument = async (doc) => {
                     padding: "8px 10px",
                     borderRadius: 10,
                     border: "1px solid rgba(255,255,255,0.18)",
-                    background: "rgba(255,255,255,0.06)",
-                    color: "#fff",
+                    background: "var(--border)",
+                    color: "var(--text)",
                     outline: "none",
                     minWidth: 220,
                   }}
@@ -3717,8 +3717,8 @@ const handleDownloadIssuerDocument = async (doc) => {
                     padding: "8px 14px",
                     borderRadius: 10,
                     border: "1px solid rgba(255,255,255,0.18)",
-                    background: "rgba(139,92,246,0.15)",
-                    color: "#a78bfa",
+                    background: "var(--accent-weak)",
+                    color: "var(--accent-strong)",
                     cursor: "pointer",
                     fontWeight: 700,
                   }}
@@ -3750,8 +3750,8 @@ const handleDownloadIssuerDocument = async (doc) => {
                     padding: "8px 10px",
                     borderRadius: 10,
                     border: "1px solid rgba(255,255,255,0.18)",
-                    background: "rgba(255,255,255,0.06)",
-                    color: "#fff",
+                    background: "var(--border)",
+                    color: "var(--text)",
                     outline: "none",
                     minWidth: 260,
                   }}
@@ -3809,7 +3809,7 @@ const handleDownloadIssuerDocument = async (doc) => {
                               <td>
                                 <span style={{
                                   fontWeight: 700,
-                                  color: isApproved ? "#4ade80" : "#ff6b6b",
+                                  color: isApproved ? "var(--ok)" : "var(--danger)",
                                 }}>
                                   {log.decision || "N/A"}
                                 </span>
@@ -3878,7 +3878,7 @@ const handleDownloadIssuerDocument = async (doc) => {
                               <td>{log.issuerEmail || "N/A"}</td>
                               <td>{log.orgName || "N/A"}</td>
                               <td>
-                                <span style={{ fontWeight: 700, color: isApproved ? "#4ade80" : "#ff6b6b" }}>
+                                <span style={{ fontWeight: 700, color: isApproved ? "var(--ok)" : "var(--danger)" }}>
                                   {log.decision || "N/A"}
                                 </span>
                               </td>
@@ -3941,17 +3941,17 @@ const handleDownloadIssuerDocument = async (doc) => {
                               const reason = (r.reason || log.resultMessage || "").toLowerCase();
                               const status = (r.status || "").toLowerCase();
                               let label = "Checked";
-                              let color = "#9ca3af";
+                              let color = "var(--text-muted)";
                               if (status === "not_found" || reason.includes("not found")) {
-                                label = "Not Found"; color = "#a78bfa";
+                                label = "Not Found"; color = "var(--accent-strong)";
                               } else if (r.valid === true || reason.includes("valid")) {
-                                label = "Valid"; color = "#4ade80";
+                                label = "Valid"; color = "var(--ok)";
                               } else if (reason.includes("revoked")) {
-                                label = "Revoked"; color = "#f87171";
+                                label = "Revoked"; color = "var(--danger)";
                               } else if (reason.includes("expired")) {
-                                label = "Expired"; color = "#fbbf24";
+                                label = "Expired"; color = "var(--warn)";
                               } else if (r.valid === false) {
-                                label = "Invalid"; color = "#f87171";
+                                label = "Invalid"; color = "var(--danger)";
                               }
                               return (
                                 <span
@@ -4048,10 +4048,10 @@ const handleDownloadIssuerDocument = async (doc) => {
               legend={
                 logCategory === "verification"
                   ? [
-                      { label: "Valid", color: "#4ade80", meaning: "authentic and active" },
-                      { label: "Revoked", color: "#f87171", meaning: "cancelled by the issuer" },
-                      { label: "Expired", color: "#fbbf24", meaning: "past its expiry date" },
-                      { label: "Not Found", color: "#a78bfa", meaning: "no such credential (likely a fake / forged ID)" },
+                      { label: "Valid", color: "var(--ok)", meaning: "authentic and active" },
+                      { label: "Revoked", color: "var(--danger)", meaning: "cancelled by the issuer" },
+                      { label: "Expired", color: "var(--warn)", meaning: "past its expiry date" },
+                      { label: "Not Found", color: "var(--accent-strong)", meaning: "no such credential (likely a fake / forged ID)" },
                     ]
                   : []
               }
@@ -4117,7 +4117,7 @@ const handleDownloadIssuerDocument = async (doc) => {
                 data={demand.byType}
                 xKey="type"
                 yKey="verifications"
-                color="#60a5fa"
+                color="#5B8DEF"
               />
               {demand.totalVerifications > 0 && (
                 <p className="analytics-flag-reason" style={{ marginTop: 8 }}>

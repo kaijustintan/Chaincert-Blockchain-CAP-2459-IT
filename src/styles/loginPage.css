@@ -40,7 +40,7 @@
   display: flex;
   min-height: 100vh;
   font-family: var(--font-ui);
-  color: #fff;
+  color: var(--text);
   position: relative;
   background: rgba(0, 0, 0, 0.55);
 }
@@ -62,7 +62,7 @@
 
 .login-left-card {
   background: rgba(10, 14, 28, 0.92);
-  border: 1px solid rgba(99, 130, 201, 0.2);
+  border: 1px solid var(--accent-weak);
   border-radius: 20px;
   padding: 36px 32px;
   max-width: 420px;
@@ -80,7 +80,7 @@
   left: 0;
   right: 0;
   height: 3px;
-  background: linear-gradient(90deg, #3b5bdb, #5c7cfa, #3b5bdb);
+  background: linear-gradient(90deg, var(--accent), var(--accent), var(--accent));
   border-radius: 20px 20px 0 0;
 }
 
@@ -91,7 +91,7 @@
   right: -40px;
   width: 120px;
   height: 120px;
-  background: radial-gradient(circle, rgba(91, 124, 250, 0.1) 0%, transparent 70%);
+  background: radial-gradient(circle, var(--accent-weak) 0%, transparent 70%);
   border-radius: 50%;
   pointer-events: none;
 }
@@ -107,14 +107,14 @@
   font-size: 1.75rem;
   font-weight: 700;
   margin-bottom: 0.6rem;
-  color: #fff;
+  color: var(--text);
   letter-spacing: -0.01em;
 }
 
 .login-left p {
   font-size: 0.85rem;
   margin-bottom: 1rem;
-  color: #94a3b8;
+  color: var(--text-muted);
 }
 
 .login-left ul {
@@ -126,13 +126,13 @@
 .login-left li {
   font-size: 0.85rem;
   margin-bottom: 0.7rem;
-  color: #cbd5e1;
-  transition: all 0.3s ease;
+  color: var(--text-muted);
+  transition: all var(--motion) var(--ease);
   padding-left: 4px;
 }
 
 .login-left li:hover {
-  color: #fff;
+  color: var(--text);
   transform: translateX(4px);
 }
 
@@ -154,18 +154,18 @@
    ===================================================== */
 .login-box {
   background: rgba(10, 14, 28, 0.95);
-  border: 1px solid rgba(99, 130, 201, 0.18);
+  border: 1px solid var(--accent-weak);
   padding: 2.2rem;
   border-radius: 20px;
-  box-shadow: 0 12px 48px rgba(0, 0, 0, 0.55), inset 0 1px 0 rgba(99, 130, 201, 0.06);
+  box-shadow: 0 12px 48px rgba(0, 0, 0, 0.55), inset 0 1px 0 var(--accent-weaker);
   width: 360px;
   max-width: 95vw;
   text-align: center;
-  color: #fff;
+  color: var(--text);
   animation: fadeInUp 0.5s ease-out;
   position: relative;
   overflow: hidden;
-  transition: transform 0.3s ease, box-shadow 0.3s ease;
+  transition: transform var(--motion) var(--ease), box-shadow var(--motion) var(--ease);
 }
 
 .login-box::before {
@@ -175,12 +175,12 @@
   left: 0;
   right: 0;
   height: 3px;
-  background: linear-gradient(90deg, #3b5bdb, #5c7cfa, #3b5bdb);
+  background: linear-gradient(90deg, var(--accent), var(--accent), var(--accent));
 }
 
 .login-box:hover {
   transform: translateY(-3px);
-  box-shadow: 0 20px 64px rgba(0, 0, 0, 0.6), 0 0 0 1px rgba(99, 130, 201, 0.12);
+  box-shadow: 0 20px 64px rgba(0, 0, 0, 0.6), 0 0 0 1px var(--accent-weak);
 }
 
 /* =====================================================
@@ -190,7 +190,7 @@
   font-size: 1.6rem;
   font-weight: 800;
   margin-bottom: 0.2rem;
-  background: linear-gradient(135deg, #748ffc, #a5b4fc, #5c7cfa);
+  background: linear-gradient(135deg, var(--accent-strong), var(--accent-strong), var(--accent));
   background-size: 300% 100%;
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
@@ -200,7 +200,7 @@
 
 .tagline {
   font-size: 0.72rem;
-  color: #64748b;
+  color: var(--text-subtle);
   margin-bottom: 1.4rem;
   letter-spacing: 0.4px;
   text-transform: uppercase;
@@ -224,7 +224,7 @@
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.8px;
-  color: #94a3b8;
+  color: var(--text-muted);
   display: block;
   margin-bottom: 5px;
 }
@@ -232,13 +232,13 @@
 .input-group input {
   width: 100%;
   padding: 10px 14px;
-  border-radius: 10px;
-  border: 1px solid rgba(99, 130, 201, 0.2);
-  font-size: 13px;
+  border-radius: var(--radius-card);
+  border: 1px solid var(--accent-weak);
+  font-size: var(--fs-small);
   font-family: var(--font-ui);
   background: rgba(15, 20, 40, 0.95);
-  color: #e2e8f0;
-  transition: all 0.3s ease;
+  color: var(--text);
+  transition: all var(--motion) var(--ease);
   box-sizing: border-box;
 }
 
@@ -248,8 +248,8 @@
 
 .input-group input:focus {
   outline: none;
-  border-color: #5c7cfa;
-  box-shadow: 0 0 0 3px rgba(92, 124, 250, 0.12);
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-weak);
   background: rgba(18, 24, 50, 0.98);
 }
 
@@ -262,19 +262,19 @@
    LOGIN BUTTON
    ===================================================== */
 .login-btn {
-  background: linear-gradient(135deg, #3b5bdb 0%, #5c7cfa 100%);
-  color: #fff;
+  background: linear-gradient(135deg, var(--accent) 0%, var(--accent) 100%);
+  color: var(--text);
   border: none;
   padding: 11px;
-  border-radius: 12px;
+  border-radius: var(--radius-modal);
   cursor: pointer;
   margin-top: 6px;
   width: 100%;
-  font-size: 14px;
+  font-size: var(--fs-body);
   font-weight: 600;
   font-family: var(--font-ui);
-  transition: all 0.3s ease;
-  box-shadow: 0 4px 20px rgba(59, 91, 219, 0.3);
+  transition: all var(--motion) var(--ease);
+  box-shadow: 0 4px 20px var(--accent-weak);
   position: relative;
   overflow: hidden;
   letter-spacing: 0.3px;
@@ -287,7 +287,7 @@
   left: -100%;
   width: 100%;
   height: 100%;
-  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.08), transparent);
+  background: linear-gradient(90deg, transparent, var(--border), transparent);
   transition: none;
 }
 
@@ -297,7 +297,7 @@
 
 .login-btn:hover:not(:disabled) {
   transform: translateY(-2px);
-  box-shadow: 0 8px 28px rgba(59, 91, 219, 0.4);
+  box-shadow: 0 8px 28px var(--border-accent);
 }
 
 .login-btn:active:not(:disabled) {
@@ -313,11 +313,11 @@
    ERROR BANNER
    ===================================================== */
 .error-banner {
-  background: rgba(220, 38, 38, 0.08);
-  border: 1px solid rgba(220, 38, 38, 0.2);
-  color: #fca5a5;
+  background: var(--danger-weak);
+  border: 1px solid var(--danger-weak);
+  color: var(--danger);
   padding: 12px 16px;
-  border-radius: 10px;
+  border-radius: var(--radius-card);
   margin-bottom: 16px;
   display: flex;
   align-items: center;
@@ -329,7 +329,7 @@
 }
 
 .error-banner span {
-  font-size: 15px;
+  font-size: var(--fs-h3);
 }
 
 /* =====================================================
@@ -339,18 +339,18 @@
   margin-top: 1.2rem;
   display: flex;
   justify-content: space-between;
-  font-size: 12px;
+  font-size: var(--fs-label);
 }
 
 .extra-links a {
-  color: #748ffc;
+  color: var(--accent-strong);
   text-decoration: none;
   font-weight: 600;
-  transition: all 0.3s ease;
+  transition: all var(--motion) var(--ease);
 }
 
 .extra-links a:hover {
-  color: #a5b4fc;
+  color: var(--accent-strong);
   text-decoration: underline;
 }
 

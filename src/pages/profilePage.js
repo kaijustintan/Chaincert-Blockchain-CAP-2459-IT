@@ -616,7 +616,7 @@ const [showAll, setShowAll] = useState(false);
                   style={{
                     background: "transparent",
                     border: "1px solid rgba(255,255,255,0.2)",
-                    color: "#aaa",
+                    color: "var(--text-muted)",
                   }}
                 >
                   Cancel
@@ -641,10 +641,10 @@ const [showAll, setShowAll] = useState(false);
                 value={editNameInput}
                 onChange={(e) => setEditNameInput(e.target.value)}
                 style={{
-                  background: "rgba(255,255,255,0.08)",
-                  border: "1px solid #a78bfa",
+                  background: "var(--border)",
+                  border: "1px solid var(--accent-strong)",
                   borderRadius: 8,
-                  color: "#fff",
+                  color: "var(--text)",
                   padding: "6px 10px",
                   fontSize: "14px",
                   outline: "none",
@@ -711,9 +711,9 @@ const [showAll, setShowAll] = useState(false);
         ) : (
           <div>
             {summary ? (
-              <p style={{ color: "#d4d4d8", fontSize: 14, lineHeight: 1.6 }}>{summary}</p>
+              <p style={{ color: "var(--text-muted)", fontSize: 14, lineHeight: 1.6 }}>{summary}</p>
             ) : (
-              <p style={{ color: "#666", fontSize: 14 }}>No summary yet. Click Edit Profile to add one.</p>
+              <p style={{ color: "var(--text-subtle)", fontSize: 14 }}>No summary yet. Click Edit Profile to add one.</p>
             )}
             </div>
         )}
@@ -822,7 +822,7 @@ const [showAll, setShowAll] = useState(false);
                     <div className="skill-info">
                       <h4>{skill}</h4>
                       {sourceCreds.length > 0 && (
-                        <p style={{ color: '#a78bfa', fontSize: '0.78rem', margin: '2px 0 0 0' }}>
+                        <p style={{ color: 'var(--accent-strong)', fontSize: '0.78rem', margin: '2px 0 0 0' }}>
                           Derived from {sourceCreds.map(c => c.credentialName).join(', ')}
                         </p>
                       )}
@@ -835,7 +835,7 @@ const [showAll, setShowAll] = useState(false);
                         left: '50%',
                         transform: 'translateX(-50%)',
                         background: 'rgba(20,10,40,0.97)',
-                        border: '1px solid rgba(139,92,246,0.5)',
+                        border: '1px solid var(--border-accent)',
                         borderRadius: 10,
                         padding: '10px 14px',
                         zIndex: 999,
@@ -843,14 +843,14 @@ const [showAll, setShowAll] = useState(false);
                         boxShadow: '0 4px 20px rgba(0,0,0,0.5)',
                         whiteSpace: 'nowrap'
                       }}>
-                        <p style={{ color: '#a78bfa', fontSize: '0.75rem', marginBottom: 6, fontWeight: 700 }}>
+                        <p style={{ color: 'var(--accent-strong)', fontSize: '0.75rem', marginBottom: 6, fontWeight: 700 }}>
                           FROM CREDENTIAL:
                         </p>
                         {sourceCreds.length === 0 ? (
                           <p style={{ color: '#ccc', fontSize: '0.8rem' }}>Unknown</p>
                         ) : (
                           sourceCreds.map((c, i) => (
-                            <p key={i} style={{ color: '#fff', fontSize: '0.82rem', margin: '2px 0' }}>
+                            <p key={i} style={{ color: 'var(--text)', fontSize: '0.82rem', margin: '2px 0' }}>
                               {c.credentialName}
                             </p>
                           ))
@@ -865,7 +865,7 @@ const [showAll, setShowAll] = useState(false);
                           height: 0,
                           borderLeft: '7px solid transparent',
                           borderRight: '7px solid transparent',
-                          borderTop: '7px solid rgba(139,92,246,0.5)'
+                          borderTop: '7px solid var(--border-accent)'
                         }} />
                       </div>
                     )}
@@ -926,9 +926,9 @@ const [showAll, setShowAll] = useState(false);
               <div style={{ overflowX: 'auto' }}>
               <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.85rem' }}>
                 <thead>
-                  <tr style={{ borderBottom: '1px solid rgba(139,92,246,0.3)' }}>
+                  <tr style={{ borderBottom: '1px solid var(--accent-weak)' }}>
                     {['Recipient', 'Source', 'Description', 'Created', 'Expires', 'Share Link', 'Views', 'Status', 'Action'].map(h => (
-                      <th key={h} style={{ padding: '8px 12px', color: '#a78bfa', fontWeight: 600, textAlign: 'left', whiteSpace: 'nowrap' }}>{h}</th>
+                      <th key={h} style={{ padding: '8px 12px', color: 'var(--accent-strong)', fontWeight: 600, textAlign: 'left', whiteSpace: 'nowrap' }}>{h}</th>
                     ))}
                   </tr>
                 </thead>
@@ -936,16 +936,16 @@ const [showAll, setShowAll] = useState(false);
                   {filteredLinks.map((link) => {
                     const status = getShareLinkStatus(link);
                     const statusColors = {
-                      Unused: { bg: 'rgba(99,102,241,0.15)', color: '#818cf8' },
-                      Viewed: { bg: 'rgba(34,197,94,0.15)', color: '#4ade80' },
-                      Expired: { bg: 'rgba(251,191,36,0.15)', color: '#fbbf24' },
-                      Revoked: { bg: 'rgba(239,68,68,0.15)', color: '#f87171' }
+                      Unused: { bg: 'rgba(99,102,241,0.15)', color: 'var(--accent)' },
+                      Viewed: { bg: 'var(--ok-weak)', color: 'var(--ok)' },
+                      Expired: { bg: 'rgba(251,191,36,0.15)', color: 'var(--warn)' },
+                      Revoked: { bg: 'var(--danger-weak)', color: 'var(--danger)' }
                     };
                     const sc = statusColors[status];
                     return (
-                      <tr key={link._id} style={{ borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
-                        <td style={{ padding: '10px 12px', color: '#d4d4d8' }}>
-                          {link.recipientEmail || <span style={{ color: '#666', fontStyle: 'italic' }}>Anyone</span>}
+                      <tr key={link._id} style={{ borderBottom: '1px solid var(--border)' }}>
+                        <td style={{ padding: '10px 12px', color: 'var(--text-muted)' }}>
+                          {link.recipientEmail || <span style={{ color: 'var(--text-subtle)', fontStyle: 'italic' }}>Anyone</span>}
                         </td>
                         <td style={{ padding: '10px 12px' }}>
                           <span style={{
@@ -953,19 +953,19 @@ const [showAll, setShowAll] = useState(false);
                             borderRadius: '10px',
                             fontSize: '11px',
                             fontWeight: 600,
-                            background: link.source === 'pdf_export' ? 'rgba(59,130,246,0.12)' : link.source === 'pdf_single_export' ? 'rgba(14,165,233,0.12)' : 'rgba(139,92,246,0.12)',
-                            color: link.source === 'pdf_export' ? '#3b82f6' : link.source === 'pdf_single_export' ? '#38bdf8' : '#a78bfa'
+                            background: link.source === 'pdf_export' ? 'var(--info-weak)' : link.source === 'pdf_single_export' ? 'rgba(14,165,233,0.12)' : 'var(--accent-weak)',
+                            color: link.source === 'pdf_export' ? 'var(--info)' : link.source === 'pdf_single_export' ? '#38bdf8' : 'var(--accent-strong)'
                           }}>
                             {link.source === 'pdf_export' ? 'Portfolio Export' : link.source === 'pdf_single_export' ? 'Single Export' : 'Manual'}
                           </span>
                         </td>
-                        <td style={{ padding: '10px 12px', fontSize: '12px', maxWidth: '200px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: '#d4d4d8' }}>
+                        <td style={{ padding: '10px 12px', fontSize: '12px', maxWidth: '200px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: 'var(--text-muted)' }}>
                           {link.description || '—'}
                         </td>
-                        <td style={{ padding: '10px 12px', color: '#94a3b8', whiteSpace: 'nowrap' }}>
+                        <td style={{ padding: '10px 12px', color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>
                           {link.createdAt ? new Date(link.createdAt).toLocaleDateString() : '—'}
                         </td>
-                        <td style={{ padding: '10px 12px', color: '#94a3b8', whiteSpace: 'nowrap' }}>
+                        <td style={{ padding: '10px 12px', color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>
                           {link.expiresAt ? new Date(link.expiresAt).toLocaleDateString() : 'No Expiry'}
                         </td>
                         <td style={{ padding: '10px 12px', maxWidth: 320 }}>
@@ -976,12 +976,12 @@ const [showAll, setShowAll] = useState(false);
                             <button type="button" className="share-link-copy-btn" onClick={() => navigator.clipboard.writeText(link.shareUrl || `${window.location.origin}/profile/${link.token}`).then(() => showToast('Share link copied.')).catch(() => showToast('Failed to copy share link.', 'danger'))}>Copy</button>
                           </div>
                         </td>
-                        <td style={{ padding: '10px 12px', color: '#d4d4d8', textAlign: 'center' }}>
+                        <td style={{ padding: '10px 12px', color: 'var(--text-muted)', textAlign: 'center' }}>
                           {link.viewCount || 0}
                         </td>
                         <td style={{ padding: '10px 12px' }}>
-                          {status === 'Revoked' && <span style={{ color: '#ef4444', fontWeight: 600 }}>Revoked</span>}
-                          {status === 'Expired' && <span style={{ color: '#f59e0b', fontWeight: 600 }}>Expired</span>}
+                          {status === 'Revoked' && <span style={{ color: 'var(--danger)', fontWeight: 600 }}>Revoked</span>}
+                          {status === 'Expired' && <span style={{ color: 'var(--warn)', fontWeight: 600 }}>Expired</span>}
                           {status !== 'Revoked' && status !== 'Expired' && <span style={{ background: sc.bg, color: sc.color, borderRadius: 20, padding: '3px 10px', fontSize: '0.78rem', fontWeight: 600 }}>{status === 'Viewed' ? 'Viewed' : 'Active'}</span>}
                         </td>
                         <td style={{ padding: '10px 12px' }}>
@@ -991,9 +991,9 @@ const [showAll, setShowAll] = useState(false);
                                 onClick={() => handleRevokeShareLink(link.token)}
                                 disabled={revokingToken === link.token}
                                 style={{
-                                  background: 'rgba(239,68,68,0.15)',
-                                  border: '1px solid rgba(239,68,68,0.4)',
-                                  borderRadius: 6, color: '#f87171',
+                                  background: 'var(--danger-weak)',
+                                  border: '1px solid var(--danger-weak)',
+                                  borderRadius: 6, color: 'var(--danger)',
                                   padding: '4px 10px', fontSize: '0.78rem',
                                   cursor: 'pointer', fontFamily: 'Poppins, sans-serif'
                                 }}
@@ -1002,7 +1002,7 @@ const [showAll, setShowAll] = useState(false);
                               </button>
                             </>
                           ) : (
-                            <span style={{ color: '#555', fontSize: '0.78rem' }}>—</span>
+                            <span style={{ color: 'var(--text-muted)', fontSize: '0.78rem' }}>—</span>
                           )}
                         </td>
                       </tr>
@@ -1034,9 +1034,9 @@ const [showAll, setShowAll] = useState(false);
                       style={{
                         flex: 1, padding: '8px 0', borderRadius: 8, fontSize: '13px',
                         fontWeight: 600, cursor: 'pointer', fontFamily: 'Poppins, sans-serif',
-                        border: shareType === 'specific' ? 'none' : '1px solid rgba(139,92,246,0.3)',
-                        background: shareType === 'specific' ? 'linear-gradient(135deg, #667eea, #764ba2)' : 'transparent',
-                        color: shareType === 'specific' ? '#fff' : '#a78bfa'
+                        border: shareType === 'specific' ? 'none' : '1px solid var(--accent-weak)',
+                        background: shareType === 'specific' ? 'linear-gradient(135deg, var(--accent), var(--accent-strong))' : 'transparent',
+                        color: shareType === 'specific' ? 'var(--text)' : 'var(--accent-strong)'
                       }}
                     >
                       Specific Recipient
@@ -1046,9 +1046,9 @@ const [showAll, setShowAll] = useState(false);
                       style={{
                         flex: 1, padding: '8px 0', borderRadius: 8, fontSize: '13px',
                         fontWeight: 600, cursor: 'pointer', fontFamily: 'Poppins, sans-serif',
-                        border: shareType === 'public' ? 'none' : '1px solid rgba(139,92,246,0.3)',
-                        background: shareType === 'public' ? 'linear-gradient(135deg, #667eea, #764ba2)' : 'transparent',
-                        color: shareType === 'public' ? '#fff' : '#a78bfa'
+                        border: shareType === 'public' ? 'none' : '1px solid var(--accent-weak)',
+                        background: shareType === 'public' ? 'linear-gradient(135deg, var(--accent), var(--accent-strong))' : 'transparent',
+                        color: shareType === 'public' ? 'var(--text)' : 'var(--accent-strong)'
                       }}
                     >
                       Anyone with Link
@@ -1057,8 +1057,8 @@ const [showAll, setShowAll] = useState(false);
 
                   {shareType === 'specific' && (
                     <div className="detail-row" style={{ flexDirection: 'column', gap: 6 }}>
-                      <label style={{ color: '#a78bfa', fontSize: '0.85rem', fontWeight: 600 }}>
-                        Recipient Email <span style={{ color: '#ff6b6b' }}>*</span>
+                      <label style={{ color: 'var(--accent-strong)', fontSize: '0.85rem', fontWeight: 600 }}>
+                        Recipient Email <span style={{ color: 'var(--danger)' }}>*</span>
                       </label>
                       <input
                         type="email"
@@ -1066,9 +1066,9 @@ const [showAll, setShowAll] = useState(false);
                         onChange={(e) => setShareRecipientEmail(e.target.value)}
                         placeholder="hr@company.com"
                         style={{
-                          background: 'rgba(255,255,255,0.08)',
-                          border: '1px solid #a78bfa',
-                          borderRadius: 8, color: '#fff',
+                          background: 'var(--border)',
+                          border: '1px solid var(--accent-strong)',
+                          borderRadius: 8, color: 'var(--text)',
                           padding: '8px 12px', fontSize: '14px',
                           outline: 'none', width: '100%'
                         }}
@@ -1077,13 +1077,13 @@ const [showAll, setShowAll] = useState(false);
                   )}
 
                   {shareType === 'public' && (
-                    <p style={{ color: '#94a3b8', fontSize: '13px', margin: '0 0 8px 0', lineHeight: 1.5 }}>
+                    <p style={{ color: 'var(--text-muted)', fontSize: '13px', margin: '0 0 8px 0', lineHeight: 1.5 }}>
                       Anyone with this link can view your public profile. No email or verification required.
                     </p>
                   )}
 
                   <div className="detail-row" style={{ flexDirection: 'column', gap: 6, marginTop: 14 }}>
-                    <label style={{ color: '#a78bfa', fontSize: '0.85rem', fontWeight: 600 }}>
+                    <label style={{ color: 'var(--accent-strong)', fontSize: '0.85rem', fontWeight: 600 }}>
                       Link Duration
                     </label>
                     <select
@@ -1091,8 +1091,8 @@ const [showAll, setShowAll] = useState(false);
                       onChange={(e) => setShareDuration(e.target.value)}
                       style={{
                         background: 'rgba(20,10,40,0.95)',
-                        border: '1px solid #a78bfa',
-                        borderRadius: 8, color: '#fff',
+                        border: '1px solid var(--accent-strong)',
+                        borderRadius: 8, color: 'var(--text)',
                         padding: '8px 12px', fontSize: '14px',
                         outline: 'none', width: '100%'
                       }}
@@ -1105,8 +1105,8 @@ const [showAll, setShowAll] = useState(false);
                     </select>
                   </div>
                   <div className="detail-row" style={{ flexDirection: 'column', gap: 6, marginTop: 14 }}>
-                    <label style={{ color: '#a78bfa', fontSize: '0.85rem', fontWeight: 600 }}>
-                      Description <span style={{ color: '#94a3b8', fontWeight: 400 }}>(optional)</span>
+                    <label style={{ color: 'var(--accent-strong)', fontSize: '0.85rem', fontWeight: 600 }}>
+                      Description <span style={{ color: 'var(--text-muted)', fontWeight: 400 }}>(optional)</span>
                     </label>
                     <input
                       type="text"
@@ -1115,31 +1115,31 @@ const [showAll, setShowAll] = useState(false);
                       placeholder="e.g., For employer at Company X"
                       maxLength={200}
                       style={{
-                        background: 'rgba(255,255,255,0.08)',
-                        border: '1px solid #a78bfa',
-                        borderRadius: 8, color: '#fff',
+                        background: 'var(--border)',
+                        border: '1px solid var(--accent-strong)',
+                        borderRadius: 8, color: 'var(--text)',
                         padding: '8px 12px', fontSize: '14px',
                         outline: 'none', width: '100%'
                       }}
                     />
                   </div>
                   {shareError && (
-                    <p style={{ color: '#ff6b6b', fontSize: '0.85rem', marginTop: 10 }}>{shareError}</p>
+                    <p style={{ color: 'var(--danger)', fontSize: '0.85rem', marginTop: 10 }}>{shareError}</p>
                   )}
                 </>
               ) : (
                 <>
-                  <p style={{ color: '#a78bfa', fontSize: '0.85rem', marginBottom: 10 }}>
-                    ✅ Link generated! Share this with <strong style={{ color: '#fff' }}>{shareRecipientEmail}</strong>:
+                  <p style={{ color: 'var(--accent-strong)', fontSize: '0.85rem', marginBottom: 10 }}>
+                    ✅ Link generated! Share this with <strong style={{ color: 'var(--text)' }}>{shareRecipientEmail}</strong>:
                   </p>
                   <div style={{
-                    background: 'rgba(255,255,255,0.06)',
-                    border: '1px solid rgba(139,92,246,0.4)',
+                    background: 'var(--border)',
+                    border: '1px solid var(--border-accent)',
                     borderRadius: 8,
                     padding: '10px 12px',
                     wordBreak: 'break-all',
                     fontSize: '0.82rem',
-                    color: '#c4b5fd',
+                    color: 'var(--accent-strong)',
                     marginBottom: 12
                   }}>
                     {shareGeneratedUrl}
@@ -1147,10 +1147,10 @@ const [showAll, setShowAll] = useState(false);
                   <button
                     onClick={handleCopyShareUrl}
                     style={{
-                      background: shareCopied ? 'rgba(34,197,94,0.2)' : 'linear-gradient(135deg, #667eea, #764ba2)',
+                      background: shareCopied ? 'var(--ok-weak)' : 'linear-gradient(135deg, var(--accent), var(--accent-strong))',
                       border: 'none',
                       borderRadius: 8,
-                      color: '#fff',
+                      color: 'var(--text)',
                       padding: '8px 18px',
                       cursor: 'pointer',
                       fontSize: '0.9rem',
@@ -1218,9 +1218,9 @@ const [showAll, setShowAll] = useState(false);
                       fontWeight: 600,
                       cursor: 'pointer',
                       border: '1px solid',
-                      borderColor: selectedCred.visibility === 'public' ? '#22c55e' : '#f59e0b',
-                      background: selectedCred.visibility === 'public' ? 'rgba(34,197,94,0.12)' : 'rgba(245,158,11,0.12)',
-                      color: selectedCred.visibility === 'public' ? '#22c55e' : '#f59e0b',
+                      borderColor: selectedCred.visibility === 'public' ? 'var(--ok)' : 'var(--warn)',
+                      background: selectedCred.visibility === 'public' ? 'var(--ok-weak)' : 'var(--warn-weak)',
+                      color: selectedCred.visibility === 'public' ? 'var(--ok)' : 'var(--warn)',
                     }}
                   >
                     {selectedCred.visibility === 'public' ? '🌐 Public' : '🔒 Private'} — Click to toggle
@@ -1230,7 +1230,7 @@ const [showAll, setShowAll] = useState(false);
               {(selectedCred.status === "revoked" || selectedCred.status === "REVOKED") && selectedCred.rejectionReason && (
                 <div className="detail-row">
                   <span className="detail-label">Rejection Reason</span>
-                  <span className="detail-value" style={{color: "#ff6b6b"}}>{selectedCred.rejectionReason}</span>
+                  <span className="detail-value" style={{color: "var(--danger)"}}>{selectedCred.rejectionReason}</span>
                 </div>
               )}
               {(selectedCred.status === "revoked" || selectedCred.status === "REVOKED") && (
@@ -1280,7 +1280,7 @@ const [showAll, setShowAll] = useState(false);
                         </div>
                         {(entry.value?.status === "revoked" || entry.status === "revoked") &&
                         (entry.value?.rejectionReason || entry.rejectionReason) && (
-                          <div className="history-entry-status" style={{ color: "#ff6b6b" }}>
+                          <div className="history-entry-status" style={{ color: "var(--danger)" }}>
                             Rejection Reason:{" "}
                             <strong>{entry.value?.rejectionReason || entry.rejectionReason}</strong>
                           </div>

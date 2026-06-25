@@ -1,6 +1,8 @@
 import React, { useState } from "react";
 import apiService from "../services/apiService";
 import "../styles/settingsPage.css";
+import { AppShell, Sidebar } from "../components/ui";
+import { User, Bell, ShieldCheck } from "lucide-react";
 
 export default function SettingsPage() {
   const user = JSON.parse(localStorage.getItem('user') || '{}');
@@ -81,34 +83,18 @@ export default function SettingsPage() {
     }
   };
 
+  const navItems = [
+    { key: "account", label: "Account", icon: User },
+    ...(userRole !== "admin" && userRole !== "verifier"
+      ? [{ key: "notifications", label: "Notifications", icon: Bell }]
+      : []),
+    { key: "security", label: "Security", icon: ShieldCheck },
+  ];
+
   return (
     <>
-      <div className="settings-wrapper">
-        {/* Sidebar */}
-        <aside className="settings-sidebar">
-          <div className="sidebar-header">
-            <h3>Settings</h3>
-          </div>
-          <ul>
-            {["account", "notifications", "security"]
-              .filter((tab) => {
-                if (tab === "notifications") return userRole !== "admin" && userRole !== "verifier";
-                return true;
-              })
-              .map((tab) => (
-                <li
-                  key={tab}
-                  className={activeTab === tab ? "active" : ""}
-                  onClick={() => setActiveTab(tab)}
-                >
-                  {tab.charAt(0).toUpperCase() + tab.slice(1)}
-                </li>
-              ))}
-          </ul>
-        </aside>
-
-        {/* Content */}
-        <main className="settings-content">
+      <AppShell sidebar={<Sidebar items={navItems} activeKey={activeTab} onSelect={setActiveTab} title="Settings" />}>
+        <div className="settings-content">
 
           {activeTab === "account" && (
             <section>
@@ -203,8 +189,8 @@ export default function SettingsPage() {
             </section>
           )}
 
-        </main>
-      </div>
+        </div>
+      </AppShell>
 
       {/* Password Change Modal */}
       {isPasswordModalOpen && (

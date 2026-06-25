@@ -1,8 +1,9 @@
+/* badgeDetailsPage.css — refined dark, token-driven (Phase 3) */
 .badge-details-page {
-  padding: 30px;
-  font-family: Arial, sans-serif;
-  background: #fff;
-  color: #333;
+  padding: var(--s6);
+  font-family: var(--font-ui);
+  background: transparent;
+  color: var(--text);
 }
 
 /* Header */
@@ -10,43 +11,50 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 30px;
-  border-bottom: 1px solid #eee;
-  padding-bottom: 10px;
+  margin-bottom: var(--s6);
+  border-bottom: 1px solid var(--border);
+  padding-bottom: var(--s3);
 }
 
 .details-header p {
-  font-size: 14px;
-  color: #555;
+  font-size: var(--fs-small);
+  color: var(--text-muted);
 }
 
 .actions {
   display: flex;
-  gap: 10px;
+  gap: var(--s3);
 }
 
 .share-btn {
-  background: #006d5c;
-  color: #fff;
-  padding: 8px 14px;
+  background: var(--accent);
+  color: var(--text-on-accent);
+  padding: var(--s2) var(--s4);
   border: none;
-  border-radius: 6px;
+  border-radius: var(--radius-control);
   cursor: pointer;
-  font-weight: bold;
+  font-weight: var(--fw-semibold);
+  font-family: var(--font-ui);
+  transition: background var(--motion) var(--ease);
 }
+.share-btn:hover { background: var(--accent-strong); }
 
 .more-btn {
-  background: #fff;
-  border: 1px solid #ccc;
-  padding: 8px 12px;
-  border-radius: 6px;
+  background: var(--surface-2);
+  border: 1px solid var(--border-strong);
+  color: var(--text);
+  padding: var(--s2) var(--s3);
+  border-radius: var(--radius-control);
   cursor: pointer;
+  font-family: var(--font-ui);
+  transition: background var(--motion) var(--ease);
 }
+.more-btn:hover { background: var(--surface-3); }
 
 /* Body */
 .details-body {
   display: flex;
-  gap: 40px;
+  gap: var(--s7);
 }
 
 .badge-left {
@@ -56,8 +64,8 @@
 .big-badge {
   width: 100%;
   max-width: 250px;
-  border-radius: 8px;
-  border: 1px solid #ddd;
+  border-radius: var(--radius-card);
+  border: 1px solid var(--border);
 }
 
 .badge-right {
@@ -66,34 +74,40 @@
 
 .badge-right h2 {
   margin-top: 0;
+  color: var(--text);
+  font-size: var(--fs-h1);
+  font-weight: var(--fw-semibold);
 }
 
 .badge-right p {
-  font-size: 15px;
-  line-height: 1.5;
+  font-size: var(--fs-h3);
+  line-height: var(--lh-body);
+  color: var(--text-muted);
 }
 
 .description {
-  margin: 15px 0;
+  margin: var(--s4) 0;
 }
 
 .learn-more {
   display: inline-block;
-  margin-bottom: 20px;
-  color: #006d5c;
-  font-weight: bold;
+  margin-bottom: var(--s5);
+  color: var(--accent-strong);
+  font-weight: var(--fw-semibold);
   text-decoration: none;
 }
+.learn-more:hover { text-decoration: underline; }
 
 .skills-list {
   display: flex;
   flex-wrap: wrap;
-  gap: 10px;
+  gap: var(--s3);
 }
 
 .skill-chip {
-  background: #f1f1f1;
-  padding: 6px 12px;
-  border-radius: 20px;
-  font-size: 13px;
+  background: var(--accent-weak);
+  color: var(--accent-strong);
+  padding: var(--s1) var(--s3);
+  border-radius: var(--radius-pill);
+  font-size: var(--fs-small);
 }

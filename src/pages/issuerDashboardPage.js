@@ -34,7 +34,7 @@ import DonutChart from "../components/analytics/DonutChart";
 import TrendBars from "../components/analytics/TrendBars";
 import InterpretationBox from "../components/analytics/InterpretationBox";
 import { computeIssuance, computeRevocationAudit, COLORS as ANALYTICS_COLORS } from "../components/analytics/analytics";
-import { AppShell, Sidebar, Button } from "../components/ui";
+import { AppShell, Sidebar, Button, StatusPill } from "../components/ui";
 import NotesCard from "../components/ui/NotesCard";
 import { effectiveCredentialStatus, minIssueExpiryDate } from "../utils/credentialStatus"; // F01
 import { getCredentialLineage, isSameInstance } from "../utils/credentialLineage"; // Q1
@@ -587,7 +587,7 @@ export default function IssuerDashboard() {
         type="button"
         className="action-btn"
         onClick={() => setDescriptionModal({ name: item?.credentialName || item?.name || "Credential", description: trimmedDescription })}
-        style={{ padding: "4px 10px", fontSize: "11px", background: "rgba(139,92,246,0.12)", color: "#a78bfa", border: "1px solid rgba(139,92,246,0.25)", borderRadius: "6px", cursor: "pointer" }}
+        style={{ padding: "4px 10px", fontSize: "11px", background: "var(--accent-weak)", color: "var(--accent-strong)", border: "1px solid var(--accent-weak)", borderRadius: "6px", cursor: "pointer" }}
       >
         View Description
       </button>
@@ -659,11 +659,11 @@ export default function IssuerDashboard() {
 
   const getStatusColor = (status) => {
     const s = String(status || "").toLowerCase();
-    if (["issued", "active", "approved", "enabled"].includes(s)) return "#22c55e";
-    if (["revoked", "disabled", "rejected"].includes(s)) return "#ef4444";
-    if (["expired"].includes(s)) return "#f59e0b";
-    if (["pending"].includes(s)) return "#eab308";
-    if (["template"].includes(s)) return "#3b82f6";
+    if (["issued", "active", "approved", "enabled"].includes(s)) return "var(--ok)";
+    if (["revoked", "disabled", "rejected"].includes(s)) return "var(--danger)";
+    if (["expired"].includes(s)) return "var(--warn)";
+    if (["pending"].includes(s)) return "var(--warn)";
+    if (["template"].includes(s)) return "var(--info)";
     return "inherit";
   };
 
@@ -847,8 +847,8 @@ export default function IssuerDashboard() {
   if (loading) return <div className="issuer-dashboard"><p>Loading credentials...</p></div>;
   if (error) return (
     <div className="issuer-dashboard">
-      <p style={{ color: "#ff6b6b" }}><strong>Error loading credentials:</strong> {error}</p>
-      <p style={{ color: "#999" }}>Make sure backend is running at http://localhost:4000</p>
+      <p style={{ color: "var(--danger)" }}><strong>Error loading credentials:</strong> {error}</p>
+      <p style={{ color: "var(--text-subtle)" }}>Make sure backend is running at http://localhost:4000</p>
     </div>
   );
 
@@ -903,18 +903,18 @@ export default function IssuerDashboard() {
             {/* N1: issuer notification bell + panel */}
             <div ref={issuerNotifRef} style={{ position: "relative" }}>
               <button type="button" onClick={() => setIssuerNotifOpen((o) => !o)} aria-label="Notifications"
-                style={{ position: "relative", background: "rgba(139,92,246,0.15)", border: "1px solid rgba(255,255,255,0.18)", color: "#a78bfa", borderRadius: 10, padding: "8px 10px", cursor: "pointer" }}>
+                style={{ position: "relative", background: "var(--accent-weak)", border: "1px solid rgba(255,255,255,0.18)", color: "var(--accent-strong)", borderRadius: 10, padding: "8px 10px", cursor: "pointer" }}>
                 <Bell size={18} aria-hidden="true" />
                 {issuerUnreadCount > 0 && (
-                  <span style={{ position: "absolute", top: -6, right: -6, background: "#ef4444", color: "#fff", fontSize: 11, fontWeight: 700, minWidth: 18, height: 18, borderRadius: 9, display: "flex", alignItems: "center", justifyContent: "center", padding: "0 4px" }}>{issuerUnreadCount}</span>
+                  <span style={{ position: "absolute", top: -6, right: -6, background: "var(--danger)", color: "var(--text)", fontSize: 11, fontWeight: 700, minWidth: 18, height: 18, borderRadius: 9, display: "flex", alignItems: "center", justifyContent: "center", padding: "0 4px" }}>{issuerUnreadCount}</span>
                 )}
               </button>
               {issuerNotifOpen && (
-                <div style={{ position: "absolute", right: 0, top: "calc(100% + 8px)", width: 340, maxHeight: 420, overflowY: "auto", background: "#1c1445", border: "1px solid rgba(139,92,246,0.35)", borderRadius: 12, boxShadow: "0 12px 32px rgba(0,0,0,0.45)", zIndex: 50, padding: 12 }}>
+                <div style={{ position: "absolute", right: 0, top: "calc(100% + 8px)", width: 340, maxHeight: 420, overflowY: "auto", background: "var(--surface-2)", border: "1px solid var(--border-accent)", borderRadius: 12, boxShadow: "0 12px 32px rgba(0,0,0,0.45)", zIndex: 50, padding: 12 }}>
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
                     <strong style={{ fontSize: 14 }}>Notifications</strong>
                     {issuerNotifications.some((n) => !n.read) && (
-                      <button type="button" onClick={handleIssuerMarkAllRead} style={{ background: "none", border: "none", color: "#a78bfa", cursor: "pointer", fontSize: 12 }}>Mark all as read</button>
+                      <button type="button" onClick={handleIssuerMarkAllRead} style={{ background: "none", border: "none", color: "var(--accent-strong)", cursor: "pointer", fontSize: 12 }}>Mark all as read</button>
                     )}
                   </div>
                   {issuerNotifications.length === 0 ? (
@@ -922,7 +922,7 @@ export default function IssuerDashboard() {
                   ) : (
                     issuerNotifications.map((n) => (
                       <button key={n._id} type="button" onClick={() => handleIssuerNotifClick(n)}
-                        style={{ display: "block", width: "100%", textAlign: "left", background: n.read ? "transparent" : "rgba(139,92,246,0.12)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 8, padding: "8px 10px", marginBottom: 6, cursor: "pointer", color: "#fff" }}>
+                        style={{ display: "block", width: "100%", textAlign: "left", background: n.read ? "transparent" : "var(--accent-weak)", border: "1px solid var(--border)", borderRadius: 8, padding: "8px 10px", marginBottom: 6, cursor: "pointer", color: "var(--text)" }}>
                         <div style={{ fontSize: 13, fontWeight: 600 }}>{n.title || "Notification"}</div>
                         <div style={{ fontSize: 12.5, color: "rgba(255,255,255,0.78)", lineHeight: 1.4, margin: "2px 0" }}>{n.message}</div>
                         <div style={{ fontSize: 11, color: "rgba(255,255,255,0.45)" }}>{n.createdAt ? new Date(n.createdAt).toLocaleString() : ""}{n.read ? "" : " • Unread"}</div>
@@ -1093,7 +1093,7 @@ export default function IssuerDashboard() {
                             type="button"
                             className="action-btn"
                             onClick={() => handleSeeHistory(credential)}
-                            style={{ padding: "6px 10px", fontSize: "12px", background: "rgba(139,92,246,0.15)", color: "#a78bfa", border: "1px solid rgba(255,255,255,0.18)", borderRadius: "8px", cursor: "pointer" }}
+                            style={{ padding: "6px 10px", fontSize: "12px", background: "var(--accent-weak)", color: "var(--accent-strong)", border: "1px solid rgba(255,255,255,0.18)", borderRadius: "8px", cursor: "pointer" }}
                           >
                             View BC History
                           </button>
@@ -1147,7 +1147,7 @@ export default function IssuerDashboard() {
                       <td>{row.source?.visibility === "public" ? "Public" : "Private"}</td>
                       <td>{row.createdDate ? new Date(row.createdDate).toLocaleDateString() : "N/A"}</td>
                       <td>{row.expiryDate ? new Date(row.expiryDate).toLocaleDateString() : "—"}</td>
-                      <td className="actions-cell">{row.rowType === "template" ? <><button type="button" className="action-btn" onClick={() => handleToggleTemplateVisibility(row.source)} style={{ padding: "4px 12px", fontSize: "11px", background: row.source?.visibility === "public" ? "rgba(34,197,94,0.12)" : "rgba(245,158,11,0.12)", color: row.source?.visibility === "public" ? "#22c55e" : "#f59e0b", border: "1px solid rgba(255,255,255,0.18)", borderRadius: "999px", cursor: "pointer" }}>{row.source?.visibility === "public" ? "Public" : "Private"}</button>{renderDescriptionCell(row.source, false)}</> : <><button type="button" className="action-btn" onClick={() => handleSeeHistory(row.source)} style={{ padding: "6px 10px", fontSize: "12px", background: "rgba(139,92,246,0.15)", color: "#a78bfa", border: "1px solid rgba(255,255,255,0.18)", borderRadius: "8px", cursor: "pointer" }}>View BC History</button>{renderDescriptionCell(row.source, false)}</>}</td>
+                      <td className="actions-cell">{row.rowType === "template" ? <><button type="button" className="action-btn" onClick={() => handleToggleTemplateVisibility(row.source)} style={{ padding: "4px 12px", fontSize: "11px", background: row.source?.visibility === "public" ? "var(--ok-weak)" : "var(--warn-weak)", color: row.source?.visibility === "public" ? "var(--ok)" : "var(--warn)", border: "1px solid rgba(255,255,255,0.18)", borderRadius: "999px", cursor: "pointer" }}>{row.source?.visibility === "public" ? "Public" : "Private"}</button>{renderDescriptionCell(row.source, false)}</> : <><button type="button" className="action-btn" onClick={() => handleSeeHistory(row.source)} style={{ padding: "6px 10px", fontSize: "12px", background: "var(--accent-weak)", color: "var(--accent-strong)", border: "1px solid rgba(255,255,255,0.18)", borderRadius: "8px", cursor: "pointer" }}>View BC History</button>{renderDescriptionCell(row.source, false)}</>}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -1199,7 +1199,7 @@ export default function IssuerDashboard() {
                             type="button"
                             className="action-btn"
                             onClick={() => handleSeeHistory(credential)}
-                            style={{ padding: "6px 10px", fontSize: "12px", background: "rgba(139,92,246,0.15)", color: "#a78bfa", border: "1px solid rgba(255,255,255,0.18)", borderRadius: "8px", cursor: "pointer", marginRight: "8px" }}
+                            style={{ padding: "6px 10px", fontSize: "12px", background: "var(--accent-weak)", color: "var(--accent-strong)", border: "1px solid rgba(255,255,255,0.18)", borderRadius: "8px", cursor: "pointer", marginRight: "8px" }}
                           >
                             View BC History
                           </button>
@@ -1252,8 +1252,8 @@ export default function IssuerDashboard() {
               </div>
             </div>
 
-            <div style={{ margin: "0 0 12px", fontSize: 12.5, color: "rgba(255,255,255,0.62)", lineHeight: 1.4 }}>
-              <strong style={{ color: "rgba(255,255,255,0.85)" }}>Description:</strong>{" "}
+            <div style={{ margin: "0 0 12px", fontSize: "var(--fs-small)", color: "var(--text-muted)", lineHeight: 1.4, textAlign: "left" }}>
+              <strong style={{ color: "var(--text)" }}>Description:</strong>{" "}
               {{
                 all: "every subordinate that applied under you, in any state.",
                 pending: "subordinates awaiting your approval (you're their root authority).",
@@ -1265,37 +1265,44 @@ export default function IssuerDashboard() {
             </div>
 
             {subordinateDirectoryLoading ? <div className="no-results"><p>Loading subordinate directory...</p></div>
-            : subordinateDirectoryError ? <div className="no-results"><p style={{ color: "#ff6b6b" }}>{subordinateDirectoryError}</p></div>
+            : subordinateDirectoryError ? <div className="no-results"><p style={{ color: "var(--danger)" }}>{subordinateDirectoryError}</p></div>
             : subordinateDirectory.length === 0 ? <div className="no-results"><p>No subordinate issuers found for this filter.</p></div>
             : (
-              <table className="template-table">
-                <thead><tr><th>Issuer ID</th><th>Org Name</th><th>Email</th><th>Category</th><th>Root Approval</th><th>Root Approval Date</th><th>Admin Approval</th><th>Admin Approval Date</th><th>Overall Status</th><th>Created At</th><th>Documents</th><th>Actions</th></tr></thead>
+              <table className="template-table subordinate-table">
+                <thead><tr><th>Issuer ID</th><th>Org Name</th><th>Email</th><th>Category</th><th>Root Approval</th><th>Admin Approval</th><th>Overall Status</th><th>Created</th><th>Actions</th></tr></thead>
                 <tbody>
                   {subordinateDirectory.map((issuer) => {
                     const issuerId = issuer._id || issuer.id;
                     const isPendingRootApproval = (issuer.rootApprovalStatus || "pending") === "pending";
                     const adminApproved = String(issuer.status || "").toLowerCase() === "approved";
+                    const rootStatus = issuer.rootApprovalStatus || "pending";
+                    const rootDate = rootStatus === "approved"
+                      ? (issuer.rootApprovedAt ? new Date(issuer.rootApprovedAt).toLocaleDateString() : "—")
+                      : rootStatus === "rejected" ? "Rejected" : "Awaiting";
+                    const adminDate = adminApproved
+                      ? (issuer.approvedAt ? new Date(issuer.approvedAt).toLocaleDateString() : "—")
+                      : "Awaiting";
                     return (
                       <tr key={issuerId}>
-                        <td style={{ fontFamily: "monospace", fontSize: 12 }}>{issuerId}</td>
+                        <td title={issuerId}>{issuerId}</td>
                         <td>{issuer.orgName || "N/A"}</td>
                         <td>{issuer.email || "N/A"}</td>
                         <td>{issuer.category || "N/A"}</td>
-                        <td><span className={issuer.rootApprovalStatus === "approved" ? "badge green" : issuer.rootApprovalStatus === "rejected" ? "badge red" : "badge purple"}>{issuer.rootApprovalStatus || "pending"}</span></td>
-                        <td>{issuer.rootApprovalStatus === "approved" ? (issuer.rootApprovedAt ? new Date(issuer.rootApprovedAt).toLocaleString() : "N/A") : issuer.rootApprovalStatus === "rejected" ? "Rejected by Root" : "Pending"}</td>
-                        <td>{adminApproved ? <span className="badge green">Approved</span> : <span className="badge purple">Pending</span>}</td>
-                        <td>{adminApproved ? (issuer.approvedAt ? new Date(issuer.approvedAt).toLocaleString() : "N/A") : "Pending"}</td>
-                        <td><span className={issuer.status === "approved" ? "badge green" : issuer.status === "disabled" ? "badge gray" : issuer.status === "rejected" ? "badge red" : "badge purple"}>{issuer.status || "pending"}</span></td>
-                        <td>{issuer.createdAt ? new Date(issuer.createdAt).toLocaleString() : "N/A"}</td>
-                        <td><button type="button" onClick={() => openIssuerDocumentsModal(issuer)} className="action-btn" style={{ padding: "6px 10px", fontSize: "12px", background: "rgba(139,92,246,0.15)", color: "#a78bfa", border: "1px solid rgba(255,255,255,0.18)" }}>See Documents</button></td>
-                        <td style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                          <button type="button" onClick={() => openSubordinateHistory(issuer)} className="action-btn" style={{ padding: "6px 10px", fontSize: "12px", background: "rgba(139,92,246,0.15)", color: "#a78bfa", border: "1px solid rgba(255,255,255,0.18)" }}>View BC History</button>
-                          {isPendingRootApproval && (
-                            <>
-                              <button type="button" onClick={() => handleRootApproveSubordinate(issuerId)} className="action-btn" style={{ padding: "6px 10px", fontSize: "12px", background: "rgba(74,222,128,0.12)", color: "#4ade80", border: "1px solid rgba(255,255,255,0.18)" }}>Approve</button>
-                              <button type="button" onClick={() => openRejectSubordinateModal(issuer)} className="action-btn" style={{ padding: "6px 10px", fontSize: "12px", background: "rgba(255,107,107,0.12)", color: "#ff6b6b", border: "1px solid rgba(255,255,255,0.18)" }}>Reject</button>
-                            </>
-                          )}
+                        <td><div className="cell-stack"><StatusPill status={rootStatus} /><span className="cell-sub">{rootDate}</span></div></td>
+                        <td><div className="cell-stack"><StatusPill status={adminApproved ? "approved" : "pending"} /><span className="cell-sub">{adminDate}</span></div></td>
+                        <td><StatusPill status={issuer.status || "pending"} /></td>
+                        <td>{issuer.createdAt ? new Date(issuer.createdAt).toLocaleDateString() : "N/A"}</td>
+                        <td>
+                          <div className="cell-actions">
+                            <Button variant="secondary" size="sm" onClick={() => openIssuerDocumentsModal(issuer)}>Documents</Button>
+                            <Button variant="secondary" size="sm" onClick={() => openSubordinateHistory(issuer)}>BC History</Button>
+                            {isPendingRootApproval && (
+                              <>
+                                <Button variant="primary" size="sm" onClick={() => handleRootApproveSubordinate(issuerId)}>Approve</Button>
+                                <Button variant="danger" size="sm" onClick={() => openRejectSubordinateModal(issuer)}>Reject</Button>
+                              </>
+                            )}
+                          </div>
                         </td>
                       </tr>
                     );
@@ -1545,8 +1552,8 @@ export default function IssuerDashboard() {
         <div className="modal-overlay confirm-overlay">
           <div className="modal confirm-modal">
             <div className="modal-header"><h3>Confirm Issuance</h3></div>
-            <p style={{ margin: "12px 0 4px", fontSize: "14px", lineHeight: 1.6, color: "#fff" }}>
-              <strong style={{ color: "#f59e0b" }}>Are you sure?</strong> This will issue the credential to the selected recipient. The action is recorded on the blockchain and <strong>cannot be undone</strong>.
+            <p style={{ margin: "12px 0 4px", fontSize: "14px", lineHeight: 1.6, color: "var(--text)" }}>
+              <strong style={{ color: "var(--warn)" }}>Are you sure?</strong> This will issue the credential to the selected recipient. The action is recorded on the blockchain and <strong>cannot be undone</strong>.
             </p>
             {issueError && <div className="form-error">{issueError}</div>}
             <div className="form-actions">
@@ -1567,7 +1574,7 @@ export default function IssuerDashboard() {
         <div className="modal-overlay">
           <div className="modal">
             <h3>Revoke Credential</h3>
-            <p style={{ margin:"6px 0 12px",fontSize:"13px",color:"#f59e0b",opacity:0.9 }}>
+            <p style={{ margin:"6px 0 12px",fontSize:"13px",color:"var(--warn)",opacity:0.9 }}>
               This action is <strong>irreversible</strong> and will be permanently recorded on the blockchain.
             </p>
             <form onSubmit={handleRevokeSubmit}>
@@ -1745,7 +1752,7 @@ export default function IssuerDashboard() {
                   </div>
                   {historyCredential?.holderName && <div><strong>Holder:</strong> {historyCredential.holderName}</div>}
                   {historyCredential?.issuerName && historyCredential.issuerName !== "N/A" && historyCredential?.holderName && <div><strong>Issuer:</strong> {historyCredential.issuerName}</div>}
-                  {String(historyCredential?.status || "").toLowerCase() === "revoked" && getRevokedDateValue(historyCredential) && <div><strong>Revoked On:</strong> <span style={{ color: "#ef4444" }}>{new Date(getRevokedDateValue(historyCredential)).toLocaleDateString()}</span></div>}
+                  {String(historyCredential?.status || "").toLowerCase() === "revoked" && getRevokedDateValue(historyCredential) && <div><strong>Revoked On:</strong> <span style={{ color: "var(--danger)" }}>{new Date(getRevokedDateValue(historyCredential)).toLocaleDateString()}</span></div>}
                 </div>
               </div>
               <button type="button" className="modal-close history-modal-close" onClick={closeHistory}>✕</button>
@@ -1754,7 +1761,7 @@ export default function IssuerDashboard() {
             {/* Q1: Credential Lineage — every issuance of this credential to this holder,
                 across reissues (issued → revoked → reissued → expired → …). */}
             {historyLineage.length > 1 && (
-              <div className="cred-lineage" style={{ marginBottom: 18, border: "1px solid rgba(139,92,246,0.28)", borderRadius: 12, padding: "14px 16px", background: "rgba(139,92,246,0.06)" }}>
+              <div className="cred-lineage" style={{ marginBottom: 18, border: "1px solid var(--accent-weak)", borderRadius: 12, padding: "14px 16px", background: "var(--accent-weaker)" }}>
                 <div style={{ fontWeight: 600, fontSize: 14, marginBottom: 4 }}>Credential Lineage</div>
                 <div style={{ fontSize: 12.5, color: "rgba(255,255,255,0.62)", marginBottom: 10 }}>
                   {historyLineage.length} issuances of <strong>{historyCredential?.credentialName || "this credential"}</strong> to <strong>{historyCredential?.holderName || historyCredential?.holderID || "this holder"}</strong>, oldest first. The <strong>highlighted</strong> row's blockchain history is shown below — click another row's <strong>View</strong> to switch.
@@ -1767,7 +1774,7 @@ export default function IssuerDashboard() {
                       const current = isSameInstance(inst, historyCredential);
                       const revoked = getRevokedDateValue(inst);
                       return (
-                        <tr key={inst.blockchainId || inst.id || i} style={current ? { background: "rgba(139,92,246,0.18)" } : undefined}>
+                        <tr key={inst.blockchainId || inst.id || i} style={current ? { background: "var(--accent-weak)" } : undefined}>
                           <td>{i + 1}{current ? " ◀" : ""}</td>
                           <td><span className={`status-badge status-${eff}`}>{eff}</span></td>
                           <td>{formatIssuedDate(inst) || "N/A"}</td>
@@ -1777,7 +1784,7 @@ export default function IssuerDashboard() {
                             {current ? (
                               <span style={{ opacity: 0.55, fontSize: 12 }}>Shown below</span>
                             ) : (
-                              <button type="button" className="action-btn" onClick={() => handleSeeHistory(inst)} style={{ padding: "4px 10px", fontSize: 12, background: "rgba(139,92,246,0.15)", color: "#a78bfa", border: "1px solid rgba(255,255,255,0.18)", borderRadius: 6, cursor: "pointer" }}>View</button>
+                              <button type="button" className="action-btn" onClick={() => handleSeeHistory(inst)} style={{ padding: "4px 10px", fontSize: 12, background: "var(--accent-weak)", color: "var(--accent-strong)", border: "1px solid rgba(255,255,255,0.18)", borderRadius: 6, cursor: "pointer" }}>View</button>
                             )}
                           </td>
                         </tr>
@@ -1801,7 +1808,7 @@ export default function IssuerDashboard() {
                       Blockchain history — selected instance ({historyCredential?.blockchainId || historyCredential?.id || "current"})
                     </div>
                   )}
-                  <div style={{ fontSize: "13px", color: "#a78bfa", marginBottom: "12px" }}>
+                  <div style={{ fontSize: "13px", color: "var(--accent-strong)", marginBottom: "12px" }}>
                     Showing {cleanHistory.length} history record(s)
                   </div>
                   <div className="table-wrapper">
@@ -1861,13 +1868,13 @@ export default function IssuerDashboard() {
       {/* Submitted Documents Modal */}
       {showIssuerDocumentsModal && ReactDOM.createPortal(
         <div onClick={closeIssuerDocumentsModal} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", zIndex: 999999, display: "flex", alignItems: "center", justifyContent: "center", padding: "20px" }}>
-          <div onClick={(e) => e.stopPropagation()} style={{ width: "min(900px, 95vw)", maxHeight: "85vh", overflow: "auto", background: "#101018", borderRadius: "12px", border: "1px solid rgba(255,255,255,0.15)", padding: "18px", boxShadow: "0 10px 40px rgba(0,0,0,0.4)", color: "#fff" }}>
+          <div onClick={(e) => e.stopPropagation()} style={{ width: "min(900px, 95vw)", maxHeight: "85vh", overflow: "auto", background: "var(--surface-2)", borderRadius: "12px", border: "1px solid var(--border-strong)", padding: "18px", boxShadow: "0 10px 40px rgba(0,0,0,0.4)", color: "var(--text)" }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "12px" }}>
               <div><h3 style={{ margin: 0 }}>Submitted Documents</h3><div style={{ fontSize: "13px", opacity: 0.85, marginTop: "6px" }}><div><strong>Issuer:</strong> {selectedIssuerForDocuments?.orgName || "N/A"}</div><div><strong>Email:</strong> {selectedIssuerForDocuments?.email || "N/A"}</div></div></div>
-              <button onClick={closeIssuerDocumentsModal} type="button" style={{ background: "transparent", border: "1px solid rgba(255,255,255,0.25)", color: "#fff", borderRadius: "8px", padding: "8px 10px", cursor: "pointer" }}>✕ Close</button>
+              <button onClick={closeIssuerDocumentsModal} type="button" style={{ background: "transparent", border: "1px solid rgba(255,255,255,0.25)", color: "var(--text)", borderRadius: "8px", padding: "8px 10px", cursor: "pointer" }}>✕ Close</button>
             </div>
             {issuerDocumentsLoading ? <div style={{ padding: "16px", opacity: 0.9 }}>Loading submitted documents...</div>
-            : issuerDocumentsError ? <div style={{ padding: "12px", background: "rgba(255,0,0,0.12)", border: "1px solid rgba(255,0,0,0.25)", borderRadius: "10px", color: "#ffd2d2" }}>{issuerDocumentsError}</div>
+            : issuerDocumentsError ? <div style={{ padding: "12px", background: "var(--danger-weak)", border: "1px solid var(--danger-weak)", borderRadius: "10px", color: "var(--danger)" }}>{issuerDocumentsError}</div>
             : issuerDocuments.length > 0 ? (
               <div className="table-wrapper"><table className="template-table"><thead><tr><th>Doc Type</th><th>File Name</th><th>MIME Type</th><th>Size</th><th>Actions</th></tr></thead><tbody>
                 {issuerDocuments.map((doc, idx) => (
@@ -1875,8 +1882,8 @@ export default function IssuerDashboard() {
                     <td>{doc.docType || "N/A"}</td><td>{doc.originalname || "N/A"}</td><td>{doc.mimetype || "N/A"}</td>
                     <td>{typeof doc.size === "number" ? `${(doc.size / 1024).toFixed(1)} KB` : "N/A"}</td>
                     <td style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                      <button type="button" onClick={() => handleViewIssuerDocument(doc)} className="action-btn" style={{ padding: "6px 10px", fontSize: "12px", background: "rgba(139,92,246,0.15)", color: "#a78bfa", border: "1px solid rgba(255,255,255,0.18)" }}>View</button>
-                      <button type="button" onClick={() => handleDownloadIssuerDocument(doc)} className="action-btn" style={{ padding: "6px 10px", fontSize: "12px", background: "rgba(74,222,128,0.12)", color: "#4ade80", border: "1px solid rgba(255,255,255,0.18)" }}>Download</button>
+                      <button type="button" onClick={() => handleViewIssuerDocument(doc)} className="action-btn" style={{ padding: "6px 10px", fontSize: "12px", background: "var(--accent-weak)", color: "var(--accent-strong)", border: "1px solid rgba(255,255,255,0.18)" }}>View</button>
+                      <button type="button" onClick={() => handleDownloadIssuerDocument(doc)} className="action-btn" style={{ padding: "6px 10px", fontSize: "12px", background: "var(--ok-weak)", color: "var(--ok)", border: "1px solid rgba(255,255,255,0.18)" }}>Download</button>
                     </td>
                   </tr>
                 ))}
@@ -1889,15 +1896,15 @@ export default function IssuerDashboard() {
       {/* Reject Subordinate Modal */}
       {showRejectSubordinateModal && ReactDOM.createPortal(
         <div onClick={closeRejectSubordinateModal} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", zIndex: 999999, display: "flex", alignItems: "center", justifyContent: "center", padding: "20px" }}>
-          <div onClick={(e) => e.stopPropagation()} style={{ width: "min(520px, 95vw)", background: "#101018", borderRadius: "12px", border: "1px solid rgba(255,255,255,0.15)", padding: "18px", boxShadow: "0 10px 40px rgba(0,0,0,0.4)", color: "#fff" }}>
+          <div onClick={(e) => e.stopPropagation()} style={{ width: "min(520px, 95vw)", background: "var(--surface-2)", borderRadius: "12px", border: "1px solid var(--border-strong)", padding: "18px", boxShadow: "0 10px 40px rgba(0,0,0,0.4)", color: "var(--text)" }}>
             <h3 style={{ marginTop: 0 }}>Reject Subordinate Issuer</h3>
             <p style={{ opacity: 0.85, marginTop: "6px" }}>Please provide a rejection reason.</p>
             <form onSubmit={submitRejectSubordinate}>
-              <textarea value={rejectSubordinateReason} onChange={(e) => setRejectSubordinateReason(e.target.value)} placeholder="Enter rejection reason..." rows={4} style={{ width: "100%", borderRadius: "10px", padding: "10px", marginTop: "10px", background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.12)", color: "#fff", outline: "none", resize: "vertical", boxSizing: "border-box" }} />
-              {rejectSubordinateError && <div style={{ color: "#ff6b6b", marginTop: "10px" }}>{rejectSubordinateError}</div>}
+              <textarea value={rejectSubordinateReason} onChange={(e) => setRejectSubordinateReason(e.target.value)} placeholder="Enter rejection reason..." rows={4} style={{ width: "100%", borderRadius: "10px", padding: "10px", marginTop: "10px", background: "var(--border)", border: "1px solid var(--border-strong)", color: "var(--text)", outline: "none", resize: "vertical", boxSizing: "border-box" }} />
+              {rejectSubordinateError && <div style={{ color: "var(--danger)", marginTop: "10px" }}>{rejectSubordinateError}</div>}
               <div style={{ display: "flex", gap: "10px", justifyContent: "flex-end", marginTop: "14px" }}>
-                <button type="button" onClick={closeRejectSubordinateModal} disabled={rejectSubordinateLoading} style={{ padding: "10px 14px", borderRadius: "10px", border: "1px solid rgba(255,255,255,0.18)", background: "transparent", color: "#fff", cursor: rejectSubordinateLoading ? "not-allowed" : "pointer", opacity: rejectSubordinateLoading ? 0.65 : 1, fontWeight: 700 }}>Cancel</button>
-                <button type="submit" disabled={rejectSubordinateLoading} style={{ padding: "10px 14px", borderRadius: "10px", border: "1px solid rgba(255,255,255,0.18)", background: "rgba(255,107,107,0.12)", color: "#ff6b6b", cursor: rejectSubordinateLoading ? "not-allowed" : "pointer", opacity: rejectSubordinateLoading ? 0.65 : 1, fontWeight: 800 }}>{rejectSubordinateLoading ? "Rejecting..." : "Confirm Reject"}</button>
+                <button type="button" onClick={closeRejectSubordinateModal} disabled={rejectSubordinateLoading} style={{ padding: "10px 14px", borderRadius: "10px", border: "1px solid rgba(255,255,255,0.18)", background: "transparent", color: "var(--text)", cursor: rejectSubordinateLoading ? "not-allowed" : "pointer", opacity: rejectSubordinateLoading ? 0.65 : 1, fontWeight: 700 }}>Cancel</button>
+                <button type="submit" disabled={rejectSubordinateLoading} style={{ padding: "10px 14px", borderRadius: "10px", border: "1px solid rgba(255,255,255,0.18)", background: "var(--danger-weak)", color: "var(--danger)", cursor: rejectSubordinateLoading ? "not-allowed" : "pointer", opacity: rejectSubordinateLoading ? 0.65 : 1, fontWeight: 800 }}>{rejectSubordinateLoading ? "Rejecting..." : "Confirm Reject"}</button>
               </div>
             </form>
           </div>

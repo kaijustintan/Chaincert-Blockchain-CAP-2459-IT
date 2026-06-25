@@ -273,22 +273,22 @@ export default function ProfilePreview() {
   };
   const gateBoxStyle = {
     background: 'rgba(12,8,32,0.97)',
-    border: '1px solid rgba(139,92,246,0.4)',
+    border: '1px solid var(--border-accent)',
     borderRadius: 16,
     padding: '36px 32px',
     width: '100%', maxWidth: 420,
     display: 'flex', flexDirection: 'column', gap: 16
   };
   const gateInputStyle = {
-    background: 'rgba(255,255,255,0.07)',
-    border: '1px solid #a78bfa',
-    borderRadius: 12, color: '#fff',
+    background: 'var(--border)',
+    border: '1px solid var(--accent-strong)',
+    borderRadius: 12, color: 'var(--text)',
     padding: '12px 16px', fontSize: '15px', lineHeight: 1.5,
     outline: 'none', width: '100%', minHeight: '48px', boxSizing: 'border-box'
   };
   const gateBtnStyle = {
-    background: 'linear-gradient(135deg, #667eea, #764ba2)',
-    border: 'none', borderRadius: 8, color: '#fff',
+    background: 'linear-gradient(135deg, var(--accent), var(--accent-strong))',
+    border: 'none', borderRadius: 8, color: 'var(--text)',
     padding: '10px 0', fontSize: '15px',
     cursor: 'pointer', width: '100%', marginTop: 4
   };
@@ -298,7 +298,7 @@ export default function ProfilePreview() {
     return (
       <div className="profile-preview">
         <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-          <div style={{ color: '#a78bfa', fontSize: '1rem' }}>Loading...</div>
+          <div style={{ color: 'var(--accent-strong)', fontSize: '1rem' }}>Loading...</div>
         </div>
       </div>
     );
@@ -312,14 +312,14 @@ export default function ProfilePreview() {
           <div style={gateBoxStyle}>
             <div style={{ textAlign: 'center' }}>
               <div style={{ fontSize: 36, marginBottom: 8 }}>🚫</div>
-              <h2 style={{ color: '#fca5a5', margin: 0, fontSize: '1.3rem' }}>Link Unavailable</h2>
-              <p style={{ color: '#888', fontSize: '0.88rem', marginTop: 12, lineHeight: 1.6 }}>
+              <h2 style={{ color: 'var(--danger)', margin: 0, fontSize: '1.3rem' }}>Link Unavailable</h2>
+              <p style={{ color: 'var(--text-muted)', fontSize: '0.88rem', marginTop: 12, lineHeight: 1.6 }}>
                 {gateError || 'This share link is no longer available.'}
               </p>
             </div>
             <button
               onClick={() => window.location.href = '/'}
-              style={{ ...gateBtnStyle, background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.15)', marginTop: 8 }}
+              style={{ ...gateBtnStyle, background: 'var(--border)', border: '1px solid var(--border-strong)', marginTop: 8 }}
             >
               Go to Homepage
             </button>
@@ -337,8 +337,8 @@ export default function ProfilePreview() {
           <div style={gateBoxStyle}>
             <div style={{ textAlign: 'center' }}>
               <div style={{ fontSize: 36, marginBottom: 8 }}>🔒</div>
-              <h2 style={{ color: '#c4b5fd', margin: 0, fontSize: '1.3rem' }}>Verify Your Identity</h2>
-              <p style={{ color: '#888', fontSize: '0.88rem', marginTop: 8 }}>
+              <h2 style={{ color: 'var(--accent-strong)', margin: 0, fontSize: '1.3rem' }}>Verify Your Identity</h2>
+              <p style={{ color: 'var(--text-muted)', fontSize: '0.88rem', marginTop: 8 }}>
                 Enter your email to access this profile
               </p>
             </div>
@@ -352,7 +352,7 @@ export default function ProfilePreview() {
               style={gateInputStyle}
             />
             </div>
-            {gateError && <p style={{ color: '#ff6b6b', fontSize: '0.85rem', margin: 0 }}>{gateError}</p>}
+            {gateError && <p style={{ color: 'var(--danger)', fontSize: '0.85rem', margin: 0 }}>{gateError}</p>}
             <button onClick={handleRequestOTP} disabled={gateLoading} style={gateBtnStyle}>
               {gateLoading ? 'Sending...' : 'Send Verification Code'}
             </button>
@@ -370,9 +370,9 @@ export default function ProfilePreview() {
           <div style={gateBoxStyle}>
             <div style={{ textAlign: 'center' }}>
               <div style={{ fontSize: 36, marginBottom: 8 }}>📧</div>
-              <h2 style={{ color: '#c4b5fd', margin: 0, fontSize: '1.3rem' }}>Check Your Email</h2>
-              <p style={{ color: '#888', fontSize: '0.88rem', marginTop: 8 }}>
-                Enter the 6-digit code sent to <strong style={{ color: '#fff' }}>{gateEmail}</strong>
+              <h2 style={{ color: 'var(--accent-strong)', margin: 0, fontSize: '1.3rem' }}>Check Your Email</h2>
+              <p style={{ color: 'var(--text-muted)', fontSize: '0.88rem', marginTop: 8 }}>
+                Enter the 6-digit code sent to <strong style={{ color: 'var(--text)' }}>{gateEmail}</strong>
               </p>
             </div>
             <div className="gate-input-shell otp-shell">
@@ -386,14 +386,14 @@ export default function ProfilePreview() {
               maxLength={6}
             />
             </div>
-            {gateError && <p style={{ color: '#ff6b6b', fontSize: '0.85rem', margin: 0 }}>{gateError}</p>}
+            {gateError && <p style={{ color: 'var(--danger)', fontSize: '0.85rem', margin: 0 }}>{gateError}</p>}
             <button onClick={handleVerifyOTP} disabled={gateLoading} style={gateBtnStyle}>
               {gateLoading ? 'Verifying...' : 'Verify'}
             </button>
             <button
               onClick={handleResendOTP}
               disabled={resendCooldown > 0 || gateLoading}
-              style={{ background: 'transparent', border: '1px solid rgba(255,255,255,0.15)', borderRadius: 8, color: resendCooldown > 0 ? '#555' : '#a78bfa', padding: '8px 0', fontSize: '0.88rem', cursor: resendCooldown > 0 ? 'not-allowed' : 'pointer', width: '100%' }}
+              style={{ background: 'transparent', border: '1px solid var(--border-strong)', borderRadius: 8, color: resendCooldown > 0 ? 'var(--text-muted)' : 'var(--accent-strong)', padding: '8px 0', fontSize: '0.88rem', cursor: resendCooldown > 0 ? 'not-allowed' : 'pointer', width: '100%' }}
             >
               {resendCooldown > 0 ? `Resend code in ${resendCooldown}s` : 'Resend Code'}
             </button>
@@ -473,7 +473,7 @@ export default function ProfilePreview() {
                   <span className="status-pill expired">Expired</span>
                 )}
                 {cred.status === 'revoked' && cred.rejectionReason && (
-                  <p style={{color: "#ff6b6b", fontSize: "0.75rem", margin: "4px 0"}}>
+                  <p style={{color: "var(--danger)", fontSize: "0.75rem", margin: "4px 0"}}>
                     Reason: {cred.rejectionReason}
                   </p>
                 )}

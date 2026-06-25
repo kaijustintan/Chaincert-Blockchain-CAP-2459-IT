@@ -1420,7 +1420,7 @@ export default function IssuerDashboard() {
                   )}
                 </div>
               </div>
-              <div className="form-group compact-form-group"><label>Expiry Date <span className="form-label-hint">(optional)</span></label><input type="date" name="expiryDate" value={issueForm.expiryDate} onChange={handleIssueFormChange} min={minIssueExpiryDate()} /></div>
+              <div className="form-group compact-form-group"><label>Expiry Date <span className="form-label-hint">(optional)</span></label><input type="date" name="expiryDate" value={issueForm.expiryDate} onChange={handleIssueFormChange} /* TEMP-TEST (F01): min={minIssueExpiryDate()} removed so past dates are selectable for expiry testing — RESTORE before demo */ /></div>
               {issueError && <div className="form-error">{issueError}</div>}
               {issueConfirmStep && (
                 <div style={{ marginTop:"12px",padding:"12px 14px",borderRadius:"10px",background:"rgba(245,158,11,0.10)",border:"1px solid rgba(245,158,11,0.35)",color:"#f59e0b",fontSize:"13px",lineHeight:1.6 }}>

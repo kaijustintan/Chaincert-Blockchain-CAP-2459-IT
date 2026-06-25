@@ -37,6 +37,7 @@ import { computeIssuance, computeRevocationAudit, COLORS as ANALYTICS_COLORS } f
 import { AppShell, Sidebar, Button } from "../components/ui";
 import NotesCard from "../components/ui/NotesCard";
 import { effectiveCredentialStatus, minIssueExpiryDate } from "../utils/credentialStatus"; // F01
+import { getCredentialLineage, isSameInstance } from "../utils/credentialLineage"; // Q1
 import { LayoutDashboard, FilePlus, Award, Ban, List, BarChart3, Receipt, Building2 } from "lucide-react";
 
 export default function IssuerDashboard() {
@@ -273,6 +274,13 @@ export default function IssuerDashboard() {
       (log.issuerEmail && String(log.issuerEmail).toLowerCase() === semail)
     );
   }, [subHistorySubordinate, rootSubordinateLogs]);
+
+  // Q1: all instances (reissues) of the credential currently open in the history modal,
+  // derived from the already-fetched list by templateId+holderID. Oldest → newest.
+  const historyLineage = useMemo(
+    () => (historyCredential ? getCredentialLineage(historyCredential, credentials) : []),
+    [historyCredential, credentials]
+  );
 
   const handleRootApproveSubordinate = async (issuerId) => {
     try {
@@ -1654,6 +1662,36 @@ export default function IssuerDashboard() {
               </div>
               <button type="button" className="modal-close history-modal-close" onClick={closeHistory}>✕</button>
             </div>
+
+            {/* Q1: Credential Lineage — every issuance of this credential to this holder,
+                across reissues (issued → revoked → reissued → expired → …). */}
+            {historyLineage.length > 1 && (
+              <div className="cred-lineage" style={{ marginBottom: 18, border: "1px solid rgba(139,92,246,0.28)", borderRadius: 12, padding: "14px 16px", background: "rgba(139,92,246,0.06)" }}>
+                <div style={{ fontWeight: 600, fontSize: 14, marginBottom: 4 }}>Credential Lineage</div>
+                <div style={{ fontSize: 12.5, color: "rgba(255,255,255,0.62)", marginBottom: 10 }}>
+                  {historyLineage.length} issuances of <strong>{historyCredential?.credentialName || "this credential"}</strong> to <strong>{historyCredential?.holderName || historyCredential?.holderID || "this holder"}</strong>, oldest first. Highlighted = the one you opened.
+                </div>
+                <table className="template-table">
+                  <thead><tr><th>#</th><th>Status</th><th>Issued</th><th>Expiry</th><th>Revoked</th></tr></thead>
+                  <tbody>
+                    {historyLineage.map((inst, i) => {
+                      const eff = effectiveCredentialStatus(inst);
+                      const current = isSameInstance(inst, historyCredential);
+                      const revoked = getRevokedDateValue(inst);
+                      return (
+                        <tr key={inst.blockchainId || inst.id || i} style={current ? { background: "rgba(139,92,246,0.18)" } : undefined}>
+                          <td>{i + 1}{current ? " ◀" : ""}</td>
+                          <td><span className={`status-badge status-${eff}`}>{eff}</span></td>
+                          <td>{formatIssuedDate(inst) || "N/A"}</td>
+                          <td>{inst.expiryDate ? new Date(inst.expiryDate).toLocaleDateString() : "—"}</td>
+                          <td>{revoked ? new Date(revoked).toLocaleDateString() : "—"}</td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
 
             {historyLoading && <div style={{ padding: "20px", opacity: 0.8 }}>Loading blockchain history...</div>}
             {historyError && <div className="form-error">{historyError}</div>}

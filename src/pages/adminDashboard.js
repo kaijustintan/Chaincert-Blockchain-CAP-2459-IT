@@ -2918,22 +2918,7 @@ const handleDownloadIssuerDocument = async (doc) => {
               Unified view of templates + issued credentials across ALL approved issuers.
             </p>
 
-            <div style={{ marginBottom: 16 }}>
-              <button
-                onClick={handleIntegrityCheck}
-                disabled={integrityLoading}
-                className="action-btn"
-                style={{ width: "auto" }}
-              >
-                {integrityLoading ? 'Checking…' : 'Run Integrity Check'}
-              </button>
-            </div>
-
-            {integrityResult && (
-              <div style={{ marginBottom: "16px", padding: "16px", background: "var(--accent-weaker)", border: "1px solid var(--accent-weak)", borderRadius: "12px", color: "var(--accent-strong)" }}>
-                Last integrity check: {integrityResult.totalChecked} checked • {integrityResult.matched} matched • {integrityResult.mismatched} mismatched • {integrityResult.missing} missing • {integrityResult.errors} errors.
-              </div>
-            )}
+            {/* ADMIN3: integrity check moved to the Analytics & Reports tab. */}
 
             <div style={{ display: "flex", flexWrap: "wrap", gap: 16, alignItems: "flex-start" }}>
             <div style={{ flex: "1 1 380px", minWidth: 0 }}>
@@ -4189,6 +4174,14 @@ const handleDownloadIssuerDocument = async (doc) => {
                     </p>
                   )}
                   <InterpretationBox>{integrity.summary}</InterpretationBox>
+                  <button
+                    type="button"
+                    onClick={handleIntegrityCheck}
+                    disabled={integrityLoading}
+                    style={{ marginTop: 10, marginRight: 8 }}
+                  >
+                    {integrityLoading ? "Running…" : "Re-run integrity check"}
+                  </button>
                   {!integrity.healthy && (
                     <button
                       type="button"

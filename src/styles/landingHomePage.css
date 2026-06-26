@@ -440,10 +440,16 @@
 .hero-glow-right { background: var(--info-weak) !important; opacity: 0.2 !important; }
 .hero-badge { background: var(--accent-weak); border: 1px solid transparent; color: var(--accent-strong); border-radius: var(--radius-pill); }
 .hero-title { color: var(--text); }
-/* Static accent gradient (animation removed) — the one allowed flourish */
+/* LAND1: the clip-text gradient renders as a solid purple BLOCK because
+   .hero-title keeps a transform (fadeInUp, fill-mode both) and Chrome won't clip
+   the gradient to the text under a transformed ancestor. Flat accent color is
+   reliably visible. (This override rule is the one that actually applies.) */
 .hero-gradient {
-  background: var(--accent-gradient) !important;
-  -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+  background: none !important;
+  color: var(--accent-strong) !important;
+  -webkit-text-fill-color: var(--accent-strong) !important;
+  -webkit-background-clip: border-box !important;
+  background-clip: border-box !important;
   animation: none !important;
 }
 .hero-desc, .section-subtitle, .feature-card p, .why-card p, .cta-card p { color: var(--text-muted); }

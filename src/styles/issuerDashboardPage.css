@@ -378,7 +378,7 @@
   text-transform: uppercase;
   font-size: var(--fs-caption);
   letter-spacing: 1px;
-  padding: 16px 20px;
+  padding: 11px 13px;
   text-align: left;
   vertical-align: middle;
   border-bottom: 2px solid var(--accent-weak);
@@ -386,12 +386,13 @@
 }
 
 .template-table td {
-  padding: 18px 20px;
+  padding: 11px 14px;
   border-bottom: 1px solid var(--accent-weaker);
   text-align: left;
   color: var(--text-muted);
   vertical-align: middle;
-  font-size: var(--fs-body);
+  font-size: var(--fs-small);
+  overflow-wrap: anywhere; /* GEN2/ISSUER1: long IDs/text wrap so the table fits — no horizontal scroll */
   transition: all var(--motion) var(--ease);
 }
 

@@ -317,7 +317,7 @@
   width: 100%; overflow-x: auto; border-radius: 14px; margin-top: 12px;
   max-width: 100%; box-sizing: border-box;
 }
-.table-wrapper .admin-table { min-width: 700px; }
+.table-wrapper .admin-table { min-width: 0; } /* ADMIN4/GEN2: let the table fit its container instead of forcing horizontal scroll */
 .table-wrapper::-webkit-scrollbar { height: 6px; }
 .table-wrapper::-webkit-scrollbar-track { background: var(--accent-weaker); border-radius: 3px; }
 .table-wrapper::-webkit-scrollbar-thumb { background: var(--accent-weak); border-radius: 3px; }
@@ -331,12 +331,12 @@
 .admin-table th {
   background: linear-gradient(180deg, var(--accent-weak) 0%, var(--accent-weak) 100%);
   font-weight: 700; color: var(--accent-strong); text-transform: uppercase; font-size: var(--fs-caption);
-  letter-spacing: 0.8px; padding: 14px 16px; text-align: center;
-  border-bottom: 2px solid var(--accent-weak); white-space: nowrap;
+  letter-spacing: 0.8px; padding: 9px 11px; text-align: center;
+  border-bottom: 2px solid var(--accent-weak); white-space: normal;
 }
 .admin-table td {
-  padding: 14px 16px; border-bottom: 1px solid var(--accent-weaker);
-  text-align: center; color: var(--text-muted); font-size: var(--fs-small); vertical-align: middle; transition: all var(--motion) var(--ease);
+  padding: 9px 11px; border-bottom: 1px solid var(--accent-weaker);
+  text-align: center; color: var(--text-muted); font-size: var(--fs-small); vertical-align: middle; overflow-wrap: anywhere; transition: all var(--motion) var(--ease);
 }
 .admin-table tbody tr:nth-child(odd) { background: var(--accent-weaker); }
 .admin-table tbody tr:nth-child(even) { background: rgba(10,6,28,0.6); }

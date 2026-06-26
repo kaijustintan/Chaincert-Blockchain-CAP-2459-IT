@@ -30,6 +30,8 @@
       - EXPIRING_SOON_DAYS, SUSPICIOUS_WINDOW_DAYS, SUSPICIOUS_THRESHOLD, SUSPICIOUS_MIN_SAMPLE
 */
 
+import { effectiveCredentialStatus } from '../../utils/credentialStatus';
+
 // ── Tunable rule constants (kept visible for panel defensibility) ──────────────
 export const EXPIRING_SOON_DAYS = 60;       // a credential "expiring soon" if it lapses within this many days
 export const SUSPICIOUS_WINDOW_DAYS = 30;   // look-back window for the revocation-spike rule
@@ -91,12 +93,15 @@ export function computeHealth(credentials) {
   let healthy = 0, expiringSoon = 0, expired = 0, revoked = 0;
 
   for (const c of list) {
-    const status = lc(c.status);
+    // Use the canonical end-of-day-Manila expiry rule (effectiveCredentialStatus)
+    // so this donut matches the wallet chips/badges. Computing expiry inline with a
+    // raw `exp < now` parses "YYYY-MM-DD" as UTC midnight (= 08:00 Manila), which
+    // wrongly bucketed a same-day-expiry credential as expired → "0 active" bug.
+    const eff = effectiveCredentialStatus(c); // 'revoked' | 'expired' | 'issued'/'active'
     const exp = toTime(c.expiryDate);
-    const isExpired = status === 'expired' || (exp !== null && exp < now);
 
-    if (status === 'revoked') revoked++;
-    else if (isExpired) expired++;
+    if (eff === 'revoked') revoked++;
+    else if (eff === 'expired') expired++;
     else if (exp !== null && exp <= soonCutoff) expiringSoon++;
     else healthy++; // active/issued and not lapsing soon
   }

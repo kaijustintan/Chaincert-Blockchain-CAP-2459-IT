@@ -1925,6 +1925,11 @@ const handleDownloadIssuerDocument = async (doc) => {
                               : e.outcome === "expired"
                               ? "Caught as expired"
                               : "Checked";
+                          // The email is OTP-proven (taken from a signed token,
+                          // never the request body) → it's the trustworthy identity.
+                          // The name is self-reported free text → show it as secondary.
+                          const hasName =
+                            e.verifierName && e.verifierName !== "Anonymous";
                           return (
                             <div className="analytics-timeline-item" key={`proof-${i}`}>
                               <span
@@ -1936,7 +1941,16 @@ const handleDownloadIssuerDocument = async (doc) => {
                               <div>
                                 <div className="analytics-timeline-label">{label}</div>
                                 <div className="analytics-timeline-when">
-                                  {formatTimestamp(e.when)} • by {e.verifierName}
+                                  {formatTimestamp(e.when)}
+                                  {e.verifierEmail ? (
+                                    <>
+                                      {" • "}
+                                      <strong>{e.verifierEmail}</strong> (verified)
+                                      {hasName ? ` · ${e.verifierName} (self-reported)` : ""}
+                                    </>
+                                  ) : (
+                                    ` • by ${hasName ? e.verifierName : "an anonymous verifier"} (self-reported)`
+                                  )}
                                 </div>
                               </div>
                             </div>

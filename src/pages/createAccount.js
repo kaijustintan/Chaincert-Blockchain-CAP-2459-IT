@@ -57,6 +57,16 @@ export default function CreateAccount() {
 
   // State to track if issuer submitted
   const [issuerSubmitted, setIssuerSubmitted] = useState(false);
+
+  // REG-UI1: issuer registration is a 3-step wizard (1 Basic → 2 Governance → 3 Docs).
+  // Each step is a prerequisite to the next; Part 3's required docs depend on the
+  // category chosen in Part 2, so forcing the order matches the real data dependency.
+  const [wizardStep, setWizardStep] = useState(1);
+  const ISSUER_STEPS = [
+    { n: 1, label: "Basic Details" },
+    { n: 2, label: "Governance" },
+    { n: 3, label: "Documents" },
+  ];
   const [userError, setUserError] = useState("");
   const [issuerError, setIssuerError] = useState("");
   const [userLoading, setUserLoading] = useState(false);
@@ -100,6 +110,7 @@ export default function CreateAccount() {
     setIssuerSubmitted(false);
     setRootAuthorityOpen(false);
     setRootAuthoritySearch("");
+    setWizardStep(1);
   };
 
   // ========== USER FORM HANDLERS ==========
@@ -417,18 +428,8 @@ const getDocumentDescription = (docKey) => {
     }));
   };
 
-  const submitIssuer = async (e) => {
-    e.preventDefault();
-    setIssuerError("");
-    setIssuerLoading(true);
-    setIssuerSubmitted(false);
-
-    if (issuer.password !== issuer.confirmPassword) {
-      setIssuerError("Issuer passwords do not match.");
-      setIssuerLoading(false);
-      return;
-    }
-
+  // REG-UI1: per-step validation. Returns an error string, or "" if the step is valid.
+  const validateStep1 = () => {
     if (
       !issuer.orgName ||
       !issuer.contactName ||
@@ -436,34 +437,69 @@ const getDocumentDescription = (docKey) => {
       !issuer.password ||
       !issuer.confirmPassword
     ) {
-      setIssuerError("All basic fields are required.");
-      setIssuerLoading(false);
-      return;
+      return "All basic fields are required.";
     }
-
     if (!VALID_EMAIL_REGEX.test(String(issuer.email).trim())) {
-      setIssuerError("Please enter a valid email address (e.g., name@example.com).");
-      setIssuerLoading(false);
+      return "Please enter a valid email address (e.g., name@example.com).";
+    }
+    if (issuer.password !== issuer.confirmPassword) {
+      return "Issuer passwords do not match.";
+    }
+    return "";
+  };
+
+  const validateStep2 = () => {
+    if (!issuer.issuerType) return "Issuer type is required.";
+    if (!issuer.category) return "Category is required.";
+    if (issuer.issuerType === "subordinate" && !issuer.rootAuthorityId) {
+      return "Please select a root authority.";
+    }
+    return "";
+  };
+
+  const goToNextStep = () => {
+    setIssuerError("");
+    if (wizardStep === 1) {
+      const err = validateStep1();
+      if (err) return setIssuerError(err);
+      setWizardStep(2);
+    } else if (wizardStep === 2) {
+      const err = validateStep2();
+      if (err) return setIssuerError(err);
+      setWizardStep(3);
+    }
+  };
+
+  const goToPrevStep = () => {
+    setIssuerError("");
+    setWizardStep((s) => Math.max(1, s - 1));
+  };
+
+  const submitIssuer = async (e) => {
+    e.preventDefault();
+
+    // Before the final step, a submit (e.g. pressing Enter) just advances the wizard.
+    if (wizardStep < 3) {
+      goToNextStep();
       return;
     }
 
-    if (!issuer.issuerType) {
-      setIssuerError("Issuer type is required.");
+    setIssuerError("");
+    setIssuerLoading(true);
+    setIssuerSubmitted(false);
+
+    // Final guard: re-validate the earlier steps before sending.
+    const step1Err = validateStep1();
+    if (step1Err) {
+      setIssuerError(step1Err);
+      setWizardStep(1);
       setIssuerLoading(false);
       return;
     }
-
-    if (!issuer.category) {
-      setIssuerError("Category is required.");
-      setIssuerLoading(false);
-      return;
-    }
-
-    if (
-      issuer.issuerType === "subordinate" &&
-      !issuer.rootAuthorityId
-    ) {
-      setIssuerError("Please select a root authority.");
+    const step2Err = validateStep2();
+    if (step2Err) {
+      setIssuerError(step2Err);
+      setWizardStep(2);
       setIssuerLoading(false);
       return;
     }
@@ -699,7 +735,22 @@ const getDocumentDescription = (docKey) => {
 
           {!issuerSubmitted ? (
             <form onSubmit={submitIssuer} method="post">
-              {/* PART 1: BASIC DETAILS */}
+              {/* REG-UI1: step indicator */}
+              <div className="wizard-stepper">
+                {ISSUER_STEPS.map((s) => (
+                  <div
+                    key={s.n}
+                    className={`wizard-step${wizardStep === s.n ? " active" : ""}${wizardStep > s.n ? " done" : ""}`}
+                  >
+                    <span className="wizard-step-circle">{wizardStep > s.n ? "✓" : s.n}</span>
+                    <span className="wizard-step-label">{s.label}</span>
+                  </div>
+                ))}
+              </div>
+
+              {/* STEP 1 — PART 1: BASIC DETAILS */}
+              {wizardStep === 1 && (
+              <>
               <div className="form-section-title">Part 1: Basic Details</div>
 
               <div className="form-grid">
@@ -764,7 +815,12 @@ const getDocumentDescription = (docKey) => {
                 </div>
               </div>
 
-              {/* PART 2: GOVERNANCE DETAILS */}
+              </>
+              )}
+
+              {/* STEP 2 — PART 2: GOVERNANCE DETAILS */}
+              {wizardStep === 2 && (
+              <>
               <div className="form-section-title">Part 2: Governance Details</div>
 
               <div className="form-grid">
@@ -865,7 +921,12 @@ const getDocumentDescription = (docKey) => {
                 </div>
               )}
 
-              {/* PART 3: REQUIRED DOCUMENTS */}
+              </>
+              )}
+
+              {/* STEP 3 — PART 3: REQUIRED DOCUMENTS */}
+              {wizardStep === 3 && (
+              <>
               <div className="form-section-title">Part 3: Required Documents</div>
 
               {!issuer.category && (
@@ -917,19 +978,44 @@ const getDocumentDescription = (docKey) => {
                 </>
               )}
 
+              </>
+              )}
+
               {issuerError && (
                 <div className="form-error">
                   <span>⚠️</span> {issuerError}
                 </div>
               )}
 
-              <button
-                type="submit"
-                className="btn-primary"
-                disabled={issuerLoading}
-              >
-                {issuerLoading ? "Submitting..." : "Submit Issuer Registration"}
-              </button>
+              <div className="wizard-nav">
+                {wizardStep > 1 && (
+                  <button
+                    type="button"
+                    className="btn-secondary"
+                    onClick={goToPrevStep}
+                    disabled={issuerLoading}
+                  >
+                    ← Back
+                  </button>
+                )}
+                {wizardStep < 3 ? (
+                  <button
+                    type="button"
+                    className="btn-primary"
+                    onClick={goToNextStep}
+                  >
+                    Next →
+                  </button>
+                ) : (
+                  <button
+                    type="submit"
+                    className="btn-primary"
+                    disabled={issuerLoading}
+                  >
+                    {issuerLoading ? "Submitting..." : "Submit Issuer Registration"}
+                  </button>
+                )}
+              </div>
             </form>
           ) : (
             <div className="issuer-message"> 

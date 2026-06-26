@@ -462,6 +462,118 @@
 }
 
 /* =====================================================
+   REG-UI1: ISSUER REGISTRATION WIZARD
+   ===================================================== */
+.wizard-stepper {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 24px;
+}
+
+.wizard-step {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1;
+  min-width: 0;
+}
+
+.wizard-step:not(:last-child)::after {
+  content: '';
+  flex: 1;
+  height: 2px;
+  background: var(--border);
+  margin-left: 8px;
+}
+
+.wizard-step.done:not(:last-child)::after {
+  background: var(--accent);
+}
+
+.wizard-step-circle {
+  flex: none;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  font-size: 13px;
+  font-weight: 700;
+  background: var(--surface-2);
+  color: var(--text-muted);
+  border: 1px solid var(--border);
+  transition: all 0.25s ease;
+}
+
+.wizard-step.active .wizard-step-circle {
+  background: var(--accent);
+  color: var(--text);
+  border-color: var(--accent);
+}
+
+.wizard-step.done .wizard-step-circle {
+  background: var(--accent-weak);
+  color: var(--accent-strong);
+  border-color: var(--accent);
+}
+
+.wizard-step-label {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.wizard-step.active .wizard-step-label {
+  color: var(--text);
+}
+
+.wizard-nav {
+  display: flex;
+  gap: 12px;
+  margin-top: 8px;
+}
+
+.wizard-nav .btn-primary {
+  margin-top: 0;
+  flex: 1;
+}
+
+.btn-secondary {
+  margin-top: 0;
+  padding: 14px 24px;
+  background: var(--surface-2);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  font-size: 15px;
+  font-family: var(--font-ui);
+  transition: all 0.25s ease;
+  flex: none;
+}
+
+.btn-secondary:hover:not(:disabled) {
+  background: var(--surface-3, var(--surface-2));
+  border-color: var(--accent);
+}
+
+.btn-secondary:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+@media (max-width: 560px) {
+  .wizard-step-label {
+    display: none;
+  }
+}
+
+/* =====================================================
    BOTTOM LINKS ROW
    ===================================================== */
 .form-bottom-links {

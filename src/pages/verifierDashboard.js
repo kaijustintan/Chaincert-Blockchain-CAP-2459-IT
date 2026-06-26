@@ -184,7 +184,7 @@ export default function VerifierDashboard() {
       localStorage.setItem("verifierName", trimmedName);
       localStorage.setItem("verifierEmail", trimmedEmail);
       setOtpSent(true);
-      setOtpInfo(`We sent a 6-digit code to ${trimmedEmail}. Enter it below to continue.`);
+      setOtpInfo(`Enter the 6-digit code we sent to ${trimmedEmail}.`);
     } catch (err) {
       setOtpError(err.response?.data?.message || "Could not send the code. Please try again.");
     } finally { setOtpLoading(false); }
@@ -226,11 +226,11 @@ export default function VerifierDashboard() {
         <Card className="verifier-gate-card">
           <div className="verifier-head-icon"><ShieldCheck size={26} aria-hidden="true" /></div>
           <h1 className="verifier-gate-title">Verifier Information</h1>
-          <p className="verifier-gate-sub">
-            {otpSent
-              ? "Enter the code we emailed you to confirm it's really your address."
-              : "Enter your details — we'll email you a code to confirm your address before you verify."}
-          </p>
+          {!otpSent && (
+            <p className="verifier-gate-sub">
+              Enter your details — we'll email you a code to confirm your address before you verify.
+            </p>
+          )}
 
           {!otpSent ? (
             <form onSubmit={handleSendOtp}>
@@ -344,8 +344,17 @@ export default function VerifierDashboard() {
           <div className="verifier-verdict-head">
             {result.isValid ? <CheckCircle2 size={28} aria-hidden="true" /> : <AlertTriangle size={28} aria-hidden="true" />}
             <div>
-              <h2>{result.isValid ? "Credential Valid" : "Credential Invalid"}</h2>
-              {result.reason && <p>{result.reason}</p>}
+              <h2>
+                {result.isValid
+                  ? "VALID"
+                  : String(result.status).toLowerCase() === "revoked"
+                  ? "REVOKED"
+                  : String(result.status).toLowerCase() === "expired"
+                  ? "EXPIRED"
+                  : String(result.status).toLowerCase() === "not_found"
+                  ? "NOT FOUND"
+                  : "INVALID"}
+              </h2>
             </div>
           </div>
 

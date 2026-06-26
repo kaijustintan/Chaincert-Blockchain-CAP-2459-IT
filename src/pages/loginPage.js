@@ -87,14 +87,10 @@ function LoginPage() {
       <div className="login-left">
         {/* CSS-CHANGE: wrapped in login-left-card for dark box styling - polo */}
         <div className="login-left-card">
-          <h1>Your Credentials, Verified.</h1> 
-          <p>ChainCert is a blockchain-powered platform that enables you to:</p>
-          <ul>
-            <li>✔ Secure and verify your academic credentials</li>
-            <li>✔ Share your achievements with employers</li>
-            <li>✔ Build trust through blockchain technology</li>
-            <li>✔ Unlock new career and education opportunities</li>
-          </ul>
+          <h1>Your Credentials, Verified.</h1>
+          <p className="login-left-tagline">
+            Tamper-proof credentials on the blockchain — yours to hold, share, and prove in seconds.
+          </p>
         </div>
       </div>
 

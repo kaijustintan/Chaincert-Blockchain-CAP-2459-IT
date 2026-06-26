@@ -114,8 +114,14 @@
 }
 
 .hero-gradient {
+  /* LAND1: was invisible until selected — background-clip:text on an inline element
+     wasn't painting until a repaint. inline-block forces it to paint on load;
+     the solid color is a fallback if background-clip:text is unsupported. */
+  display: inline-block;
+  color: var(--accent-strong);
   background: linear-gradient(135deg, var(--accent-strong), var(--accent-strong), var(--accent), var(--accent-strong));
   background-size: 300% 100%;
+  background-clip: text;
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   animation: gradientShift 4s ease infinite;

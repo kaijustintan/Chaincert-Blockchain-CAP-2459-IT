@@ -534,9 +534,11 @@ export default function IssuerDashboard() {
     let result = [...credentials];
     if (revokeStatusFilter !== "all") {
       result = result.filter((cred) => {
-        const normalizedStatus = String(cred.status || "active").toLowerCase();
-        if (revokeStatusFilter === "issued") return normalizedStatus === "issued" || normalizedStatus === "active";
-        return normalizedStatus === revokeStatusFilter;
+        // ISSUER3: filter by EFFECTIVE status so it matches the badges (an
+        // effectively-expired credential reads as "expired", not "issued").
+        const eff = effectiveCredentialStatus(cred);
+        if (revokeStatusFilter === "issued") return eff === "issued" || eff === "active";
+        return eff === revokeStatusFilter;
       });
     }
     if (revokeTypeFilter !== "all") result = result.filter((cred) => String(cred.credentialType || "").toLowerCase() === revokeTypeFilter.toLowerCase());
@@ -1194,7 +1196,7 @@ export default function IssuerDashboard() {
           <div className="table-container">
             <h3 style={{ marginBottom: 12 }}>Issued Credentials ({revokableCount} revokable)</h3>
             <div className="filter-row">
-              <div className="filter-group"><label>Status:</label><select value={revokeStatusFilter} onChange={(e) => setRevokeStatusFilter(e.target.value)} className="filter-select"><option value="all">All Status</option><option value="issued">Issued</option><option value="revoked">Revoked</option></select></div>
+              <div className="filter-group"><label>Status:</label><select value={revokeStatusFilter} onChange={(e) => setRevokeStatusFilter(e.target.value)} className="filter-select"><option value="all">All Status</option><option value="issued">Issued</option><option value="revoked">Revoked</option><option value="expired">Expired</option></select></div>
               <div className="filter-group"><label>Type:</label><select value={revokeTypeFilter} onChange={(e) => setRevokeTypeFilter(e.target.value)} className="filter-select"><option value="all">All Types</option>{getUniqueCredentialTypes().map((type) => <option key={type} value={type}>{type}</option>)}</select></div>
               <div className="filter-group"><label>Search:</label><input value={revokeSectionSearch} onChange={(e) => setRevokeSectionSearch(e.target.value)} placeholder="Search by credential, holder, or ID..." className="filter-select" /></div>
               <div className="filter-group"><label>Sort by:</label><select value={revokeSortBy} onChange={(e) => setRevokeSortBy(e.target.value)} className="filter-select"><option value="newest">Most Recent</option><option value="oldest">Oldest First</option><option value="name-asc">Name A-Z</option><option value="name-desc">Name Z-A</option><option value="status-asc">Status A-Z</option></select></div>
@@ -1234,9 +1236,8 @@ export default function IssuerDashboard() {
                             return (eff === "issued" || eff === "active") ? (
                               <button onClick={() => openRevokeForCredential(credential)} className="action-btn revoke-btn">Revoke</button>
                             ) : (
-                              <span style={{ opacity: 0.5, fontSize: "12px", fontStyle: "italic" }}>
-                                {eff === "revoked" ? "Revoked" : eff === "expired" ? "Expired" : (eff || "Unknown")}
-                              </span>
+                              // ISSUER2: Status column already shows the badge — don't repeat it here.
+                              <span style={{ opacity: 0.4 }}>—</span>
                             );
                           })()}
                         </td>

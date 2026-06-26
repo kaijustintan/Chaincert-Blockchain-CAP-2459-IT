@@ -62,6 +62,7 @@ export default function CreateAccount() {
   // Each step is a prerequisite to the next; Part 3's required docs depend on the
   // category chosen in Part 2, so forcing the order matches the real data dependency.
   const [wizardStep, setWizardStep] = useState(1);
+  const [checkingEmail, setCheckingEmail] = useState(false); // REG: Step 1→2 email gate
   const ISSUER_STEPS = [
     { n: 1, label: "Basic Details" },
     { n: 2, label: "Governance" },
@@ -457,11 +458,25 @@ const getDocumentDescription = (docKey) => {
     return "";
   };
 
-  const goToNextStep = () => {
+  const goToNextStep = async () => {
     setIssuerError("");
     if (wizardStep === 1) {
       const err = validateStep1();
       if (err) return setIssuerError(err);
+      // REG: block advancing to Part 2 if the email is already registered.
+      setCheckingEmail(true);
+      try {
+        const resp = await apiService.checkEmailAvailability(issuer.email);
+        if (resp && resp.available === false) {
+          setIssuerError("This email is already registered. Please use a different email or log in instead.");
+          return;
+        }
+      } catch (err2) {
+        // Network/server hiccup: don't hard-block — the final submit still re-checks.
+        console.warn("Email availability check failed:", err2?.response?.data?.message || err2?.message);
+      } finally {
+        setCheckingEmail(false);
+      }
       setWizardStep(2);
     } else if (wizardStep === 2) {
       const err = validateStep2();
@@ -737,14 +752,18 @@ const getDocumentDescription = (docKey) => {
             <form onSubmit={submitIssuer} method="post">
               {/* REG-UI1: step indicator */}
               <div className="wizard-stepper">
-                {ISSUER_STEPS.map((s) => (
-                  <div
-                    key={s.n}
-                    className={`wizard-step${wizardStep === s.n ? " active" : ""}${wizardStep > s.n ? " done" : ""}`}
-                  >
-                    <span className="wizard-step-circle">{wizardStep > s.n ? "✓" : s.n}</span>
-                    <span className="wizard-step-label">{s.label}</span>
-                  </div>
+                {ISSUER_STEPS.map((s, i) => (
+                  <React.Fragment key={s.n}>
+                    <div
+                      className={`wizard-step${wizardStep === s.n ? " active" : ""}${wizardStep > s.n ? " done" : ""}`}
+                    >
+                      <span className="wizard-step-circle">{wizardStep > s.n ? "✓" : s.n}</span>
+                      <span className="wizard-step-label">{s.label}</span>
+                    </div>
+                    {i < ISSUER_STEPS.length - 1 && (
+                      <div className={`wizard-connector${wizardStep > s.n ? " done" : ""}`} />
+                    )}
+                  </React.Fragment>
                 ))}
               </div>
 
@@ -853,6 +872,20 @@ const getDocumentDescription = (docKey) => {
                     <option value="others">Others</option> 
                   </select>
                 </div>
+              </div>
+
+              {/* Legend: explain the two issuer tiers before they pick one */}
+              <div className="form-legend">
+                <p>
+                  <strong>Root Authority</strong> — a sovereign institution (e.g., a
+                  university or government body) with its own blockchain identity. It can
+                  approve and oversee subordinate issuers under it.
+                </p>
+                <p>
+                  <strong>Subordinate Issuer</strong> — a unit operating under a root
+                  authority (e.g., a college, department, or training arm). It issues under
+                  the root's umbrella and must be approved by its chosen root authority first.
+                </p>
               </div>
 
               {issuer.issuerType === "subordinate" && (
@@ -1003,8 +1036,9 @@ const getDocumentDescription = (docKey) => {
                     type="button"
                     className="btn-primary"
                     onClick={goToNextStep}
+                    disabled={checkingEmail}
                   >
-                    Next →
+                    {checkingEmail ? "Checking…" : "Next →"}
                   </button>
                 ) : (
                   <button

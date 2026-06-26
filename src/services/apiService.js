@@ -130,6 +130,20 @@ const apiService = {
   },
   // ==========================================================================================================================================================================
 
+  /*
+    Function Name: checkEmailAvailability
+
+    Technical: Probes whether an email is already used (system-wide) before the
+    issuer registration wizard advances from Step 1 to Step 2. Returns the backend
+    payload { success, available }.
+    Tropang Ex: Pang-check kung libre pa ba ang email bago lumipat sa Part 2.
+  */
+  checkEmailAvailability: async (email) => {
+    const response = await axios.post('/auth/check-email', { email });
+    return response.data;
+  },
+  // ==========================================================================================================================================================================
+
 
   /*
     Function Name: login

@@ -76,6 +76,37 @@ const authController = {
     }
   },
 
+  /*
+    Function Name: checkEmail
+
+    LAYMAN (Tropang Ex):
+    Pang-check lang kung gamit na ba ang isang email bago pa matapos ang registration.
+    Ginagamit ito ng issuer registration wizard sa Step 1 → 2 gate: kapag gamit na ang
+    email, hindi makakalipat sa Part 2.
+
+    TECHNICAL:
+    Lightweight availability probe. Reuses the same system-wide duplicate rule as
+    register (couchDB.isEmailAlreadyUsed) so the gate and the final submit agree —
+    incl. the previously-rejected case (returns exists:false → available:true).
+    Returns { success, available }.
+  */
+  checkEmail: async (req, res) => {
+    try {
+      const email = req.body?.email;
+      if (!email) {
+        return res.status(400).json({ success: false, message: 'Email is required.' });
+      }
+      const normalizedEmail = String(email).trim().toLowerCase();
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(normalizedEmail)) {
+        return res.status(400).json({ success: false, message: 'Invalid email format.' });
+      }
+      const dup = await couchDB.isEmailAlreadyUsed(normalizedEmail);
+      return res.json({ success: true, available: !dup?.exists });
+    } catch (error) {
+      return sendServerError(res, error, 'CHECK_EMAIL'); // M9
+    }
+  },
+
   login: async (req, res) => {
     try {
       const { email, password } = req.body;

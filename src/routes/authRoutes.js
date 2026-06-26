@@ -12,6 +12,10 @@ const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 5 *
 // POST /api/auth/register - Register a new user account.
 router.post('/register', authController.register);
 
+// POST /api/auth/check-email - Lightweight email-availability probe for the
+// registration wizard's Step 1 -> 2 gate. Returns { available }.
+router.post('/check-email', authController.checkEmail);
+
 // POST /api/auth/login - Unified login: resolves user-vs-issuer server-side in ONE request
 // (Bonus, Phase 5 Tier 2). The legacy user-only handler stays available via authController.login,
 // and /api/issuer/login remains as a backward-compatible alias.

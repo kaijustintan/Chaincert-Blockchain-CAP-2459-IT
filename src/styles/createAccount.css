@@ -468,35 +468,39 @@
 /* =====================================================
    REG-UI1: ISSUER REGISTRATION WIZARD
    ===================================================== */
+/* Edge-to-edge stepper: circles sit at the ends + center, connectors fill the
+   gaps equally (flex:1) so there's no trailing dead space and the spacing between
+   the three steps is identical. Labels float under each circle (absolute → they
+   don't affect the spacing). */
 .wizard-stepper {
   display: flex;
-  align-items: center;
-  gap: 8px;
-  margin-bottom: 24px;
+  align-items: flex-start;
+  margin-bottom: 28px;
+  min-height: 52px; /* reserve room for the absolutely-positioned labels */
 }
 
 .wizard-step {
+  flex: 0 0 auto;
+  position: relative;
   display: flex;
-  align-items: center;
-  gap: 8px;
-  flex: 1;
-  min-width: 0;
+  justify-content: center;
 }
 
-.wizard-step:not(:last-child)::after {
-  content: '';
-  flex: 1;
+.wizard-connector {
+  flex: 1 1 0;
   height: 2px;
+  margin-top: 13px; /* vertical center of the 28px circle */
   background: var(--border);
-  margin-left: 8px;
+  transition: background 0.25s ease;
 }
 
-.wizard-step.done:not(:last-child)::after {
+.wizard-connector.done {
   background: var(--accent);
 }
 
 .wizard-step-circle {
-  flex: none;
+  position: relative;
+  z-index: 1;
   width: 28px;
   height: 28px;
   border-radius: 50%;
@@ -523,12 +527,26 @@
 }
 
 .wizard-step-label {
+  position: absolute;
+  top: 34px;
+  left: 50%;
+  transform: translateX(-50%);
+  white-space: nowrap;
   font-size: 12px;
   font-weight: 600;
   color: var(--text-muted);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+}
+
+/* Keep the first/last labels from spilling past the card edges. */
+.wizard-step:first-child .wizard-step-label {
+  left: 0;
+  transform: none;
+}
+
+.wizard-step:last-child .wizard-step-label {
+  left: auto;
+  right: 0;
+  transform: none;
 }
 
 .wizard-step.active .wizard-step-label {
@@ -575,8 +593,35 @@
 
 @media (max-width: 560px) {
   .wizard-step-label {
-    display: none;
+    font-size: 11px;
   }
+}
+
+/* =====================================================
+   LEGEND / EXPLAINER BOX (e.g. Root vs Subordinate)
+   ===================================================== */
+.form-legend {
+  background: var(--accent-weaker);
+  border: 1px solid var(--accent-weak);
+  border-left: 3px solid var(--accent);
+  border-radius: 10px;
+  padding: 12px 14px;
+  margin-bottom: 16px;
+}
+
+.form-legend p {
+  margin: 0 0 6px;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--text-muted);
+}
+
+.form-legend p:last-child {
+  margin-bottom: 0;
+}
+
+.form-legend strong {
+  color: var(--accent-strong);
 }
 
 /* =====================================================

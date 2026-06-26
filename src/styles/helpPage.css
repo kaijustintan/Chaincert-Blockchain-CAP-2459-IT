@@ -83,6 +83,16 @@
   transform: translateY(-2px);
 }
 
+/* HELP2: active category tab */
+.quick-link.active {
+  background: var(--accent);
+  border-color: var(--accent);
+}
+
+.quick-link.active .ql-text {
+  color: var(--text);
+}
+
 .ql-text {
   font-size: 13px;
   font-weight: 600;

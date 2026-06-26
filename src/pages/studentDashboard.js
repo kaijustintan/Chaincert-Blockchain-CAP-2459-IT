@@ -265,6 +265,8 @@ export default function StudentDashboard() {
   const [myVerifications, setMyVerifications] = useState([]);
   const [viLoading, setViLoading] = useState(false);
   const vinsights = useMemo(() => computeHolderVerificationInsights(myVerifications), [myVerifications]);
+  // INSIGHT4: per-credential verification detail (count + every result, incl. flagged)
+  const [verifDetail, setVerifDetail] = useState(null);
 
   useEffect(() => {
     let active = true;
@@ -811,28 +813,17 @@ export default function StudentDashboard() {
                         <h4 className="holder-subhead">Most-checked credentials</h4>
                         <div className="analytics-flag-list">
                           {vinsights.mostChecked.map((m, i) => (
-                            <div className="analytics-flag-row" key={`mc-${i}`}>
-                              <div className="analytics-flag-issuer">{m.credentialName}</div>
-                              <span className="analytics-flag-rate" style={{ color: "var(--text-muted)", fontSize: 15 }}>{m.count}×</span>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-
-                    {vinsights.alerts.length > 0 && (
-                      <div className="holder-subsection">
-                        <h4 className="holder-subhead holder-subhead--alert">Attention</h4>
-                        <div className="analytics-flag-list">
-                          {vinsights.alerts.map((a, i) => (
-                            <div className="analytics-flag-row flagged" key={`va-${i}`}>
+                            <div className={`analytics-flag-row${m.invalidCount > 0 ? " flagged" : ""}`} key={`mc-${m.credentialId || i}`}>
                               <div>
-                                <div className="analytics-flag-issuer">{a.credentialName}</div>
+                                <div className="analytics-flag-issuer">{m.credentialName}</div>
                                 <div className="analytics-flag-reason">
-                                  A verifier saw this as <strong>{a.outcome.replace("_", " ")}</strong>
-                                  {a.when ? ` on ${formatDate(a.when)}` : ""}
+                                  {m.count}× checked
+                                  {m.invalidCount > 0
+                                    ? ` • ⚠ ${m.invalidCount} flagged result${m.invalidCount > 1 ? "s" : ""}`
+                                    : " • all valid"}
                                 </div>
                               </div>
+                              <Button size="sm" variant="secondary" onClick={() => setVerifDetail(m)}>View details</Button>
                             </div>
                           ))}
                         </div>
@@ -847,6 +838,65 @@ export default function StudentDashboard() {
           )}
         </section>
       )}
+
+      {/* ── Per-credential Verification Detail Modal (INSIGHT4) ── */}
+      <Modal
+        open={!!verifDetail}
+        onClose={() => setVerifDetail(null)}
+        title={verifDetail ? `Verifications — ${verifDetail.credentialName}` : ""}
+        size="md"
+      >
+        {verifDetail && (
+          <>
+            <div className="holder-trust-row">
+              <div className="holder-trust-stat">
+                <span className="holder-trust-num">{verifDetail.count}</span>
+                <span className="holder-trust-label">Total checks</span>
+              </div>
+              <div className="holder-trust-stat">
+                <span className="holder-trust-num" style={{ color: "var(--ok)" }}>{verifDetail.validCount}</span>
+                <span className="holder-trust-label">Valid</span>
+              </div>
+              <div className="holder-trust-stat">
+                <span className="holder-trust-num" style={{ color: verifDetail.invalidCount > 0 ? "var(--danger)" : "var(--text-muted)" }}>
+                  {verifDetail.invalidCount}
+                </span>
+                <span className="holder-trust-label">Flagged</span>
+              </div>
+            </div>
+
+            <div className="holder-subsection">
+              <h4 className="holder-subhead">Every check (newest first)</h4>
+              <div className="analytics-flag-list">
+                {verifDetail.events.map((e, i) => (
+                  <div className={`analytics-flag-row${e.valid ? "" : " flagged"}`} key={`vd-${i}`}>
+                    <div>
+                      <div className="analytics-flag-issuer">
+                        {e.valid ? "Verified valid" : `Saw this as ${e.outcome.replace("_", " ")}`}
+                      </div>
+                      <div className="analytics-flag-reason">
+                        {e.when ? formatDate(e.when) : "Date unknown"}
+                      </div>
+                    </div>
+                    <span
+                      className="analytics-flag-rate"
+                      style={{ color: e.valid ? "var(--ok)" : "var(--danger)", fontSize: 14 }}
+                    >
+                      {e.valid ? "VALID" : e.outcome.replace("_", " ").toUpperCase()}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <InterpretationBox>
+              {verifDetail.invalidCount > 0
+                ? `This credential was checked ${verifDetail.count} time(s); ${verifDetail.invalidCount} returned a non-valid result that a verifier saw. Every check is recorded immutably on the blockchain.`
+                : `This credential was checked ${verifDetail.count} time(s) — every check returned VALID. This is tamper-proof, third-party-confirmed proof recorded on the blockchain.`}
+            </InterpretationBox>
+          </>
+        )}
+      </Modal>
 
       {/* ── Credential Detail Modal ── */}
       <Modal

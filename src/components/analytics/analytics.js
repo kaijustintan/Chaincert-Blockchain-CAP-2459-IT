@@ -753,8 +753,10 @@ export function computeHolderVerificationInsights(logs) {
   const verifiers = new Set();
   const months = lastSixMonths();
   const monthIndex = new Map(months.map((m, i) => [m.key, i]));
-  const checkedMap = new Map();   // credentialName -> count
-  const alerts = [];
+  // Per-credential breakdown, keyed by credentialId (NOT name) so two same-named
+  // credentials from different issuers don't merge. Each entry carries its own
+  // check events, so the "Attention" alerts now live inside a credential's detail.
+  const perCredMap = new Map();
 
   for (const log of list) {
     const outcome = verificationOutcome(log);
@@ -775,11 +777,21 @@ export function computeHolderVerificationInsights(logs) {
     }
 
     const name = log.credentialName || log.credentialId || 'Unknown credential';
-    checkedMap.set(name, (checkedMap.get(name) || 0) + 1);
-
-    if (outcome !== 'valid') {
-      alerts.push({ credentialName: name, outcome, when: log.verifiedAt || log.timestamp || null });
+    const id = String(log.credentialId || log.blockchainId || name);
+    if (!perCredMap.has(id)) {
+      perCredMap.set(id, { credentialId: id, credentialName: name, count: 0, validCount: 0, invalidCount: 0, events: [] });
     }
+    const pc = perCredMap.get(id);
+    pc.count++;
+    const isValid = outcome === 'valid';
+    if (isValid) pc.validCount++; else pc.invalidCount++;
+    pc.events.push({
+      outcome,
+      valid: isValid,
+      when: log.verifiedAt || log.timestamp || log.createdAt || null,
+      verifierName: log.verifierName || 'Anonymous',
+      verifierEmail: log.verifierEmail || '',
+    });
   }
 
   const totalChecks = list.length;
@@ -798,10 +810,23 @@ export function computeHolderVerificationInsights(logs) {
 
   const byMonth = months.map((m) => ({ label: m.label, count: m.count }));
 
-  const mostChecked = [...checkedMap.entries()]
-    .map(([credentialName, count]) => ({ credentialName, count }))
-    .sort((a, b) => b.count - a.count)
-    .slice(0, 5);
+  // Full per-credential list (most-checked first), each with its own events so the
+  // UI can show a per-credential detail (count + every result, incl. flagged ones).
+  const perCredential = [...perCredMap.values()]
+    .map((pc) => ({
+      ...pc,
+      events: pc.events.sort((a, b) => (toTime(b.when) || 0) - (toTime(a.when) || 0)),
+    }))
+    .sort((a, b) => b.count - a.count);
+
+  const mostChecked = perCredential.slice(0, 5);
+
+  // Flattened non-valid checks — kept for summary parity / any external consumer.
+  const alerts = perCredential.flatMap((pc) =>
+    pc.events.filter((e) => !e.valid).map((e) => ({
+      credentialId: pc.credentialId, credentialName: pc.credentialName, outcome: e.outcome, when: e.when,
+    }))
+  );
 
   let summary;
   if (totalChecks === 0) {
@@ -814,7 +839,7 @@ export function computeHolderVerificationInsights(logs) {
 
   return {
     totalChecks, validCount, invalidCount, allValid, distinctVerifiers,
-    slices, byMonth, mostChecked, alerts, summary,
+    slices, byMonth, mostChecked, perCredential, alerts, summary,
   };
 }
 

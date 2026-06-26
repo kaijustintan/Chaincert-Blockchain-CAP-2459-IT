@@ -491,6 +491,7 @@
 .status-badge {
   display: inline-flex;
   align-items: center;
+  white-space: nowrap; /* never break the status word (was wrapping "Re vo ke d") */
   gap: 6px;
   padding: 5px 14px;
   border-radius: var(--radius-pill);

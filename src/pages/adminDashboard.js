@@ -2920,7 +2920,7 @@ const handleDownloadIssuerDocument = async (doc) => {
 
             {/* ADMIN3: integrity check moved to the Analytics & Reports tab. */}
 
-            <div style={{ display: "flex", flexWrap: "wrap", gap: 16, alignItems: "flex-start" }}>
+            <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
             <div style={{ flex: "1 1 380px", minWidth: 0 }}>
 
             <div className="issuer-filter-row filter-row" style={{ gap: 12, flexWrap: "wrap" }}>
@@ -3109,7 +3109,7 @@ const handleDownloadIssuerDocument = async (doc) => {
             activeKey: issuerFilter,
           })}
 
-          <div style={{ display: "flex", flexWrap: "wrap", gap: 16, alignItems: "flex-start" }}>
+          <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
           <div style={{ flex: "1 1 380px", minWidth: 0 }}>
 
           <div className="issuer-filter-row filter-row" style={{ gap: 12, flexWrap: "wrap" }}>
@@ -3676,7 +3676,7 @@ const handleDownloadIssuerDocument = async (doc) => {
             activeKey: logCategory,
           })}
 
-          <div style={{ display: "flex", flexWrap: "wrap", gap: 16, alignItems: "flex-start" }}>
+          <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
           <div style={{ flex: "1 1 380px", minWidth: 0 }}>
 
           <div className="issuer-filter-row" style={{ gap: 12, flexWrap: "wrap" }}>

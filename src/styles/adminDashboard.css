@@ -464,6 +464,7 @@
 .status-value {
   font-weight: 600;
   text-transform: capitalize;
+  white-space: nowrap; /* never break the status word */
 }
 
 .admin-table.history-modal-table th,

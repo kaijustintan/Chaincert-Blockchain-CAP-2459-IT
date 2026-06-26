@@ -1068,7 +1068,7 @@ export default function IssuerDashboard() {
             <div className="filter-row"><div className="filter-group"><label htmlFor="issueSearch">Search:</label><input id="issueSearch" value={issueSearch} onChange={(e) => setIssueSearch(e.target.value)} placeholder="Search by credential, holder, or ID..." className="filter-select" /></div></div><div className="results-info">Showing <strong>{issueTableCredentials.length}</strong> of <strong>{credentials.length}</strong> credentials</div>
           </div>
 
-          <div style={{ display: "flex", flexWrap: "wrap", gap: 16, alignItems: "flex-start" }}>
+          <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
             <div style={{ flex: "1 1 380px", minWidth: 0 }}>
 
           {/* Issued credentials table */}

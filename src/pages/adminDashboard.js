@@ -41,6 +41,7 @@ export default function AdminDashboard() {
   const [adminNotificationsOpen, setAdminNotificationsOpen] = useState(false);
   const adminNotificationPanelRef = useRef(null);
   const [showIntegrityModal, setShowIntegrityModal] = useState(false);
+  const [integrityConfirmOpen, setIntegrityConfirmOpen] = useState(false); // ADMIN2: styled confirm
 
   const showFeedback = useCallback((type, feedbackMessage) => {
     if (feedbackTimerRef.current) {
@@ -1001,8 +1002,11 @@ const handleDownloadIssuerDocument = async (doc) => {
   // -------------------------------------------------------------------
   // NEW: ADMIN GLOBAL CREDENTIALS VIEW (across all issuers)
   // -------------------------------------------------------------------
-  const handleIntegrityCheck = async () => {
-    if (!window.confirm("Run CouchDB vs blockchain integrity check now?")) return;
+  // ADMIN2: open a styled in-app confirm instead of the native browser confirm.
+  const handleIntegrityCheck = () => setIntegrityConfirmOpen(true);
+
+  const runIntegrityCheck = async () => {
+    setIntegrityConfirmOpen(false);
     setIntegrityLoading(true);
     setIntegrityResult(null);
     try {
@@ -1661,6 +1665,34 @@ const handleDownloadIssuerDocument = async (doc) => {
       >
 
       <AppToast show={!!message} message={message} type={messageType} />
+
+      {/* ADMIN2: styled confirmation before running the integrity check */}
+      {integrityConfirmOpen &&
+        ReactDOM.createPortal(
+          <div
+            onClick={() => setIntegrityConfirmOpen(false)}
+            style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", zIndex: 999999, display: "flex", alignItems: "center", justifyContent: "center", padding: "20px" }}
+          >
+            <div
+              onClick={(e) => e.stopPropagation()}
+              style={{ width: "min(440px, 92vw)", background: "var(--surface-2)", borderRadius: "12px", border: "1px solid var(--border-strong)", padding: "24px", boxShadow: "0 10px 40px rgba(0,0,0,0.4)", color: "var(--text)" }}
+            >
+              <h3 style={{ margin: "0 0 8px" }}>Run integrity check?</h3>
+              <p style={{ margin: "0 0 20px", fontSize: "13px", lineHeight: 1.5, color: "var(--text-muted)" }}>
+                This compares every credential's database copy against its permanent blockchain record. It may take a moment on large datasets.
+              </p>
+              <div style={{ display: "flex", gap: "10px", justifyContent: "flex-end" }}>
+                <button type="button" onClick={() => setIntegrityConfirmOpen(false)} style={{ background: "transparent", border: "1px solid rgba(255,255,255,0.25)", color: "var(--text)", borderRadius: "8px", padding: "10px 16px", cursor: "pointer", fontWeight: 600 }}>
+                  Cancel
+                </button>
+                <button type="button" onClick={runIntegrityCheck} style={{ background: "var(--accent)", border: "none", color: "var(--text)", borderRadius: "8px", padding: "10px 16px", cursor: "pointer", fontWeight: 600 }}>
+                  Run check
+                </button>
+              </div>
+            </div>
+          </div>,
+          document.body
+        )}
 
       {showIntegrityModal &&
         integrityResult &&

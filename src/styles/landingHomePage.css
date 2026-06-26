@@ -114,17 +114,12 @@
 }
 
 .hero-gradient {
-  /* LAND1: was invisible until selected — background-clip:text on an inline element
-     wasn't painting until a repaint. inline-block forces it to paint on load;
-     the solid color is a fallback if background-clip:text is unsupported. */
-  display: inline-block;
+  /* LAND1 (round 2): the background-clip:text gradient stayed invisible until a
+     repaint. Root cause: the parent .hero-title keeps a transform (fadeInUp,
+     fill-mode both), and Chrome won't paint clipped-text gradients under a
+     transformed ancestor until forced (selecting the text triggered it). A solid
+     accent color is reliably visible on load and stays on-brand. */
   color: var(--accent-strong);
-  background: linear-gradient(135deg, var(--accent-strong), var(--accent-strong), var(--accent), var(--accent-strong));
-  background-size: 300% 100%;
-  background-clip: text;
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  animation: gradientShift 4s ease infinite;
 }
 
 .hero-desc {

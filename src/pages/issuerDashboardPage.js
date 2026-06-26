@@ -37,6 +37,7 @@ import InterpretationBox from "../components/analytics/InterpretationBox";
 import { computeIssuance, computeRevocationAudit, COLORS as ANALYTICS_COLORS } from "../components/analytics/analytics";
 import { AppShell, Sidebar, Button, StatusPill } from "../components/ui";
 import NotesCard from "../components/ui/NotesCard";
+import StatusLegend from "../components/ui/StatusLegend";
 import { effectiveCredentialStatus, minIssueExpiryDate } from "../utils/credentialStatus"; // F01
 import { getCredentialLineage, isSameInstance } from "../utils/credentialLineage"; // Q1
 import { LayoutDashboard, FilePlus, Award, Ban, List, BarChart3, Receipt, Building2, Bell } from "lucide-react";
@@ -1127,6 +1128,16 @@ export default function IssuerDashboard() {
       {activeView === "viewall" && (
         <>
           <h2>View Credentials</h2>
+          <StatusLegend
+            label="Status key"
+            style={{ marginBottom: 16 }}
+            items={[
+              { label: "Issued / Active", color: "var(--ok)", meaning: "issued and currently valid" },
+              { label: "Revoked", color: "var(--danger)", meaning: "cancelled by the issuer" },
+              { label: "Expired", color: "var(--warn)", meaning: "past its expiry date" },
+              { label: "Template", color: "var(--info)", meaning: "reusable template, not yet issued" },
+            ]}
+          />
           <div className="table-container">
             <div className="filter-row">
               <div className="filter-group"><label>Record Kind:</label><select value={filterRecordKind} onChange={(e) => setFilterRecordKind(e.target.value)} className="filter-select"><option value="all">All</option><option value="templates">Templates</option><option value="issued">Issued Credentials</option></select></div><div className="filter-group"><label>Type:</label><select value={viewAllTypeFilter} onChange={(e) => setViewAllTypeFilter(e.target.value)} className="filter-select"><option value="all">All Types</option>{getUniqueCredentialTypes().map((type) => <option key={type} value={type}>{type}</option>)}</select></div>
@@ -1164,6 +1175,16 @@ export default function IssuerDashboard() {
       {activeView === "revoke" && (
         <>
           <h2>Revoke Credentials</h2>
+
+          <StatusLegend
+            label="Status key"
+            style={{ margin: "12px 0 4px" }}
+            items={[
+              { label: "Issued / Active", color: "var(--ok)", meaning: "valid — can be revoked" },
+              { label: "Revoked", color: "var(--danger)", meaning: "already cancelled" },
+              { label: "Expired", color: "var(--warn)", meaning: "past its expiry date" },
+            ]}
+          />
 
           <div style={{ margin: "20px 0" }}>
             <button onClick={openRevokeModal} className="action-btn revoke-btn">Revoke a credential</button>
@@ -1235,6 +1256,17 @@ export default function IssuerDashboard() {
       {activeView === "subordinates" && !isSubordinate && (
         <>
           <h2>Subordinate Management</h2>
+
+          <StatusLegend
+            label="Status key"
+            style={{ margin: "12px 0 0" }}
+            items={[
+              { label: "Approved", color: "var(--ok)", meaning: "fully approved — the subordinate can issue" },
+              { label: "Pending / Root-approved", color: "var(--info)", meaning: "awaiting the next approval step" },
+              { label: "Rejected", color: "var(--danger)", meaning: "denied by you or the admin" },
+              { label: "Disabled", color: "var(--text-muted)", meaning: "turned off by an admin" },
+            ]}
+          />
 
           {/* My Subordinates */}
           <div className="table-container" style={{ marginTop: 24 }}>

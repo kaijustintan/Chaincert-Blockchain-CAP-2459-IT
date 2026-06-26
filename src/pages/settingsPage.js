@@ -133,6 +133,10 @@ export default function SettingsPage() {
             <section>
               <h2>Notification Preferences</h2>
               <p className="section-desc">Control how and when you receive notifications.</p>
+              {/* SET1: these toggles are not wired to a backend yet — label honestly. */}
+              <p className="section-desc" style={{ color: "var(--warn)", marginTop: -6 }}>
+                ⓘ Preference saving is coming soon — these toggles aren't active yet.
+              </p>
 
               <div className="settings-section">
                 <h4>Email Notifications</h4>
@@ -143,6 +147,8 @@ export default function SettingsPage() {
                       type="checkbox"
                       checked={emailNotifications}
                       onChange={() => setEmailNotifications(!emailNotifications)}
+                      disabled
+                      title="Coming soon"
                     />
                     <span className="slider"></span>
                   </label>
@@ -158,6 +164,8 @@ export default function SettingsPage() {
                       type="checkbox"
                       checked={pushNotifications}
                       onChange={() => setPushNotifications(!pushNotifications)}
+                      disabled
+                      title="Coming soon"
                     />
                     <span className="slider"></span>
                   </label>

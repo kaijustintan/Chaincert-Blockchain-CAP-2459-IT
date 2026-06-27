@@ -127,11 +127,16 @@ export default function ProfilePreview() {
             email: response.user.email,
             role: response.user.role,
             summary: response.user.summary || '',
-            profilePicture: response.user.profilePicture || null
+            profilePicture: response.user.profilePicture || null,
+            sharedCredentials: response.user.sharedCredentials || [],
+            issuerStats: response.user.issuerStats || null
           };
           setProfileData(nextProfile);
           setSummary(nextProfile.summary || '');
           if (nextProfile.profilePicture) setAvatar(nextProfile.profilePicture);
+          if (Array.isArray(response.user.sharedCredentials)) {
+            setCredentials(filterVisibleProfileCredentials(response.user.sharedCredentials, response.user.role));
+          }
         }
       } catch (err) {
         console.error('[PROFILE PREVIEW] Error loading owner profile:', err);
@@ -182,7 +187,9 @@ export default function ProfilePreview() {
   // ── Load credentials after OTP verified - polo ─────────────────
   useEffect(() => {
     const effectiveUserId = isOwner ? previewUserId : userId;
-    if (gateStage !== 'verified' || !effectiveUserId || (!isOwner && Array.isArray(profileData?.sharedCredentials))) return;
+    // Skip the holder-credentials fetch when the profile already carries sharedCredentials
+    // (issuer templates come from buildShareProfilePayload — don't overwrite them).
+    if (gateStage !== 'verified' || !effectiveUserId || Array.isArray(profileData?.sharedCredentials)) return;
     const fetchCredentials = async () => {
       setCredLoading(true);
       try {
@@ -447,6 +454,35 @@ export default function ProfilePreview() {
         </div>
       </section>
 
+      {/* PROFILE4: issuer credibility stats */}
+      {profileData?.role === 'issuer' && profileData?.issuerStats && (
+        <section className="about-section">
+          <h3>Issuer Stats</h3>
+          <div className="about-content">
+            <div className="about-item">
+              <span className="label">Credentials issued</span>
+              <span className="value">{profileData.issuerStats.totalIssued}</span>
+            </div>
+            <div className="about-item">
+              <span className="label">Recipients</span>
+              <span className="value">{profileData.issuerStats.distinctHolders}</span>
+            </div>
+            {profileData.issuerStats.memberSince && (
+              <div className="about-item">
+                <span className="label">On ChainCert since</span>
+                <span className="value">{new Date(profileData.issuerStats.memberSince).toLocaleDateString(undefined, { year: 'numeric', month: 'short' })}</span>
+              </div>
+            )}
+            {Array.isArray(profileData.issuerStats.types) && profileData.issuerStats.types.length > 0 && (
+              <div className="about-item">
+                <span className="label">Offers</span>
+                <span className="value">{profileData.issuerStats.types.join(' · ')}</span>
+              </div>
+            )}
+          </div>
+        </section>
+      )}
+
       {/* Badge Wallet — vertical list with order numbers - polo */}
       <section className="badge-wallet">
         <h3>Credentials & Badges</h3>
@@ -465,8 +501,13 @@ export default function ProfilePreview() {
               </div>
               <div className="badge-info">
                 <h4>{cred.credentialName}</h4>
-                <p className="issuer">{cred.issuerName}</p>
-                <p className="date">{cred.savedToUserWalletAt ? new Date(cred.savedToUserWalletAt).toLocaleDateString() : "N/A"}</p>
+                <p className="issuer">{cred.issuerName || profileData?.orgName || profileData?.name}</p>
+                <p className="date">{(cred.savedToUserWalletAt || cred.createdAt) ? new Date(cred.savedToUserWalletAt || cred.createdAt).toLocaleDateString() : "N/A"}</p>
+                {profileData?.role === 'issuer' && cred.issuanceCount > 0 && (
+                  <p className="issuance-count" style={{ margin: 0, fontSize: '0.78rem', fontWeight: 600, color: 'var(--ok)' }}>
+                    Issued {cred.issuanceCount} time{cred.issuanceCount !== 1 ? 's' : ''}
+                  </p>
+                )}
                 {cred.status === 'revoked' && (
                   <span className="status-pill revoked">Revoked</span>
                 )}

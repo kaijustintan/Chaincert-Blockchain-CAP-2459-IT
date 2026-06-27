@@ -8,12 +8,43 @@ const buildShareProfilePayload = async (ownerId) => {
   if (!user) return null;
 
   const role = String(user.role || (String(ownerId || '').startsWith('issuer_') ? 'issuer' : 'student')).toLowerCase();
-  const sharedCredentials = role === 'issuer'
-    ? await couchDB.getIssuerTemplatesByIssuerId(ownerId)
-    : await couchDB.getUserCredentialsByHolderId(ownerId);
 
-  // Show ALL statuses (incl. revoked/expired) — the frontend renders a status indicator.
-  // Transparency over hiding (immutable-ledger value prop); holder still gates via visibility. - polo
+  let sharedCredentials;
+  let issuerStats = null;
+
+  if (role === 'issuer') {
+    // PROFILE3/PROFILE4: an issuer's public profile shows their templates, each with
+    // how many times it's been issued, plus issuer-level credibility stats.
+    const [templates, issued] = await Promise.all([
+      couchDB.getIssuerTemplatesByIssuerId(ownerId),
+      couchDB.getIssuerIssuedByIssuerId(ownerId),
+    ]);
+    const issuedList = Array.isArray(issued) ? issued : [];
+    const countByTemplate = {};
+    const holders = new Set();
+    for (const c of issuedList) {
+      if (c?.templateId) countByTemplate[c.templateId] = (countByTemplate[c.templateId] || 0) + 1;
+      if (c?.holderID) holders.add(c.holderID);
+    }
+    sharedCredentials = (Array.isArray(templates) ? templates : []).map((t) => ({
+      ...t,
+      issuanceCount: countByTemplate[t._id] || 0, // PROFILE4: per-template issuance count
+    }));
+    const publicTypes = [...new Set(
+      sharedCredentials.filter((t) => t?.visibility === 'public').map((t) => t.credentialType).filter(Boolean)
+    )];
+    issuerStats = {
+      totalIssued: issuedList.length,            // PROFILE4: total credentials issued
+      distinctHolders: holders.size,             // PROFILE4: unique recipients
+      memberSince: user.approvedAt || user.createdAt || null, // PROFILE4: on ChainCert since
+      types: publicTypes,                        // PROFILE4: credential types offered
+    };
+  } else {
+    sharedCredentials = await couchDB.getUserCredentialsByHolderId(ownerId);
+  }
+
+  // PROFILE3 (per decision): keep public-only gating for templates/credentials.
+  // Show ALL statuses (incl. revoked/expired) — the frontend renders a status indicator. - polo
   const visibleCredentials = (Array.isArray(sharedCredentials) ? sharedCredentials : []).filter((cred) => (
     cred?.visibility === 'public' &&
     (role !== 'issuer' || cred?.isTemplate === true || String(cred?.type || '').toLowerCase() === 'credential_template')
@@ -30,6 +61,7 @@ const buildShareProfilePayload = async (ownerId) => {
     profilePicture: user.profilePicture || user.avatar || null,
     isPublic: user.isPublic,
     sharedCredentials: visibleCredentials,
+    issuerStats,
   };
 };
 
@@ -46,6 +78,10 @@ const accountController = {
         });
       }
 
+      // PROFILE3/4: include the public share-profile data (templates + issuer stats)
+      // so the owner "Preview Public Profile" path renders the same as a share link.
+      const shareProfile = await buildShareProfilePayload(id);
+
       return res.status(200).json({
         success: true,
         user: {
@@ -61,7 +97,9 @@ const accountController = {
           summary: user.summary || '',
           isPublic: user.isPublic,
           profilePicture: user.profilePicture || user.avatar || null,
-          profilePictureUpdatedAt: user.profilePictureUpdatedAt || user.updatedAt || null
+          profilePictureUpdatedAt: user.profilePictureUpdatedAt || user.updatedAt || null,
+          sharedCredentials: shareProfile?.sharedCredentials || [],
+          issuerStats: shareProfile?.issuerStats || null
         }
       });
     } catch (error) {

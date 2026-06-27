@@ -2,14 +2,16 @@
 //                                                               pdfExportService.js
 //  Technical: Handles PDF generation for credential export. Uses jsPDF + qrcode. Pure frontend.
 //  Tropang Ex: Dito ginagawa yung PDF ng credential — bagong "professional" look (puti na, hindi
-//              na dark/purple). Single export = detalyadong isang page. Export All = malinis na
-//              "transcript" na maraming credential kada page (Credly-style). - polo
+//              na dark/purple). Single export = detalyadong isang page (QR + verify, WALANG View
+//              Profile). Export All = cover page + malinis na "transcript" na maraming credential
+//              kada page (Credly-style), may QR + verify kada credential. - polo
 //
-//  PDF1-3 redesign (Batch 3): light professional theme, header = "ChainCert", footer =
-//  "CHAINCERT — Exported on <date>". SINGLE export: one detailed page (Status → Type → Issued To →
-//  Issued By → dates, Blockchain ID dropped — it's in the QR + verify link, verify block lower-right).
-//  EXPORT ALL: Credly-style transcript — wordmark header + holder band + compact credential ROWS
-//  (badge left, details right, description), many per page with auto page-break + "Page X of Y".
+//  PDF1-3 + share-link privacy fix (Batch 3):
+//   - SINGLE export: detailed one page. NO "View Profile" (and no share-link minting) — a single
+//     credential relies only on its OWN QR + verify link, never the full profile.
+//   - EXPORT ALL: cover page (with View Profile on the ONE reused permanent link) + Credly-style
+//     transcript rows, each with badge + always-visible Status + Issued by/to/on + description +
+//     its own QR + verify link. Holder ID is NOT printed.
 // ==========================================================================================================================================================================
 
 import { jsPDF } from 'jspdf';
@@ -25,13 +27,16 @@ const COLORS = {
   pageBg: [255, 255, 255],
   bar: [30, 41, 59],       // slate-800 navy — header + footer bars (single export)
   barText: [255, 255, 255],
-  band: [243, 244, 246],   // gray-100 — holder info band (transcript)
+  band: [243, 244, 246],   // gray-100 — badge placeholder fill
   name: [30, 58, 138],     // blue-900 — credential name + section accents
   label: [71, 85, 105],    // slate-600 — field labels
   value: [17, 24, 39],     // gray-900 — field values / body text
   divider: [203, 213, 225],// slate-300 — hairline rules
   link: [29, 78, 216],     // blue-700 — clickable links
   muted: [100, 116, 139],  // slate-500 — captions / raw URL
+  ok: [22, 163, 74],       // green-600 — active status
+  revoked: [220, 38, 38],  // red-600
+  expired: [217, 119, 6],  // amber-600
 };
 
 const formatPhilippineDate = (value) => {
@@ -51,15 +56,26 @@ const sanitizeFilename = (s) => String(s || '').replace(/[\\/:*?"<>|]/g, '').rep
 const buildVerifyUrl = (credential) =>
   `http://localhost:3000/verifier/dashboard?credentialId=${credential.blockchainId || ''}`;
 
+// Human-readable status + its color (issued → "Active"). Used everywhere status is shown.
+function statusDisplay(status) {
+  const raw = String(status || '').toLowerCase();
+  const label = raw === 'issued' ? 'Active'
+    : raw ? raw.charAt(0).toUpperCase() + raw.slice(1) : 'N/A';
+  const color = (raw === 'issued' || raw === 'active') ? COLORS.ok
+    : raw === 'revoked' ? COLORS.revoked
+    : raw === 'expired' ? COLORS.expired
+    : COLORS.value;
+  return { label, color };
+}
+
 /*
   Helper: drawStatusBanner
   Technical: Draws a large REVOKED / EXPIRED banner near the top of a SINGLE credential page so a
   non-active credential can never be passed off as valid. Active/issued → no banner (returns y as-is).
-  Tropang Ex: Kapag na-revoke/na-expire na, may malaking tatak na hindi mo maikakaila. - polo
 */
 const STATUS_BANNER = {
-  revoked: { label: 'REVOKED', rgb: [220, 38, 38] },   // red-600
-  expired: { label: 'EXPIRED', rgb: [217, 119, 6] },   // amber-600
+  revoked: { label: 'REVOKED', rgb: COLORS.revoked },
+  expired: { label: 'EXPIRED', rgb: COLORS.expired },
 };
 function drawStatusBanner(doc, status, pageW, y) {
   const cfg = STATUS_BANNER[String(status || '').toLowerCase()];
@@ -79,9 +95,8 @@ function drawStatusBanner(doc, status, pageW, y) {
 
 /*
   Helper: drawChrome (SINGLE export)
-  Technical: Paints the white background, the navy header bar ("ChainCert" + optional right caption),
-  a thin accent rule, and the navy footer ("CHAINCERT — Exported on <date>"). Used by the single
-  credential page only; the transcript (Export All) uses its own lighter header/footer.
+  Technical: White background, navy header bar ("ChainCert" + optional right caption), thin accent
+  rule, navy footer ("CHAINCERT — Exported on <date>").
 */
 function drawChrome(doc, pageW, exportedOn, caption) {
   doc.setFillColor(...COLORS.pageBg);
@@ -111,26 +126,24 @@ function drawChrome(doc, pageW, exportedOn, caption) {
 }
 
 /*
-  Helper: renderCredentialPage (SINGLE export)
-  Technical: Renders ONE credential as a full detailed page (picture → name → divider → details →
-  divider → description → skills → lower-right verify block). Used by exportCredentialToPDF.
-  Tropang Ex: Buong detalye ng isang credential sa isang page. - polo
+  Function: exportCredentialToPDF (SINGLE)
+  Technical: One detailed page — picture → name → divider → details → divider → description →
+  skills → lower-right verify block (QR + link). NO "View Profile" and NO share-link minting:
+  a single credential relies only on its own QR + verify link, never the holder's full profile.
+  Tropang Ex: Isang credential, isang page. May sariling QR + verify. Walang View Profile. - polo
 */
-async function renderCredentialPage(doc, {
-  credential,
-  templateDetails = null,
-  studentName,
-  pageW,
-  caption,
-  exportedOn,
-  profileShareUrl,
-}) {
+export async function exportCredentialToPDF(credential, templateDetails) {
+  const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+  const pageW = doc.internal.pageSize.getWidth();
+  const exportedOn = new Date().toLocaleDateString('en-PH', PH_TIMEZONE);
   const verifyUrl = buildVerifyUrl(credential);
-  drawChrome(doc, pageW, exportedOn, caption);
+
+  drawChrome(doc, pageW, exportedOn, 'Verified Digital Credential');
 
   let y = 30;
   y = drawStatusBanner(doc, credential.status, pageW, y);
 
+  // Picture
   const badgeImage = credential.badgeImage || templateDetails?.badgeImage || null;
   if (badgeImage && badgeImage.startsWith('data:image')) {
     try {
@@ -145,33 +158,25 @@ async function renderCredentialPage(doc, {
     y += 2;
   }
 
+  // Name
   doc.setTextColor(...COLORS.name);
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(21);
   doc.text(credential.credentialName || 'Credential', pageW / 2, y, { align: 'center' });
-  y += 8;
+  y += 10;
 
-  if (profileShareUrl) {
-    doc.setFont('helvetica', 'normal');
-    doc.setFontSize(8.5);
-    doc.setTextColor(...COLORS.link);
-    const t = 'View Profile';
-    const tw = doc.getTextWidth(t);
-    doc.textWithLink(t, pageW / 2 - tw / 2, y, { url: profileShareUrl });
-    y += 7;
-  }
-
-  y += 2;
+  // top divider
   doc.setDrawColor(...COLORS.divider);
   doc.setLineWidth(0.4);
   doc.line(MARGIN, y, pageW - MARGIN, y);
   y += 9;
 
+  // Details (Blockchain ID omitted — it's in the QR + verify link)
   const status = credential.status === 'issued' ? 'Active' : (credential.status || 'N/A');
   const details = [
     { label: 'Status',          value: status },
     { label: 'Credential Type', value: credential.credentialType || 'N/A' },
-    { label: 'Issued To',       value: credential.holderName || studentName || 'N/A' },
+    { label: 'Issued To',       value: credential.holderName || 'N/A' },
     { label: 'Issued By',       value: credential.issuerName || 'N/A' },
     { label: 'Date Issued',     value: credential.savedToUserWalletAt ? formatPhilippineDate(credential.savedToUserWalletAt) : 'N/A' },
     { label: 'Expiry Date',     value: credential.expiryDate ? formatPhilippineDate(credential.expiryDate) : 'No Expiry' },
@@ -189,11 +194,13 @@ async function renderCredentialPage(doc, {
     y += lines.length > 1 ? lines.length * 6 + 1 : 8;
   });
 
+  // bottom divider
   y += 3;
   doc.setDrawColor(...COLORS.divider);
   doc.line(MARGIN, y, pageW - MARGIN, y);
   y += 9;
 
+  // Description
   const description = credential.description || templateDetails?.description || '';
   if (description && description.trim()) {
     doc.setFontSize(9.5);
@@ -209,6 +216,7 @@ async function renderCredentialPage(doc, {
     y += descLines.length * 5 + 5;
   }
 
+  // Skills
   const skills = templateDetails?.skills || credential.skills || [];
   if (skills.length > 0) {
     doc.setFontSize(9.5);
@@ -257,50 +265,6 @@ async function renderCredentialPage(doc, {
   doc.setTextColor(...COLORS.muted);
   const urlLines = doc.splitTextToSize(verifyUrl, 80);
   urlLines.forEach((ln, idx) => doc.text(ln, pageW - MARGIN, by + idx * 3, { align: 'right' }));
-}
-
-/*
-  Function: exportCredentialToPDF
-  Technical: Generates a single-page professional PDF for one credential (PDF1-3 layout).
-  Tropang Ex: Kapag pinindot ni student yung Export, dito nag-ge-generate yung PDF file. - polo
-*/
-export async function exportCredentialToPDF(credential, templateDetails) {
-  const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
-  const pageW = doc.internal.pageSize.getWidth();
-  const exportedOn = new Date().toLocaleDateString('en-PH', PH_TIMEZONE);
-
-  let profileShareUrl = null;
-  let singleExportNumber = 1;
-  try {
-    const linksResult = await apiService.getMyShareLinks();
-    if (linksResult?.success && linksResult?.links) {
-      const singleLinks = linksResult.links.filter((link) => link.source === 'pdf_single_export');
-      singleExportNumber = singleLinks.length + 1;
-    }
-  } catch (e) {
-    console.warn('[PDF] Failed to count previous PDF exports:', e);
-  }
-  try {
-    const shareResult = await apiService.generatePublicShareLink({
-      source: 'pdf_single_export',
-      description: `Single Export #${singleExportNumber}`,
-    });
-    if (shareResult?.success && shareResult?.shareUrl) {
-      profileShareUrl = shareResult.shareUrl;
-    }
-  } catch (e) {
-    console.warn('[PDF] Profile link generation failed (non-fatal):', e);
-  }
-
-  await renderCredentialPage(doc, {
-    credential,
-    templateDetails,
-    studentName: credential.holderName,
-    pageW,
-    caption: 'Verified Digital Credential',
-    exportedOn,
-    profileShareUrl,
-  });
 
   const fullName = sanitizeFilename(credential.holderName || 'Credential Holder');
   const credName = sanitizeFilename(credential.credentialName || 'Credential');
@@ -308,12 +272,12 @@ export async function exportCredentialToPDF(credential, templateDetails) {
 }
 
 // ==========================================================================================================================================================================
-//  EXPORT ALL — Credly-style transcript (many credentials per page)
+//  EXPORT ALL — cover page + Credly-style transcript (many credentials per page)
 // ==========================================================================================================================================================================
 
 /*
   Helper: drawTranscriptHeader
-  Technical: "ChainCert" wordmark (left) + "OFFICIAL TRANSCRIPT • EXPORTED <date>" (right) + a rule.
+  Technical: "ChainCert" wordmark (left) + "OFFICIAL TRANSCRIPT • EXPORTED <date>" (right) + rule.
   Drawn at the top of every transcript page. Returns the y just below the rule.
 */
 function drawTranscriptHeader(doc, pageW, exportedOn) {
@@ -334,53 +298,13 @@ function drawTranscriptHeader(doc, pageW, exportedOn) {
 }
 
 /*
-  Helper: drawHolderBand
-  Technical: Gray info band — holder name + ID (left), Email + clickable Profile (right). Page 1 only.
-*/
-function drawHolderBand(doc, pageW, top, { name, id, email, profileShareUrl }) {
-  const bandH = 20;
-  doc.setFillColor(...COLORS.band);
-  doc.rect(MARGIN, top, pageW - MARGIN * 2, bandH, 'F');
-
-  const padX = MARGIN + 5;
-  doc.setFont('helvetica', 'bold');
-  doc.setFontSize(12);
-  doc.setTextColor(...COLORS.value);
-  doc.text(name || 'Credential Holder', padX, top + 9);
-  if (id) {
-    doc.setFont('helvetica', 'normal');
-    doc.setFontSize(8);
-    doc.setTextColor(...COLORS.muted);
-    doc.text(`ID: ${id}`, padX, top + 15);
-  }
-
-  const rightX = pageW - MARGIN - 5;
-  let ry = top + 9;
-  if (email) {
-    doc.setFont('helvetica', 'normal');
-    doc.setFontSize(8.5);
-    doc.setTextColor(...COLORS.value);
-    doc.text(`Email: ${email}`, rightX, ry, { align: 'right' });
-    ry += 6;
-  }
-  if (profileShareUrl) {
-    doc.setFont('helvetica', 'bold');
-    doc.setFontSize(8.5);
-    doc.setTextColor(...COLORS.link);
-    const t = 'Profile: View Public Profile';
-    const tw = doc.getTextWidth(t);
-    doc.textWithLink(t, rightX - tw, ry, { url: profileShareUrl });
-  }
-  return top + bandH;
-}
-
-/*
   Helper: estimateRowHeight
-  Technical: Predicts a credential row's height (name + 3 issued lines + wrapped description, min
-  badge height) so the loop can page-break BEFORE drawing a row that would overflow the page.
+  Technical: Predicts a credential row's height (name + Status + 3 issued lines + wrapped
+  description, with a minimum of the badge/QR block) so the loop can page-break BEFORE drawing a
+  row that would overflow the page.
 */
-function estimateRowHeight(doc, cred, textW, badgeSize) {
-  let h = 4 + 6 + 3 * 5; // name baseline offset + name + 3 issued lines
+function estimateRowHeight(doc, cred, textW, badgeSize, qrSize) {
+  let h = 4 + 6 + 5 + 3 * 5; // name + Status line + 3 issued lines
   const desc = cred.description || '';
   if (desc.trim()) {
     doc.setFont('helvetica', 'normal');
@@ -389,20 +313,22 @@ function estimateRowHeight(doc, cred, textW, badgeSize) {
     const dl = doc.splitTextToSize(desc, textW - dlw);
     h += 1 + dl.length * 4 + 5;
   }
-  return Math.max(h, badgeSize + 4) + 7;
+  return Math.max(h, badgeSize + 4, qrSize + 8) + 7;
 }
 
 /*
   Helper: drawCredentialRow
-  Technical: One compact credential row — badge (left), name (clickable → verify) + REVOKED/EXPIRED
-  tag, "Issued by/to/on" lines, and a wrapped description, closed by a hairline divider. Returns the
-  y for the next row.
-  Tropang Ex: Parang isang entry sa transcript — maliit na badge tapos detalye sa tabi. - polo
+  Technical: One compact transcript row — badge (left), name (clickable → verify) + always-visible
+  colored Status + "Issued by/to/on" + wrapped description (middle), and the credential's own QR +
+  "Verify" link (right). Closed by a hairline divider. Async (QR per row). Returns the next y.
+  Tropang Ex: Isang entry sa transcript — badge, detalye, tapos sariling QR sa kanan. - polo
 */
-function drawCredentialRow(doc, cred, { pageW, y, studentName, badgeSize, textX, textW }) {
+async function drawCredentialRow(doc, cred, { pageW, y, studentName, badgeSize, qrSize, textX, textW }) {
   const verifyUrl = buildVerifyUrl(cred);
   const rowTop = y;
+  const qrX = pageW - MARGIN - qrSize;
 
+  // Badge (left)
   const badge = cred.badgeImage || null;
   if (badge && badge.startsWith('data:image')) {
     try {
@@ -416,27 +342,44 @@ function drawCredentialRow(doc, cred, { pageW, y, studentName, badgeSize, textX,
     doc.roundedRect(MARGIN, rowTop, badgeSize, badgeSize, 2, 2, 'F');
   }
 
+  // QR (right) + "Verify" link under it
+  try {
+    const qr = await QRCode.toDataURL(verifyUrl, { width: 200, margin: 1, color: { dark: '#0f172a', light: '#ffffff' } });
+    doc.addImage(qr, 'PNG', qrX, rowTop, qrSize, qrSize);
+  } catch (e) {
+    console.warn('[PDF] QR failed:', e);
+  }
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(7);
+  doc.setTextColor(...COLORS.link);
+  const vt = 'Verify';
+  const vtw = doc.getTextWidth(vt);
+  doc.textWithLink(vt, qrX + qrSize / 2 - vtw / 2, rowTop + qrSize + 4, { url: verifyUrl });
+
   let ty = rowTop + 4;
 
-  // Name (clickable) + status tag
+  // Name (clickable; wraps within the text column, never under the QR)
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(11);
   doc.setTextColor(...COLORS.link);
-  doc.textWithLink(cred.credentialName || 'Credential', textX, ty, { url: verifyUrl });
-
-  const st = String(cred.status || '').toLowerCase();
-  if (st === 'revoked' || st === 'expired') {
-    const tag = st.toUpperCase();
-    const [r, g, b] = st === 'revoked' ? [220, 38, 38] : [217, 119, 6];
-    doc.setFont('helvetica', 'bold');
-    doc.setFontSize(7);
-    const tw = doc.getTextWidth(tag) + 5;
-    doc.setFillColor(r, g, b);
-    doc.roundedRect(pageW - MARGIN - tw, ty - 3.6, tw, 5.6, 1, 1, 'F');
-    doc.setTextColor(255, 255, 255);
-    doc.text(tag, pageW - MARGIN - tw + 2.5, ty + 0.3);
+  const nameLines = doc.splitTextToSize(cred.credentialName || 'Credential', textW);
+  doc.textWithLink(nameLines[0], textX, ty, { url: verifyUrl });
+  for (let k = 1; k < nameLines.length; k++) {
+    ty += 5;
+    doc.text(nameLines[k], textX, ty);
   }
   ty += 6;
+
+  // Status — ALWAYS shown, color-coded (never assume "no tag = active")
+  const { label: stLabel, color: stColor } = statusDisplay(cred.status);
+  doc.setFontSize(9);
+  doc.setFont('helvetica', 'bold');
+  doc.setTextColor(...COLORS.label);
+  doc.text('Status:', textX, ty);
+  const slw = doc.getTextWidth('Status:') + 2;
+  doc.setTextColor(...stColor);
+  doc.text(stLabel, textX + slw, ty);
+  ty += 5;
 
   // Issued by / to / on
   const rows = [
@@ -444,7 +387,6 @@ function drawCredentialRow(doc, cred, { pageW, y, studentName, badgeSize, textX,
     ['Issued to:', cred.holderName || studentName || 'N/A'],
     ['Issued on:', cred.savedToUserWalletAt ? formatPhilippineDate(cred.savedToUserWalletAt) : 'N/A'],
   ];
-  doc.setFontSize(9);
   rows.forEach(([label, val]) => {
     doc.setFont('helvetica', 'bold');
     doc.setTextColor(...COLORS.label);
@@ -476,7 +418,7 @@ function drawCredentialRow(doc, cred, { pageW, y, studentName, badgeSize, textX,
     ty += 5;
   }
 
-  const rowBottom = Math.max(ty, rowTop + badgeSize + 4);
+  const rowBottom = Math.max(ty, rowTop + badgeSize + 4, rowTop + qrSize + 8);
   doc.setDrawColor(...COLORS.divider);
   doc.setLineWidth(0.3);
   doc.line(MARGIN, rowBottom, pageW - MARGIN, rowBottom);
@@ -485,13 +427,15 @@ function drawCredentialRow(doc, cred, { pageW, y, studentName, badgeSize, textX,
 
 /*
   Function: exportAllCredentialsToPDF
-  Technical: Credly-style transcript PDF — wordmark header + holder band + compact credential rows,
-  many per page with auto page-break, then "Page X of Y" stamped on every page. PUBLIC creds only.
-  Tropang Ex: Kapag "Export All", hindi na isa-isang page — dinikit lahat sa malinis na listahan. - polo
+  Technical: Cover page (ChainCert / Credential Portfolio / holder name + email + View Profile on
+  the ONE reused permanent link / date / total) followed by a Credly-style transcript — compact
+  credential rows, many per page with auto page-break, then "Page X of Y" on every page. PUBLIC
+  creds only. Holder ID is NOT printed.
+  Tropang Ex: Cover page muna, tapos malinis na listahan ng lahat ng credential. - polo
 */
 export async function exportAllCredentialsToPDF(credentials, studentName) {
   if (!credentials || credentials.length === 0) return;
-  // PUBLIC creds only; revoked/expired still appear (with a tag) so nothing is silently hidden.
+  // PUBLIC creds only; revoked/expired still appear (Status shown) so nothing is silently hidden.
   credentials = credentials.filter((c) => c.visibility === 'public');
   credentials.sort((a, b) => (a.currentOrder ?? Infinity) - (b.currentOrder ?? Infinity));
   if (credentials.length === 0) return;
@@ -500,34 +444,24 @@ export async function exportAllCredentialsToPDF(credentials, studentName) {
   const pageW = doc.internal.pageSize.getWidth();
   const exportedOn = new Date().toLocaleDateString('en-PH', PH_TIMEZONE);
 
-  // Reuse / generate the holder's public profile share link.
+  // The portfolio doc keeps a "View Profile" pointer — sourced from the ONE reused permanent public
+  // link (the backend now reuses an existing active public link instead of minting a new one).
   let profileShareUrl = null;
-  let pdfExportNumber = 1;
-  try {
-    const linksResult = await apiService.getMyShareLinks();
-    if (linksResult?.success && linksResult?.links) {
-      const pdfLinks = linksResult.links.filter((link) => link.source === 'pdf_export');
-      pdfExportNumber = pdfLinks.length + 1;
-    }
-  } catch (e) {
-    console.warn('[PDF] Failed to count previous PDF exports:', e);
-  }
   try {
     const shareResult = await apiService.generatePublicShareLink({
       source: 'pdf_export',
-      description: `Portfolio Export #${pdfExportNumber}`,
+      description: 'Portfolio Export',
     });
     if (shareResult?.success && shareResult?.shareUrl) {
       profileShareUrl = shareResult.shareUrl;
     }
   } catch (e) {
-    console.warn('[PDF] Profile link generation failed:', e);
+    console.warn('[PDF] Profile link generation failed (non-fatal):', e);
   }
 
-  // Holder identity for the band (no caller change — read from the logged-in user + first cred).
+  // Holder email for the cover (read from the logged-in user; no caller change). ID intentionally omitted.
   let holderUser = {};
   try { holderUser = JSON.parse(localStorage.getItem('user') || '{}'); } catch { holderUser = {}; }
-  const holderId = holderUser._id || credentials[0]?.holderID || '';
   const holderEmail = holderUser.email || (typeof localStorage !== 'undefined' ? localStorage.getItem('email') : '') || '';
 
   const paintBg = () => {
@@ -535,26 +469,70 @@ export async function exportAllCredentialsToPDF(credentials, studentName) {
     doc.rect(0, 0, pageW, PAGE_H, 'F');
   };
 
+  // ── COVER PAGE ─────────────────────────────────────────────────────────────
   paintBg();
-  let y = drawTranscriptHeader(doc, pageW, exportedOn);
-  y = drawHolderBand(doc, pageW, y + 4, {
-    name: studentName, id: holderId, email: holderEmail, profileShareUrl,
-  });
-  y += 8;
+  doc.setTextColor(...COLORS.name);
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(30);
+  doc.text('ChainCert', pageW / 2, 95, { align: 'center' });
 
-  const badgeSize = 26;
-  const textX = MARGIN + badgeSize + 8;
-  const textW = pageW - textX - MARGIN;
+  doc.setTextColor(...COLORS.value);
+  doc.setFontSize(17);
+  doc.setFont('helvetica', 'bold');
+  doc.text('Credential Portfolio', pageW / 2, 108, { align: 'center' });
+
+  doc.setDrawColor(...COLORS.divider);
+  doc.setLineWidth(0.5);
+  doc.line(MARGIN + 20, 116, pageW - MARGIN - 20, 116);
+
+  doc.setTextColor(...COLORS.name);
+  doc.setFontSize(15);
+  doc.setFont('helvetica', 'bold');
+  doc.text(studentName || 'Credential Holder', pageW / 2, 128, { align: 'center' });
+
+  let cy = 136;
+  if (holderEmail) {
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(9.5);
+    doc.setTextColor(...COLORS.muted);
+    doc.text(holderEmail, pageW / 2, cy, { align: 'center' });
+    cy += 7;
+  }
+  if (profileShareUrl) {
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(9);
+    doc.setTextColor(...COLORS.link);
+    const t = 'View Profile';
+    const tw = doc.getTextWidth(t);
+    doc.textWithLink(t, pageW / 2 - tw / 2, cy, { url: profileShareUrl });
+    cy += 8;
+  }
+  doc.setTextColor(...COLORS.muted);
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(10);
+  doc.text(`Exported: ${exportedOn}`, pageW / 2, cy, { align: 'center' });
+  doc.text(`Total Credentials: ${credentials.length}`, pageW / 2, cy + 7, { align: 'center' });
+
+  // ── TRANSCRIPT ROWS ──────────────────────────────────────────────────────
+  doc.addPage();
+  paintBg();
+  let y = drawTranscriptHeader(doc, pageW, exportedOn) + 8;
+
+  const badgeSize = 24;
+  const qrSize = 20;
+  const textX = MARGIN + badgeSize + 7;
+  const textW = (pageW - MARGIN - qrSize - 5) - textX; // leave room for the right-side QR column
 
   for (let i = 0; i < credentials.length; i++) {
     const cred = credentials[i];
-    const estH = estimateRowHeight(doc, cred, textW, badgeSize);
+    const estH = estimateRowHeight(doc, cred, textW, badgeSize, qrSize);
     if (y + estH > PAGE_H - 16) {
       doc.addPage();
       paintBg();
       y = drawTranscriptHeader(doc, pageW, exportedOn) + 8;
     }
-    y = drawCredentialRow(doc, cred, { pageW, y, studentName, badgeSize, textX, textW });
+    // eslint-disable-next-line no-await-in-loop
+    y = await drawCredentialRow(doc, cred, { pageW, y, studentName, badgeSize, qrSize, textX, textW });
   }
 
   // Footer + "Page X of Y" on every page (page count known only after layout).

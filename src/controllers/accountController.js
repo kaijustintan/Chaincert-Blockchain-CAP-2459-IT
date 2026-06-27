@@ -548,43 +548,33 @@ const accountController = {
 
   generatePublicShareLink: async (req, res) => {
     try {
-      const { durationDays, source, description } = req.body;
+      const { source, description } = req.body;
       const userId = req.user?.id || req.user?._id;
 
       if (!userId) {
         return res.status(401).json({ success: false, message: 'Unauthorized.' });
       }
 
-      // B: an issuer's public profile is a single PERMANENT link — reuse the existing
-      // one instead of minting a new token on every Share click, and never expire it.
-      const isIssuer = String(req.user?.role || '').toLowerCase() === 'issuer'
-        || String(userId).startsWith('issuer_');
-
-      if (isIssuer) {
-        const existing = await couchDB.findActivePublicShareLink(userId);
-        if (existing?.token) {
-          return res.status(200).json({
-            success: true,
-            message: 'Public share link ready.',
-            shareUrl: `http://localhost:3000/profile/${existing.token}`,
-            token: existing.token,
-            reused: true
-          });
-        }
+      // A user's public profile is a SINGLE PERMANENT link (holder OR issuer). Reuse the existing
+      // active public (no-recipient) link instead of minting a new token on every Share click /
+      // PDF export — this kills link sprawl (one revocable "public door" per user) and keeps the
+      // privacy model consistent. Specific-recipient / OTP links are separate and unaffected.
+      const existing = await couchDB.findActivePublicShareLink(userId);
+      if (existing?.token) {
+        return res.status(200).json({
+          success: true,
+          message: 'Public share link ready.',
+          shareUrl: `http://localhost:3000/profile/${existing.token}`,
+          token: existing.token,
+          reused: true
+        });
       }
 
-      // Calculate expiry (issuers: always permanent)
-      let expiresAt = null;
-      if (!isIssuer && durationDays && durationDays !== 'none') {
-        const expiry = new Date();
-        expiry.setDate(expiry.getDate() + parseInt(durationDays));
-        expiresAt = expiry.toISOString();
-      }
-
-      // Generate unique token
+      // No active public link yet — create one. Public links are permanent (no expiry); duration
+      // only ever applied to specific-recipient links, which go through a different path.
       const token = crypto.randomBytes(24).toString('hex');
 
-      await couchDB.createProfileShareLink(userId, token, null, expiresAt, {
+      await couchDB.createProfileShareLink(userId, token, null, null, {
         source,
         description
       });

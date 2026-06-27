@@ -17,6 +17,6 @@ export { default as Badge, StatusPill } from './Badge';
 export { default as Field, Input, Select, Textarea } from './Field';
 export { default as Modal } from './Modal';
 export { default as EmptyState } from './EmptyState';
-export { default as Spinner, Skeleton } from './Feedback';
+export { default as Spinner, SpinnerBlock, Skeleton, SkeletonCardGrid, SkeletonRows } from './Feedback';
 export { default as DataTable } from './DataTable';
 export { default as AppShell, Sidebar } from './AppShell';

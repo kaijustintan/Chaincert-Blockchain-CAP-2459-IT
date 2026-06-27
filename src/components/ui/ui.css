@@ -175,9 +175,21 @@ select.cc-input {
 .cc-empty-msg { font-size: var(--fs-small); color: var(--text-muted); margin: 0; max-width: 380px; line-height: var(--lh-body); }
 
 /* ============================= FEEDBACK ============================= */
+/* ccSpin kept for the button's ::after loading spinner. */
 @keyframes ccSpin { to { transform: rotate(360deg); } }
-.cc-spinner { display: inline-block; width: 18px; height: 18px; border: 2px solid var(--border-strong); border-top-color: var(--accent); border-radius: 50%; animation: ccSpin 0.7s linear infinite; }
-.cc-spinner--lg { width: 28px; height: 28px; border-width: 3px; }
+/* Spinner: SVG dash-ring (uiverse L1). */
+@keyframes ccSpinRotate { 100% { transform: rotate(360deg); } }
+@keyframes ccSpinDash {
+  0%   { stroke-dasharray: 1, 200; stroke-dashoffset: 0; }
+  50%  { stroke-dasharray: 90, 200; stroke-dashoffset: -35px; }
+  100% { stroke-dasharray: 90, 200; stroke-dashoffset: -125px; }
+}
+.cc-spinner { width: 30px; height: 30px; transform-origin: center; animation: ccSpinRotate 2s linear infinite; }
+.cc-spinner circle { fill: none; stroke: var(--accent); stroke-width: 3; stroke-linecap: round; animation: ccSpinDash 1.5s ease-in-out infinite; }
+.cc-spinner--lg { width: 46px; height: 46px; }
+
+.cc-spinner-block { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: var(--s3); padding: var(--s4); }
+.cc-spinner-label { font-size: var(--fs-small); color: var(--text-muted); }
 
 .cc-skeleton {
   border-radius: var(--radius-control);
@@ -185,6 +197,11 @@ select.cc-input {
   background-size: 400% 100%;
   animation: ccSkeleton 1.4s ease infinite;
 }
+
+/* Composed placeholders */
+.cc-skel-grid { display: grid; gap: var(--s4); grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); }
+.cc-skel-card { padding: var(--s4); border-radius: var(--radius-card); background: var(--surface); border: 1px solid var(--border); }
+.cc-skel-tr td { padding: 12px 14px; }
 
 /* ============================= TABLE ============================= */
 .cc-table-wrap { width: 100%; overflow-x: auto; border: 1px solid var(--border); border-radius: var(--radius-card); background: var(--surface); }

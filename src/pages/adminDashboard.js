@@ -16,7 +16,7 @@ import {
   computeProvenance,
   computeProofTrail,
 } from "../components/analytics/analytics";
-import { AppShell, Sidebar } from "../components/ui";
+import { AppShell, Sidebar, Spinner, SpinnerBlock } from "../components/ui";
 import NotesCard from "../components/ui/NotesCard";
 import { effectiveCredentialStatus } from "../utils/credentialStatus"; // F01: compute-on-read expiry
 import { Bell, Layers, Building2, Users, ClipboardList, BarChart3 } from "lucide-react";
@@ -1606,7 +1606,7 @@ const handleDownloadIssuerDocument = async (doc) => {
               </div>
 
               {adminNotificationsLoading && (
-                <div className="admin-notification-panel-state">Loading notifications...</div>
+                <div className="admin-notification-panel-state"><Spinner /> Loading notifications…</div>
               )}
 
               {!adminNotificationsLoading && adminNotificationsError && (
@@ -2614,7 +2614,7 @@ const handleDownloadIssuerDocument = async (doc) => {
               </div>
 
               {historyStatusLoading ? (
-                <div style={{ padding: "16px", opacity: 0.9 }}>Loading history...</div>
+                <SpinnerBlock label="Loading history…" minHeight={100} />
               ) : historyStatusError ? (
                 <div style={{ padding: "12px", background: "var(--danger-weak)", border: "1px solid var(--danger-weak)", borderRadius: "10px", color: "var(--danger)" }}>
                   ❌ {historyStatusError}
@@ -3015,7 +3015,7 @@ const handleDownloadIssuerDocument = async (doc) => {
             </div>
 
             {adminCredentialsLoading ? (
-              <div className="tab-placeholder">Loading credentials...</div>
+              <SpinnerBlock label="Loading credentials…" />
             ) : adminCredentialsError ? (
               <div className="tab-placeholder">❌ {adminCredentialsError}</div>
             ) : sortedAdminCredentials.length > 0 ? (
@@ -3225,7 +3225,7 @@ const handleDownloadIssuerDocument = async (doc) => {
           )}
 
           {loading ? (
-            <div className="tab-placeholder">Loading issuers...</div>
+            <SpinnerBlock label="Loading issuers…" />
           ) : sortedVisibleIssuers.length > 0 ? (
             <div className="table-wrapper">
               <table className="admin-table">
@@ -3532,7 +3532,7 @@ const handleDownloadIssuerDocument = async (doc) => {
           </div>
 
           {usersLoading ? (
-            <div className="tab-placeholder">Loading users...</div>
+            <SpinnerBlock label="Loading users…" />
           ) : sortedVisibleUsers.length > 0 ? (
             <div className="table-wrapper">
               <table className="admin-table">
@@ -3632,7 +3632,7 @@ const handleDownloadIssuerDocument = async (doc) => {
             </select>
           </div>
           {verificationsLoading ? (
-            <div className="tab-placeholder">Loading verifications...</div>
+            <SpinnerBlock label="Loading verifications…" />
           ) : sortedVerifications.length > 0 ? (
             <div className="table-wrapper">
               <table className="admin-table">
@@ -3792,7 +3792,7 @@ const handleDownloadIssuerDocument = async (doc) => {
           </div>
 
           {logsLoading ? (
-            <div className="tab-placeholder">Loading logs...</div>
+            <SpinnerBlock label="Loading logs…" />
           ) : logCategory === "decision" ? (
             <div>
               <div className="issuer-filter-row" style={{ gap: 12, marginTop: 12 }}>

@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef, useMemo } from "react";
 import apiService from "../services/apiService";
 import AppToast from "../components/appToast";
 import { buildAvatarUrl, getDisplayName, syncStoredUser } from "../utils/userDisplay";
+import { SpinnerBlock, SkeletonCardGrid } from "../components/ui";
 import "../styles/profilePage.css";
 
 export default function ProfilePage() {
@@ -530,7 +531,7 @@ const [showAll, setShowAll] = useState(false);
   };
 
   if (loading) {
-    return <div className="profile-page">Loading profile...</div>;
+    return <div className="profile-page"><SpinnerBlock label="Loading profile…" minHeight={260} /></div>;
   }
 
   return (
@@ -727,7 +728,7 @@ const [showAll, setShowAll] = useState(false);
           <h3>Credential Wallet</h3>
         </div>
 
-        {credLoading && <div className="empty-card">Loading credentials...</div>}
+        {credLoading && <SkeletonCardGrid count={6} />}
         {!credLoading && credError && <div className="empty-card error">{credError}</div>}
         {!credLoading && !credError && credentials.length === 0 && (
           <div className="empty-card">No credentials have been issued to you yet.</div>
@@ -890,7 +891,7 @@ const [showAll, setShowAll] = useState(false);
           <div className="section-header">
             <h3>My Share Links</h3>
           </div>
-          {shareLinksLoading && <div className="empty-card">Loading share links...</div>}
+          {shareLinksLoading && <SpinnerBlock label="Loading share links…" minHeight={90} />}
           {!shareLinksLoading && myShareLinks.length === 0 && (
             <div className="empty-card">No share links generated yet.</div>
           )}
@@ -1263,7 +1264,7 @@ const [showAll, setShowAll] = useState(false);
                   <h3>Blockchain History</h3>
                   <button className="close-btn small" onClick={closeHistorySection}>✕</button>
                 </div>
-                {historyLoading && <p className="history-loading">Loading history...</p>}
+                {historyLoading && <SpinnerBlock label="Loading history…" minHeight={80} />}
                 {historyError && <p className="history-error">{historyError}</p>}
                 {historyData && historyData.history && (
                   <div className="history-list">

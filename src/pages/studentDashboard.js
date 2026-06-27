@@ -34,7 +34,7 @@ import {
   computeHolderVerificationInsights,
   computeProvenance,
 } from "../components/analytics/analytics";
-import { Card, Button, Modal, StatusPill, EmptyState } from "../components/ui";
+import { Card, Button, Modal, StatusPill, EmptyState, Spinner, SpinnerBlock, SkeletonCardGrid } from "../components/ui";
 import NotesCard from "../components/ui/NotesCard";
 import { effectiveCredentialStatus } from "../utils/credentialStatus"; // F01: compute-on-read expiry
 import {
@@ -471,7 +471,7 @@ export default function StudentDashboard() {
                 )}
               </div>
 
-              {notificationsLoading && <div className="holder-notif-state">Loading notifications…</div>}
+              {notificationsLoading && <div className="holder-notif-state"><Spinner /> Loading notifications…</div>}
               {!notificationsLoading && notificationsError && (
                 <div className="holder-notif-state is-error">{notificationsError}</div>
               )}
@@ -624,9 +624,7 @@ export default function StudentDashboard() {
 
           {/* Content */}
           <div className="holder-content">
-            {loading && (
-              <Card><p className="holder-state">Loading credentials…</p></Card>
-            )}
+            {loading && <SkeletonCardGrid count={6} />}
             {!loading && error && (
               <Card><p className="holder-state is-error">{error}</p></Card>
             )}
@@ -706,7 +704,7 @@ export default function StudentDashboard() {
       {/* ══════════════════ INSIGHTS TAB ══════════════════ */}
       {tab === "insights" && (
         <section className="holder-section holder-insights">
-          {loading && <Card><p className="holder-state">Loading insights…</p></Card>}
+          {loading && <Card><SpinnerBlock label="Loading insights…" /></Card>}
           {!loading && error && <Card><p className="holder-state is-error">{error}</p></Card>}
           {!loading && !error && credentials.length === 0 && (
             <Card flush>
@@ -772,7 +770,7 @@ export default function StudentDashboard() {
                 <CardHeaderRow icon={GitBranch} title="Verification Insights" />
 
                 {viLoading ? (
-                  <div className="analytics-chart-empty" style={{ height: 120 }}>Loading your verification activity…</div>
+                  <SpinnerBlock label="Loading your verification activity…" minHeight={120} />
                 ) : vinsights.totalChecks === 0 ? (
                   <>
                     <div className="analytics-chart-empty" style={{ height: 120 }}>No verifications yet.</div>
@@ -915,7 +913,7 @@ export default function StudentDashboard() {
       >
         {selectedCred && (
           <>
-            {templateLoading && <p className="holder-state">Loading details…</p>}
+            {templateLoading && <SpinnerBlock label="Loading details…" minHeight={80} />}
 
             {!templateLoading && templateDetails?.badgeImage && (
               <div className="holder-modal-badge">
@@ -992,7 +990,7 @@ export default function StudentDashboard() {
                   <button className="holder-history-close" onClick={closeHistoryModal} aria-label="Close history"><XCircle size={16} /></button>
                 </div>
 
-                {historyLoading && <p className="holder-state">Loading history…</p>}
+                {historyLoading && <SpinnerBlock label="Loading history…" minHeight={80} />}
                 {historyError && <p className="holder-state is-error">{historyError}</p>}
 
                 {historyData && historyData.history && (() => {

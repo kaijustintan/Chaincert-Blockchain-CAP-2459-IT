@@ -35,7 +35,7 @@ import TrendBars from "../components/analytics/TrendBars";
 import Sparkline from "../components/analytics/Sparkline";
 import InterpretationBox from "../components/analytics/InterpretationBox";
 import { computeIssuance, computeRevocationAudit, COLORS as ANALYTICS_COLORS } from "../components/analytics/analytics";
-import { AppShell, Sidebar, Button, StatusPill } from "../components/ui";
+import { AppShell, Sidebar, Button, StatusPill, SpinnerBlock } from "../components/ui";
 import NotesCard from "../components/ui/NotesCard";
 import StatusLegend from "../components/ui/StatusLegend";
 import { effectiveCredentialStatus, minIssueExpiryDate } from "../utils/credentialStatus"; // F01
@@ -848,7 +848,7 @@ export default function IssuerDashboard() {
   // -------------------------------------------------------------------
   // LOADING / ERROR STATES
   // -------------------------------------------------------------------
-  if (loading) return <div className="issuer-dashboard"><p>Loading credentials...</p></div>;
+  if (loading) return <div className="issuer-dashboard"><SpinnerBlock label="Loading credentials…" minHeight={240} /></div>;
   if (error) return (
     <div className="issuer-dashboard">
       <p style={{ color: "var(--danger)" }}><strong>Error loading credentials:</strong> {error}</p>
@@ -1298,7 +1298,7 @@ export default function IssuerDashboard() {
               }[subordinateDirectoryFilter]}
             </div>
 
-            {subordinateDirectoryLoading ? <div className="no-results"><p>Loading subordinate directory...</p></div>
+            {subordinateDirectoryLoading ? <SpinnerBlock label="Loading subordinate directory…" />
             : subordinateDirectoryError ? <div className="no-results"><p style={{ color: "var(--danger)" }}>{subordinateDirectoryError}</p></div>
             : subordinateDirectory.length === 0 ? <div className="no-results"><p>No subordinate issuers found for this filter.</p></div>
             : (
@@ -1743,7 +1743,7 @@ export default function IssuerDashboard() {
               Immutable root-authority decisions recorded on the blockchain for this subordinate.
             </div>
             {rootSubordinateLogsLoading ? (
-              <div className="no-results"><p>Loading history...</p></div>
+              <SpinnerBlock label="Loading history…" />
             ) : subHistoryLogs.length === 0 ? (
               <div className="no-results"><p>No on-chain decisions recorded for this subordinate yet.</p></div>
             ) : (
@@ -1830,7 +1830,7 @@ export default function IssuerDashboard() {
               </div>
             )}
 
-            {historyLoading && <div style={{ padding: "20px", opacity: 0.8 }}>Loading blockchain history...</div>}
+            {historyLoading && <SpinnerBlock label="Loading blockchain history…" minHeight={100} />}
             {historyError && <div className="form-error">{historyError}</div>}
 
             {historyData && (() => {
@@ -1908,7 +1908,7 @@ export default function IssuerDashboard() {
               <div><h3 style={{ margin: 0 }}>Submitted Documents</h3><div style={{ fontSize: "13px", opacity: 0.85, marginTop: "6px" }}><div><strong>Issuer:</strong> {selectedIssuerForDocuments?.orgName || "N/A"}</div><div><strong>Email:</strong> {selectedIssuerForDocuments?.email || "N/A"}</div></div></div>
               <button onClick={closeIssuerDocumentsModal} type="button" style={{ background: "transparent", border: "1px solid rgba(255,255,255,0.25)", color: "var(--text)", borderRadius: "8px", padding: "8px 10px", cursor: "pointer" }}>✕ Close</button>
             </div>
-            {issuerDocumentsLoading ? <div style={{ padding: "16px", opacity: 0.9 }}>Loading submitted documents...</div>
+            {issuerDocumentsLoading ? <SpinnerBlock label="Loading submitted documents…" minHeight={100} />
             : issuerDocumentsError ? <div style={{ padding: "12px", background: "var(--danger-weak)", border: "1px solid var(--danger-weak)", borderRadius: "10px", color: "var(--danger)" }}>{issuerDocumentsError}</div>
             : issuerDocuments.length > 0 ? (
               <div className="table-wrapper"><table className="template-table"><thead><tr><th>Doc Type</th><th>File Name</th><th>MIME Type</th><th>Size</th><th>Actions</th></tr></thead><tbody>

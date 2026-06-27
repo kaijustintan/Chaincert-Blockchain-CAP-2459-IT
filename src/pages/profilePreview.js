@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo } from "react";
 import { useParams } from "react-router-dom";
 import apiService from "../services/apiService";
+import { SpinnerBlock } from "../components/ui";
 import '../styles/profilePreview.css';
 
 const filterVisibleProfileCredentials = (items, role) => {
@@ -298,7 +299,7 @@ export default function ProfilePreview() {
     return (
       <div className="profile-preview">
         <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-          <div style={{ color: 'var(--accent-strong)', fontSize: '1rem' }}>Loading...</div>
+          <SpinnerBlock label="Loading…" />
         </div>
       </div>
     );
@@ -406,7 +407,7 @@ export default function ProfilePreview() {
   if (loading) {
     return (
       <div className="profile-preview">
-        <div className="loading">Loading public profile...</div>
+        <SpinnerBlock label="Loading public profile…" minHeight={200} />
       </div>
     );
   }
@@ -450,7 +451,7 @@ export default function ProfilePreview() {
       <section className="badge-wallet">
         <h3>Credentials & Badges</h3>
         <div className="badge-list">
-          {credLoading && <div>Loading credentials...</div>}
+          {credLoading && <SpinnerBlock label="Loading credentials…" minHeight={120} />}
           {!credLoading && credentials.length === 0 && (
             <div>No public credentials yet.</div>
           )}

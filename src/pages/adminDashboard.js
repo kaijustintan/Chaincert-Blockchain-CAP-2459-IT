@@ -2841,7 +2841,7 @@ const handleDownloadIssuerDocument = async (doc) => {
                       title={`${name}: ${count}`}
                     >
                       <span className="chart-bar-value">{count}</span>
-                      <span className="chart-bar-label">{name.length > 12 ? name.slice(0, 12) + "…" : name}</span>
+                      <span className="chart-bar-label">{name.length > 16 ? name.slice(0, 16) + "…" : name}</span>
                     </div>
                   )) : (
                     <div style={{ color: "var(--text-muted)", fontSize: 13, textAlign: "center", width: "100%", paddingTop: 40 }}>No credential data yet</div>
@@ -4095,7 +4095,8 @@ const handleDownloadIssuerDocument = async (doc) => {
           <div className="analytics-grid" style={{ marginTop: 8 }}>
             {/* Verification Result Summary (Verifier report, hosted in admin) */}
             <div className="analytics-card">
-              <h3>Verification Result Summary</h3>
+              <h3>1. Verification Result Summary</h3>
+              <p className="analytics-card-sub">Outcome breakdown for all verification attempts.</p>
               <DonutChart
                 slices={verificationOutcomes.slices}
                 centerValue={verificationOutcomes.total}
@@ -4106,7 +4107,9 @@ const handleDownloadIssuerDocument = async (doc) => {
 
             {/* Suspicious Activity Insight (rule-based, transparent thresholds) */}
             <div className="analytics-card">
-              <h3>Suspicious Activity Insight</h3>
+              <h3>2. Suspicious Activity Insight</h3>
+              <p className="analytics-card-sub">Issuers with an abnormally high revocation rate.</p>
+              <div className="analytics-rule-pill">Rule: revocation rate &gt; {suspicious.thresholdPct}% in the last {suspicious.windowDays} days</div>
               <div className="analytics-flag-list">
                 {suspicious.issuers.length === 0 && (
                   <div className="analytics-chart-empty" style={{ height: 120 }}>
@@ -4135,7 +4138,8 @@ const handleDownloadIssuerDocument = async (doc) => {
 
             {/* Demand Index — which credential TYPES verifiers actually check (blockchain value-proof) */}
             <div className="analytics-card">
-              <h3>Demand Index</h3>
+              <h3>3. Demand Index</h3>
+              <p className="analytics-card-sub">How often each credential type is verified vs issued.</p>
               <TrendBars
                 data={demand.byType}
                 xKey="type"
@@ -4152,7 +4156,8 @@ const handleDownloadIssuerDocument = async (doc) => {
 
             {/* Integrity-Check Insight — surfaces the last CouchDB-vs-ledger check (no auto-run) */}
             <div className="analytics-card">
-              <h3>Integrity-Check Insight</h3>
+              <h3>4. Integrity-Check Insight</h3>
+              <p className="analytics-card-sub">CouchDB vs blockchain data-integrity check.</p>
               {integrity.available ? (
                 <>
                   <DonutChart
@@ -4202,6 +4207,9 @@ const handleDownloadIssuerDocument = async (doc) => {
               )}
             </div>
           </div>
+          <p className="analytics-footer-note">
+            All insights are derived from on-chain audit trails and system checks. Data updates in near real-time.
+          </p>
         </div>
       )}
 

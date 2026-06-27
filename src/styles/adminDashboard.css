@@ -136,13 +136,15 @@
 .chart-bars {
   display: flex;
   align-items: flex-end;
-  gap: 8px;
+  justify-content: center; /* ADMIN1: don't stretch a single bar across the card */
+  gap: 24px;
   height: 140px;
   padding-top: 8px;
 }
 
 .chart-bar {
-  flex: 1;
+  flex: 0 0 70px; /* ADMIN1: fixed-width bars (a lone issuer no longer fills the card) */
+  max-width: 70px;
   border-radius: 6px 6px 0 0;
   min-width: 24px;
   transition: all var(--motion) var(--ease);

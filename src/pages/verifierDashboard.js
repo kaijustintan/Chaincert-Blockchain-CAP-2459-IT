@@ -369,6 +369,8 @@ export default function VerifierDashboard() {
             </div>
           </div>
 
+          {result.credentialName && <h3 className="verifier-cred-name">{result.credentialName}</h3>}
+
           <div className="verifier-result-body">
             {result.badgeImage && (
               <div className="verifier-badge">
@@ -376,7 +378,6 @@ export default function VerifierDashboard() {
               </div>
             )}
             <div className="verifier-detail-list">
-              {result.credentialName && <h3 className="verifier-cred-name">{result.credentialName}</h3>}
 
               <div className="verifier-detail-row">
                 <span className="verifier-detail-label">Issued to</span>

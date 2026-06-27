@@ -252,7 +252,9 @@ const Verify_Credential = async (req, res, getContractAndGateway) => {
           try {
             const holderUser = await couchdbService.getUser(mainPayload.holderID);
             if (holderUser) {
-              mainPayload.holderName = holderUser.username || holderUser.fullName || holderUser.name || holderUser.email || mainPayload.holderID;
+              // VERIFY2: never fall back to the holder's email or raw ID — that would leak
+              // PII to an unauthenticated verifier. Use a neutral placeholder instead.
+              mainPayload.holderName = holderUser.username || holderUser.fullName || holderUser.name || 'Credential Holder';
             }
           } catch (e) { /* non-critical */ }
         }
@@ -351,7 +353,7 @@ const Verify_Credential = async (req, res, getContractAndGateway) => {
       credentialType: mainPayload.credentialType,
       credentialName: mainPayload.credentialName,
       issuerName: mainPayload.issuerName,
-      holderID: mainPayload.holderID,
+      // VERIFY2: holderID (internal user id) intentionally NOT returned to verifiers.
       holderName: mainPayload.holderName || undefined,
       badgeImage: mainPayload.badgeImage || undefined,
       skills: mainPayload.skills || [],
@@ -378,7 +380,6 @@ const Verify_Credential = async (req, res, getContractAndGateway) => {
       verified: false,
       message: 'Error verifying credential',
       credentialID: req.params.credentialId,
-      error: error.message,
       verifiedAt: new Date().toISOString(),
     });
   }

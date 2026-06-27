@@ -78,7 +78,7 @@
 .verifier-badge { flex-shrink: 0; }
 .verifier-badge img { width: 120px; height: 120px; object-fit: contain; border-radius: var(--radius-card); border: 1px solid var(--border); background: var(--surface-2); padding: 8px; box-sizing: border-box; }
 .verifier-detail-list { flex: 1; min-width: 0; }
-.verifier-cred-name { font-size: var(--fs-h2); font-weight: var(--fw-semibold); color: var(--text); margin: 0 0 var(--s3); }
+.verifier-cred-name { font-size: var(--fs-h2); font-weight: var(--fw-semibold); color: var(--text); margin: 0; padding: 0 var(--s5) var(--s4); }
 .verifier-detail-row { display: flex; align-items: center; justify-content: space-between; gap: var(--s4); padding: 9px 0; border-bottom: 1px solid var(--border); }
 .verifier-detail-row:last-of-type { border-bottom: none; }
 .verifier-detail-label { font-size: var(--fs-label); font-weight: var(--fw-semibold); text-transform: uppercase; letter-spacing: var(--tracking-label); color: var(--text-muted); flex-shrink: 0; }

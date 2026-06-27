@@ -22,6 +22,15 @@
 }
 .analytics-card h3 { margin: 0 0 var(--s3); font-size: var(--fs-h3); font-weight: var(--fw-semibold); color: var(--text); }
 
+/* ADMIN6: card subtitle, rule pill, footer note (toward the cleaner mockup) */
+.analytics-card-sub { margin: -8px 0 var(--s4); font-size: var(--fs-small); color: var(--text-muted); }
+.analytics-rule-pill {
+  display: inline-block; margin-bottom: var(--s3); padding: 5px 12px;
+  border-radius: var(--radius-pill); font-size: var(--fs-caption); font-weight: var(--fw-semibold);
+  color: var(--accent-strong); background: var(--accent-weak); border: 1px solid var(--accent-weaker);
+}
+.analytics-footer-note { margin: var(--s4) 0 0; font-size: var(--fs-caption); color: var(--text-subtle); text-align: center; }
+
 /* Donut center overlay (total in the hole) */
 .analytics-donut-center {
   position: absolute; top: 45%; left: 50%; transform: translate(-50%, -50%);

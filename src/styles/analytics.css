@@ -110,5 +110,5 @@
 .analytics-timeline-label { font-weight: var(--fw-semibold); color: var(--text); font-size: var(--fs-small); }
 .analytics-timeline-when { font-size: var(--fs-caption); color: var(--text-muted); margin-top: 1px; }
 /* BCHIST2: tx hash + reason inline in the unified timeline */
-.ch-tx { font-family: 'Courier New', monospace; }
+.ch-tx { font-family: 'Courier New', monospace; font-size: var(--fs-caption); color: var(--text-subtle); word-break: break-all; margin-top: 2px; }
 .ch-reason { font-size: var(--fs-caption); color: var(--danger); margin-top: 2px; }

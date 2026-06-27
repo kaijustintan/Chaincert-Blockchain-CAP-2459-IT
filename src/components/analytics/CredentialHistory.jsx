@@ -56,10 +56,8 @@ export default function CredentialHistory({
                 <span className="analytics-timeline-dot" style={{ background: e.color }}>{e.icon}</span>
                 <div>
                   <div className="analytics-timeline-label">{e.label}</div>
-                  <div className="analytics-timeline-when">
-                    {fmt(e.when)}
-                    {e.txId ? <> · <span className="ch-tx" title={e.txId}>{String(e.txId).slice(0, 14)}…</span></> : null}
-                  </div>
+                  <div className="analytics-timeline-when">{fmt(e.when)}</div>
+                  {e.txId ? <div className="ch-tx" title="Transaction ID">{e.txId}</div> : null}
                   {e.reason ? <div className="ch-reason">Reason: {e.reason}</div> : null}
                 </div>
               </div>

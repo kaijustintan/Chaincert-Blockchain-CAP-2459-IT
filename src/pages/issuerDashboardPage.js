@@ -37,6 +37,7 @@ import InterpretationBox from "../components/analytics/InterpretationBox";
 import { computeIssuance, computeRevocationAudit, COLORS as ANALYTICS_COLORS } from "../components/analytics/analytics";
 import { AppShell, Sidebar, Button, StatusPill, SpinnerBlock } from "../components/ui";
 import StatusLegend from "../components/ui/StatusLegend";
+import CredentialHistory from "../components/analytics/CredentialHistory";
 import { effectiveCredentialStatus, minIssueExpiryDate } from "../utils/credentialStatus"; // F01
 import { getCredentialLineage, isSameInstance } from "../utils/credentialLineage"; // Q1
 import { LayoutDashboard, FilePlus, Award, Ban, List, BarChart3, Receipt, Building2, Bell } from "lucide-react";
@@ -1864,53 +1865,13 @@ export default function IssuerDashboard() {
             {historyLoading && <SpinnerBlock label="Loading blockchain history…" minHeight={100} />}
             {historyError && <div className="form-error">{historyError}</div>}
 
-            {historyData && (() => {
-              const cleanHistory = filterHistoryEntries(historyData.history);
-
-              return cleanHistory.length > 0 ? (
-                <div>
-                  {historyLineage.length > 1 && (
-                    <div style={{ fontWeight: 600, fontSize: 14, margin: "4px 0 8px" }}>
-                      Blockchain history — selected instance ({historyCredential?.blockchainId || historyCredential?.id || "current"})
-                    </div>
-                  )}
-                  <div style={{ fontSize: "13px", color: "var(--accent-strong)", marginBottom: "12px" }}>
-                    Showing {cleanHistory.length} history record(s)
-                  </div>
-                  <div className="table-wrapper">
-                    <table className="template-table history-modal-table">
-                      <thead>
-                        <tr>
-                          <th>Timestamp</th>
-                          <th>Status</th>
-                          <th>TX ID</th>
-                          <th>Snapshot</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {cleanHistory.map((entry, idx) => {
-                          return (
-                            <tr key={entry.txId || idx}>
-                              <td>{entry.timestamp ? new Date(entry.timestamp).toLocaleString() : "N/A"}</td>
-                              <td style={{ color: getStatusColor(entry.value?.status || entry.status), fontWeight: 600 }}>{entry.value?.status || entry.status || "N/A"}</td>
-                              <td style={{ fontFamily: "monospace", fontSize: "11px" }}>
-                                {entry.txId ? `${String(entry.txId).slice(0, 16)}...` : "N/A"}
-                              </td>
-                              <td style={{ fontSize: "12px" }}>
-                                {entry.value?.credentialName || entry.credentialName || entry.value?.credentialType || entry.credentialType || "N/A"}
-                                {(entry.value?.holderName || entry.holderName) ? ` | Holder: ${entry.value?.holderName || entry.holderName}` : ""}
-                              </td>
-                            </tr>
-                          );
-                        })}
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
-              ) : (
-                <div style={{ padding: "20px", opacity: 0.7 }}>No history records found for this credential.</div>
-              );
-            })()}
+            {/* BCHIST2: unified timeline (tx hash + reason). Issuer has no verification endpoint → no proof trail. */}
+            {historyData && (
+              <CredentialHistory
+                history={filterHistoryEntries(historyData.history)}
+                showProofTrail={false}
+              />
+            )}
           </div>
           <div className="modal-backdrop" onClick={closeHistory}></div>
         </div>

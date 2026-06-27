@@ -1918,9 +1918,10 @@ const handleDownloadIssuerDocument = async (doc) => {
                             </span>
                             <div>
                               <div className="analytics-timeline-label">{e.label}</div>
-                              <div className="analytics-timeline-when">
-                                {formatTimestamp(e.when)}
-                              </div>
+                              <div className="analytics-timeline-when">{formatTimestamp(e.when)}</div>
+                              {/* BCHIST2: tx hash + reason on their own rows (full, untruncated) */}
+                              {e.txId ? <div className="ch-tx" title="Transaction ID">{e.txId}</div> : null}
+                              {e.reason ? <div className="ch-reason">Reason: {e.reason}</div> : null}
                             </div>
                           </div>
                         ))}

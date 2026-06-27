@@ -715,6 +715,22 @@ getAdminActionablePendingIssuers: async () => {
   // ==========================================================================================================================================================================
 
   /*
+  Function Name: getIssuerDirectory
+  Technical: Public issuer directory — approved issuers + credibility aggregates (E).
+  Tropang Ex: Listahan ng lahat ng issuers na pwedeng hanapin sa public directory.
+  */
+  getIssuerDirectory: async () => {
+    try {
+      const response = await axios.get('/issuer/directory');
+      return response.data;
+    } catch (error) {
+      console.error('Error fetching issuer directory:', error.response?.data?.message || error.message);
+      throw error;
+    }
+  },
+  // ==========================================================================================================================================================================
+
+  /*
   Function Name: getRejectedIssuers
 
   Technical:

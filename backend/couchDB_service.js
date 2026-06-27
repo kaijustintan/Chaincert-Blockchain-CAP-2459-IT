@@ -2916,6 +2916,47 @@ async function getIssuerIssuedByIssuerId(issuerId) {
 }
 // ==========================================================================================================================================================================
 
+/*
+  Function Name: getPublicIssuerDirectory
+  Tropang Ex: Para sa public na "issuer directory" — listahan ng lahat ng approved issuers
+  na pwedeng hanapin/i-browse ng kahit sino. Bawat entry may bilang ng PUBLIC templates,
+  ilan na ang na-issue, at anong klase ng credential ang inaalok — credibility signals.
+  TECHNICAL: Over getApprovedIssuers(), enriches each with public-template count + issued
+  count + distinct public template types (reusing getIssuerTemplatesByIssuerId +
+  getIssuerIssuedByIssuerId). Per-issuer wrapped in try/catch so an unprovisioned issuer
+  (no couchDBUrl) yields zeros instead of failing the whole list. Public-safe fields only.
+*/
+async function getPublicIssuerDirectory() {
+  const issuers = await getApprovedIssuers();
+  const list = Array.isArray(issuers) ? issuers : [];
+  const entries = await Promise.all(list.map(async (iss) => {
+    let publicTemplateCount = 0, issuedCount = 0, types = [];
+    try {
+      const templates = await getIssuerTemplatesByIssuerId(iss._id);
+      const publicTemplates = (templates || []).filter((t) => t?.visibility === 'public');
+      publicTemplateCount = publicTemplates.length;
+      types = [...new Set(publicTemplates.map((t) => t.credentialType).filter(Boolean))];
+      const issued = await getIssuerIssuedByIssuerId(iss._id);
+      issuedCount = (issued || []).length;
+    } catch (e) {
+      console.warn(`[DIRECTORY] aggregate failed for ${iss._id}:`, e.message);
+    }
+    return {
+      id: iss._id,
+      orgName: iss.orgName || iss.contactName || 'Issuer',
+      category: iss.category || iss.issuerCategory || '',
+      issuerType: iss.issuerType || 'root',
+      profilePicture: iss.profilePicture || iss.avatar || null,
+      approvedAt: iss.approvedAt || iss.createdAt || null,
+      publicTemplateCount,
+      issuedCount,
+      types,
+    };
+  }));
+  return entries.sort((a, b) => new Date(b.approvedAt || 0) - new Date(a.approvedAt || 0));
+}
+// ==========================================================================================================================================================================
+
 async function getAllIssuerCredentialsAdmin(options = {}) {
   try {
     const issuerIdFilter = options.issuerId || null; // optional specific issuer
@@ -3691,10 +3732,26 @@ async function getShareLinksByUserId(userId) {
     selector: { type: 'profile_share_link', userId },
     limit: 100
   });
-  // Sort newest first 
+  // Sort newest first
   return (result.docs || []).sort(
     (a, b) => new Date(b.createdAt) - new Date(a.createdAt)
   );
+}
+
+/*
+  Function Name: findActivePublicShareLink
+  Tropang Ex: Hinahanap kung may existing nang active PUBLIC share link ("Anyone with
+  Link", walang recipient) ang user — para sa issuer, isa lang ang link niya: ginagamit
+  ulit imbes na gumawa ng bago kada click ng Share. Returns the newest active one or null.
+*/
+async function findActivePublicShareLink(userId) {
+  if (!profileShareLinksDb) await initializeDatabases();
+  const result = await profileShareLinksDb.find({
+    selector: { type: 'profile_share_link', userId, recipientEmail: null, isActive: true },
+    limit: 100
+  });
+  const docs = (result.docs || []).sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+  return docs[0] || null;
 }
 
 
@@ -3850,7 +3907,9 @@ module.exports = {
   recordShareLinkView,
   revokeProfileShareLink,  
   updateShareLinkStatus,
-  getShareLinksByUserId,    
+  getShareLinksByUserId,
+  findActivePublicShareLink,
+  getPublicIssuerDirectory,
   getAllSubordinatesForRoot,
   getRootApprovedSubordinatesForRoot,
   getRootRejectedSubordinatesForRoot,

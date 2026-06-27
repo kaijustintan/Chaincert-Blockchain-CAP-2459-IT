@@ -555,15 +555,33 @@ const accountController = {
         return res.status(401).json({ success: false, message: 'Unauthorized.' });
       }
 
-      // Calculate expiry 
+      // B: an issuer's public profile is a single PERMANENT link — reuse the existing
+      // one instead of minting a new token on every Share click, and never expire it.
+      const isIssuer = String(req.user?.role || '').toLowerCase() === 'issuer'
+        || String(userId).startsWith('issuer_');
+
+      if (isIssuer) {
+        const existing = await couchDB.findActivePublicShareLink(userId);
+        if (existing?.token) {
+          return res.status(200).json({
+            success: true,
+            message: 'Public share link ready.',
+            shareUrl: `http://localhost:3000/profile/${existing.token}`,
+            token: existing.token,
+            reused: true
+          });
+        }
+      }
+
+      // Calculate expiry (issuers: always permanent)
       let expiresAt = null;
-      if (durationDays && durationDays !== 'none') {
+      if (!isIssuer && durationDays && durationDays !== 'none') {
         const expiry = new Date();
         expiry.setDate(expiry.getDate() + parseInt(durationDays));
         expiresAt = expiry.toISOString();
       }
 
-      // Generate unique token 
+      // Generate unique token
       const token = crypto.randomBytes(24).toString('hex');
 
       await couchDB.createProfileShareLink(userId, token, null, expiresAt, {

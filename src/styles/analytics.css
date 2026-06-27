@@ -13,6 +13,8 @@
 }
 
 .analytics-card {
+  display: flex;
+  flex-direction: column;
   background: var(--surface-2);
   border: 1px solid var(--border);
   border-radius: var(--radius-card);
@@ -38,14 +40,17 @@
 .analytics-interpretation {
   margin-top: var(--s3);
   padding: 12px 14px;
-  background: var(--accent-weaker);
-  border: 1px solid transparent; border-left: 3px solid var(--accent);
+  background: var(--surface); /* neutral inset — less purple-heavy / cartoonish */
+  border: 1px solid var(--border); border-left: 3px solid var(--accent);
   border-radius: var(--radius-control);
 }
+/* ADMIN6: inside analytics cards (flex column), align the box to the card bottom so the
+   four "what this means" callouts line up; harmless in non-flex contexts (holder Cards). */
+.analytics-card .analytics-interpretation { margin-top: auto; }
 .analytics-interpretation-title {
   display: flex; align-items: center; gap: 6px;
-  font-size: var(--fs-label); text-transform: uppercase; letter-spacing: var(--tracking-label);
-  font-weight: var(--fw-semibold); color: var(--accent-strong); margin-bottom: 5px;
+  font-size: var(--fs-caption); text-transform: uppercase; letter-spacing: var(--tracking-label);
+  font-weight: var(--fw-semibold); color: var(--text-muted); margin-bottom: 5px;
 }
 .analytics-interpretation-text { margin: 0; font-size: var(--fs-small); line-height: var(--lh-body); color: var(--text-muted); }
 
@@ -59,7 +64,7 @@
 .analytics-flag-row.flagged { background: var(--danger-weak); border-color: transparent; border-left: 3px solid var(--danger); }
 .analytics-flag-issuer { font-weight: var(--fw-semibold); color: var(--text); font-size: var(--fs-body); }
 .analytics-flag-reason { font-size: var(--fs-small); color: var(--text-muted); margin-top: 2px; }
-.analytics-flag-rate { font-size: 20px; font-weight: var(--fw-bold); white-space: nowrap; }
+.analytics-flag-rate { font-size: 16px; font-weight: var(--fw-bold); white-space: nowrap; }
 .analytics-flag-rate.flagged { color: var(--danger); }
 .analytics-flag-rate.ok { color: var(--ok); }
 

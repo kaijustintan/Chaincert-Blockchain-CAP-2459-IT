@@ -343,6 +343,44 @@ const [showAll, setShowAll] = useState(false);
   // PROFILE2: issuers can only share public ("Anyone with Link") — default them there.
   const [shareType, setShareType] = useState(isIssuer ? 'public' : 'specific');
 
+  // D: issuer's own templates (shown as cards with a visibility toggle on the profile)
+  const [issuerTemplates, setIssuerTemplates] = useState([]);
+  const [issuerTemplatesLoading, setIssuerTemplatesLoading] = useState(false);
+
+  useEffect(() => {
+    if (!isIssuer) return;
+    let active = true;
+    setIssuerTemplatesLoading(true);
+    apiService.Get_CredentialTemplates()
+      .then((data) => { if (active) setIssuerTemplates(Array.isArray(data) ? data : []); })
+      .catch((err) => console.error('[PROFILE PAGE] Error fetching issuer templates:', err))
+      .finally(() => { if (active) setIssuerTemplatesLoading(false); });
+    return () => { active = false; };
+  }, [isIssuer]);
+
+  // C2: confirm before flipping a template's visibility
+  const [pendingTemplateToggle, setPendingTemplateToggle] = useState(null);
+
+  const handleToggleIssuerTemplateVisibility = (template) => {
+    setPendingTemplateToggle(template);
+  };
+
+  const confirmToggleIssuerTemplateVisibility = async () => {
+    const template = pendingTemplateToggle;
+    setPendingTemplateToggle(null);
+    const credentialKey = template?.id || template?._id;
+    if (!credentialKey) return;
+    const newVisibility = template.visibility === 'public' ? 'private' : 'public';
+    try {
+      await apiService.Update_IssuerTemplateVisibility(credentialKey, newVisibility);
+      setIssuerTemplates((prev) => prev.map((t) => ((t.id || t._id) === credentialKey ? { ...t, visibility: newVisibility } : t)));
+      showToast(`Template is now ${newVisibility}.`);
+    } catch (err) {
+      console.error('[PROFILE PAGE] Failed to update template visibility:', err);
+      showToast(err.response?.data?.message || 'Failed to update template visibility.', 'danger');
+    }
+  };
+
   // My Share Links state 
   const [myShareLinks, setMyShareLinks] = useState([]);
   const [shareLinksLoading, setShareLinksLoading] = useState(false);
@@ -476,6 +514,8 @@ const [showAll, setShowAll] = useState(false);
     setShareError('');
     setShareCopied(false);
     setShowShareModal(true);
+    // B2: issuers have ONE permanent link — fetch/reuse it immediately, no "Generate" step.
+    if (isIssuer) handleGenerateShareLink();
   };
 
   const handleCloseShareModal = () => {
@@ -539,6 +579,26 @@ const [showAll, setShowAll] = useState(false);
   <div className="profile-page">
     {/* Profile toast render */}
     <AppToast show={toast.show} message={toast.message} type={toast.type} />
+
+    {/* C2: confirm template visibility change */}
+    {pendingTemplateToggle && (
+      <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', zIndex: 999999, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }} onClick={() => setPendingTemplateToggle(null)}>
+        <div onClick={(e) => e.stopPropagation()} style={{ width: 'min(440px, 92vw)', background: 'var(--surface-2)', borderRadius: 12, border: '1px solid var(--border-strong)', padding: 24, boxShadow: '0 10px 40px rgba(0,0,0,0.4)', color: 'var(--text)' }}>
+          <h3 style={{ margin: '0 0 8px' }}>
+            {pendingTemplateToggle.visibility === 'public' ? 'Make this template private?' : 'Make this template public?'}
+          </h3>
+          <p style={{ margin: '0 0 20px', fontSize: 13, lineHeight: 1.5, color: 'var(--text-muted)' }}>
+            {pendingTemplateToggle.visibility === 'public'
+              ? `"${pendingTemplateToggle.credentialName || 'This template'}" will be hidden from your public issuer profile.`
+              : `"${pendingTemplateToggle.credentialName || 'This template'}" will appear on your public issuer profile for anyone to see.`}
+          </p>
+          <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
+            <button type="button" onClick={() => setPendingTemplateToggle(null)} style={{ background: 'transparent', border: '1px solid rgba(255,255,255,0.25)', color: 'var(--text)', borderRadius: 8, padding: '10px 16px', cursor: 'pointer', fontWeight: 600 }}>Cancel</button>
+            <button type="button" onClick={confirmToggleIssuerTemplateVisibility} style={{ background: 'var(--accent)', border: 'none', color: 'var(--text)', borderRadius: 8, padding: '10px 16px', cursor: 'pointer', fontWeight: 600 }}>Confirm</button>
+          </div>
+        </div>
+      </div>
+    )}
     {/* Profile Header */}
     <div className="profile-header">
 
@@ -721,6 +781,47 @@ const [showAll, setShowAll] = useState(false);
         )}
       </section>
       )} {/* end Personal Summary — hidden for admin */}
+
+      {/* D: Issuer's templates as cards with a Public/Private toggle */}
+      {isIssuer && (
+        <section className="profile-section">
+          <div className="section-header">
+            <h3>My Templates</h3>
+          </div>
+          {issuerTemplatesLoading && <SkeletonCardGrid count={6} />}
+          {!issuerTemplatesLoading && issuerTemplates.length === 0 && (
+            <div className="empty-card">No credential templates yet. Create one from your dashboard.</div>
+          )}
+          {!issuerTemplatesLoading && issuerTemplates.length > 0 && (
+            <div className="badges-grid">
+              {issuerTemplates.map((template) => {
+                const tid = template.id || template._id;
+                const isPublic = template.visibility === 'public';
+                return (
+                  <div key={tid} className="badge-card">
+                    {isPublic && <div className="public-indicator" title="Visible on your public profile">🌐</div>}
+                    <div className="badge-image">
+                      {template.badgeImage ? (
+                        <img src={template.badgeImage} alt="badge" style={{ width: 60, height: 60, objectFit: 'cover', borderRadius: 8 }} />
+                      ) : '📜'}
+                    </div>
+                    <h4>{template.credentialName || template.credentialType || 'Untitled'}</h4>
+                    <p className="badge-issuer">{template.credentialType || ''}</p>
+                    <button
+                      type="button"
+                      className="action-btn"
+                      onClick={() => handleToggleIssuerTemplateVisibility(template)}
+                      style={{ marginTop: 8, padding: '4px 12px', fontSize: '11px', background: isPublic ? 'var(--ok-weak)' : 'var(--warn-weak)', color: isPublic ? 'var(--ok)' : 'var(--warn)', border: '1px solid rgba(255,255,255,0.18)', borderRadius: '999px', cursor: 'pointer' }}
+                    >
+                      {isPublic ? 'Public' : 'Private'}
+                    </button>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </section>
+      )}
 
       {/* Credential Wallet — hidden for issuers and admin */}
       {!isIssuer && !isAdmin && (
@@ -1028,6 +1129,9 @@ const [showAll, setShowAll] = useState(false);
             </div>
             <div className="modal-body">
               {!shareGeneratedUrl ? (
+                isIssuer ? (
+                  <SpinnerBlock label="Preparing your permanent link…" minHeight={120} />
+                ) : (
                 <>
                   {/* share type toggle — PROFILE2: hidden for issuers (public-only) */}
                   {!isIssuer && (
@@ -1086,6 +1190,8 @@ const [showAll, setShowAll] = useState(false);
                     </p>
                   )}
 
+                  {/* B: issuers get a permanent, reusable link — no duration picker */}
+                  {!isIssuer && (
                   <div className="detail-row" style={{ flexDirection: 'column', gap: 6, marginTop: 14 }}>
                     <label style={{ color: 'var(--accent-strong)', fontSize: '0.85rem', fontWeight: 600 }}>
                       Link Duration
@@ -1108,6 +1214,12 @@ const [showAll, setShowAll] = useState(false);
                       <option value="none">No Expiry</option>
                     </select>
                   </div>
+                  )}
+                  {isIssuer && (
+                    <p style={{ color: 'var(--text-muted)', fontSize: '13px', margin: '14px 0 0', lineHeight: 1.5 }}>
+                      Your public profile link is permanent — anyone with it can view your issuer profile.
+                    </p>
+                  )}
                   <div className="detail-row" style={{ flexDirection: 'column', gap: 6, marginTop: 14 }}>
                     <label style={{ color: 'var(--accent-strong)', fontSize: '0.85rem', fontWeight: 600 }}>
                       Description <span style={{ color: 'var(--text-muted)', fontWeight: 400 }}>(optional)</span>
@@ -1131,10 +1243,15 @@ const [showAll, setShowAll] = useState(false);
                     <p style={{ color: 'var(--danger)', fontSize: '0.85rem', marginTop: 10 }}>{shareError}</p>
                   )}
                 </>
+                )
               ) : (
                 <>
                   <p style={{ color: 'var(--accent-strong)', fontSize: '0.85rem', marginBottom: 10 }}>
-                    ✅ Link generated! Share this with <strong style={{ color: 'var(--text)' }}>{shareRecipientEmail}</strong>:
+                    {isIssuer
+                      ? 'Your permanent public profile link:'
+                      : (shareRecipientEmail
+                          ? <>✅ Link generated! Share this with <strong style={{ color: 'var(--text)' }}>{shareRecipientEmail}</strong>:</>
+                          : '✅ Link generated! Anyone with this link can view your profile:')}
                   </p>
                   <div style={{
                     background: 'var(--border)',
@@ -1166,7 +1283,7 @@ const [showAll, setShowAll] = useState(false);
                 </>
               )}
             </div>
-            {!shareGeneratedUrl && (
+            {!shareGeneratedUrl && !isIssuer && (
               <div className="modal-footer">
                 <button
                   className="action-btn history"

@@ -21,6 +21,7 @@ import Footer from './components/footer';
 import SettingsPage from './pages/settingsPage';
 import ProfilePage from './pages/profilePage';
 import ProfilePreview from './pages/profilePreview';
+import IssuerDirectory from './pages/issuerDirectory';
 import BadgeDetails from './pages/badgeDetailsPage';
 import BadgeDetailsProfilePreviewPage from './pages/BadgeDetailsProfilePreviewPage';
 import ShareCredentialPage from './pages/shareCredentialPage';
@@ -58,6 +59,7 @@ function AnimatedRoutes() {
         <Route path="/help" element={<HelpPage />} />
         <Route path="/forgot-password" element={<ForgotPassword />} />
         <Route path="/verifier/dashboard" element={<VerifierDashboard />} />
+        <Route path="/directory" element={<IssuerDirectory />} />
         <Route path="/profile-preview" element={<ProfilePreview />} />
         <Route path="/profile/:token" element={<ProfilePreview />} /> {/* - polo: public share link route */}
 

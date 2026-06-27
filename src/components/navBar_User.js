@@ -93,6 +93,9 @@ function NavBar() {
         <li className={location.pathname === '/help' ? 'active' : ''}>
           <Link to="/help">Help</Link>
         </li>
+        <li className={location.pathname === '/directory' || location.pathname.startsWith('/issuer/') ? 'active' : ''}>
+          <Link to="/directory">Issuers</Link>
+        </li>
         <li className={location.pathname === '/verifier/dashboard' ? 'active' : ''}>
           <Link to="/verifier/dashboard">Verifier Dashboard</Link>
         </li>

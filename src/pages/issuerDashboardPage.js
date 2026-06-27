@@ -778,7 +778,16 @@ export default function IssuerDashboard() {
   };
 
 
-  const handleToggleTemplateVisibility = async (template) => {
+  // C2: confirm before flipping a template's visibility (styled modal, not window.confirm)
+  const [pendingVisibilityTemplate, setPendingVisibilityTemplate] = useState(null);
+
+  const handleToggleTemplateVisibility = (template) => {
+    setPendingVisibilityTemplate(template);
+  };
+
+  const confirmToggleTemplateVisibility = async () => {
+    const template = pendingVisibilityTemplate;
+    setPendingVisibilityTemplate(null);
     const credentialKey = template?.id || template?._id;
     if (!credentialKey) return;
 
@@ -1010,6 +1019,12 @@ export default function IssuerDashboard() {
                         <td style={{ fontFamily: "monospace", fontSize: 12 }}>{id || "N/A"}</td>
                         <td>{template.description || "—"}</td>
                         <td>{Array.isArray(template.skills) && template.skills.length > 0 ? template.skills.join(", ") : "—"}</td>
+                        <td>
+                          {/* C: per-template visibility toggle (same pattern as All Credentials) */}
+                          <button type="button" className="action-btn" onClick={() => handleToggleTemplateVisibility(template)} style={{ padding: "4px 12px", fontSize: "11px", background: template?.visibility === "public" ? "var(--ok-weak)" : "var(--warn-weak)", color: template?.visibility === "public" ? "var(--ok)" : "var(--warn)", border: "1px solid rgba(255,255,255,0.18)", borderRadius: "999px", cursor: "pointer" }}>
+                            {template?.visibility === "public" ? "Public" : "Private"}
+                          </button>
+                        </td>
                         <td>{template.createdAt ? new Date(template.createdAt).toLocaleDateString() : "N/A"}</td>
                       </tr>
                     );
@@ -1429,6 +1444,25 @@ export default function IssuerDashboard() {
       {/* ============================================================
           ALL MODALS (preserved exactly from original)
           ============================================================ */}
+
+      {/* C2: confirm template visibility change */}
+      {pendingVisibilityTemplate && (
+        <div className="modal-overlay">
+          <div className="modal" style={{ maxWidth: 440 }}>
+            <h3>{pendingVisibilityTemplate.visibility === "public" ? "Make this template private?" : "Make this template public?"}</h3>
+            <p style={{ margin: "8px 0 18px", fontSize: 13, color: "var(--text-muted)", lineHeight: 1.5 }}>
+              {pendingVisibilityTemplate.visibility === "public"
+                ? `"${pendingVisibilityTemplate.credentialName || "This template"}" will be hidden from your public issuer profile.`
+                : `"${pendingVisibilityTemplate.credentialName || "This template"}" will appear on your public issuer profile for anyone to see.`}
+            </p>
+            <div className="form-actions">
+              <button type="button" className="action-btn" onClick={confirmToggleTemplateVisibility}>Confirm</button>
+              <button type="button" className="action-btn btn-cancel" onClick={() => setPendingVisibilityTemplate(null)}>Cancel</button>
+            </div>
+          </div>
+          <div className="modal-backdrop" onClick={() => setPendingVisibilityTemplate(null)}></div>
+        </div>
+      )}
 
       {/* Create Credential Modal */}
       {showCreateModal && (

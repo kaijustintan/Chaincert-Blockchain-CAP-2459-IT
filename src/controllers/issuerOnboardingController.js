@@ -503,6 +503,17 @@ const issuerOnboardingController = {
       console.error('Error fetching public root authorities:', error);
       return sendServerError(res, error, 'ISSUER-ONBOARDING'); // M9
     }
+  },
+
+  // E: PUBLIC issuer directory — approved issuers + credibility aggregates.
+  getPublicDirectory: async (req, res) => {
+    try {
+      const data = await couchDB.getPublicIssuerDirectory();
+      return res.status(200).json({ success: true, data, count: data.length });
+    } catch (error) {
+      console.error('Error fetching public issuer directory:', error);
+      return sendServerError(res, error, 'ISSUER-ONBOARDING'); // M9
+    }
   }
 };
 

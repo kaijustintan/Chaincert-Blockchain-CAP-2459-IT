@@ -29,6 +29,7 @@ export default function ProfilePreview() {
   // If userId query param matches logged-in user, skip OTP gate entirely
   const urlParams = new URLSearchParams(window.location.search);
   const previewUserId = urlParams.get('userId');
+  const publicIssuerId = urlParams.get('issuerId'); // E: public issuer-directory profile view (no OTP)
   const loggedInUser = JSON.parse(localStorage.getItem('user') || '{}');
   const loggedInUserId = loggedInUser._id || loggedInUser.id || '';
   const isOwner = previewUserId && loggedInUserId && previewUserId === loggedInUserId;
@@ -38,7 +39,7 @@ export default function ProfilePreview() {
 
   useEffect(() => {
     const checkLinkType = async () => {
-      if (!token || isOwner) return;
+      if (!token || isOwner || publicIssuerId) return;
       try {
         const result = await apiService.getShareLinkInfo(token);
         if (result.success && result.valid && result.recipientEmail === null) {
@@ -62,7 +63,7 @@ export default function ProfilePreview() {
   }, [token, isOwner]); 
 
   // ── Gate state ──────────────────────────────────────────
-  const [gateStage, setGateStage] = useState(isOwner ? 'verified' : 'loading'); // 'loading' | 'email' | 'otp' | 'verified'
+  const [gateStage, setGateStage] = useState(isOwner || publicIssuerId ? 'verified' : 'loading'); // 'loading' | 'email' | 'otp' | 'verified'
   const [gateEmail, setGateEmail] = useState('');
   const [gateOtp, setGateOtp] = useState('');
   const [gateError, setGateError] = useState('');
@@ -182,7 +183,48 @@ export default function ProfilePreview() {
       }
     };
     loadPublicProfile();
-  }, [isPublicLink, isOwner, token]); 
+  }, [isPublicLink, isOwner, token]);
+
+  // ── Load PUBLIC issuer profile (issuer directory → ?issuerId=...) — no OTP ──
+  useEffect(() => {
+    if (!publicIssuerId) return;
+    let active = true;
+    const loadPublicIssuer = async () => {
+      try {
+        const response = await apiService.getUserInfo(publicIssuerId);
+        if (!active) return;
+        if (response.success && response.user) {
+          const nextProfile = {
+            id: response.user.id,
+            userId: response.user.id,
+            name: response.user.name,
+            orgName: response.user.orgName || response.user.organizationName || '',
+            email: response.user.email,
+            role: response.user.role,
+            summary: response.user.summary || '',
+            profilePicture: response.user.profilePicture || null,
+            sharedCredentials: response.user.sharedCredentials || [],
+            issuerStats: response.user.issuerStats || null
+          };
+          setProfileData(nextProfile);
+          setSummary(nextProfile.summary || '');
+          if (nextProfile.profilePicture) setAvatar(nextProfile.profilePicture);
+          if (Array.isArray(response.user.sharedCredentials)) {
+            setCredentials(filterVisibleProfileCredentials(response.user.sharedCredentials, response.user.role));
+          }
+          setGateStage('verified');
+        } else {
+          setGateError('Issuer profile not found.');
+          setGateStage('blocked');
+        }
+      } catch (err) {
+        console.error('[PROFILE PREVIEW] Error loading public issuer:', err);
+        if (active) { setGateError('Issuer profile not found.'); setGateStage('blocked'); }
+      }
+    };
+    loadPublicIssuer();
+    return () => { active = false; };
+  }, [publicIssuerId]);
 
   // ── Load credentials after OTP verified - polo ─────────────────
   useEffect(() => {

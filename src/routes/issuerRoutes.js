@@ -42,6 +42,14 @@ router.get(
   issuerOnboardingController.getPublicRootAuthorities
 );
 
+// GET /api/issuer/directory
+// PUBLIC issuer directory — anyone (logged out too) can browse/search all approved
+// issuers with credibility aggregates (E). No auth.
+router.get(
+  '/directory',
+  issuerOnboardingController.getPublicDirectory
+);
+
 // GET /api/issuer/issuer/:issuerId/documents
 // Get issuer document metadata
 router.get(

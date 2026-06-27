@@ -1,25 +1,26 @@
-// ==========================================================================================================================================================================
-//                                                               issuerDashboardPage.js
-// ==========================================================================================================================================================================
-/* [ OUTLINE ]
-  =====================================================================
-  CSS-CHANGE: Full UI restructure into card-based navigation - polo
-  
-  VIEW STATES:
-    'home'          → Card grid (Create, Issue, Revoke, History, Subordinates)
-    'create'        → Create template form + templates list
-    'issue'         → Issue credential (step wizard) + issued credentials table
-    'revoke'        → Revoke form + revokable credentials list
-    'subordinates'  → My Subordinates + Decision Logs (root-only)
+// issuerDashboardPage.js
+/*
+  FILE: issuerDashboardPage.js
+  LAYMAN (Tropang Ex): Ito yung workspace ng isang issuer (paaralan/organisasyon). Dito siya gumagawa ng
+  credential templates, nag-i-issue ng credential sa mga holder, nagre-revoke, tumitingin ng blockchain
+  history, at nakikita ang analytics (ilang na-issue, revocation self-audit). Kung ROOT authority siya,
+  may dagdag na "Subordinates" view para aprubahan/i-reject ang mga subordinate na nag-apply sa kanya.
 
-  ZERO LOGIC CHANGES:
-    - All state variables preserved
-    - All API calls preserved
-    - All modal logic preserved (create, issue, revoke, reject subordinate, documents)
-    - All filter/sort logic preserved
-    - Toast notifications preserved
-    - isSubordinate check preserved
-  =====================================================================
+  TECHNICAL: Role=issuer React page (AppShell/Sidebar, card-based navigation via an activeView state).
+  Data via apiService (templates, issued, revocable, history, subordinates). Analytics uses the shared
+  helpers (computeIssuance, computeRevocationAudit) + Donut/TrendBars/Sparkline/InterpretationBox, and
+  CredentialHistory for the unified blockchain history. isSubordinate/root gating controls the
+  Subordinates view. Template Public/Private visibility toggles (with confirm) live here. No verification
+  proof trail (issuers have no verification endpoint — see CLAUDE.md).
+
+  OUTLINE (activeView states):
+    'home'          card grid (Create, Issue, Revoke, History, Analytics, Subordinates)
+    'create'        create-template form + templates list (+ visibility toggle)
+    'issue'         issue-credential step wizard + issued-credentials table
+    'revoke'        revoke form + revocable-credentials list
+    'history'       per-credential blockchain history (→ CredentialHistory)
+    'analytics'     Issuance Performance + Revocation Self-Audit
+    'subordinates'  My Subordinates + Decision Logs (ROOT authority only)
 */
 
 import React, { useState, useEffect, useCallback, useMemo, useRef } from "react";

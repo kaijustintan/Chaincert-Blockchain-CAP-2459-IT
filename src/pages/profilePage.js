@@ -1,3 +1,24 @@
+// profilePage.js
+/*
+  FILE: profilePage.js
+  LAYMAN (Tropang Ex): Ito yung sariling profile page ng naka-login na user. Dito niya ino-update ang
+  summary/visibility/username at profile picture, makikita ang sariling credentials (holder) o templates
+  (issuer), at dito rin ang "Share" — pwede mag-share sa isang tao lang (may email + OTP) o gawing PUBLIC
+  (iisang permanenteng link na reused). Ang public link na ito ang ginagamit ng View Profile sa PDF.
+
+  TECHNICAL: Role-aware React page (holder/issuer/admin derived from localStorage user). Profile + avatar
+  edits via apiService (updateProfile, uploadProfilePicture). Wallet: holder credentials (card grid,
+  search/filter/sort, drag-to-reorder) or issuer "My Templates" (with Public/Private toggle + confirm).
+  Share modal has two tabs: Specific Recipient (duration honored) and "Anyone with Link" (permanent,
+  reused — backend reuses the one active public link; duration picker hidden on this tab). My Share Links
+  lists/revokes the user's links. Tokens are crypto-random; specific links are OTP-gated server-side.
+
+  OUTLINE:
+    PROFILE         summary / public toggle / username + profile-picture upload
+    WALLET          holder credentials (search/filter/sort/reorder)  |  issuer "My Templates" (+ visibility toggle)
+    SHARE MODAL     Specific Recipient (with duration) | Anyone-with-Link (permanent, reused)
+    MY SHARE LINKS  list + revoke
+*/
 import React, { useState, useEffect, useRef, useMemo } from "react";
 import apiService from "../services/apiService";
 import AppToast from "../components/appToast";

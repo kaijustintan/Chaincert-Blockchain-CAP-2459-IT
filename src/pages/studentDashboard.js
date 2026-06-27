@@ -1,23 +1,26 @@
-// ==========================================================================================================================================================================
-//                                                               studentDashboard.js
-// ==========================================================================================================================================================================
-
-/* [ OUTLINE ]
-  =====================================================================
+// studentDashboard.js
+/*
   FILE: studentDashboard.js
-  TECHNICAL: Student/user dashboard — displays credentials from CouchDB (wallet_user_credentials).
-  TROPA: Personal credential wallet ng student. Dito niya makikita lahat ng credentials na na-issue sa kanya.
-  =====================================================================
+  LAYMAN (Tropang Ex): Ito yung personal na "wallet" ng holder/student. Dito niya nakikita lahat ng
+  credentials na na-issue sa kanya (card o list view, may search/filter), pwede mag-export ng PDF,
+  tingnan ang buong kasaysayan ng isang credential, at sa "Insights" tab makikita niya ang health ng
+  mga credential niya, mga malapit nang mag-expire, at kung gaano kadalas siya na-ve-verify.
 
-  UI/UX REDESIGN (refined dark, Phase 2a):
-  - Wallet-first IA: a lightweight segmented control (My Wallet / Insights) replaces the
-    old single long scroll. Default = Wallet (the holder's core job). Analytics demoted
-    to the Insights tab.
-  - Adopts the shared design-system primitives (Card, Button, Modal, StatusPill, EmptyState,
-    Spinner) from src/components/ui — all token-driven; no more bespoke per-page styling.
-  - De-emojified: lucide line icons replace 📊🔗🧬🎓🔔 etc.
-  - All data logic, fetching, and handlers below the render are unchanged from the dynamic
-    version; only presentation was reworked.
+  TECHNICAL: Role=holder React page (default route after a student logs in). Wallet-first IA: a
+  segmented control switches between "My Wallet" (credential grid/list, search/filter/sort, PDF export,
+  per-credential history modal) and "Insights" (analytics). Data via apiService (own credentials,
+  notifications, GET /api/wallet/my-verifications). Uses the shared analytics layer (computeHealth,
+  computeExpirationAlerts, computeHolderVerificationInsights) + CredentialHistory for the unified
+  provenance + verification proof trail, and effectiveCredentialStatus for compute-on-read expiry (F01).
+  All presentation uses the design-system primitives (Card/Button/Modal/StatusPill/EmptyState/Spinner).
+
+  OUTLINE:
+    HELPERS                 formatDate, getNotificationTypeMeta (notification → icon/label/tone)
+    MY WALLET tab           credentials list/card + search/filter/sort; Export PDF (single + all);
+                            per-credential "See History" modal (→ CredentialHistory)
+    INSIGHTS tab            Credential Health (donut) · Renewal Alerts · Verification Insights ·
+                            Provenance timeline (analytics helpers + Donut/TrendBars/InterpretationBox)
+    NOTIFICATIONS           bell panel (issued / revoked / expired)
 */
 
 import React, { useState, useEffect, useMemo, useRef } from "react";

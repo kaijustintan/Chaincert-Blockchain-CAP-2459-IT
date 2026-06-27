@@ -1,4 +1,27 @@
-// Admin dashboard for credential management
+// adminDashboard.js
+/*
+  FILE: adminDashboard.js
+  LAYMAN (Tropang Ex): Ito yung "control center" ng admin. Dito niya pinamamahalaan ang mga issuer
+  (approve/reject/enable/disable, kasama ang pending queues), tinitingnan ang lahat ng credentials at
+  users, binabasa ang immutable Audit Logs mula sa blockchain, pinapatakbo ang integrity check (CouchDB
+  vs ledger), at nakikita ang Analytics & Reports (verification summary, suspicious activity, demand,
+  integrity insight) — lahat ng raw na log ay pinoproseso muna bago ipakita.
+
+  TECHNICAL: Role=admin React page behind adminProtectedRoutes. Tab-driven (credentials · issuers ·
+  users · logs · analytics) inside the design-system AppShell/Sidebar. Heavy apiService usage; reads are
+  lazy per tab. Logs tab is the unified "Audit Logs" view (ADMIN5 — Status + Issuer Decision merged with
+  a Type filter) plus Verification + Root-Subordinate categories. Analytics uses the shared helpers
+  (computeVerificationOutcomes / computeSuspiciousIssuers / computeDemand / computeIntegritySummary) and
+  a per-credential "Credential Dossier" modal (computeProvenance / computeProofTrail). effectiveCredential
+  Status (F01) for compute-on-read expiry. Verification logs are admin-only globally.
+
+  OUTLINE:
+    CREDENTIALS tab     all issued credentials (cross-issuer) + Credential Dossier modal
+    ISSUERS tab         pending/approved/rejected/disabled queues + approve/reject/enable/disable
+    USERS tab           holder accounts + enable/disable
+    LOGS tab            unified Audit Logs (ADMIN5) + Verification + Root-Subordinate (blockchain reads)
+    ANALYTICS tab       KPI strip + Verification Summary / Suspicious Activity / Demand / Integrity insight
+*/
 import React, { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import ReactDOM from "react-dom";
 import "../styles/adminDashboard.css";

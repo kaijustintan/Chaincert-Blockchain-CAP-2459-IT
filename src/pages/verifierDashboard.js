@@ -1,10 +1,22 @@
-// Verifier dashboard for credential verification
+// verifierDashboard.js
 /*
-  UI/UX REDESIGN (refined dark, Phase 2b):
-  - Focused single-column verification tool. The verify input is the hero; the result
-    is a strong, formal verdict (colored banner + lucide icon + bold label) — not an emoji.
-  - Adopts shared primitives (Card, Button, Field, Input, StatusPill).
-  - All verification + on-chain logging logic is unchanged.
+  FILE: verifierDashboard.js
+  LAYMAN (Tropang Ex): Ito yung tool ng isang verifier (hal. HR, employer). Magpe-paste sila ng
+  credential ID (o galing sa QR/link), kukumpirmahin muna ang sariling email gamit ang 6-digit code
+  (OTP), tapos makikita nila ang malinaw na verdict — VALID / REVOKED / EXPIRED / NOT FOUND.
+
+  TECHNICAL: Role-agnostic public-facing React page (single-column). V1 identity: the verifier's EMAIL
+  is OTP-proven — a 2h 'verifier_email_proof' JWT (sessionStorage, once per window) is required before a
+  verification is LOGGED; the verify-READ stays public. Flow: enter name/email → request OTP
+  (POST /api/credentials/verify/request-otp) → confirm (/confirm-otp) → verify a credential id
+  (GET .../:id/verify) → on success the event is logged with the email FROM the token (not spoofable).
+  Not-found (404) attempts are still logged as status:'not_found' so forgery shows in analytics. Result
+  renders as a tinted verdict banner (VERIFY1) with a single-word verdict + one-line explanation.
+
+  OUTLINE:
+    IDENTITY + OTP GATE     name/email form → send code → enter code → proven-email token (sessionStorage)
+    VERIFY INPUT            credential-id field (hero); also accepts ?credentialId= from a QR/link
+    RESULT                  verdict banner (valid/revoked/expired/not_found) + explanation + NotesCard legend
 */
 import React, { useState, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';

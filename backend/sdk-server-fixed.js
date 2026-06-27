@@ -172,6 +172,16 @@ const authLimiter = createRateLimiter({
   message: 'Too many attempts from this IP. Please wait a few minutes and try again.'
 });
 
+// Anti-enumeration: /api/auth/check-email reveals whether an email is registered, so a script
+// could probe it in bulk to harvest valid accounts. Legitimate use is the registration wizard's
+// Step 1->2 gate (a handful of checks per signup), so a generous-but-bounded cap blunts bulk
+// harvesting without hurting real users.
+const checkEmailLimiter = createRateLimiter({
+  windowMs: 15 * 60 * 1000,
+  max: 30,
+  message: 'Too many email checks from this IP. Please wait a few minutes and try again.'
+});
+
 if (RATE_LIMIT_DISABLED) {
   console.warn('⚠️  ⚠️  RATE LIMITING IS DISABLED (DISABLE_RATE_LIMIT=true in .env). FOR TESTING ONLY — remove it before any demo or deployment.  ⚠️  ⚠️');
 }
@@ -334,6 +344,7 @@ app.use('/api/auth/login', authLimiter);
 app.use('/api/auth/forgot-password', authLimiter);
 app.use('/api/auth/reset-password', authLimiter);
 app.use('/api/issuer/login', authLimiter);
+app.use('/api/auth/check-email', checkEmailLimiter); // anti-enumeration on the email-availability probe
 
 app.use('/api/auth', authRoutes);
 

@@ -161,6 +161,7 @@ CAP-2459-IT-AFTER-RESET/
 │   │   ├── forgotPassword.js
 │   │   ├── helpPage.js
 │   │   ├── issuerDashboardPage.js
+│   │   ├── issuerDirectory.js
 │   │   ├── landingHomePage.js
 │   │   ├── loginPage.js
 │   │   ├── notifPage.js
@@ -202,6 +203,7 @@ CAP-2459-IT-AFTER-RESET/
 │   │   ├── helpPage.css
 │   │   ├── index.css
 │   │   ├── issuerDashboardPage.css
+│   │   ├── issuerDirectory.css
 │   │   ├── landingHomePage.css
 │   │   ├── loginPage.css
 │   │   ├── navBar.css

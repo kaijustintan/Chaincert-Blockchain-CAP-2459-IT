@@ -60,8 +60,8 @@ function LandingHomePage() {
           </div>
           <div className="metric-divider" />
           <div className="metric">
-            <span className="metric-num">&lt;3s</span>
-            <span className="metric-label">Verification Time</span>
+            <span className="metric-num">Instant</span>
+            <span className="metric-label">On-chain Verification</span>
           </div>
           <div className="metric-divider" />
           <div className="metric">

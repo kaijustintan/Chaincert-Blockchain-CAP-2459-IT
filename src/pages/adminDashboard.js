@@ -133,8 +133,7 @@ export default function AdminDashboard() {
   const [credentialHistory, setCredentialHistory] = useState([]);
   const [credentialHistoryLoading, setCredentialHistoryLoading] = useState(false);
   const [credentialHistoryError, setCredentialHistoryError] = useState(null);
-  // Phase 4 GOOD: raw audit table collapsed by default so the processed dossier reads clean
-  const [showRawAudit, setShowRawAudit] = useState(false);
+  // ADMIN7: raw audit table removed from the dossier (insight-first).
   const [descriptionModal, setDescriptionModal] = useState(null);
   const [integrityLoading, setIntegrityLoading] = useState(false);
   const [integrityResult, setIntegrityResult] = useState(null);
@@ -535,7 +534,6 @@ const handleDownloadIssuerDocument = async (doc) => {
       const credentialId = row?.credentialId || row?.blockchainId || row?.id;
       setSelectedCredentialRow(row);
       setShowHistoryModal(true);
-      setShowRawAudit(false); // each credential opens with the clean processed view
       setCredentialHistoryLoading(true);
       setCredentialHistoryError(null);
       setCredentialHistory([]);
@@ -2013,22 +2011,10 @@ const handleDownloadIssuerDocument = async (doc) => {
                   ❌ {credentialHistoryError}
                 </div>
               ) : credentialHistory.length > 0 ? (
-                <div style={{ marginTop: "10px" }}>
-                  <div
-                    className="analytics-collapse-header"
-                    onClick={() => setShowRawAudit((v) => !v)}
-                    title={showRawAudit ? "Hide raw records" : "Show raw records"}
-                    style={{
-                      padding: "10px 0",
-                      borderTop: "1px solid var(--border)",
-                    }}
-                  >
-                    <span style={{ fontSize: "13px", opacity: 0.85 }}>
-                      {showRawAudit ? "▾" : "▸"} Full audit records ({credentialHistory.length})
-                    </span>
-                  </div>
-
-                  {showRawAudit && (
+                <div style={{ display: "none" }}>
+                  {/* ADMIN7: raw "Full audit records" removed — dossier is insight-first
+                      (Provenance Timeline + Verification Proof Trail above). */}
+                  {false && (
                   <div className="table-wrapper">
                     <table className="admin-table history-modal-table">
                       <thead>
@@ -2831,6 +2817,7 @@ const handleDownloadIssuerDocument = async (doc) => {
             {/* Bar Chart — Credentials by Issuer */}
             <div className="admin-chart-card">
               <h3>Credentials by Issuer</h3>
+              <p className="tab-subtitle" style={{ marginTop: -4 }}>Total records (templates + issued) per issuer, top 6.</p>
               <div className="chart-bars" style={{ marginBottom: 28 }}>
                 {(() => {
                   const issuerCounts = {};
@@ -2847,7 +2834,8 @@ const handleDownloadIssuerDocument = async (doc) => {
                       className="chart-bar"
                       style={{
                         height: `${(count / max) * 100}%`,
-                        background: `linear-gradient(180deg, ${colors[i % colors.length]}, ${colors[i % colors.length]}88)`,
+                        // ADMIN1: was `${color}88` (invalid for CSS vars) → gradient dropped → blank bars. Solid token color.
+                        background: colors[i % colors.length],
                         minHeight: 8,
                       }}
                       title={`${name}: ${count}`}

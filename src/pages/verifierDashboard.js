@@ -355,6 +355,17 @@ export default function VerifierDashboard() {
                   ? "NOT FOUND"
                   : "INVALID"}
               </h2>
+              <p>
+                {result.isValid
+                  ? "This credential is authentic and currently valid."
+                  : String(result.status).toLowerCase() === "revoked"
+                  ? "This credential was revoked by the issuer."
+                  : String(result.status).toLowerCase() === "expired"
+                  ? "This credential has passed its expiry date."
+                  : String(result.status).toLowerCase() === "not_found"
+                  ? "No matching credential exists on the blockchain."
+                  : "This credential could not be verified."}
+              </p>
             </div>
           </div>
 

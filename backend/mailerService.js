@@ -135,20 +135,22 @@ function isMailerConfigured() {
 function renderEmail({ heading, bodyHtml, accent = '#6d28d9' }) {
   return `<!DOCTYPE html>
 <html>
-  <body style="margin:0;padding:0;background:#f4f4f7;">
-    <div style="background:#f4f4f7;padding:24px 12px;font-family:Arial,Helvetica,sans-serif;">
-      <div style="max-width:600px;margin:0 auto;background:#ffffff;border-radius:12px;overflow:hidden;border:1px solid #e5e7eb;">
-        <div style="background:${accent};padding:18px 28px;">
-          <span style="color:#ffffff;font-size:20px;font-weight:bold;letter-spacing:0.5px;">&#9939; ChainCert</span>
+  <body style="margin:0;padding:0;background:#f1f1f4;">
+    <div style="background:#f1f1f4;padding:32px 12px;font-family:'Segoe UI',Roboto,Helvetica,Arial,sans-serif;">
+      <div style="max-width:560px;margin:0 auto;background:#ffffff;border-radius:14px;overflow:hidden;border:1px solid #e6e6ec;box-shadow:0 1px 3px rgba(16,16,40,0.06);">
+        <!-- Header: clean wordmark, no emoji -->
+        <div style="padding:24px 32px 18px;border-bottom:1px solid #ededf2;">
+          <span style="font-size:19px;font-weight:700;color:#1a1a2e;letter-spacing:-0.2px;">Chain<span style="color:${accent};">Cert</span></span>
         </div>
-        <div style="padding:28px;">
-          ${heading ? `<h1 style="margin:0 0 16px;font-size:20px;color:#111827;">${heading}</h1>` : ''}
+        <div style="padding:28px 32px;">
+          ${heading ? `<h1 style="margin:0 0 14px;font-size:18px;font-weight:600;color:#1a1a2e;line-height:1.4;">${heading}</h1>` : ''}
           ${bodyHtml}
         </div>
-        <div style="padding:14px 28px;background:#f9fafb;border-top:1px solid #e5e7eb;color:#6b7280;font-size:12px;line-height:1.5;">
-          This is an automated message from ChainCert &mdash; a blockchain-backed credential platform. Please do not reply to this email.
+        <div style="padding:18px 32px;background:#fafafb;border-top:1px solid #ededf2;color:#8a8a99;font-size:12px;line-height:1.6;">
+          Automated message from ChainCert &mdash; a blockchain-backed credential platform. Please don&rsquo;t reply to this email.
         </div>
       </div>
+      <p style="max-width:560px;margin:14px auto 0;color:#9a9aa8;font-size:11px;text-align:center;">&copy; ChainCert</p>
     </div>
   </body>
 </html>`;
@@ -165,13 +167,14 @@ function renderEmail({ heading, bodyHtml, accent = '#6d28d9' }) {
 */
 function renderOtpEmail({ heading, intro, otp, note }) {
   const bodyHtml = `
-    <p style="margin:0 0 18px;color:#374151;font-size:14px;line-height:1.6;">${intro}</p>
-    <div style="margin:0 0 18px;text-align:center;">
-      <div style="display:inline-block;background:#f3f0ff;border:1px dashed #6d28d9;border-radius:10px;padding:16px 30px;">
-        <span style="font-size:30px;font-weight:bold;letter-spacing:8px;color:#6d28d9;">${otp}</span>
+    <p style="margin:0 0 20px;color:#3a3a4c;font-size:14px;line-height:1.6;">${intro}</p>
+    <div style="margin:0 0 20px;">
+      <div style="background:#f5f3ff;border:1px solid #e4dcff;border-radius:10px;padding:18px 24px;text-align:center;">
+        <div style="font-size:11px;font-weight:600;letter-spacing:1px;color:#7a6aa8;text-transform:uppercase;margin:0 0 8px;">Your verification code</div>
+        <div style="font-size:30px;font-weight:700;letter-spacing:8px;color:#1a1a2e;font-family:'Courier New',monospace;">${otp}</div>
       </div>
     </div>
-    <p style="margin:0;color:#6b7280;font-size:13px;line-height:1.6;">${note}</p>`;
+    <p style="margin:0;color:#8a8a99;font-size:13px;line-height:1.6;">${note}</p>`;
   return renderEmail({ heading, bodyHtml });
 }
 

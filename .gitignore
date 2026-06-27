@@ -26,6 +26,8 @@ yarn-error.log*
 backend/node_modules/
 backend/wallet/
 backend/connection-*.json
+# also ignore connection profiles nested deeper (e.g. node_creation/dlsu/) — they can carry TLS material
+**/connection-*.json
 backend/package-lock.json
 backend/*.tar.gz
 backend/*.backup

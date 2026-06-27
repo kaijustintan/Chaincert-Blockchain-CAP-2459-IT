@@ -238,7 +238,7 @@ const accountController = {
       await mailerService.sendMail({
         to: email,
         realRecipient: true,
-        subject: `Your ChainCert Profile Access Code (for ${email})`,
+        subject: 'CHAINCERT - Verification Code to Access Profile',
         html: mailerService.renderOtpEmail({
           heading: 'Profile Access Code',
           intro: `This code was requested to view a shared ChainCert profile, for <strong>${email}</strong>. Enter it on the access page to continue.`,
@@ -393,7 +393,7 @@ const accountController = {
         await mailerService.sendMail({
           to: email,
           realRecipient: !acctIsTest,
-          subject: 'ChainCert Password Reset Code',
+          subject: 'CHAINCERT - Verification Code to Reset Password',
           html: mailerService.renderOtpEmail({
             heading: 'Password Reset Code',
             intro: 'We received a request to reset your ChainCert password. Use the code below to set a new one.',

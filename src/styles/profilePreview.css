@@ -482,6 +482,12 @@ html {
 
 .badge-info {
   flex: 1;
+  min-width: 0;
+  /* PROFILE1: stack each field on its own row (name / issuer / date / status / reason). */
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
 }
 
 .badge-info h4 {

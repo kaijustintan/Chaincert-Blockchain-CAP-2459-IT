@@ -70,7 +70,7 @@ const requestVerifierOtp = async (req, res) => {
       await mailerService.sendMail({
         to: email,
         realRecipient: true, // a verifier is a real person — deliver to their inbox
-        subject: 'Your ChainCert Verification Code',
+        subject: 'CHAINCERT - Verification Code to Verify',
         html: mailerService.renderOtpEmail({
           heading: 'Verify your email',
           intro: 'Enter this code in ChainCert to confirm your email before verifying credentials.',

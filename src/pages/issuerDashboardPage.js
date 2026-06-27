@@ -36,7 +36,6 @@ import Sparkline from "../components/analytics/Sparkline";
 import InterpretationBox from "../components/analytics/InterpretationBox";
 import { computeIssuance, computeRevocationAudit, COLORS as ANALYTICS_COLORS } from "../components/analytics/analytics";
 import { AppShell, Sidebar, Button, StatusPill, SpinnerBlock } from "../components/ui";
-import NotesCard from "../components/ui/NotesCard";
 import StatusLegend from "../components/ui/StatusLegend";
 import { effectiveCredentialStatus, minIssueExpiryDate } from "../utils/credentialStatus"; // F01
 import { getCredentialLineage, isSameInstance } from "../utils/credentialLineage"; // Q1
@@ -1068,8 +1067,17 @@ export default function IssuerDashboard() {
             <div className="filter-row"><div className="filter-group"><label htmlFor="issueSearch">Search:</label><input id="issueSearch" value={issueSearch} onChange={(e) => setIssueSearch(e.target.value)} placeholder="Search by credential, holder, or ID..." className="filter-select" /></div></div><div className="results-info">Showing <strong>{issueTableCredentials.length}</strong> of <strong>{credentials.length}</strong> credentials</div>
           </div>
 
-          <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-            <div style={{ flex: "1 1 380px", minWidth: 0 }}>
+          {issueTableCredentials.length > 0 && (
+            <StatusLegend
+              label="Status key"
+              style={{ marginBottom: 16 }}
+              items={[
+                { label: "Active / Issued", color: "var(--ok)", meaning: "issued and currently valid" },
+                { label: "Revoked", color: "var(--danger)", meaning: "you cancelled it" },
+                { label: "Expired", color: "var(--warn)", meaning: "past its expiry date" },
+              ]}
+            />
+          )}
 
           {/* Issued credentials table */}
           {issueTableCredentials.length === 0 ? (
@@ -1110,17 +1118,6 @@ export default function IssuerDashboard() {
               </table>
             </div>
           )}
-            </div>
-            {issueTableCredentials.length > 0 && (
-              <NotesCard
-                legend={[
-                  { label: "Active / Issued", color: "var(--ok)", meaning: "issued and currently valid" },
-                  { label: "Revoked", color: "var(--danger)", meaning: "you cancelled it" },
-                  { label: "Expired", color: "var(--warn)", meaning: "past its expiry date" },
-                ]}
-              />
-            )}
-          </div>
         </>
       )}
 

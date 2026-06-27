@@ -18,6 +18,7 @@ import {
 } from "../components/analytics/analytics";
 import { AppShell, Sidebar, Spinner, SpinnerBlock } from "../components/ui";
 import NotesCard from "../components/ui/NotesCard";
+import StatusLegend from "../components/ui/StatusLegend";
 import { effectiveCredentialStatus } from "../utils/credentialStatus"; // F01: compute-on-read expiry
 import { Bell, Layers, Building2, Users, ClipboardList, BarChart3 } from "lucide-react";
 
@@ -2920,7 +2921,18 @@ const handleDownloadIssuerDocument = async (doc) => {
 
             {/* ADMIN3: integrity check moved to the Analytics & Reports tab. */}
 
-            <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+            <StatusLegend
+              label="Status key"
+              style={{ marginBottom: 16 }}
+              items={[
+                { label: "Issued / Active", color: "var(--ok)", meaning: "issued and currently valid" },
+                { label: "Revoked", color: "var(--danger)", meaning: "cancelled by the issuer" },
+                { label: "Expired", color: "var(--warn)", meaning: "past its expiry date" },
+                { label: "Template", color: "var(--info)", meaning: "a reusable template (not yet issued)" },
+              ]}
+            />
+
+            <div style={{ display: "flex", flexDirection: "column-reverse", gap: 16 }}>
             <div style={{ flex: "1 1 380px", minWidth: 0 }}>
 
             <div className="issuer-filter-row filter-row" style={{ gap: 12, flexWrap: "wrap" }}>
@@ -3087,14 +3099,6 @@ const handleDownloadIssuerDocument = async (doc) => {
               <div className="tab-placeholder">No credentials found for selected filters.</div>
             )}
             </div>
-            <NotesCard
-              legend={[
-                { label: "Issued / Active", color: "var(--ok)", meaning: "issued and currently valid" },
-                { label: "Revoked", color: "var(--danger)", meaning: "cancelled by the issuer" },
-                { label: "Expired", color: "var(--warn)", meaning: "past its expiry date" },
-                { label: "Template", color: "var(--info)", meaning: "a reusable template (not yet issued)" },
-              ]}
-            />
             </div>
           </div>
         </>
@@ -3109,7 +3113,7 @@ const handleDownloadIssuerDocument = async (doc) => {
             activeKey: issuerFilter,
           })}
 
-          <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+          <div style={{ display: "flex", flexDirection: "column-reverse", gap: 16 }}>
           <div style={{ flex: "1 1 380px", minWidth: 0 }}>
 
           <div className="issuer-filter-row filter-row" style={{ gap: 12, flexWrap: "wrap" }}>
@@ -3676,7 +3680,7 @@ const handleDownloadIssuerDocument = async (doc) => {
             activeKey: logCategory,
           })}
 
-          <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+          <div style={{ display: "flex", flexDirection: "column-reverse", gap: 16 }}>
           <div style={{ flex: "1 1 380px", minWidth: 0 }}>
 
           <div className="issuer-filter-row" style={{ gap: 12, flexWrap: "wrap" }}>

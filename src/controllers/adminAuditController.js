@@ -279,6 +279,36 @@ const adminAuditController = {
     }
   },
 
+  /*
+    Function Name: changeAdminPasswordSecure
+
+    LAYMAN (Tropang Ex):
+    Pinapalitan ng admin ang sarili niyang password (kailangan ang lumang password). Naka-record sa
+    blockchain na nag-change ng password ang admin na ito (hindi ang password mismo — yung event lang).
+
+    TECHNICAL:
+    Dual-write. Admin-gated; requires currentPassword + newPassword. couchDB.changeAdminPassword verifies
+    the old password and applies the new one (with audit metadata: via/ip/userAgent), then
+    LogAdminChangePassword(adminEmail, 'self_change', '', adminEmail) is submitted on-chain. Blockchain
+    failure → warning (no rollback). Password strength is enforced upstream (M8) / in the service.
+
+    PARAMS:
+    - req — req.body.currentPassword, req.body.newPassword; req.user (admin → adminEmail), req.ip, UA.
+    - res — Express response.
+    - getContractAndGateway — injected; chaincert-admin/Org1.
+
+    RETURNS:
+    200 { success, message, warning? }; 400 missing fields / no admin email; 403 non-admin; else 500.
+
+    STEPS
+      Step 1 — Authorize (admin) + require both passwords + adminEmail.
+      Step 2 — couchDB.changeAdminPassword(email, current, new, email, {via,ip,userAgent}) (verifies old).
+      Step 3 — submitTransaction('LogAdminChangePassword', email, 'self_change', '', email); warn on failure.
+
+    EXAMPLE
+      POST /api/admin/change-password  body { currentPassword:"old", newPassword:"NewStrongPass1!" }
+      → 200 { success:true, message:"Password changed successfully." }
+  */
   changeAdminPasswordSecure: async (req, res, getContractAndGateway) => {
     let gateway = null;
 
@@ -354,6 +384,12 @@ const adminAuditController = {
     }
   },
 
+  /*
+    Function Name: getAllIssuerStatusLogs
+    LAYMAN (Tropang Ex): Lahat ng status-change logs ng mga ISSUER mula sa blockchain.
+    TECHNICAL: Read wrapper — evaluateTransaction('GetAllIssuerStatusLogs'); null-safe parse.
+    PARAMS: req, res, getContractAndGateway (injected). RETURNS: 200 { success, logs:[], count } | 500.
+  */
   getAllIssuerStatusLogs: async (req, res, getContractAndGateway) => {
     let gateway;
 
@@ -389,6 +425,12 @@ const adminAuditController = {
     }
   },
 
+  /*
+    Function Name: getAllUserStatusLogs
+    LAYMAN (Tropang Ex): Lahat ng status-change logs ng mga USER/holder mula sa blockchain.
+    TECHNICAL: Read wrapper — evaluateTransaction('GetAllUserStatusLogs'); null-safe parse.
+    PARAMS: req, res, getContractAndGateway (injected). RETURNS: 200 { success, logs:[], count } | 500.
+  */
   getAllUserStatusLogs: async (req, res, getContractAndGateway) => {
     let gateway;
 
@@ -424,6 +466,12 @@ const adminAuditController = {
     }
   },
 
+  /*
+    Function Name: getAllIssuerDecisionLogs
+    LAYMAN (Tropang Ex): Lahat ng approve/reject decisions ng admin sa mga issuer application (blockchain).
+    TECHNICAL: Read wrapper — evaluateTransaction('GetAllIssuerDecisionLogs'); null-safe parse.
+    PARAMS: req, res, getContractAndGateway (injected). RETURNS: 200 { success, logs:[], count } | 500.
+  */
   getAllIssuerDecisionLogs: async (req, res, getContractAndGateway) => {
     let gateway;
 
@@ -453,6 +501,12 @@ const adminAuditController = {
     }
   },
 
+  /*
+    Function Name: getAllIssuerApprovalLogs
+    LAYMAN (Tropang Ex): Mga APPROVAL-only decisions ng admin sa issuer applications (blockchain).
+    TECHNICAL: Read wrapper — evaluateTransaction('GetAllIssuerApprovalLogs'); null-safe parse.
+    PARAMS: req, res, getContractAndGateway (injected). RETURNS: 200 { success, logs:[], count } | 500.
+  */
   getAllIssuerApprovalLogs: async (req, res, getContractAndGateway) => {
     let gateway;
 
@@ -482,6 +536,12 @@ const adminAuditController = {
     }
   },
 
+  /*
+    Function Name: getAllIssuerRejectionLogs
+    LAYMAN (Tropang Ex): Mga REJECTION-only decisions ng admin sa issuer applications (blockchain).
+    TECHNICAL: Read wrapper — evaluateTransaction('GetAllIssuerRejectionLogs'); null-safe parse.
+    PARAMS: req, res, getContractAndGateway (injected). RETURNS: 200 { success, logs:[], count } | 500.
+  */
   getAllIssuerRejectionLogs: async (req, res, getContractAndGateway) => {
     let gateway;
 
@@ -511,6 +571,12 @@ const adminAuditController = {
     }
   },
 
+  /*
+    Function Name: getIssuerDecisionLogs
+    LAYMAN (Tropang Ex): Approve/reject decisions para sa ISANG specific issuer (by email).
+    TECHNICAL: Read wrapper — evaluateTransaction('GetIssuerDecisionLogs', issuerEmail); 400 if email missing.
+    PARAMS: req (req.params.issuerEmail), res, getContractAndGateway. RETURNS: 200 { success, logs, count } | 400 | 500.
+  */
   getIssuerDecisionLogs: async (req, res, getContractAndGateway) => {
     let gateway = null;
 
@@ -551,6 +617,12 @@ const adminAuditController = {
     }
   },
 
+  /*
+    Function Name: getIssuerStatusLogs
+    LAYMAN (Tropang Ex): Status-change history para sa ISANG specific issuer (by email).
+    TECHNICAL: Read wrapper — evaluateTransaction('GetIssuerStatusLogs', issuerEmail); 400 if email missing.
+    PARAMS: req (req.params.issuerEmail), res, getContractAndGateway. RETURNS: 200 { success, logs, count } | 400 | 500.
+  */
   getIssuerStatusLogs: async (req, res, getContractAndGateway) => {
     let gateway = null;
 
@@ -591,6 +663,12 @@ const adminAuditController = {
     }
   },
 
+  /*
+    Function Name: getUserStatusLogs
+    LAYMAN (Tropang Ex): Status-change history para sa ISANG specific user/holder (by email).
+    TECHNICAL: Read wrapper — evaluateTransaction('GetUserStatusLogs', userEmail); 400 if email missing.
+    PARAMS: req (req.params.userEmail), res, getContractAndGateway. RETURNS: 200 { success, logs, count } | 400 | 500.
+  */
   getUserStatusLogs: async (req, res, getContractAndGateway) => {
     let gateway = null;
 
@@ -635,6 +713,12 @@ const adminAuditController = {
 // ROOT SUBORDINATE DECISION LOGS (ADMIN AUDIT)
 // =========================================================================================================
 
+/*
+  Function Name: GetAllRootSubordinateLogs
+  LAYMAN (Tropang Ex): Lahat ng root↔subordinate decisions (approve + reject) sa buong sistema (blockchain).
+  TECHNICAL: Admin-gated read — evaluateTransaction('GetAllRootSubordinateLogs'); gateway closed in finally.
+  PARAMS: req, res, getContractAndGateway (injected). RETURNS: 200 { success, message, logs:[], count } | 403 | 500.
+*/
 GetAllRootSubordinateLogs: async (req, res, getContractAndGateway) => {
   let gateway = null;
 
@@ -678,6 +762,12 @@ GetAllRootSubordinateLogs: async (req, res, getContractAndGateway) => {
   }
 },
 
+/*
+  Function Name: GetAllRootSubordinateApprovalLogs
+  LAYMAN (Tropang Ex): APPROVAL-only root↔subordinate decisions sa buong sistema (blockchain).
+  TECHNICAL: Admin-gated read — evaluateTransaction('GetAllRootSubordinateApprovalLogs'); finally disconnect.
+  PARAMS: req, res, getContractAndGateway (injected). RETURNS: 200 { success, message, logs:[], count } | 403 | 500.
+*/
 GetAllRootSubordinateApprovalLogs: async (req, res, getContractAndGateway) => {
   let gateway = null;
 
@@ -721,6 +811,12 @@ GetAllRootSubordinateApprovalLogs: async (req, res, getContractAndGateway) => {
   }
 },
 
+/*
+  Function Name: GetAllRootSubordinateRejectionLogs
+  LAYMAN (Tropang Ex): REJECTION-only root↔subordinate decisions sa buong sistema (blockchain).
+  TECHNICAL: Admin-gated read — evaluateTransaction('GetAllRootSubordinateRejectionLogs'); finally disconnect.
+  PARAMS: req, res, getContractAndGateway (injected). RETURNS: 200 { success, message, logs:[], count } | 403 | 500.
+*/
 GetAllRootSubordinateRejectionLogs: async (req, res, getContractAndGateway) => {
   let gateway = null;
 

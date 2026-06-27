@@ -1,3 +1,34 @@
+// issuerOnboardingController.js
+/*
+  FILE: issuerOnboardingController.js
+  LAYMAN (Tropang Ex): Ito yung "registration desk" ng mga issuer (paaralan, ahensya, training
+  provider, atbp.). Dito sila nag-aapply, dito kinukuha kung anong mga dokumento ang kailangan
+  base sa kategorya nila, dito tinitingnan/binubuksan ang na-upload nilang dokumento (admin, ang
+  mismong applicant, o ang root authority nila lang ang may access), at dito rin nanggagaling ang
+  PUBLIC na listahan ng root authorities (para sa sign-up form) at ang public issuer directory.
+
+  TECHNICAL: Express controller for issuer onboarding. registerIssuer is the heavy handler:
+  validates fields/category/issuerType, dedupes by email, enforces the category-driven required-docs
+  list (+ root_authorization_letter for subordinates), runs M7 magic-number PDF validation + M8
+  password strength, bcrypt-hashes the password, persists via couchDB.createIssuerRegistration, then
+  fans out best-effort notifications/emails (admin team, chosen root authority, applicant). Document
+  handlers enforce a 3-way access rule (admin OR the applicant issuer OR the subordinate's assigned
+  root authority). Public list endpoints expose ONLY id+orgName+type (no infra fields). Errors go
+  through sendServerError (M9).
+
+  OUTLINE:
+    REGISTRATION
+      - registerIssuer(req,res)                    submit a pending issuer application (+docs, +emails)
+    REQUIREMENTS LOOKUP
+      - getIssuerRequirementsByCategory(req,res)   required-doc checklist for a category
+    DOCUMENT ACCESS (admin / applicant / assigned root authority only)
+      - getIssuerDocuments(req,res)                list an issuer's uploaded docs (metadata)
+      - viewIssuerDocument(req,res)                stream/download one document attachment
+    PUBLIC LISTS (no auth)
+      - getPublicRootAuthorities(req,res)          approved root authorities for the sign-up form
+      - getPublicDirectory(req,res)                public issuer directory + credibility aggregates (E)
+*/
+
 const couchDB = require('../couchDB_service');
 const mailerService = require('../mailerService'); // F28: registration-pending emails
 
@@ -10,6 +41,61 @@ const bcrypt = require('bcryptjs');
 const { validateUploadedFile, validatePasswordStrength, sendServerError } = require('../securityHelpers'); // Phase 5 Tier 2
 
 const issuerOnboardingController = {
+  /*
+    Function Name: registerIssuer
+
+    LAYMAN (Tropang Ex):
+    Dito nag-su-submit ng application ang isang bagong issuer. Pinipili nila kung root authority ba o
+    subordinate (kung subordinate, kailangan pumili ng root authority nila), mag-a-upload ng mga
+    required na dokumento base sa kategorya, at gagawa ng account na "pending review" muna. Pagkatapos,
+    may abiso/email sa admin, sa root authority (kung subordinate), at sa applicant mismo. HINDI pa sila
+    makaka-issue hangga't hindi na-aprubahan (at, para sa subordinate, hangga't hindi pa tapos ang
+    manual na Fabric setup).
+
+    TECHNICAL:
+    Multipart handler (req.files via multer). Steps: validate required fields + password match; dedupe
+    email (couchDB.isEmailAlreadyUsed → 409; if a PREVIOUSLY-REJECTED doc exists it's deleted to allow
+    reapply); validate issuerType ∈ {root,subordinate} and category ∈ ISSUER_CATEGORY_REQUIREMENTS; for
+    subordinates require + verify rootAuthorityId against approved issuers; enforce the allowed/required
+    docs set (+root_authorization_letter for subordinates); M8 password strength; M7 magic-number PDF
+    validation on every file; bcrypt hash; persist via couchDB.createIssuerRegistration. Post-persist
+    side-effects are best-effort: admin notification + admin/root/applicant emails (fire-and-forget) and
+    an in-app notification to the root authority for subordinates. No blockchain write here — approval
+    (admin/root) is where the on-chain Log* happens.
+
+    PARAMS:
+    - req — req.body { orgName, contactName, email, password, confirmPassword, issuerType,
+      rootAuthorityId?, category }; req.files [{ fieldname, buffer, ... }].
+    - res — Express response.
+
+    RETURNS:
+    201 { success, issuerId, issuerType, rootAuthorityId, rootAuthorityName, category,
+    requiredDocumentsValidated } on success; 400 (missing/invalid fields, bad category/type, missing or
+    invalid docs, weak password, non-PDF); 409 (email already used / registration exists);
+    else 500 via sendServerError.
+
+    STEPS
+      Step 1 — Validate basics
+        Technical : require all fields; password === confirmPassword.
+      Step 2 — Dedupe email
+        Technical : isEmailAlreadyUsed → 409; delete a prior REJECTED doc to permit reapplication.
+      Step 3 — Validate type + category (+ resolve root authority for subordinates)
+        Technical : issuerType ∈ {root,subordinate}; category in requirements map; subordinate must
+                    reference an approved rootAuthorityId (captures name + email for notices).
+      Step 4 — Validate documents
+        Technical : reject unknown fieldnames; require the category list (+root_authorization_letter);
+                    M7 magic-number check accepts PDF only.
+      Step 5 — Harden + persist
+        Technical : M8 password strength; bcrypt.hash; createIssuerRegistration (status pending_review /
+                    pending_root_approval for subordinates).
+      Step 6 — Notify (best-effort)
+        Technical : admin notification + admin/root/applicant emails (fire-and-forget) + root in-app notice.
+
+    EXAMPLE
+      POST /api/issuer/register (multipart: fields + PDF docs)
+      → 201 { success:true, issuerId:"issuer_…", issuerType:"subordinate", category:"university", ... }
+      → 409 { success:false, message:"Email is already registered in the system." }
+  */
   registerIssuer: async (req, res) => {
     try {
       const {
@@ -308,6 +394,16 @@ const issuerOnboardingController = {
     }
   },
 
+  /*
+    Function Name: getIssuerRequirementsByCategory
+    LAYMAN (Tropang Ex): Ibinibigay ang listahan ng mga dokumentong kailangan i-upload para sa isang
+    kategorya (hal. university → CHED recognition, SEC/charter, board resolution). Ginagamit ng
+    registration form para dynamic ang checklist.
+    TECHNICAL: Lookup. Maps ISSUER_CATEGORY_REQUIREMENTS[category] → [{ key, label, description }] using
+    ISSUER_REQUIREMENT_METADATA. 400 if category missing.
+    PARAMS: req (req.params.category), res.
+    RETURNS: 200 { success, category, requiredDocuments:[{key,label,description}] } | 400 | 500.
+  */
   getIssuerRequirementsByCategory: async (req, res) => {
     try {
       const category = String(req.params.category || '').trim().toLowerCase();
@@ -338,6 +434,17 @@ const issuerOnboardingController = {
     }
   },
 
+  /*
+    Function Name: getIssuerDocuments
+    LAYMAN (Tropang Ex): Ibinibigay ang listahan (metadata) ng mga na-upload na dokumento ng isang
+    issuer. Tanging admin, ang mismong applicant, o ang root authority ng subordinate ang may access.
+    TECHNICAL: Auth-gated read. Loads the issuer (404), then enforces a 3-way access rule:
+    isAdmin || isApplicantIssuer (id/email match) || isAssignedRootAuthority (subordinate's
+    rootAuthorityId === requester.id). Returns document metadata via couchDB.getIssuerDocuments.
+    PARAMS: req (req.params.issuerId, req.user), res.
+    RETURNS: 200 { success, issuerId, orgName, issuerType, rootAuthorityId, rootAuthorityName,
+    documents:[], count } | 400 | 401 | 403 | 404 | 500.
+  */
   getIssuerDocuments: async (req, res) => {
     try {
       const { issuerId } = req.params;
@@ -400,6 +507,16 @@ const issuerOnboardingController = {
     }
   },
 
+  /*
+    Function Name: viewIssuerDocument
+    LAYMAN (Tropang Ex): Binubuksan o dino-download ang ISANG partikular na dokumento ng issuer.
+    Parehong access rule sa getIssuerDocuments (admin / applicant / assigned root authority lang).
+    TECHNICAL: Auth-gated stream. Same 3-way access check; finds the attachment in the issuer record
+    (404 if absent), streams the bytes via couchDB.getIssuerDocumentStream, and sets Content-Type +
+    Content-Disposition (inline by default, attachment when ?download=1). originalname is URL-encoded.
+    PARAMS: req (req.params.issuerId, req.params.attachmentName, req.query.download?, req.user), res.
+    RETURNS: 200 file bytes (with headers) | 400 | 401 | 403 | 404 | 500.
+  */
   viewIssuerDocument: async (req, res) => {
     try {
       const { issuerId, attachmentName } = req.params;
@@ -474,11 +591,17 @@ const issuerOnboardingController = {
     }
   },
 
+  /*
+    Function Name: getPublicRootAuthorities
+    LAYMAN (Tropang Ex): PUBLIC na listahan ng mga approved na root authority — ginagamit ng sign-up
+    form ng subordinate para pumili ng parent nila, kahit wala pang account/token.
+    TECHNICAL: Public read. Filters approved issuers to root/root_authority and maps to ONLY
+    { id, orgName, issuerType } — never infra fields (couchDBUrl/fabricIdentity/walletId/email), which
+    stay behind admin auth at GET /api/admin/approved-issuers (M2 rationale).
+    PARAMS: req, res. RETURNS: 200 { success, data:[{id,orgName,issuerType}], count } | 500.
+  */
   // M2 (Phase 5 hardening): PUBLIC, minimal list of approved ROOT authorities.
-  // The registration form needs this BEFORE the user has an account/token (a subordinate issuer
-  // must pick its parent root authority during sign-up). It deliberately returns ONLY id + org
-  // name + type. The full issuer record — which includes internal couchDBUrl / fabricIdentity /
-  // walletId / email — stays behind admin auth at GET /api/admin/approved-issuers, so locking that
+  // The full issuer record stays behind admin auth at GET /api/admin/approved-issuers, so locking that
   // endpoint down does not leak infrastructure details to the public sign-up page.
   getPublicRootAuthorities: async (req, res) => {
     try {
@@ -505,6 +628,14 @@ const issuerOnboardingController = {
     }
   },
 
+  /*
+    Function Name: getPublicDirectory
+    LAYMAN (Tropang Ex): PUBLIC na "directory" ng mga approved na issuer + credibility stats (ilang
+    public templates, ilang credentials na na-issue, atbp.) — para sa browseable issuer directory page.
+    TECHNICAL: Public read. Delegates to couchDB.getPublicIssuerDirectory() (aggregates per approved
+    issuer, null-safe across unprovisioned ones). Feature "E".
+    PARAMS: req, res. RETURNS: 200 { success, data:[...], count } | 500 via sendServerError.
+  */
   // E: PUBLIC issuer directory — approved issuers + credibility aggregates.
   getPublicDirectory: async (req, res) => {
     try {

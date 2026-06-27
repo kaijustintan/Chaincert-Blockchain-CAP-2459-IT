@@ -1,8 +1,67 @@
+// accountController.js
+/*
+  FILE: accountController.js
+  LAYMAN (Tropang Ex): Ito yung "account + profile" desk. Dito kinukuha ang impormasyon ng user,
+  ina-update ang profile at profile picture, at dito rin nakasalalay ang LAHAT ng profile-sharing:
+  ang specific na link na may OTP (para sa isang tao lang), ang PUBLIC na link (iisa, permanente,
+  reused — yung ginagamit ng PDF export), pati ang "forgot/reset password" via email OTP.
+
+  TECHNICAL: Express controller for profile/account + profile-share + password-reset. Sharing has two
+  models: SPECIFIC-recipient links (generateShareLink → requestOTP → verifyOTP, time-limited, email-OTP
+  gated) and the PUBLIC link (generatePublicShareLink — a single permanent, reused, no-recipient link;
+  see the privacy model). buildShareProfilePayload is the shared, role-aware projection used by every
+  read path (owner preview, share-link info, post-OTP) — public-only credentials/templates + issuer
+  credibility stats. Password reset is anti-enumeration (always-200) + per-account OTP rate-limited
+  (M5) + strength-checked (M8). Uploads are magic-number validated (M7). Errors → sendServerError (M9).
+  Profile-share tokens use crypto.randomBytes (secure); OTPs are 6-digit, 10-min TTL.
+
+  OUTLINE:
+    SHARED HELPER
+      - buildShareProfilePayload(ownerId)     role-aware public profile payload (holder vs issuer)
+    PROFILE
+      - getUserInfo(req,res)                  full profile + share-profile data (owner preview)
+      - getAllUsers(req,res)                  list non-staff users
+      - updateProfile(req,res)                update summary/isPublic/username
+      - uploadProfilePicture(req,res)         avatar upload (M7 magic-number PNG/JPG)
+    SPECIFIC SHARE LINK (recipient + OTP)
+      - generateShareLink(req,res)            mint a recipient-scoped link (optional expiry)
+      - getShareLinkInfo(req,res)             validate a token + (for public) return profile
+      - recordView(req,res)                   increment a link's view count
+      - requestOTP(req,res) / verifyOTP(req,res)   email-OTP gate for recipient links
+    PUBLIC SHARE LINK (no recipient)
+      - generatePublicShareLink(req,res)      single PERMANENT reused public link
+      - revokeShareLink(req,res)              revoke a token (owner only)
+      - getMyShareLinks(req,res)              list the caller's links
+    PASSWORD RESET (anti-enumeration + M5 rate-limit + M8 strength)
+      - forgotPassword(req,res) / resetPassword(req,res)
+*/
+
 const couchDB = require('../couchDB_service');
 const mailerService = require('../mailerService'); // - polo
 const crypto = require('crypto'); // - polo
 const { validateUploadedFile, validatePasswordStrength, sendServerError } = require('../securityHelpers'); // Phase 5 Tier 2
 
+/*
+  Function Name: buildShareProfilePayload
+
+  LAYMAN (Tropang Ex):
+  Ginagawa nito yung "nakikita ng publiko" na bersyon ng profile. Kung HOLDER, k: ang public niyang
+  credentials. Kung ISSUER, ang public niyang templates (may bilang kung ilang beses na-issue) plus
+  credibility stats (kabuuang na-issue, ilang distinct holders, member-since, mga uri ng credential).
+
+  TECHNICAL:
+  Shared, role-aware projection used by getUserInfo / getShareLinkInfo / verifyOTP. For issuers it
+  Promise.all's templates + issued, computes per-template issuanceCount + issuerStats; for holders it
+  loads the holder's credentials. Then filters to PUBLIC-only (issuers: templates only) — all statuses
+  kept (frontend shows a status indicator). Returns a safe profile shape (no password).
+
+  PARAMS:
+  - ownerId — the user/issuer _id.
+
+  RETURNS:
+  Profile object { id, userId, name, orgName, email, role, summary, profilePicture, isPublic,
+  sharedCredentials[], issuerStats|null }, or null if the user doesn't exist.
+*/
 const buildShareProfilePayload = async (ownerId) => {
   const user = await couchDB.getUser(ownerId);
   if (!user) return null;
@@ -66,6 +125,15 @@ const buildShareProfilePayload = async (ownerId) => {
 };
 
 const accountController = {
+  /*
+    Function Name: getUserInfo
+    LAYMAN (Tropang Ex): Kinukuha ang buong profile info ng isang user/issuer (kasama na ang public
+    share-profile data) — ginagamit ng profile page at ng owner na "Preview Public Profile".
+    TECHNICAL: Public GET by :id. Loads the user (404 if missing), then buildShareProfilePayload(id) to
+    attach sharedCredentials + issuerStats, so the owner preview matches a share link exactly.
+    PARAMS: req (req.params.id), res.
+    RETURNS: 200 { success, user:{...,sharedCredentials,issuerStats} } | 404 | 500 via sendServerError.
+  */
   getUserInfo: async (req, res) => {
     try {
       const { id } = req.params;
@@ -107,6 +175,12 @@ const accountController = {
     }
   },
 
+  /*
+    Function Name: getAllUsers
+    LAYMAN (Tropang Ex): Listahan ng mga regular na user (holder) — hindi kasama ang issuer/admin.
+    TECHNICAL: Read wrapper — couchDB.getAllUsers() filtered to (!role || role === 'user').
+    PARAMS: req, res. RETURNS: 200 { success, message, users:[], count } | 500.
+  */
   getAllUsers: async (req, res) => {
     try {
       const users = await couchDB.getAllUsers();
@@ -123,6 +197,13 @@ const accountController = {
     }
   },
 
+  /*
+    Function Name: updateProfile
+    LAYMAN (Tropang Ex): Ina-update ang profile fields ng user — summary, public/private toggle, username.
+    TECHNICAL: Write wrapper — couchDB.updateProfile(userId, { summary, isPublic, username }).
+    PARAMS: req (req.body.userId, summary, isPublic, username), res.
+    RETURNS: 200 { success, message, data } | 500 via sendServerError.
+  */
   updateProfile: async (req, res) => {
     try {
       const { userId, summary, isPublic, username } = req.body;
@@ -143,6 +224,33 @@ const accountController = {
   // PROFILE SHARE LINK HANDLERS - polo
   // ============================================================
 
+  /*
+    Function Name: generateShareLink
+
+    LAYMAN (Tropang Ex):
+    Gumagawa ng share link na para sa ISANG TAO lang (by email) — pwedeng may expiry. Para ma-view ng
+    tatanggap, kailangan muna nilang i-verify ang email nila gamit ang OTP (tingnan requestOTP/verifyOTP).
+
+    TECHNICAL:
+    Auth required. Mints a recipient-scoped profile_share_link with a crypto.randomBytes token and an
+    optional expiry (durationDays → expiresAt; 'none'/absent = no expiry). Distinct from the public link.
+
+    PARAMS:
+    - req — req.user (owner), req.body { recipientEmail (required), durationDays?, source?, description? }.
+    - res — Express response.
+
+    RETURNS:
+    200 { success, message, shareUrl, token } | 400 missing recipientEmail | 401 unauth | 500.
+
+    STEPS
+      Step 1 — Auth + require recipientEmail.
+      Step 2 — Compute expiresAt from durationDays (null when 'none').
+      Step 3 — crypto.randomBytes(24) token; couchDB.createProfileShareLink(userId, token, recipientEmail, expiresAt, meta).
+
+    EXAMPLE
+      POST /api/auth/profile-share/generate  body { recipientEmail:"hr@co.com", durationDays:"7" }
+      → 200 { success:true, shareUrl:"http://localhost:3000/profile/<token>", token:"<token>" }
+  */
   generateShareLink: async (req, res) => {
     try {
       const { recipientEmail, durationDays, source, description } = req.body;
@@ -185,6 +293,15 @@ const accountController = {
     }
   },
 
+  /*
+    Function Name: getShareLinkInfo
+    LAYMAN (Tropang Ex): Tinitingnan kung valid pa ang isang share link (hindi revoked/expired). Kung
+    PUBLIC link, ibinabalik na rin ang profile; kung specific (may recipient), kailangan pa ng OTP.
+    TECHNICAL: Public. Loads the token (404), rejects inactive/revoked/expired (lazy-expires past expiresAt),
+    and returns { recipientEmail (null ⇒ public), userId, profile (built for public links) }.
+    PARAMS: req (req.params.token), res.
+    RETURNS: 200 { success, valid, recipientEmail, userId, profile } | 403 revoked/expired | 404 | 500.
+  */
   getShareLinkInfo: async (req, res) => {
     try {
       const { token } = req.params;
@@ -225,6 +342,13 @@ const accountController = {
     }
   },
 
+  /*
+    Function Name: recordView
+    LAYMAN (Tropang Ex): Binibilang kung ilang beses na na-view ang isang share link.
+    TECHNICAL: Public write wrapper — couchDB.recordShareLinkView(token); maps not-found→404, revoked/
+    expired→403, else 500.
+    PARAMS: req (req.params.token), res. RETURNS: 200 { success, viewCount } | 403 | 404 | 500.
+  */
   recordView: async (req, res) => {
     try {
       const { token } = req.params;
@@ -239,6 +363,28 @@ const accountController = {
     }
   },
 
+  /*
+    Function Name: requestOTP
+
+    LAYMAN (Tropang Ex):
+    Para sa specific (recipient) link: pinapadala ang 6-digit code sa email ng tatanggap. Dapat tugma
+    ang email nila sa email na pinag-share-an, kung hindi, hindi sila bibigyan ng code.
+
+    TECHNICAL:
+    Public. Validates the token (active/not-revoked/not-expired) and that the supplied email matches
+    doc.recipientEmail (case-insensitive). Generates a 6-digit OTP (10-min TTL), persists it via
+    couchDB.saveOTPToShareLink, and emails it SYNCHRONOUSLY with realRecipient:true (the viewer is a
+    real, owner-chosen address — bypass the demo catch-all).
+
+    PARAMS: req (req.params.token, req.body.email), res.
+    RETURNS: 200 { success, message } | 400 no email | 403 revoked/expired/email-mismatch | 404 | 500.
+
+    STEPS
+      Step 1 — Require email; load + validate the token.
+      Step 2 — Enforce email === doc.recipientEmail.
+      Step 3 — Generate OTP + 10-min expiry; saveOTPToShareLink.
+      Step 4 — sendMail (realRecipient:true) the code.
+  */
   requestOTP: async (req, res) => {
     try {
       const { token } = req.params;
@@ -293,6 +439,15 @@ const accountController = {
     }
   },
 
+  /*
+    Function Name: verifyOTP
+    LAYMAN (Tropang Ex): Tinitingnan kung tama ang inilagay na 6-digit code; kung oo, binubuksan na ang
+    profile para sa tatanggap.
+    TECHNICAL: Public. Re-validates the token, then couchDB.verifyOTPAndGetUserId(token, otp) → resolves
+    the owner, returns buildShareProfilePayload(userId). Known OTP errors map to 400, else 500.
+    PARAMS: req (req.params.token, req.body.otp), res.
+    RETURNS: 200 { success, message, userId, profile } | 400 invalid/expired OTP | 403 link state | 404 | 500.
+  */
   verifyOTP: async (req, res) => {
     try {
       const { token } = req.params;
@@ -344,6 +499,32 @@ const accountController = {
   // FORGOT PASSWORD HANDLERS 
   // ============================================================
 
+  /*
+    Function Name: forgotPassword
+
+    LAYMAN (Tropang Ex):
+    Nagpapadala ng password-reset code sa email. Para hindi malaman ng masama kung registered ba ang
+    isang email, LAGING "success" ang sagot kahit wala yung email. May limit din (3 beses bawat 10
+    minuto) para hindi ma-spam ang inbox ng biktima.
+
+    TECHNICAL:
+    Public, anti-enumeration: always returns a generic 200 (otpSent flag varies) whether or not the
+    account exists. Looks up users first, then approved issuers (only approved issuers can log in).
+    M5 per-account OTP rate-limit (3 / 10-min window, persisted on the account doc; DISABLE_RATE_LIMIT
+    bypass for testing) — the 429 is only reachable for a REAL account, so it's not an oracle. Generates
+    a 6-digit OTP (10-min TTL), saves it, and emails it (routing: holders → real inbox; issuer/admin
+    test accounts → central catch-all). Email failure is non-fatal (still returns generic 200).
+
+    PARAMS: req (req.body.email), res.
+    RETURNS: 200 { success, otpSent, message } (generic); 400 no email; 429 rate-limited (real acct only);
+    else 500 via sendServerError.
+
+    STEPS
+      Step 1 — Require email; resolve account (users → approved issuers); unknown → generic 200.
+      Step 2 — M5 window check → 429 if over the cap inside the active window.
+      Step 3 — Generate OTP + expiry; updateUser with OTP + rate-limit counters.
+      Step 4 — Email the code (non-fatal); return generic 200.
+  */
   forgotPassword: async (req, res) => {
     try {
       const { email } = req.body;
@@ -451,6 +632,29 @@ const accountController = {
     }
   },
 
+  /*
+    Function Name: resetPassword
+
+    LAYMAN (Tropang Ex):
+    Pinapalit ang password gamit ang code na natanggap sa email. Tina-tsek kung tama at hindi pa
+    expired/nagamit ang code, at kung iba sa lumang password. Pag-success, may security receipt email.
+
+    TECHNICAL:
+    Public. M8 password-strength check. Resolves account (users → approved issuers). Validates the OTP
+    (matches, unused, not expired), rejects reuse of the same password (bcrypt.compare), hashes + saves
+    the new one, and clears the OTP + M5 rate-limit counters. Sends a fire-and-forget "password changed"
+    receipt (routed by account type). Known states → 400.
+
+    PARAMS: req (req.body { email, otp, newPassword }), res.
+    RETURNS: 200 { success, message } | 400 (missing fields / weak / invalid|used|expired OTP / same
+    password / no account) | 500 via sendServerError.
+
+    STEPS
+      Step 1 — Require fields; M8 strength check.
+      Step 2 — Resolve account; validate OTP (match/unused/not-expired).
+      Step 3 — Reject same-as-current; bcrypt.hash; updateUser (clear OTP + counters).
+      Step 4 — Fire-and-forget security-receipt email.
+  */
   resetPassword: async (req, res) => {
     try {
       const { email, otp, newPassword } = req.body;
@@ -546,6 +750,23 @@ const accountController = {
   // PUBLIC SHARE LINK (no recipient, no OTP) 
   // ============================================================
 
+  /*
+    Function Name: generatePublicShareLink
+
+    LAYMAN (Tropang Ex):
+    Gumagawa (o ginagamit ulit) ng IISANG permanenteng PUBLIC link ng profile — walang recipient,
+    walang OTP, walang expiry. Kahit ilang beses i-click o mag-PDF-export, IISA lang ang link (para
+    hindi dumami ang "pinto" sa profile mo). Ito ang ginagamit ng View Profile sa PDF.
+
+    TECHNICAL:
+    Auth required. Reuses the newest active public (no-recipient) link via
+    couchDB.findActivePublicShareLink (returns reused:true); otherwise mints one with a
+    crypto.randomBytes token and NO expiry. Applies to holders AND issuers (kills PDF-export sprawl).
+    Specific-recipient/OTP links are a separate path and unaffected.
+
+    PARAMS: req (req.user, req.body { source?, description? }), res.
+    RETURNS: 200 { success, message, shareUrl, token, reused? } | 401 unauth | 500 via sendServerError.
+  */
   generatePublicShareLink: async (req, res) => {
     try {
       const { source, description } = req.body;
@@ -593,6 +814,12 @@ const accountController = {
     }
   },
 
+  /*
+    Function Name: revokeShareLink
+    LAYMAN (Tropang Ex): Kina-cancel ang isang share link para hindi na ma-access (kahit public o specific).
+    TECHNICAL: Auth required — couchDB.revokeProfileShareLink(token, userId) (ownership enforced in service).
+    PARAMS: req (req.params.token, req.user), res. RETURNS: 200 { success, message } | 401 | 500.
+  */
   revokeShareLink: async (req, res) => {
     try {
       const { token } = req.params;
@@ -615,6 +842,13 @@ const accountController = {
   // GET MY SHARE LINKS 
   // ============================================================
 
+  /*
+    Function Name: getMyShareLinks
+    LAYMAN (Tropang Ex): Listahan ng lahat ng share links ng nakalogin na user (para makita/ma-revoke).
+    TECHNICAL: Auth required — couchDB.getShareLinksByUserId(userId). Also used by the PDF export to
+    count/locate prior links.
+    PARAMS: req (req.user), res. RETURNS: 200 { success, links:[] } | 401 | 500.
+  */
   getMyShareLinks: async (req, res) => {
     try {
       const userId = req.user?.id || req.user?._id;
@@ -629,6 +863,15 @@ const accountController = {
     }
   },
 
+  /*
+    Function Name: uploadProfilePicture
+    LAYMAN (Tropang Ex): Nag-a-upload ng profile picture. Tina-tsek muna ang TOTOONG type ng file
+    (PNG/JPG lang) bago i-save bilang data URI sa user doc.
+    TECHNICAL: M7 magic-number validation (validateUploadedFile ['png','jpg']) on the real bytes — the
+    client mimetype is ignored; the DETECTED type builds the base64 data URI saved via couchDB.updateUser.
+    PARAMS: req (req.body.userId, req.file via multer memoryStorage), res.
+    RETURNS: 200 { success, message, imageUrl } | 400 (no file / no userId / bad type) | 500.
+  */
   uploadProfilePicture: async (req, res) => {
     try {
       const { userId } = req.body;

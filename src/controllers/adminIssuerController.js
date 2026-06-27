@@ -1,3 +1,38 @@
+// adminIssuerController.js
+/*
+  FILE: adminIssuerController.js
+  LAYMAN (Tropang Ex): Ito yung "issuer management queue" ng admin. Dito niya nakikita ang mga
+  naghihintay (root at subordinate), approved, rejected, at disabled na issuer; at dito niya
+  ina-approve, rine-reject, dini-disable, o ina-enable ang isang issuer. Bawat desisyon ay naka-record
+  sa blockchain, may abiso/email sa issuer. Para sa subordinate, hindi pwedeng i-approve ng admin
+  hangga't hindi pa ito na-approve ng root authority nito (subordinate gate). At bago i-approve, tinitiyak
+  munang existing na ang Fabric identity ng issuer sa wallet — kung wala, hindi pa pwede (manual setup).
+
+  TECHNICAL: Express controller, admin-gated for mutations (req.user.role === 'admin'); read lists
+  assume the admin-only /api/admin mount (M2). The four lifecycle actions (Approve/Reject/Disable/
+  Enable_Issuer) follow the dual-write pattern: CouchDB status change first, then an immutable on-chain
+  Log* (LogIssuerApproval / LogIssuerRejection / LogIssuerStatusChange) via getContractAndGateway(
+  'chaincert-admin','Org1'); a blockchain failure returns partial success with a `warning`, never a
+  rollback. Notifications + emails are best-effort (fire-and-forget). List getters project a SAFE subset
+  of fields. Module-level helpers verify/derive the issuer's Fabric wallet identity before approval.
+
+  OUTLINE:
+    FABRIC IDENTITY HELPERS (module-level)
+      - normalizeFabricIdentityPart(value)        slug a name part for an identity string
+      - getExpectedIssuerIdentityName(issuerDoc)  derive '<org>-admin' or '<root>-subordinate-<org>'
+      - ensureIssuerFabricIdentityExists(doc)     assert the wallet identity exists (else 400)
+    QUEUES (read)
+      - getPendingIssuers / getPendingRootIssuers / getPendingSubordinateIssuers
+      - getPendingSubordinateIssuersAwaitingRootApproval / getPendingSubordinateIssuersRootApproved
+      - getAdminActionablePendingIssuers
+      - getApprovedIssuers / getRejectedIssuers / getDisabledIssuers   (safe-field projections)
+    LIFECYCLE (write — dual-write CouchDB → chaincode Log*, + notify + email)
+      - Approve_Issuer(req,res,getCAG)   (subordinate gate + Fabric identity check)
+      - Reject_Issuer(req,res,getCAG)
+      - Disable_Issuer(req,res,getCAG)
+      - Enable_Issuer(req,res,getCAG)
+*/
+
 const couchDB = require('../couchDB_service');
 const mailerService = require('../mailerService');
 const fs = require('fs');
@@ -5,12 +40,28 @@ const path = require('path');
 const { Wallets } = require('fabric-network');
 const { sendServerError } = require('../securityHelpers'); // Phase 5 Tier 2 (M9)
 
+/*
+  Function Name: normalizeFabricIdentityPart
+  LAYMAN (Tropang Ex): Nililinis ang isang pangalan para gawing bahagi ng Fabric identity (maliit na
+  letra, walang space).
+  TECHNICAL: Pure helper. Lowercases, trims, strips whitespace from a string.
+  PARAMS: value — any string-ish. RETURNS: normalized string ('' if falsy).
+*/
 const normalizeFabricIdentityPart = (value) =>
   String(value || '')
     .trim()
     .toLowerCase()
     .replace(/\s+/g, '');
 
+/*
+  Function Name: getExpectedIssuerIdentityName
+  LAYMAN (Tropang Ex): Hinuhulaan/binubuo ang dapat na pangalan ng Fabric identity ng issuer base sa
+  uri nito — root: '<org>-admin'; subordinate: '<rootAuthority>-subordinate-<org>'.
+  TECHNICAL: Pure helper. Builds the canonical identity name from issuerDoc fields; throws if required
+  fields (orgName, or rootAuthorityName for subordinates) are missing.
+  PARAMS: issuerDoc — { issuerType, orgName, rootAuthorityName? }.
+  RETURNS: identity-name string. THROWS: Error if required name parts are absent.
+*/
 const getExpectedIssuerIdentityName = (issuerDoc) => {
   const issuerType = String(issuerDoc?.issuerType || 'root').trim().toLowerCase();
 
@@ -29,6 +80,15 @@ const getExpectedIssuerIdentityName = (issuerDoc) => {
   return `${normalizeFabricIdentityPart(issuerDoc.orgName)}-admin`;
 };
 
+/*
+  Function Name: ensureIssuerFabricIdentityExists
+  LAYMAN (Tropang Ex): Tinitiyak na may Fabric identity na talaga ang issuer sa wallet BAGO siya
+  i-approve. Kung wala, hindi pwede — kailangan munang gawin/i-enroll ang identity (manual setup).
+  TECHNICAL: Resolves the expected identity name, then checks the file-system wallet (~/chaincert-api/
+  wallet) for a matching .id file/dir or a Wallets.get() entry. Throws a 400-tagged error if absent.
+  PARAMS: issuerDoc — the issuer record.
+  RETURNS: the verified identityName (string). THROWS: Error{statusCode:400} if not found.
+*/
 const ensureIssuerFabricIdentityExists = async (issuerDoc) => {
   const identityName = getExpectedIssuerIdentityName(issuerDoc);
   const walletPath = path.join(__dirname, '../../chaincert-api/wallet');
@@ -62,6 +122,12 @@ const ensureIssuerFabricIdentityExists = async (issuerDoc) => {
 };
 
 const adminIssuerController = {
+  /*
+    Function Name: getPendingIssuers
+    LAYMAN (Tropang Ex): Lahat ng naghihintay-ng-approval na issuer (anumang uri).
+    TECHNICAL: Read wrapper — couchDB.getPendingIssuers().
+    PARAMS: req, res. RETURNS: 200 { success, data:[issuer] } | 500 via sendServerError.
+  */
   getPendingIssuers: async (req, res) => {
     try {
       const pendingIssuers = await couchDB.getPendingIssuers();
@@ -75,6 +141,12 @@ const adminIssuerController = {
     }
   },
 
+  /*
+    Function Name: getPendingRootIssuers
+    LAYMAN (Tropang Ex): Naghihintay na ROOT authority applicants lang.
+    TECHNICAL: Read wrapper — couchDB.getPendingRootIssuers().
+    PARAMS: req, res. RETURNS: 200 { success, data, count } | 500.
+  */
   getPendingRootIssuers: async (req, res) => {
     try {
       const rows = await couchDB.getPendingRootIssuers();
@@ -85,6 +157,12 @@ const adminIssuerController = {
     }
   },
 
+  /*
+    Function Name: getPendingSubordinateIssuers
+    LAYMAN (Tropang Ex): Naghihintay na SUBORDINATE applicants lang (anumang root-approval status).
+    TECHNICAL: Read wrapper — couchDB.getPendingSubordinateIssuers().
+    PARAMS: req, res. RETURNS: 200 { success, data, count } | 500.
+  */
   getPendingSubordinateIssuers: async (req, res) => {
     try {
       const rows = await couchDB.getPendingSubordinateIssuers();
@@ -95,6 +173,12 @@ const adminIssuerController = {
     }
   },
 
+  /*
+    Function Name: getPendingSubordinateIssuersAwaitingRootApproval
+    LAYMAN (Tropang Ex): Mga subordinate na naghihintay pa ng desisyon ng ROOT authority nila.
+    TECHNICAL: Read wrapper — couchDB.getPendingSubordinateIssuersAwaitingRootApproval().
+    PARAMS: req, res. RETURNS: 200 { success, data, count } | 500.
+  */
   getPendingSubordinateIssuersAwaitingRootApproval: async (req, res) => {
     try {
       const rows = await couchDB.getPendingSubordinateIssuersAwaitingRootApproval();
@@ -105,6 +189,12 @@ const adminIssuerController = {
     }
   },
 
+  /*
+    Function Name: getPendingSubordinateIssuersRootApproved
+    LAYMAN (Tropang Ex): Mga subordinate na approved na ng root, naghihintay na lang ng admin.
+    TECHNICAL: Read wrapper — couchDB.getPendingSubordinateIssuersRootApproved().
+    PARAMS: req, res. RETURNS: 200 { success, data, count } | 500.
+  */
   getPendingSubordinateIssuersRootApproved: async (req, res) => {
     try {
       const rows = await couchDB.getPendingSubordinateIssuersRootApproved();
@@ -115,6 +205,13 @@ const adminIssuerController = {
     }
   },
 
+  /*
+    Function Name: getAdminActionablePendingIssuers
+    LAYMAN (Tropang Ex): Mga pending na PWEDE nang aksyunan ng admin ngayon (root applicants +
+    subordinates na root-approved na) — yung talagang nasa admin queue na.
+    TECHNICAL: Read wrapper — couchDB.getAdminActionablePendingIssuers().
+    PARAMS: req, res. RETURNS: 200 { success, data, count } | 500.
+  */
   getAdminActionablePendingIssuers: async (req, res) => {
     try {
       const rows = await couchDB.getAdminActionablePendingIssuers();
@@ -125,6 +222,13 @@ const adminIssuerController = {
     }
   },
 
+  /*
+    Function Name: getApprovedIssuers
+    LAYMAN (Tropang Ex): Lahat ng approved/active na issuer (kasama ang infra fields na kailangan ng
+    admin dashboard tulad ng fabricIdentity/couchDBUrl/walletId).
+    TECHNICAL: Read + SAFE-field projection — maps each doc to an explicit subset (no password/docs).
+    PARAMS: req, res. RETURNS: 200 { success, message, data:[safeIssuer], count } | 500.
+  */
   getApprovedIssuers: async (req, res) => {
     try {
       const approvedIssuers = await couchDB.getApprovedIssuers();
@@ -157,6 +261,12 @@ const adminIssuerController = {
     }
   },
 
+  /*
+    Function Name: getRejectedIssuers
+    LAYMAN (Tropang Ex): Lahat ng na-reject na issuer, kasama ang dahilan at sino/kailan nag-reject.
+    TECHNICAL: Read + SAFE-field projection (adds rejectedAt/rejectedBy/rejectionReason).
+    PARAMS: req, res. RETURNS: 200 { success, message, data:[safeIssuer], count } | 500.
+  */
   getRejectedIssuers: async (req, res) => {
     try {
       const rejectedIssuers = await couchDB.getRejectedIssuers();
@@ -192,6 +302,12 @@ const adminIssuerController = {
     }
   },
 
+  /*
+    Function Name: getDisabledIssuers
+    LAYMAN (Tropang Ex): Lahat ng na-disable na issuer, kasama ang dahilan at sino/kailan nag-disable.
+    TECHNICAL: Read + SAFE-field projection (adds disabledAt/disabledBy/disableReason).
+    PARAMS: req, res. RETURNS: 200 { success, message, data:[safeIssuer], count } | 500.
+  */
   getDisabledIssuers: async (req, res) => {
     try {
       const disabledIssuers = await couchDB.getDisabledIssuers();
@@ -227,6 +343,45 @@ const adminIssuerController = {
     }
   },
 
+  /*
+    Function Name: Approve_Issuer
+
+    LAYMAN (Tropang Ex):
+    Inaaprubahan ng admin ang isang issuer. Para sa subordinate, dapat na-approve na muna ito ng root
+    authority nito (kung hindi pa, blocked). Bago aprubahan, tinitiyak na may Fabric identity na ito sa
+    wallet (kung wala, 400 — kailangan ng manual setup). Pag-approve: na-update ang status, naka-log sa
+    blockchain, may abiso (in-app) at email sa issuer na pwede na siyang mag-issue.
+
+    TECHNICAL:
+    Dual-write + preconditions. Admin-gated. Loads the issuer (404). SUBORDINATE GATE: if issuerType
+    'subordinate' and rootApprovalStatus !== 'approved' → 403. Calls ensureIssuerFabricIdentityExists
+    (400 if the wallet identity is missing). couchDB.Approve_Issuer flips status + assigns
+    fabricIdentity/couchDBUrl/walletId, then LogIssuerApproval on-chain (warning on failure, no
+    rollback). Admin notification + issuer in-app notification + approval email are best-effort.
+
+    PARAMS:
+    - req — req.params.issuerId, req.body.approvalReason (optional), req.user (admin → adminEmail).
+    - res — Express response.
+    - getContractAndGateway — injected; chaincert-admin/Org1.
+
+    RETURNS:
+    200 { success, message, warning?, data } on success (warning if on-chain log failed); 400 (no admin
+    email / missing Fabric identity via error.statusCode); 401; 403 (non-admin OR subordinate gate);
+    404 issuer not found; else 500 via sendServerError.
+
+    STEPS
+      Step 1 — Authorize (admin) + require adminEmail.
+      Step 2 — Load issuer (404) + SUBORDINATE GATE (403 until root-approved).
+      Step 3 — ensureIssuerFabricIdentityExists (400 if wallet identity missing).
+      Step 4 — couchDB.Approve_Issuer (status + identity/couchDBUrl/walletId assignment).
+      Step 5 — submitTransaction('LogIssuerApproval', ...); warn on failure.
+      Step 6 — Notify admin + issuer (in-app) + email (fire-and-forget).
+
+    EXAMPLE
+      POST /api/admin/issuers/issuer_55/approve  body { approvalReason: "Docs verified" }
+      → 200 { success:true, message:"Issuer approved successfully.", data:{...} }
+      → 403 { success:false, message:"Cannot approve subordinate issuer until root authority approves first." }
+  */
   Approve_Issuer: async (req, res, getContractAndGateway) => {
     let gateway = null;
     try {
@@ -346,6 +501,37 @@ const adminIssuerController = {
     }
   },
 
+  /*
+    Function Name: Reject_Issuer
+
+    LAYMAN (Tropang Ex):
+    Rine-reject ng admin ang isang issuer application — kailangan may dahilan. Na-update ang status,
+    naka-log sa blockchain, at may email sa applicant kasama ang dahilan. Walang in-app notice dahil
+    hindi na makaka-login ang rejected issuer.
+
+    TECHNICAL:
+    Dual-write. Admin-gated; requires non-empty rejectionReason (400). couchDB.Reject_Issuer first, then
+    LogIssuerRejection on-chain (warning on failure, no rollback). Admin notification + applicant email
+    are best-effort. error.statusCode is passed through if set.
+
+    PARAMS:
+    - req — req.params.issuerId, req.body.rejectionReason (REQUIRED), req.user (admin → adminEmail).
+    - res — Express response.
+    - getContractAndGateway — injected; chaincert-admin/Org1.
+
+    RETURNS:
+    200 { success, message, warning?, data }; 400 missing reason / no admin email; 401; 403; else 500.
+
+    STEPS
+      Step 1 — Authorize (admin) + require adminEmail + non-empty reason.
+      Step 2 — couchDB.Reject_Issuer(issuerId, reason, adminEmail) (written first).
+      Step 3 — submitTransaction('LogIssuerRejection', ...); warn on failure.
+      Step 4 — Admin notification + applicant rejection email (fire-and-forget).
+
+    EXAMPLE
+      POST /api/admin/issuers/issuer_55/reject  body { rejectionReason: "Unverifiable accreditation" }
+      → 200 { success:true, message:"Issuer rejected successfully.", data:{...} }
+  */
   Reject_Issuer: async (req, res, getContractAndGateway) => {
     let gateway = null;
     try {
@@ -457,6 +643,38 @@ const adminIssuerController = {
     }
   },
 
+  /*
+    Function Name: Disable_Issuer
+
+    LAYMAN (Tropang Ex):
+    Dini-disable ng admin ang isang approved na issuer (may dahilan). Habang disabled, hindi makaka-login
+    o makaka-issue. Na-update sa DB, naka-log sa blockchain, may email sa issuer. Reversible via Enable_Issuer.
+
+    TECHNICAL:
+    Dual-write. Admin-gated; reason required. Loads issuer (404), guards already-disabled (400), writes
+    CouchDB disable first, then LogIssuerStatusChange (prev→'disabled') on-chain (warning on failure, no
+    rollback). Admin notification + issuer email best-effort. (Verbose debug logging around the gateway call.)
+
+    PARAMS:
+    - req — req.params.issuerId, req.body.reason (required), req.user (admin → adminEmail).
+    - res — Express response.
+    - getContractAndGateway — injected; chaincert-admin/Org1.
+
+    RETURNS:
+    200 { success, message, warning? }; 400 missing reason / already disabled / no admin email; 401; 403;
+    404 issuer not found; else 500.
+
+    STEPS
+      Step 1 — Authorize (admin) + adminEmail + non-empty reason.
+      Step 2 — Load issuer (404) + guard already 'disabled' (400).
+      Step 3 — couchDB.Disable_Issuer(issuerId, adminEmail, reason) (written first).
+      Step 4 — submitTransaction('LogIssuerStatusChange', email, prev, 'disabled', reason, adminEmail).
+      Step 5 — Admin notification + issuer email (fire-and-forget).
+
+    EXAMPLE
+      POST /api/admin/issuers/issuer_55/disable  body { reason: "Reported misuse" }
+      → 200 { success:true, message:"Issuer disabled successfully." }
+  */
   Disable_Issuer: async (req, res, getContractAndGateway) => {
     let gateway = null;
     try {
@@ -587,6 +805,40 @@ const adminIssuerController = {
     }
   },
 
+  /*
+    Function Name: Enable_Issuer
+
+    LAYMAN (Tropang Ex):
+    Binubuhay ulit ng admin ang isang naka-disable na issuer (may dahilan). Pagkatapos, pwede na ulit
+    siyang mag-login at mag-issue. Na-update sa DB, naka-log sa blockchain, may email sa issuer at sa
+    buong admin team, at may in-app notice sa issuer.
+
+    TECHNICAL:
+    Dual-write. Admin-gated; reason required. Loads issuer (404), guards already-approved (400), writes
+    CouchDB enable first, then LogIssuerStatusChange (prev→'approved') on-chain (warning on failure, no
+    rollback). Best-effort: issuer email, admin notification + issuer in-app notification, and a
+    fire-and-forget email to every admin (via couchDB.getAdminEmails).
+
+    PARAMS:
+    - req — req.params.issuerId, req.body.reason (required), req.user (admin → adminEmail).
+    - res — Express response.
+    - getContractAndGateway — injected; chaincert-admin/Org1.
+
+    RETURNS:
+    200 { success, message, warning? }; 400 missing reason / already approved / no admin email; 401; 403;
+    404 issuer not found; else 500.
+
+    STEPS
+      Step 1 — Authorize (admin) + adminEmail + non-empty reason.
+      Step 2 — Load issuer (404) + guard already 'approved' (400).
+      Step 3 — couchDB.Enable_Issuer(issuerId, adminEmail, reason) (written first).
+      Step 4 — submitTransaction('LogIssuerStatusChange', email, prev, 'approved', reason, adminEmail).
+      Step 5 — Issuer email + admin notification + issuer in-app + admin-team broadcast (fire-and-forget).
+
+    EXAMPLE
+      POST /api/admin/issuers/issuer_55/enable  body { reason: "Issue resolved" }
+      → 200 { success:true, message:"Issuer re-enabled successfully." }
+  */
   Enable_Issuer: async (req, res, getContractAndGateway) => {
     let gateway = null;
     try {

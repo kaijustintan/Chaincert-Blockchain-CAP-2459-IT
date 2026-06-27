@@ -129,6 +129,13 @@ CAP-2459-IT-AFTER-RESET/
 │   │   └── landinghomepage.webm
 │   │
 │   ├── components/                           ← shared UI components
+│   │   ├── analytics/                        ← Phase 4 shared analytics layer
+│   │   │   ├── analytics.js                  (pure aggregation helpers)
+│   │   │   ├── CredentialHistory.jsx         (unified provenance timeline + proof trail — BCHIST2/INSIGHT5)
+│   │   │   ├── DonutChart.jsx
+│   │   │   ├── InterpretationBox.jsx
+│   │   │   ├── Sparkline.jsx
+│   │   │   └── TrendBars.jsx
 │   │   ├── navBar_Guest/
 │   │   ├── adminProtectedRoutes.js
 │   │   ├── appToast.js

@@ -126,6 +126,9 @@ export default function AdminDashboard() {
   const [statusLogSortBy, setStatusLogSortBy] = useState("newest");
   const [issuerDecisionLogSortBy, setIssuerDecisionLogSortBy] = useState("newest");
   const [rootSubordinateLogSortBy, setRootSubordinateLogSortBy] = useState("newest");
+  // ADMIN5: merged "Audit Logs" view (status changes + issuer decisions in one table)
+  const [auditTypeFilter, setAuditTypeFilter] = useState("all"); // all | status | decision
+  const [auditSearch, setAuditSearch] = useState("");
 
   // ✅ NEW: modal state for viewing a specific credential's blockchain history
   const [showHistoryModal, setShowHistoryModal] = useState(false);
@@ -461,6 +464,61 @@ const handleDownloadIssuerDocument = async (doc) => {
   const sortedIssuerDecisionLogs = useMemo(() => sortByDateThenName(issuerDecisionLogs, issuerDecisionLogSortBy, { dateFields: ["timestamp", "createdAt"], nameFields: ["issuerEmail", "orgName"], statusField: "decision" }), [issuerDecisionLogs, issuerDecisionLogSortBy]);
 
   const sortedRootSubordinateLogs = useMemo(() => sortByDateThenName(rootSubordinateLogs, rootSubordinateLogSortBy, { dateFields: ["timestamp", "createdAt"], nameFields: ["issuerEmail", "orgName"], statusField: "decision" }), [rootSubordinateLogs, rootSubordinateLogSortBy]);
+
+  // ADMIN5: unify Status Change Logs + Issuer Decision Logs into one "Audit Logs"
+  // feed. Normalize both shapes into a common row, apply the Type sub-filter +
+  // a client-side search, and order by timestamp (direction from statusLogSortBy).
+  const auditLogs = useMemo(() => {
+    const fromStatus = (sortedStatusLogs || []).map((log) => ({
+      _kind: "status",
+      type: "Status Change",
+      timestamp: log.timestamp || log.createdAt,
+      target: log.issuerEmail || log.userEmail || log.targetEmail || "N/A",
+      targetType: log.entity || "",
+      prev: log.previousStatus,
+      next: log.newStatus,
+      decision: null,
+      reason: log.reason,
+      performedBy: log.adminEmail || "N/A",
+      txId: log.txId || log.id,
+    }));
+    const fromDecision = (sortedIssuerDecisionLogs || []).map((log) => ({
+      _kind: "decision",
+      type: "Issuer Decision",
+      timestamp: log.timestamp || log.createdAt,
+      target: log.issuerEmail || "N/A",
+      targetType: log.orgName || "",
+      prev: null,
+      next: null,
+      decision: log.decision || "N/A",
+      reason: log.reason,
+      performedBy: log.adminEmail || "N/A",
+      txId: log.txId || log.id,
+    }));
+
+    let merged = [...fromStatus, ...fromDecision];
+    if (auditTypeFilter === "status") merged = merged.filter((m) => m._kind === "status");
+    else if (auditTypeFilter === "decision") merged = merged.filter((m) => m._kind === "decision");
+
+    const q = auditSearch.trim().toLowerCase();
+    if (q) {
+      merged = merged.filter((m) =>
+        [m.target, m.targetType, m.performedBy, m.reason, m.decision, m.prev, m.next]
+          .filter(Boolean)
+          .join(" ")
+          .toLowerCase()
+          .includes(q)
+      );
+    }
+
+    const dir = statusLogSortBy === "oldest" ? 1 : -1;
+    merged.sort(
+      (a, b) =>
+        dir *
+        ((new Date(a.timestamp).getTime() || 0) - (new Date(b.timestamp).getTime() || 0))
+    );
+    return merged;
+  }, [sortedStatusLogs, sortedIssuerDecisionLogs, auditTypeFilter, auditSearch, statusLogSortBy]);
 
   const sortedVerificationLogs = useMemo(() => sortByDateThenName(verificationLogs, verificationSortBy, { dateFields: ["timestamp", "verifiedAt", "createdAt"], nameFields: ["verifierName", "holderName", "credentialId"], statusField: "resultMessage" }), [verificationLogs, verificationSortBy]);
 
@@ -1399,16 +1457,14 @@ const handleDownloadIssuerDocument = async (doc) => {
       categoryKey: "verification",
     },
     {
-      label: "Status Logs",
-      value: getStatDisplayValue(logsLoading, statusLogsCount),
+      // ADMIN5: merged Status Logs + Issuer Decisions into one "Audit Logs" card
+      label: "Audit Logs",
+      value: getStatDisplayValue(
+        logsLoading,
+        (statusLogsCount || 0) + (issuerDecisionLogsCount || 0)
+      ),
       className: "stat-blue",
-      categoryKey: "status",
-    },
-    {
-      label: "Issuer Decisions",
-      value: getStatDisplayValue(logsLoading, issuerDecisionLogsCount),
-      className: "stat-purple",
-      categoryKey: "decision",
+      categoryKey: "audit",
     },
     {
       label: "Root Decisions",
@@ -3680,19 +3736,17 @@ const handleDownloadIssuerDocument = async (doc) => {
               onChange={(e) => setLogCategory(e.target.value)}
             >
               <option value="verification">Verification Logs</option>
-              <option value="status">Status Change Logs</option>
-              <option value="decision">Issuer Decision Logs</option>
+              <option value="audit">Audit Logs</option>
               <option value="root_subordinate_decision">Root Subordinate Decision Logs</option>
             </select>
 
             <label htmlFor="activeLogSort">Sort by:</label>
             <select
               id="activeLogSort"
-              value={logCategory === "status" ? statusLogSortBy : logCategory === "decision" ? issuerDecisionLogSortBy : logCategory === "root_subordinate_decision" ? rootSubordinateLogSortBy : verificationSortBy}
+              value={logCategory === "audit" ? statusLogSortBy : logCategory === "root_subordinate_decision" ? rootSubordinateLogSortBy : verificationSortBy}
               onChange={(e) => {
                 const value = e.target.value;
-                if (logCategory === "status") setStatusLogSortBy(value);
-                else if (logCategory === "decision") setIssuerDecisionLogSortBy(value);
+                if (logCategory === "audit") setStatusLogSortBy(value);
                 else if (logCategory === "root_subordinate_decision") setRootSubordinateLogSortBy(value);
                 else setVerificationSortBy(value);
               }}
@@ -3786,76 +3840,107 @@ const handleDownloadIssuerDocument = async (doc) => {
 
           {logsLoading ? (
             <SpinnerBlock label="Loading logs…" />
-          ) : logCategory === "decision" ? (
+          ) : logCategory === "audit" ? (
             <div>
-              <div className="issuer-filter-row" style={{ gap: 12, marginTop: 12 }}>
-                <label htmlFor="issuerDecisionFilter">Decision:</label>
+              {/* ADMIN5: one unified Audit Logs table — status changes + issuer decisions */}
+              <div className="issuer-filter-row" style={{ gap: 12, marginTop: 12, flexWrap: "wrap" }}>
+                <label htmlFor="auditTypeFilter">Type:</label>
                 <select
-                  id="issuerDecisionFilter"
-                  value={issuerDecisionFilter}
-                  onChange={(e) => {
-                    setIssuerDecisionFilter(e.target.value);
-                    if (logsLoaded) fetchIssuerDecisionLogs(e.target.value);
-                  }}
+                  id="auditTypeFilter"
+                  value={auditTypeFilter}
+                  onChange={(e) => setAuditTypeFilter(e.target.value)}
                 >
                   <option value="all">All</option>
-                  <option value="approved">Approved</option>
-                  <option value="rejected">Rejected</option>
+                  <option value="status">Status Changes</option>
+                  <option value="decision">Issuer Decisions</option>
                 </select>
+
+                <input
+                  type="text"
+                  value={auditSearch}
+                  onChange={(e) => setAuditSearch(e.target.value)}
+                  placeholder="Search email, reason, performed by..."
+                  style={{
+                    padding: "8px 10px",
+                    borderRadius: 10,
+                    border: "1px solid rgba(255,255,255,0.18)",
+                    background: "var(--border)",
+                    color: "var(--text)",
+                    outline: "none",
+                    minWidth: 240,
+                  }}
+                />
               </div>
 
-              {issuerDecisionLogsError ? (
-                <div className="tab-placeholder">❌ {issuerDecisionLogsError}</div>
-              ) : (() => {
-                const filtered = sortedIssuerDecisionLogs;
-
-                return filtered.length > 0 ? (
-                  <div className="table-wrapper">
-                    <table className="admin-table">
-                      <thead>
-                        <tr>
-                          <th>Issuer Email</th>
-                          <th>Org Name</th>
-                          <th>Decision</th>
-                          <th>Reason</th>
-                          <th>Approved / Rejected By</th>
-                          <th>Tx ID</th>
-                          <th>Timestamp</th>
+              {(statusLogsError || issuerDecisionLogsError) ? (
+                <div className="tab-placeholder">❌ {statusLogsError || issuerDecisionLogsError}</div>
+              ) : auditLogs.length > 0 ? (
+                <div className="table-wrapper">
+                  <table className="admin-table">
+                    <thead>
+                      <tr>
+                        <th>Timestamp</th>
+                        <th>Type</th>
+                        <th>Target</th>
+                        <th>Action</th>
+                        <th>Reason</th>
+                        <th>Performed By</th>
+                        <th>Tx ID</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {auditLogs.map((log, index) => (
+                        <tr key={log.txId || `${log._kind}-${index}`}>
+                          <td>{formatTimestamp(log.timestamp)}</td>
+                          <td>
+                            <span style={{
+                              display: "inline-block",
+                              padding: "2px 10px",
+                              borderRadius: 999,
+                              fontWeight: 700,
+                              fontSize: 12,
+                              whiteSpace: "nowrap",
+                              color: log._kind === "decision" ? "var(--accent-strong)" : "var(--text-muted)",
+                              background: log._kind === "decision" ? "var(--accent-weak)" : "var(--border)",
+                            }}>
+                              {log.type}
+                            </span>
+                          </td>
+                          <td>
+                            <div style={{ fontFamily: "monospace", fontSize: "12px" }}>{log.target}</div>
+                            {log.targetType ? (
+                              <div style={{ fontSize: "11px", color: "var(--text-muted)" }}>{log.targetType}</div>
+                            ) : null}
+                          </td>
+                          <td>
+                            {log._kind === "status" ? (
+                              <span>
+                                {renderStatusText(log.prev)} → {renderStatusText(log.next)}
+                              </span>
+                            ) : (
+                              <span style={{
+                                fontWeight: 700,
+                                color: String(log.decision || "").toLowerCase() === "approved" ? "var(--ok)" : "var(--danger)",
+                              }}>
+                                {log.decision}
+                              </span>
+                            )}
+                          </td>
+                          <td>{log.reason || "—"}</td>
+                          <td style={{ fontFamily: "monospace", fontSize: "12px" }}>
+                            {log.performedBy}
+                          </td>
+                          <td style={{ fontFamily: "monospace", fontSize: "12px" }}>
+                            {log.txId ? `${String(log.txId).slice(0, 18)}...` : "N/A"}
+                          </td>
                         </tr>
-                      </thead>
-                      <tbody>
-                        {filtered.map((log) => {
-                          const isApproved = (log.decision || "").toLowerCase() === "approved";
-                          return (
-                            <tr key={log.txId || log.id}>
-                              <td>{log.issuerEmail || "N/A"}</td>
-                              <td>{log.orgName || "N/A"}</td>
-                              <td>
-                                <span style={{
-                                  fontWeight: 700,
-                                  color: isApproved ? "var(--ok)" : "var(--danger)",
-                                }}>
-                                  {log.decision || "N/A"}
-                                </span>
-                              </td>
-                              <td>{log.reason || "—"}</td>
-                              <td style={{ fontFamily: "monospace", fontSize: "12px" }}>
-                                {log.adminEmail || "N/A"}
-                              </td>
-                              <td style={{ fontFamily: "monospace", fontSize: "12px" }}>
-                                {log.txId ? `${String(log.txId).slice(0, 18)}...` : "N/A"}
-                              </td>
-                              <td>{formatTimestamp(log.timestamp)}</td>
-                            </tr>
-                          );
-                        })}
-                      </tbody>
-                    </table>
-                  </div>
-                ) : (
-                  <div className="tab-placeholder">No issuer decision logs found.</div>
-                );
-              })()}
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              ) : (
+                <div className="tab-placeholder">No audit logs found.</div>
+              )}
             </div>
           ) : logCategory === "root_subordinate_decision" ? (
             <>
@@ -4006,66 +4091,13 @@ const handleDownloadIssuerDocument = async (doc) => {
                 <div className="tab-placeholder">No verification logs found.</div>
               )}
             </>
-          ) : (
-            <>
-              {statusLogsError ? (
-                <div className="tab-placeholder">{statusLogsError}</div>
-              ) : sortedStatusLogs.length > 0 ? (
-                <div className="table-wrapper">
-                  <table className="admin-table">
-                    {/* Removed Admin Email + Performed By (fabric) columns, renamed Performed By MSP → Performed By */}
-                    <thead>
-                      <tr>
-                        <th>Log ID</th>
-                        <th>Target Type</th>
-                        <th>Email</th>
-                        <th>Previous Status</th>
-                        <th>New Status</th>
-                        <th>Reason</th>
-                        <th>Performed By</th>
-                        <th>Tx ID</th>
-                        <th>Timestamp</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {sortedStatusLogs.map((log) => (
-                        <tr key={log.id || log.txId}>
-                          <td style={{ fontFamily: "monospace", fontSize: "12px" }}>
-                            {log.id ? `${String(log.id).slice(0, 18)}...` : "N/A"}
-                          </td>
-                          <td>{log.entity || "N/A"}</td>
-                          <td style={{ fontFamily: "monospace", fontSize: "12px" }}>
-                            {log.issuerEmail || log.userEmail || log.targetEmail || "N/A"}
-                          </td>
-                          <td>{renderStatusText(log.previousStatus)}</td>
-                          <td>
-                            {renderStatusText(log.newStatus)}
-                          </td>
-                          <td>{log.reason || "N/A"}</td>
-                          <td style={{ fontFamily: "monospace", fontSize: "12px" }}>
-                            {log.adminEmail || "N/A"}
-                          </td>
-                          <td style={{ fontFamily: "monospace", fontSize: "12px" }}>
-                            {log.txId ? `${String(log.txId).slice(0, 18)}...` : "N/A"}
-                          </td>
-                          <td>{formatTimestamp(log.timestamp)}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              ) : (
-                <div className="tab-placeholder">No audit logs found.</div>
-              )}
-            </>
-          )}
+          ) : null}
           </div>
             <NotesCard
               description={
                 {
                   verification: "logs a verification, showing who verified and its outcome.",
-                  status: "logs admin activity of enabling/disabling a user/issuer account, including who performed the activity and the reason given.",
-                  decision: "logs admin activity of approving or rejecting an issuer application, including the reason, recorded on-chain.",
+                  audit: "one combined on-chain trail of admin governance: issuer application approvals/rejections AND account enable/disable status changes — with who performed it, the reason, and the transaction ID. Use the Type filter to narrow to one kind.",
                   root_subordinate_decision: "logs root authority activity of approving or rejecting a subordinate issuer that applied under them.",
                 }[logCategory]
               }

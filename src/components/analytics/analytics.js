@@ -601,6 +601,9 @@ export function computeProvenance(history) {
       color: m.color,
       when: entry.timestamp || null,
       status: (entry.value && entry.value.status) || action,
+      // BCHIST2: surface the tx hash + any reason inline in the unified timeline.
+      txId: entry.txId || null,
+      reason: (entry.value && (entry.value.rejectionReason || entry.value.revokedReason)) || entry.rejectionReason || null,
     };
   });
 

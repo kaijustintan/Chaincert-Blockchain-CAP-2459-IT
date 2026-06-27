@@ -28,11 +28,11 @@ import { exportCredentialToPDF, exportAllCredentialsToPDF } from '../services/pd
 import DonutChart from "../components/analytics/DonutChart";
 import TrendBars from "../components/analytics/TrendBars";
 import InterpretationBox from "../components/analytics/InterpretationBox";
+import CredentialHistory from "../components/analytics/CredentialHistory";
 import {
   computeHealth,
   computeExpirationAlerts,
   computeHolderVerificationInsights,
-  computeProvenance,
 } from "../components/analytics/analytics";
 import { Card, Button, Modal, StatusPill, EmptyState, Spinner, SpinnerBlock, SkeletonCardGrid } from "../components/ui";
 import NotesCard from "../components/ui/NotesCard";
@@ -990,52 +990,15 @@ export default function StudentDashboard() {
                   <button className="holder-history-close" onClick={closeHistoryModal} aria-label="Close history"><XCircle size={16} /></button>
                 </div>
 
-                {historyLoading && <SpinnerBlock label="Loading history…" minHeight={80} />}
-                {historyError && <p className="holder-state is-error">{historyError}</p>}
-
-                {historyData && historyData.history && (() => {
-                  const prov = computeProvenance(historyData.history);
-                  if (prov.events.length === 0) return null;
-                  return (
-                    <div className="analytics-card" style={{ marginBottom: 14 }}>
-                      <h4 style={{ margin: "0 0 12px", fontSize: 14 }}>Provenance Timeline</h4>
-                      <div className="analytics-timeline">
-                        {prov.events.map((e, i) => (
-                          <div className="analytics-timeline-item" key={`hprov-${i}`}>
-                            <span className="analytics-timeline-dot" style={{ background: e.color }}>{e.icon}</span>
-                            <div>
-                              <div className="analytics-timeline-label">{e.label}</div>
-                              <div className="analytics-timeline-when">{e.when ? formatDate(e.when) : "N/A"}</div>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                      <InterpretationBox>{prov.summary}</InterpretationBox>
-                    </div>
-                  );
-                })()}
-
-                {historyData && historyData.history && (
-                  <div className="holder-history-list">
-                    {historyData.history.map((entry, idx) => (
-                      <div key={idx} className="holder-history-entry">
-                        <div className="holder-history-entry-head">
-                          <span className="holder-mono">{entry.txId || `TX-${idx + 1}`}</span>
-                          <span className="holder-history-time">{entry.timestamp ? formatDate(entry.timestamp) : "N/A"}</span>
-                        </div>
-                        <div className="holder-history-status">
-                          Status: <strong>{entry.value?.status || entry.status || "N/A"}</strong>
-                        </div>
-                        {(entry.value?.status === "revoked" || entry.status === "revoked") &&
-                          (entry.value?.rejectionReason || entry.rejectionReason) && (
-                            <div className="holder-history-status" style={{ color: "var(--danger)" }}>
-                              Rejection reason: <strong>{entry.value?.rejectionReason || entry.rejectionReason}</strong>
-                            </div>
-                          )}
-                      </div>
-                    ))}
-                  </div>
-                )}
+                {/* BCHIST2 + INSIGHT5: unified timeline (tx hash + reason) + proof trail */}
+                <CredentialHistory
+                  history={historyData?.history || []}
+                  verificationLogs={myVerifications}
+                  credentialId={selectedCred?.blockchainId || selectedCred?._id}
+                  showProofTrail
+                  loading={historyLoading}
+                  error={historyError}
+                />
               </div>
             )}
           </>

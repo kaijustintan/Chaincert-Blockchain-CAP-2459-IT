@@ -20,7 +20,7 @@ import { AppShell, Sidebar, Spinner, SpinnerBlock } from "../components/ui";
 import NotesCard from "../components/ui/NotesCard";
 import StatusLegend from "../components/ui/StatusLegend";
 import { effectiveCredentialStatus } from "../utils/credentialStatus"; // F01: compute-on-read expiry
-import { Bell, Layers, Building2, Users, ClipboardList, BarChart3 } from "lucide-react";
+import { Bell, Layers, Building2, Users, ClipboardList, BarChart3, ShieldCheck, Flag } from "lucide-react";
 
 export default function AdminDashboard() {
   const [tab, setTab] = useState("credentials");
@@ -4091,6 +4091,24 @@ const handleDownloadIssuerDocument = async (doc) => {
             Processed, interpreted insights from the blockchain audit trail —
             not raw logs.
           </p>
+
+          {/* ADMIN6: KPI strip — real current totals (no fabricated period deltas) */}
+          <div className="analytics-kpis">
+            {[
+              { label: "Total Verifications", value: verificationOutcomes.total, Icon: ShieldCheck },
+              { label: "Active Issuers", value: suspicious.issuers.length, Icon: Building2 },
+              { label: "Credentials Issued", value: adminCredentials.filter((r) => (r.type || "").toLowerCase() === "issued").length, Icon: Layers },
+              { label: "Revocations", value: adminCredentials.filter((r) => (r.status || "").toLowerCase() === "revoked").length, Icon: Flag },
+            ].map(({ label, value, Icon }) => (
+              <div className="analytics-kpi" key={label}>
+                <div className="analytics-kpi-icon"><Icon size={18} aria-hidden="true" /></div>
+                <div>
+                  <div className="analytics-kpi-value">{value}</div>
+                  <div className="analytics-kpi-label">{label}</div>
+                </div>
+              </div>
+            ))}
+          </div>
 
           <div className="analytics-grid" style={{ marginTop: 8 }}>
             {/* Verification Result Summary (Verifier report, hosted in admin) */}

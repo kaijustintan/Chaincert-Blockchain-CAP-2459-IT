@@ -64,13 +64,15 @@
   border-radius: var(--radius-card); box-shadow: var(--shadow-sm);
   overflow: hidden; animation: ccFadeInUp var(--motion) var(--ease);
 }
-.verifier-verdict-head { display: flex; align-items: flex-start; gap: var(--s3); padding: var(--s5); }
-.verifier-verdict-head h2 { margin: 0 0 4px; font-size: var(--fs-h2); font-weight: var(--fw-semibold); color: var(--text); }
-.verifier-verdict-head p { margin: 0; font-size: var(--fs-small); color: var(--text-muted); }
-.verifier-verdict-head svg { flex-shrink: 0; margin-top: 1px; }
+.verifier-verdict-head { display: flex; align-items: center; gap: var(--s3); padding: var(--s4) var(--s5); }
+.verifier-verdict-head h2 { margin: 0 0 2px; font-size: var(--fs-h2); font-weight: var(--fw-bold); letter-spacing: 0.02em; color: var(--text); line-height: 1.1; }
+.verifier-verdict-head p { margin: 0; font-size: var(--fs-small); color: var(--text-muted); line-height: 1.4; }
+.verifier-verdict-head svg { flex-shrink: 0; }
 .verifier-verdict.is-valid { border-top: 3px solid var(--ok); }
+.verifier-verdict.is-valid .verifier-verdict-head { background: var(--ok-weak); }
 .verifier-verdict.is-valid .verifier-verdict-head svg { color: var(--ok); }
 .verifier-verdict.is-invalid { border-top: 3px solid var(--danger); }
+.verifier-verdict.is-invalid .verifier-verdict-head { background: var(--danger-weak); }
 .verifier-verdict.is-invalid .verifier-verdict-head svg { color: var(--danger); }
 
 /* ── Result body ── */

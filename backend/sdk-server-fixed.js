@@ -1,6 +1,44 @@
-// ==========================================================================================================================================================================
-//                                                                       sdk-server-fixed.js
-// ==========================================================================================================================================================================
+// sdk-server-fixed.js
+/*
+  FILE: sdk-server-fixed.js
+  LAYMAN (Tropang Ex): Ito yung "puso" ng backend — yung Express server na binubuksan para tumakbo ang
+  buong API (node sdk-server-fixed.js sa Ubuntu, port 4000). Dito naka-set up ang lahat: security
+  headers, CORS, ang pag-decode ng login token (JWT), ang mga "guard" kung sino ang pwede sa admin/wallet
+  routes, ang rate limiter kontra brute-force, ang koneksyon sa blockchain (getContractAndGateway), ang
+  pagdikit ng lahat ng route files, ang global error handler, at ang mga background cron jobs. Ito ang
+  unang tumatakbo at ang huling humihinto (graceful shutdown).
+
+  TECHNICAL: Express bootstrap + composition root. Boot order matters: (1) load env + force IPv4 DNS
+  (E1); (2) FAIL-CLOSED on missing JWT_SECRET (M3); (3) middleware chain — CORS, helmet (M6, tuned for a
+  cross-origin JSON API), body parsers, then a JWT-DECODE middleware that sets req.user (or null, never
+  blocks); (4) centralized auth guards requireAuth / requireRole (M2); (5) in-memory per-IP rate limiters
+  (M5); (6) CouchDB init + Mango index; (7) the Fabric helper getContractAndGateway, exposed to handlers
+  via app.locals; (8) route mounting (guards applied at mount points); (9) M9 global error safety-net;
+  (10) startup cron hooks (expiry + integrity) and app.listen(4000). Paths are Ubuntu-absolute by design
+  (see CLAUDE.md "Windows vs Ubuntu layout" — do NOT rewrite them to resolve on Windows).
+
+  OUTLINE:
+    BOOT GUARDS
+      - JWT_SECRET fail-closed (M3)
+    MIDDLEWARE
+      - CORS + helmet (M6)
+      - JWT-decode middleware            sets req.user from Authorization: Bearer (never blocks)
+    AUTHORIZATION GUARDS (M2)
+      - requireAuth(req,res,next)        401 if no valid token
+      - requireRole(role)                403 if token role mismatches
+    RATE LIMITING (M5)
+      - createRateLimiter({windowMs,max,message})   per-IP limiter factory
+      - authLimiter / checkEmailLimiter
+    INIT
+      - setupDatabaseIndexes()           create the issuers Mango index (idempotent)
+    FABRIC
+      - getContractAndGateway(identityName,orgName)  org-route → wallet → gateway → chaincert contract
+    ROUTE MOUNTING + M9 global error handler
+    HELPERS / SHUTDOWN
+      - sleep(ms) ; SIGINT graceful gateway disconnect
+    STARTUP HOOKS
+      - initExpiryCron / initIntegrityCron ; app.listen(4000)
+*/
 
 require('dotenv').config();
 require('dns').setDefaultResultOrder('ipv4first'); // E1: prefer IPv4 globally (WSL2 has no IPv6 egress → Gmail SMTP fails on AAAA)
@@ -68,6 +106,14 @@ app.use(helmet({
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
+/*
+  JWT-decode middleware
+  LAYMAN (Tropang Ex): Tinitingnan kung may "Bearer token" sa request. Kung meron at valid, nilalagay
+  ang user info sa req.user; kung wala o sira, req.user = null. HINDI ito humaharang — ang mga guard sa
+  baba ang nagdedesisyon kung sino ang papasukin.
+  TECHNICAL: Verifies the Authorization: Bearer <token> against JWT_SECRET and populates req.user, or
+  sets it null on absence/failure (per CLAUDE.md: absence ⇒ req.user = null, not a hard reject here).
+*/
 app.use((req, res, next) => {
   const authHeader = req.headers['authorization'];
 
@@ -96,6 +142,12 @@ app.use((req, res, next) => {
 //   requireRole(role)  — reject any request whose token role doesn't match.
 // ==========================================================================================================================================================================
 
+/*
+  Function Name: requireAuth
+  LAYMAN (Tropang Ex): Guard — kung walang valid na token, bawal pumasok (401).
+  TECHNICAL: Express middleware. 401 if req.user is null; else next(). Applied at guarded mount points (M2).
+  PARAMS: req, res, next. RETURNS: 401 JSON or calls next().
+*/
 function requireAuth(req, res, next) {
   if (!req.user) {
     return res.status(401).json({ success: false, message: 'Authentication required.' });
@@ -103,6 +155,13 @@ function requireAuth(req, res, next) {
   next();
 }
 
+/*
+  Function Name: requireRole
+  LAYMAN (Tropang Ex): Guard factory — gumagawa ng middleware na pumapayag lang sa isang partikular na
+  role (hal. 'admin').
+  TECHNICAL: Returns an Express middleware. 401 if no token, 403 if req.user.role !== role, else next().
+  PARAMS: role — required role string. RETURNS: an (req,res,next) middleware.
+*/
 function requireRole(role) {
   return (req, res, next) => {
     if (!req.user) {
@@ -131,6 +190,16 @@ function requireRole(role) {
 // for any demo or deployment — a loud warning is logged at startup whenever it is on.
 const RATE_LIMIT_DISABLED = process.env.DISABLE_RATE_LIMIT === 'true';
 
+/*
+  Function Name: createRateLimiter
+  LAYMAN (Tropang Ex): Gumagawa ng "bouncer" na nagbibilang ng request kada IP. Kapag sobra na sa loob
+  ng takdang panahon, 429 muna (Too many requests) hangga't hindi naka-reset ang window.
+  TECHNICAL: Factory returning an Express middleware backed by an in-memory Map(ip → {count, resetAt}),
+  with an unref'd interval sweep so it can't grow unbounded. Honors DISABLE_RATE_LIMIT (testing bypass).
+  Sends Retry-After + 429 when count exceeds max within windowMs. Per-process (single-VM scope).
+  PARAMS: { windowMs, max, message }.
+  RETURNS: an (req,res,next) middleware.
+*/
 function createRateLimiter({ windowMs, max, message }) {
   const hits = new Map(); // ip -> { count, resetAt }
 
@@ -204,6 +273,14 @@ couchdb.initializeDatabases().catch(err => {
   console.error('⚠️  CouchDB init error:', err.message);
 });
 
+/*
+  Function Name: setupDatabaseIndexes
+  LAYMAN (Tropang Ex): Gumagawa ng "index" sa issuers database para mabilis ang paghahanap/filter ng
+  issuer by type/status/date. Idempotent — kung meron na, ok lang.
+  TECHNICAL: Creates the Mango index idx-type-status-created on issuers (fields type/status/createdAt).
+  Swallows a 409/"already exists" as success. Runs once at boot (setTimeout) after a short delay.
+  PARAMS: (none). RETURNS: void (logs result).
+*/
 const setupDatabaseIndexes = async () => {
   try {
     await new Promise(resolve => setTimeout(resolve, 1500));
@@ -240,6 +317,40 @@ let cachedGateway = null;
 let lastConnectionTime = 0;
 const CONNECTION_CACHE_TTL = 5 * 60 * 1000;
 
+/*
+  Function Name: getContractAndGateway
+
+  LAYMAN (Tropang Ex):
+  Ito ang "tulay" papunta sa blockchain. Bibigyan mo ng identity (sino ang gagawa ng transaction) at
+  org name, tapos ibabalik nito ang konektadong gateway + ang chaincert contract na pwede mo nang
+  i-submit/i-evaluate. Ito ang pinapasa sa lahat ng controller (via app.locals) para makapag-on-chain.
+
+  TECHNICAL:
+  Resolves the right connection profile by substring-matching DLSU in orgName/identityName
+  (connection-delasalleuniversity.json) else Org1 (connection-org1.json), loads the file-system wallet
+  identity (throws "Identity <name> not found" if absent — usually means the enroll/setup script hasn't
+  run), connects a Fabric Gateway (discovery enabled, asLocalhost), and returns the chaincert contract
+  on chaincert-channel. Caller owns gateway.disconnect(). NOTE: paths are Ubuntu-absolute by design.
+
+  PARAMS:
+  - identityName — wallet identity to transact as (e.g. 'chaincert-admin', a DLSU identity).
+  - orgName — org used to pick the connection profile (DLSU vs Org1).
+
+  RETURNS:
+  { gateway, contract }. THROWS if identity/orgName missing, the connection profile file is absent, or
+  the identity isn't in the wallet.
+
+  STEPS
+    Step 1 — Validate inputs (identityName + orgName required).
+    Step 2 — Pick the connection profile (DLSU substring → DLSU ccp, else Org1 ccp); 404-style throw if file missing.
+    Step 3 — Load the wallet identity (throw if not found).
+    Step 4 — gateway.connect(ccp, {discovery}); getNetwork('chaincert-channel').getContract('chaincert').
+    Step 5 — Cache the gateway (for SIGINT cleanup) and return { gateway, contract }.
+
+  EXAMPLE
+    const { gateway, contract } = await getContractAndGateway('chaincert-admin', 'Org1');
+    try { await contract.submitTransaction('LogIssuerApproval', ...); } finally { await gateway.disconnect(); }
+*/
 async function getContractAndGateway(identityName, orgName) {
   console.log('\n[getContractAndGateway][DEBUG] called with:', { identityName, orgName });
   console.log('[getContractAndGateway][DEBUG] __dirname =', __dirname);
@@ -374,6 +485,11 @@ app.use((err, req, res, next) => {
 // HELPERS / SHUTDOWN
 // ==========================================================================================================================================================================
 
+/*
+  Function Name: sleep
+  LAYMAN (Tropang Ex): Pansamantalang paghinto ng ms milliseconds (await sleep(1000)).
+  TECHNICAL: Promise wrapper around setTimeout. PARAMS: ms. RETURNS: Promise<void>.
+*/
 async function sleep(ms) {
   return new Promise(resolve => setTimeout(resolve, ms));
 }

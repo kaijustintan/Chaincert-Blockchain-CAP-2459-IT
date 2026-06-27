@@ -340,7 +340,8 @@ const [showAll, setShowAll] = useState(false);
   };
 
   // share type toggle — 'specific' or 'public'
-  const [shareType, setShareType] = useState('specific');
+  // PROFILE2: issuers can only share public ("Anyone with Link") — default them there.
+  const [shareType, setShareType] = useState(isIssuer ? 'public' : 'specific');
 
   // My Share Links state 
   const [myShareLinks, setMyShareLinks] = useState([]);
@@ -885,8 +886,8 @@ const [showAll, setShowAll] = useState(false);
 
       )} {/* end Skills Wallet — hidden for issuers */}
 
-      {/* My Share Links Section */}
-      {!isAdmin && (
+      {/* My Share Links Section — PROFILE2: hidden for issuers (public-only sharing) */}
+      {!isAdmin && !isIssuer && (
         <section className="profile-section">
           <div className="section-header">
             <h3>My Share Links</h3>
@@ -1028,7 +1029,8 @@ const [showAll, setShowAll] = useState(false);
             <div className="modal-body">
               {!shareGeneratedUrl ? (
                 <>
-                  {/* share type toggle */}
+                  {/* share type toggle — PROFILE2: hidden for issuers (public-only) */}
+                  {!isIssuer && (
                   <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
                     <button
                       onClick={() => { setShareType('specific'); setShareError(''); }}
@@ -1055,6 +1057,7 @@ const [showAll, setShowAll] = useState(false);
                       Anyone with Link
                     </button>
                   </div>
+                  )}
 
                   {shareType === 'specific' && (
                     <div className="detail-row" style={{ flexDirection: 'column', gap: 6 }}>

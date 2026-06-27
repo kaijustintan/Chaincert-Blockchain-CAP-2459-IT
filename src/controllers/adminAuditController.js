@@ -1,7 +1,71 @@
+// adminAuditController.js
+/*
+  FILE: adminAuditController.js
+  LAYMAN (Tropang Ex): Ito yung "audit + user-account" desk ng admin. Dalawang trabaho: (1) i-disable
+  o i-enable ang isang HOLDER account (may dahilan, naka-record sa blockchain), at i-change ang sariling
+  admin password; at (2) basahin mula sa blockchain ang lahat ng immutable logs — status changes,
+  issuer approve/reject decisions, at root↔subordinate decisions — para sa Audit Logs view ng admin.
+
+  TECHNICAL: Express controller. Every handler is admin-gated (req.user.role === 'admin') except the
+  pure log readers which assume the admin-only /api/admin mount (M2) already enforced auth. The two
+  user-status mutations + the admin password change follow the dual-write pattern: CouchDB first, then
+  an immutable on-chain Log* (LogUserStatusChange / LogAdminChangePassword) via the injected
+  getContractAndGateway('chaincert-admin','Org1'); a blockchain failure returns partial success with a
+  warning, never a rollback. All read handlers evaluateTransaction against the chaincode and null-safe
+  JSON.parse the result; the gateway is always disconnected in finally.
+
+  OUTLINE:
+    USER ACCOUNT STATUS (write — dual-write CouchDB → LogUserStatusChange)
+      - Disable_User(req,res,getCAG)              disable a holder (reason required)
+      - Enable_User(req,res,getCAG)               re-enable a holder (reason required)
+    ADMIN SELF-SERVICE (write — dual-write → LogAdminChangePassword)
+      - changeAdminPasswordSecure(req,res,getCAG) change own admin password
+    BLOCKCHAIN LOG READERS (read — evaluateTransaction)
+      - getAllStatusLogs / getAllIssuerStatusLogs / getAllUserStatusLogs
+      - getAllIssuerDecisionLogs / getAllIssuerApprovalLogs / getAllIssuerRejectionLogs
+      - getIssuerDecisionLogs(email) / getIssuerStatusLogs(email) / getUserStatusLogs(email)
+      - GetAllRootSubordinateLogs / GetAllRootSubordinateApprovalLogs / GetAllRootSubordinateRejectionLogs
+*/
+
 const couchDB = require('../couchDB_service');
 const { sendServerError } = require('../securityHelpers'); // Phase 5 Tier 2 (M9)
 
 const adminAuditController = {
+  /*
+    Function Name: Disable_User
+
+    LAYMAN (Tropang Ex):
+    Dito pinapatay ng admin ang account ng isang holder na may kailangang dahilan. Pagkatapos, hindi na
+    makaka-login yung user. Naka-record ang aksyon sa blockchain kung sino ang admin at bakit.
+
+    TECHNICAL:
+    Dual-write. Admin-gated; requires a non-empty reason. Loads the user, guards against already-disabled,
+    writes the CouchDB status change first, then submits LogUserStatusChange (active→disabled) on-chain.
+    Blockchain failure surfaces as a warning (no rollback). Gateway disconnected in finally.
+
+    PARAMS:
+    - req — req.params.userId, req.body.reason (required), req.user (admin, supplies adminEmail).
+    - res — Express response.
+    - getContractAndGateway — injected; opens the Fabric gateway/contract as chaincert-admin/Org1.
+
+    RETURNS:
+    200 { success, message, warning? }; 400 missing reason / already disabled / no admin email;
+    401 unauth; 403 non-admin; 404 user not found; else 500 via sendServerError.
+
+    STEPS
+      Step 1 — Authorize + validate
+        Technical : Reject if !req.user / role !== 'admin'; 400 if reason blank or no adminEmail.
+      Step 2 — Load + guard
+        Technical : couchDB.getUser(userId); 404 if missing; 400 if already !isActive.
+      Step 3 — CouchDB disable (written first)
+        Technical : couchDB.Disable_User(userId, adminEmail, reason).
+      Step 4 — On-chain log
+        Technical : submitTransaction('LogUserStatusChange', email, prev, 'disabled', reason, adminEmail).
+
+    EXAMPLE
+      POST /api/admin/users/user_42/disable  body { reason: "Policy violation" }
+      → 200 { success:true, message:"User disabled successfully." }
+  */
   Disable_User: async (req, res, getContractAndGateway) => {
     let gateway;
 
@@ -73,6 +137,36 @@ const adminAuditController = {
     }
   },
 
+  /*
+    Function Name: Enable_User
+
+    LAYMAN (Tropang Ex):
+    Kabaligtaran ng Disable_User — binubuhay ulit ng admin ang isang naka-disable na holder account,
+    may dahilan, at naka-record sa blockchain.
+
+    TECHNICAL:
+    Dual-write. Admin-gated; reason required. Loads the user, guards against already-active, writes the
+    CouchDB enable first, then LogUserStatusChange (disabled→active) on-chain. Warning on blockchain
+    failure (no rollback); gateway disconnected in finally.
+
+    PARAMS:
+    - req — req.params.userId, req.body.reason (required), req.user (admin).
+    - res — Express response.
+    - getContractAndGateway — injected; chaincert-admin/Org1.
+
+    RETURNS:
+    200 { success, message, warning? }; 400 missing reason / already active; 401; 403; 404; else 500.
+
+    STEPS
+      Step 1 — Authorize + validate (admin, non-empty reason, adminEmail present).
+      Step 2 — Load user (404) + guard already-active (400).
+      Step 3 — couchDB.Enable_User(userId, adminEmail, reason) (written first).
+      Step 4 — submitTransaction('LogUserStatusChange', email, prev, 'active', reason, adminEmail).
+
+    EXAMPLE
+      POST /api/admin/users/user_42/enable  body { reason: "Appeal approved" }
+      → 200 { success:true, message:"User re-enabled successfully." }
+  */
   Enable_User: async (req, res, getContractAndGateway) => {
     let gateway;
 
@@ -144,6 +238,13 @@ const adminAuditController = {
     }
   },
 
+  /*
+    Function Name: getAllStatusLogs
+    LAYMAN (Tropang Ex): Kinukuha mula sa blockchain ang LAHAT ng status-change logs (issuer + user).
+    TECHNICAL: Read wrapper — evaluateTransaction('GetAllStatusLogs') via chaincert-admin/Org1; null-safe parse.
+    PARAMS: req, res, getContractAndGateway (injected).
+    RETURNS: 200 { success, logs:[], count } | 500 on gateway/parse error.
+  */
   getAllStatusLogs: async (req, res, getContractAndGateway) => {
     let gateway;
     try {

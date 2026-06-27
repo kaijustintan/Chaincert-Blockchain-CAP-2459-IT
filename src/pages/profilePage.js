@@ -1187,11 +1187,14 @@ const [showAll, setShowAll] = useState(false);
                   {shareType === 'public' && (
                     <p style={{ color: 'var(--text-muted)', fontSize: '13px', margin: '0 0 8px 0', lineHeight: 1.5 }}>
                       Anyone with this link can view your public profile. No email or verification required.
+                      It's a single permanent link — reused every time, so you only ever have one public door to revoke.
                     </p>
                   )}
 
-                  {/* B: issuers get a permanent, reusable link — no duration picker */}
-                  {!isIssuer && (
+                  {/* B: issuers get a permanent, reusable link — no duration picker.
+                      Public links are also permanent (reused) for holders, so the duration picker
+                      only applies to the Specific-Recipient tab. */}
+                  {!isIssuer && shareType === 'specific' && (
                   <div className="detail-row" style={{ flexDirection: 'column', gap: 6, marginTop: 14 }}>
                     <label style={{ color: 'var(--accent-strong)', fontSize: '0.85rem', fontWeight: 600 }}>
                       Link Duration

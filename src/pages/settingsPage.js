@@ -55,18 +55,19 @@ export default function SettingsPage() {
     setIsChangingPassword(true);
 
     try {
-      const response = userRole === 'admin'
-        ? await apiService.Admin_ChangePassword({
-            currentPassword: passwordData.currentPassword,
-            newPassword: passwordData.newPassword
-          })
-        : await apiService.changePassword({
-            email: userEmail,
-            currentPassword: passwordData.currentPassword,
-            newPassword: passwordData.newPassword
-          });
+      if (userRole === 'admin') {
+        await apiService.Admin_ChangePassword({
+          currentPassword: passwordData.currentPassword,
+          newPassword: passwordData.newPassword
+        });
+      } else {
+        await apiService.changePassword({
+          email: userEmail,
+          currentPassword: passwordData.currentPassword,
+          newPassword: passwordData.newPassword
+        });
+      }
 
-      console.log('✅ Success response:', response);
       setPasswordSuccess('Password changed successfully!');
       setPasswordData({ currentPassword: '', newPassword: '', confirmPassword: '' });
 

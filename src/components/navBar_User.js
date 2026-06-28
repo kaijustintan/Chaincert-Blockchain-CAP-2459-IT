@@ -70,10 +70,8 @@ function NavBar() {
   const profileInitial = (userName || userRole || 'U').trim().charAt(0).toUpperCase();
 
   const handleLogout = () => {
-    console.log('🔄 Starting logout process...');
     logout();
     setDropdownOpen(false);
-    console.log('✅ Logout complete - redirecting to login');
     navigate('/login');
   };
 

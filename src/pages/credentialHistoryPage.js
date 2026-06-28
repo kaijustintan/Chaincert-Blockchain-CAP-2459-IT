@@ -99,8 +99,6 @@ export default function CredentialHistoryPage() {
 
       const response = await apiService.Get_IssuerCredentialsHistory();
 
-      console.log("Fetched history response:", response);
-
       const rawHistory = Array.isArray(response.data) ? response.data : [];
       const cleanHistory = rawHistory.filter((entry) => {
         const id = entry?.credentialId || entry?.id || entry?.key || entry?.value?.credentialId || "";
@@ -145,8 +143,6 @@ export default function CredentialHistoryPage() {
         const response = await apiService.Get_IssuerCredentialsHistory(
           searchId.trim()
         );
-
-        console.log("Search result:", response);
 
         const rawHistory = Array.isArray(response.data) ? response.data : [];
       const cleanHistory = rawHistory.filter((entry) => {

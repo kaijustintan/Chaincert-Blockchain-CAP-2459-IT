@@ -159,7 +159,6 @@ const Verify_Credential = async (req, res, getContractAndGateway) => {
         message: 'Credential ID is required',
       });
     }
-    console.log(`[VERIFY] Querying credential: ${credentialId}`);
 
     let mainPayload = null;
     let finalIsValid = false;
@@ -170,15 +169,12 @@ const Verify_Credential = async (req, res, getContractAndGateway) => {
     // ✅ STEP 1: Try BLOCKCHAIN FIRST (trust anchor)
     if (getContractAndGateway) {
       try {
-        console.log('[VERIFY] Step 1: Running blockchain VerifyCredential() (primary)...');
         const identityName = 'admin';
         const orgName = 'Org1';
         const { gateway, contract } = await getContractAndGateway(identityName, orgName);
         const bcResultBuffer = await contract.evaluateTransaction('VerifyCredential', credentialId);
         const bcResult = JSON.parse(bcResultBuffer.toString());
         await gateway.disconnect();
-
-        console.log('[VERIFY] Blockchain result:', bcResult);
 
         if (bcResult.valid !== undefined) {
           // Blockchain returned a definitive answer
@@ -275,7 +271,6 @@ const Verify_Credential = async (req, res, getContractAndGateway) => {
 
     // ✅ STEP 2: FALLBACK to CouchDB if blockchain didn't provide an answer
     if (!mainPayload) {
-      console.log('[VERIFY] Step 2: Falling back to CouchDB...');
       const searchId = normalizeCredentialId(credentialId);
       const adminCouch = nano(COUCHDB_URL);
       const userWalletDb = adminCouch.use('wallet_user_credentials');
@@ -406,8 +401,6 @@ const Verify_Credential = async (req, res, getContractAndGateway) => {
  */
 const getVerificationStats = async (req, res) => {
   try {
-    console.log('[VERIFY] Fetching verification statistics...');
-
     const adminCouch = nano(COUCHDB_URL);
     const userWalletDb = adminCouch.use('wallet_user_credentials');
 
@@ -435,8 +428,6 @@ const getVerificationStats = async (req, res) => {
         (c) => c.status === 'pending' || c.status === 'pending_blockchain',
       ).length,
     };
-
-    console.log('[VERIFY] Stats calculated:', stats);
 
     return res.status(200).json({
       success: true,
@@ -579,8 +570,6 @@ const logVerificationEvent = async (req, res, getContractAndGateway) => {
       source: resultSummary.source || '',
     });
 
-    console.log('[VERIFY-LOG] Creating verification log for credential:', credentialId);
-
     // Step 1: Choose Fabric identity/org for logging
     // You can later switch this to DLSU identity if you want.
     const identityName = 'admin';
@@ -665,13 +654,6 @@ const getAllVerificationLogs = async (req, res, getContractAndGateway) => {
     } else {
       identityName = 'admin';
     }
-
-    console.log(
-      '[VERIFY-LOGS] Using Fabric identity',
-      identityName,
-      'for user',
-      req.user ? `${req.user.id} (${req.user.role})` : 'NO-USER'
-    );
 
     // Step 2: Connect to blockchain
     const { gateway, contract } = await getContractAndGateway(identityName, orgName);

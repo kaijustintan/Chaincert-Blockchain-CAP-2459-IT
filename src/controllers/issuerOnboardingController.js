@@ -109,14 +109,6 @@ const issuerOnboardingController = {
         category
       } = req.body;
 
-      console.log('=== ISSUER REGISTRATION DEBUG START (authController) ===');
-      console.log('[1] orgName:', orgName);
-      console.log('[2] contactName:', contactName);
-      console.log('[3] email:', email);
-      console.log('[4] issuerType:', issuerType);
-      console.log('[5] rootAuthorityId:', rootAuthorityId);
-      console.log('[6] category:', category);
-
       if (!orgName || !contactName || !email || !password || !confirmPassword) {
         return res.status(400).json({
           success: false,
@@ -249,7 +241,6 @@ const issuerOnboardingController = {
         }
       }
 
-      console.log('[HASH] Hashing password...');
       const hashedPassword = await bcrypt.hash(password, 10);
 
       const docs = uploadedFiles.map(file => ({
@@ -272,8 +263,6 @@ const issuerOnboardingController = {
         rootAuthorityName: normalizedIssuerType === 'subordinate' ? rootAuthorityName : null,
         category: normalizedCategory
       };
-
-      console.log('[COUCHDB] Saving issuer registration (pending issuer application)...');
 
       let result;
       try {
@@ -374,9 +363,6 @@ const issuerOnboardingController = {
         }),
         text: `Dear ${issuerData.orgName || issuerData.contactName || 'Applicant'},\n\nThank you for registering as an issuer on ChainCert. Your application has been received and is now pending review.\n${nextStep}\n\nYou will be notified once a decision is made.`
       }, '[registerIssuer]');
-
-      console.log('[REGISTER ISSUER] ✅ Result:', result);
-      console.log('=== ISSUER REGISTRATION DEBUG END ===\n');
 
       return res.status(201).json({
         success: true,

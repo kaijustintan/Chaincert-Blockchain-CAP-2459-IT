@@ -152,15 +152,12 @@ export default function StudentDashboard() {
         }
 
         const holderID = storedUser._id;
-        console.log("[STUDENT DASHBOARD] Fetching dashboard data for holder:", holderID);
 
         const [credentialsData, notificationsResponse, unreadResponse] = await Promise.all([
           apiService.Get_UserCredentials(holderID),
           apiService.getUserNotifications(holderID),
           apiService.getUnreadUserNotifications(holderID)
         ]);
-
-        console.log("[STUDENT DASHBOARD] Credentials fetched:", credentialsData?.length);
 
         setCredentials(Array.isArray(credentialsData) ? credentialsData : []);
         setNotifications(
@@ -303,7 +300,6 @@ export default function StudentDashboard() {
         return;
       }
 
-      console.log("[STUDENT DASHBOARD] Fetching history for:", blockchainId);
       const result = await apiService.Get_CredentialHistory(blockchainId);
       const cleanHistory = (Array.isArray(result?.history) ? result.history : []).filter((entry) => {
         const id = entry?.credentialId || entry?.id || entry?.key || entry?.value?.credentialId || "";

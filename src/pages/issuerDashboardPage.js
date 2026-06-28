@@ -262,8 +262,6 @@ export default function IssuerDashboard() {
   const fetchCredentials = async () => {
     try {
       setLoading(true);
-      const user = JSON.parse(localStorage.getItem("user"));
-      console.log("Fetching ISSUED credentials for issuer:", user?.id);
       const data = await apiService.Get_IssuedCredentials();
       setCredentials(Array.isArray(data) ? data : []);
     } catch (err) {
@@ -1602,7 +1600,7 @@ export default function IssuerDashboard() {
                   )}
                 </div>
               </div>
-              <div className="form-group compact-form-group"><label>Expiry Date <span className="form-label-hint">(optional)</span></label><input type="date" name="expiryDate" value={issueForm.expiryDate} onChange={handleIssueFormChange} /* TEMP-TEST (F01): min={minIssueExpiryDate()} removed so past dates are selectable for expiry testing — RESTORE before demo */ /></div>
+              <div className="form-group compact-form-group"><label>Expiry Date <span className="form-label-hint">(optional)</span></label><input type="date" name="expiryDate" value={issueForm.expiryDate} onChange={handleIssueFormChange} min={minIssueExpiryDate()} /></div>
               {!issueConfirmStep && issueError && <div className="form-error">{issueError}</div>}
               <div className="form-actions">
                 <button type="submit" className="action-btn issue-btn">Issue Credential</button>

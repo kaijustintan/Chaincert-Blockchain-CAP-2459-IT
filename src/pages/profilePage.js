@@ -184,7 +184,6 @@ const [showAll, setShowAll] = useState(false);
         setHistoryLoading(false);
         return;
       }
-      console.log("[PROFILE PAGE] Fetching history for:", blockchainId);
       const result = await apiService.Get_CredentialHistory(blockchainId);
       const cleanHistory = (Array.isArray(result?.history) ? result.history : []).filter((entry) => {
         const id = entry?.credentialId || entry?.id || entry?.key || entry?.value?.credentialId || "";
@@ -304,7 +303,6 @@ const [showAll, setShowAll] = useState(false);
     setIsSaving(true);
     try {
       const trimmedName = editNameInput.trim();
-      console.log("[DEBUG] Saving profile with name:", trimmedName);
 
       // upload pending profile picture if one was selected
       if (pendingAvatar?.file) {

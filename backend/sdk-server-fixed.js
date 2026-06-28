@@ -352,10 +352,6 @@ const CONNECTION_CACHE_TTL = 5 * 60 * 1000;
     try { await contract.submitTransaction('LogIssuerApproval', ...); } finally { await gateway.disconnect(); }
 */
 async function getContractAndGateway(identityName, orgName) {
-  console.log('\n[getContractAndGateway][DEBUG] called with:', { identityName, orgName });
-  console.log('[getContractAndGateway][DEBUG] __dirname =', __dirname);
-  console.log('[getContractAndGateway][DEBUG] cwd =', process.cwd());
-
   if (!identityName || !orgName) {
     throw new Error('identityName and orgName are required');
   }
@@ -390,8 +386,6 @@ async function getContractAndGateway(identityName, orgName) {
     );
   }
 
-  console.log('[getContractAndGateway][DEBUG] ccpPath =', ccpPath);
-
   if (!fs.existsSync(ccpPath)) {
     throw new Error(`Connection profile not found at: ${ccpPath}`);
   }
@@ -399,15 +393,11 @@ async function getContractAndGateway(identityName, orgName) {
   const ccpJSON = fs.readFileSync(ccpPath, 'utf8');
   const ccp = JSON.parse(ccpJSON);
 
-  console.log('[getContractAndGateway][DEBUG] walletPath =', walletPath);
-
   const wallet = await Wallets.newFileSystemWallet(walletPath);
   const identity = await wallet.get(identityName);
   if (!identity) throw new Error(`Identity ${identityName} not found`);
 
   const gateway = new Gateway();
-
-  console.log('[getContractAndGateway][DEBUG] connecting gateway...');
 
   await gateway.connect(ccp, {
     wallet,
@@ -417,10 +407,6 @@ async function getContractAndGateway(identityName, orgName) {
 
   const network = await gateway.getNetwork('chaincert-channel');
   const contract = network.getContract('chaincert');
-
-  console.log('[getContractAndGateway][DEBUG] ✅ returning { gateway, contract }');
-  console.log('[getContractAndGateway][DEBUG] gateway exists =', !!gateway);
-  console.log('[getContractAndGateway][DEBUG] contract exists =', !!contract, '\n');
 
   cachedGateway = gateway;
   lastConnectionTime = Date.now();

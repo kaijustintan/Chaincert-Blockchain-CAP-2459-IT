@@ -139,7 +139,6 @@ CAP-2459-IT-AFTER-RESET/
 │   │   ├── navBar_Guest/
 │   │   ├── adminProtectedRoutes.js
 │   │   ├── appToast.js
-│   │   ├── button.js
 │   │   ├── credentialCard.js
 │   │   ├── footer.js
 │   │   ├── navBar_User.js
@@ -178,7 +177,6 @@ CAP-2459-IT-AFTER-RESET/
 │   │   ├── settingsPage.js
 │   │   ├── shareCredentialPage.js
 │   │   ├── studentDashboard.js
-│   │   ├── TestPage.js
 │   │   ├── transcript.js
 │   │   └── verifierDashboard.js
 │   │

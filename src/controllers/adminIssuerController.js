@@ -95,11 +95,6 @@ const ensureIssuerFabricIdentityExists = async (issuerDoc) => {
   const identityFilePath = path.join(walletPath, `${identityName}.id`);
   const identityDirPath = path.join(walletPath, identityName);
 
-  console.log('[Approve_Issuer][FabricCheck] Checking identity:', identityName);
-  console.log('[Approve_Issuer][FabricCheck] Resolved wallet path:', walletPath);
-  console.log('[Approve_Issuer][FabricCheck] File exists:', fs.existsSync(identityFilePath), identityFilePath);
-  console.log('[Approve_Issuer][FabricCheck] Directory exists:', fs.existsSync(identityDirPath), identityDirPath);
-
   if (fs.existsSync(identityFilePath) || fs.existsSync(identityDirPath)) {
     return identityName;
   }
@@ -108,11 +103,6 @@ const ensureIssuerFabricIdentityExists = async (issuerDoc) => {
   const identity = await wallet.get(identityName);
 
   if (!identity) {
-    const availableWalletEntries = fs.existsSync(walletPath)
-      ? fs.readdirSync(walletPath).filter((entry) => entry.includes(identityName) || entry.endsWith('.id'))
-      : [];
-    console.log('[Approve_Issuer][FabricCheck] Matching wallet entries:', availableWalletEntries);
-
     const err = new Error(`Fabric identity '${identityName}' was not found in the wallet. Please create/enroll this identity before approving the issuer.`);
     err.statusCode = 400;
     throw err;
@@ -720,18 +710,7 @@ const adminIssuerController = {
         const identityName = 'chaincert-admin';
         const orgName = 'Org1';
 
-        console.log('\n[Disable_Issuer][DEBUG] typeof getContractAndGateway =', typeof getContractAndGateway);
-        console.log('[Disable_Issuer][DEBUG] identityName =', identityName, '| orgName =', orgName);
-        console.log('[Disable_Issuer][DEBUG] issuerId =', issuerId, '| issuerEmail =', issuer.email);
-        console.log('[Disable_Issuer][DEBUG] about to call getContractAndGateway...\n');
-
         const cg = await getContractAndGateway(identityName, orgName);
-
-        console.log('\n[Disable_Issuer][DEBUG] getContractAndGateway returned:', cg);
-        console.log('[Disable_Issuer][DEBUG] cg type =', typeof cg);
-        console.log('[Disable_Issuer][DEBUG] cg keys =', cg ? Object.keys(cg) : null);
-        console.log('[Disable_Issuer][DEBUG] cg.gateway exists =', !!(cg && cg.gateway));
-        console.log('[Disable_Issuer][DEBUG] cg.contract exists =', !!(cg && cg.contract), '\n');
 
         if (!cg || !cg.gateway || !cg.contract) {
           throw new Error('getContractAndGateway returned an invalid connection object');

@@ -122,7 +122,6 @@ export default function CreateAccount() {
   const submitUser = async (e) => {
     e.preventDefault();
     setUserError("");
-    console.log("USER SUBMIT FIRED", user);
 
     if (user.password !== user.confirmPassword) {
       setUserError("User passwords do not match.");
@@ -139,7 +138,6 @@ export default function CreateAccount() {
 
     setUserLoading(true);
     try {
-      console.log("CALLING USER REGISTRATION API");
       const response = await apiService.registerUser({
         username: user.fullName,
         email: user.email,
@@ -160,7 +158,6 @@ export default function CreateAccount() {
         );
       }
     } catch (err) {
-      console.log("USER REGISTRATION ERROR", err);
       setUserError(err.response?.data?.message || "Registration failed.");
     } finally {
       setUserLoading(false);
@@ -534,8 +531,6 @@ const getDocumentDescription = (docKey) => {
     }
 
     try {
-      console.log("CALLING ISSUER REGISTRATION API");
-
       const formData = new FormData();
       formData.append("orgName", issuer.orgName);
       formData.append("contactName", issuer.contactName);

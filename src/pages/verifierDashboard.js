@@ -125,7 +125,6 @@ export default function VerifierDashboard() {
             }),
             verifierToken
           );
-          console.log('[VERIFY] On-chain log written successfully');
         } catch (logErr) {
           if (logErr.response?.status === 401) {
             resetVerifierEmail();
@@ -154,7 +153,6 @@ export default function VerifierDashboard() {
             JSON.stringify({ valid: false, reason: 'Credential not found', status: 'not_found', source: 'not_found' }),
             verifierToken
           );
-          console.log('[VERIFY] Not-found attempt logged on-chain');
         } catch (logErr) {
           if (logErr.response?.status === 401) {
             resetVerifierEmail();

@@ -95,7 +95,6 @@ exports.Create_CredentialTemplate = async (req, res, getContractAndGateway) => {
     // ✅ Generate unique credential ID
     const credentialId = `cred_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
     const issuerId = req.user.id;
-    console.log(`\n📝 [CREDENTIAL] Starting creation for ID: ${credentialId}`);
 
     // =====================================================
     // STEP 1: RESOLVE ISSUER IDENTITY (for blockchain)
@@ -141,8 +140,6 @@ exports.Create_CredentialTemplate = async (req, res, getContractAndGateway) => {
     
     // 🔥 CRITICAL FIX: Normalize orgName to lowercase with no spaces!
     orgName = issuerDoc.orgName.toLowerCase().replace(/\s+/g, '');
-    
-    console.log(` Identity: ${identityName}, Org: ${orgName} (normalized from: ${issuerDoc.orgName})`);
 
     // =====================================================
     // STEP 2: SAVE TO BLOCKCHAIN (First!)
@@ -163,8 +160,6 @@ exports.Create_CredentialTemplate = async (req, res, getContractAndGateway) => {
     */
     let blockchainCredential;
     try {
-      console.log(`📡 [BLOCKCHAIN] Saving credential...`);
-
       // ✅ CRITICAL: getContractAndGateway must be passed from sdk-server-fixed.js
       if (!getContractAndGateway) {
         throw new Error('getContractAndGateway function not provided');
@@ -186,7 +181,6 @@ exports.Create_CredentialTemplate = async (req, res, getContractAndGateway) => {
       );
 
       blockchainCredential = JSON.parse(result.toString());
-      console.log(`✅ [BLOCKCHAIN] Credential saved successfully`);
 
       /* Step 5.1: Disconnect gateway
 
@@ -225,8 +219,6 @@ exports.Create_CredentialTemplate = async (req, res, getContractAndGateway) => {
     */
     let couchdbResult;
     try {
-      console.log(`💾 [COUCHDB] Saving credential...`);
-
       if (!issuerDoc || !issuerDoc.couchDBUrl) {
         throw new Error('Issuer CouchDB URL not configured');
       }
@@ -257,8 +249,6 @@ exports.Create_CredentialTemplate = async (req, res, getContractAndGateway) => {
         issuerDoc,
         credentialDoc
       ); // CHANGES - unified DB access
-
-      console.log(`✅ [COUCHDB] Credential saved successfully`);
 
     } catch (couchdbError) {
       console.error(`❌ [COUCHDB] Error:`, couchdbError.message);
@@ -486,7 +476,6 @@ exports.Issue_Credential = async (req, res, getContractAndGateway) => {
       Tropang Ex:
       Kumokonek tayo sa Fabric gamit yung tamang signer.
     */
-    console.log(`[ISSUE] Issuing credential on blockchain...`);
     const { gateway, contract } = await getContractAndGateway(identityName, orgName);
 
     /* Step 6: Submit IssueCredential transaction to BLOCKCHAIN
@@ -528,8 +517,6 @@ exports.Issue_Credential = async (req, res, getContractAndGateway) => {
       After blockchain, gumawa tayo ng fast-copy sa databases for dashboards + verification.
     */
     try {
-      console.log(`[ISSUE] Saving issued credential to BOTH CouchDB databases...`);
-
       /* Step 9A: Optional enrichment (badgeImage + skills) from issuer template cache
          Technical:
          These fields may not exist in blockchain, so we pull from issuer CouchDB template doc.
@@ -612,8 +599,6 @@ exports.Issue_Credential = async (req, res, getContractAndGateway) => {
         user.email,
         credentialDataExtended
       );
-
-      console.log(`[ISSUE] ✅ CouchDB save successful:`, couchResult.message);
 
       try {
         await couchdbService.Create_CredentialNotification(holderID, {
@@ -962,11 +947,6 @@ exports.Get_CredentialHistory = async (req, res, getContractAndGateway) => {
     const issuerId = req.user.id;
     const { credentialId } = req.query; // Optional search filter
 
-    console.log(`\n📊 [HISTORY] Fetching credential history for issuer: ${issuerId}`);
-    if (credentialId) {
-      console.log(`🔍 [HISTORY] Search filter applied: ${credentialId}`);
-    }
-
     // =====================================================
     // STEP 1: RESOLVE ISSUER IDENTITY (for blockchain)
     // =====================================================
@@ -1007,7 +987,6 @@ exports.Get_CredentialHistory = async (req, res, getContractAndGateway) => {
     // 🔥 CRITICAL: Normalize orgName to lowercase with no spaces
     orgName = issuerDoc.orgName.toLowerCase().replace(/\s+/g, '');
 
-    console.log(`✅ [HISTORY] Identity: ${identityName}, Org: ${orgName}`);
 
     // =====================================================
     // STEP 2: QUERY BLOCKCHAIN FOR HISTORY
@@ -1024,8 +1003,6 @@ exports.Get_CredentialHistory = async (req, res, getContractAndGateway) => {
     */
     let rawHistory;
     try {
-      console.log(`📡 [HISTORY] Querying blockchain...`);
-
       if (!getContractAndGateway) {
         throw new Error('getContractAndGateway function not provided');
       }
@@ -1038,7 +1015,6 @@ exports.Get_CredentialHistory = async (req, res, getContractAndGateway) => {
       );
 
       rawHistory = JSON.parse(result.toString());
-      console.log(`✅ [HISTORY] Blockchain query successful. Found ${rawHistory.length} credentials.`);
 
       await gateway.disconnect();
 
@@ -1066,7 +1042,6 @@ exports.Get_CredentialHistory = async (req, res, getContractAndGateway) => {
        Imbes na grouped by credential, gusto natin isang timeline
        ng LAHAT ng nangyari sorted by date.
     */
-    console.log(`🔄 [HISTORY] Flattening and sorting history entries...`);
 
     const allHistoryEntries = [];
 
@@ -1093,8 +1068,6 @@ exports.Get_CredentialHistory = async (req, res, getContractAndGateway) => {
     allHistoryEntries.sort((a, b) =>
       new Date(b.timestamp) - new Date(a.timestamp)
     );
-
-    console.log(`✅ [HISTORY] Flattened ${allHistoryEntries.length} total history entries.`);
 
     // =====================================================
     // STEP 3.5: ENRICH WITH HOLDER NAME (Prefer wallet_user_credentials snapshot)
@@ -1180,10 +1153,6 @@ exports.Get_CredentialHistory = async (req, res, getContractAndGateway) => {
         entry.holderName = hid ? (holderNameCache[hid] || null) : null;
       });
 
-      console.log(
-        `✅ [HISTORY] Enriched history entries with holderName for ${holderIdArray.length} unique holders.`
-      );
-
     } catch (enrichErr) {
       console.error('⚠️ [HISTORY] Error enriching holder names:', enrichErr.message);
       // Non-fatal: continue without holderName if something fails
@@ -1208,7 +1177,6 @@ exports.Get_CredentialHistory = async (req, res, getContractAndGateway) => {
       filteredHistory = allHistoryEntries.filter(
         entry => (entry.credentialId || '').includes(credentialId)
       );
-      console.log(`🔍 [HISTORY] Filtered to ${filteredHistory.length} entries matching: ${credentialId}`);
     }
 
     // =====================================================
@@ -1219,7 +1187,6 @@ exports.Get_CredentialHistory = async (req, res, getContractAndGateway) => {
        Tropang Ex:
        Ibinabalik na yung sorted history, ready for display sa UI.
     */
-    console.log(`✅ [HISTORY] Returning ${filteredHistory.length} history entries.\n`);
 
     return res.status(200).json({
       success: true,
@@ -1325,7 +1292,6 @@ exports.revoke_Credential = async (req, res, getContractAndGateway) => {
     }
 
     /* Step 4: Connect to blockchain as resolved identity/org */
-    console.log(`[REVOKE] Revoking credential on blockchain...`);
     const { gateway, contract } = await getContractAndGateway(identityName, orgName);
 
     /* Step 5: Submit RevokeCredential transaction to BLOCKCHAIN
@@ -1353,15 +1319,11 @@ exports.revoke_Credential = async (req, res, getContractAndGateway) => {
        - issuerEmail = user.email (current issuer/admin actor)
     */
     try {
-      console.log(`[REVOKE] Updating CouchDB copies (issuer + admin)...`);
-
       const couchResult = await couchdbService.Revoke_Credential_DB(
         revokedCredential.id,   // blockchainId (cred_...)
         user.email,             // issuerEmail
         rejectionReason || ''        // - polo
       );
-
-      console.log(`[REVOKE] ✅ CouchDB revoke successful`);
 
       // In-app revocation notification to holder
       try {
@@ -1374,7 +1336,6 @@ exports.revoke_Credential = async (req, res, getContractAndGateway) => {
           message: `Your credential "${revokedCredential.credentialName || revokedCredential.credentialType}" has been revoked${rejectionReason ? `: ${rejectionReason}` : '.'}`,
           notificationType: 'credential_revoked'
         });
-        console.log('[REVOKE] ✅ Revocation notification sent to holder:', revokedCredential.holderID);
       } catch (notifErr) {
         console.warn('[REVOKE] Notification failed (non-fatal):', notifErr.message);
       }
@@ -1628,7 +1589,6 @@ exports.getCredentialTemplates = async (req, res, getContractAndGateway) => {
 exports.getIssuerCredentials = async (req, res) => {
   try {
     const { issuerId } = req.params;
-    console.log(`[AUTHCONTROLLER] Fetching credentials for issuer: ${issuerId}`);
 
     if (!issuerId) {
       return res.status(400).json({
@@ -1638,7 +1598,6 @@ exports.getIssuerCredentials = async (req, res) => {
     }
 
     const credentialsData = await couchdbService.getIssuerCredentials(issuerId);
-    console.log(`[AUTHCONTROLLER] Credentials data received:`, credentialsData);
 
     if (!credentialsData || !credentialsData.credentials || credentialsData.credentials.length === 0) {
       return res.status(200).json({

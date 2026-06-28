@@ -431,7 +431,6 @@ getIssuerRequirementsByCategory: async (category) => {
    */
   getAllUsers: async () => {
     try {
-      console.log("Fetching all users for recipient dropdown...");
       const response = await axios.get('/auth/users');
       return response.data.users || []; // Backend returns { success: true, users: [...] }
     } catch (error) {

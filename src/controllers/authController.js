@@ -13,14 +13,9 @@ const DUMMY_BCRYPT_HASH = bcrypt.hashSync('chaincert-timing-equalizer', 10);
 const authController = {
   register: async (req, res) => {
     try {
-      console.log('🔥 HIT /api/auth/register, body =', req.body);
-
       const { username, email, password, role, org } = req.body;
 
-      console.log('🧪 Extracted fields:', { username, email, hasPassword: !!password, role, org });
-
       if (!username || !password || !email) {
-        console.log('❌ Missing required fields in register');
         return res.status(400).json({
           success: false,
           message: 'Username, password, and email are required'
@@ -44,9 +39,7 @@ const authController = {
         });
       }
 
-      console.log('🔐 Hashing password...');
       const hashedPassword = await bcrypt.hash(password, 10);
-      console.log('🔐 Password hashed');
 
       const userData = {
         type: 'user',
@@ -59,13 +52,8 @@ const authController = {
         isActive: true
       };
 
-      console.log('📦 Built userData =', { ...userData, password: '***hidden***' });
-
-      console.log('💾 Calling couchDB.saveUser...');
       const result = await couchDB.saveUser(userData);
-      console.log('✅ couchDB.saveUser result =', result);
 
-      console.log('✅ Sending 201 response for register');
       return res.status(201).json({
         success: true,
         message: 'User registered successfully',

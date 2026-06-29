@@ -107,18 +107,26 @@ const adminAuditController = {
       const orgName = 'Org1';
 
       if (typeof getContractAndGateway === 'function') {
-        const cg = await getContractAndGateway(identityName, orgName);
-        gateway = cg.gateway;
-        const contract = cg.contract;
+        // Blockchain log is best-effort: the CouchDB status change already succeeded above.
+        // A Fabric failure here must NOT 500 the admin — return a partial-success warning
+        // instead (mirrors adminIssuerController.Disable_Issuer and the dual-write contract).
+        try {
+          const cg = await getContractAndGateway(identityName, orgName);
+          gateway = cg.gateway;
+          const contract = cg.contract;
 
-        await contract.submitTransaction(
-          'LogUserStatusChange',
-          user.email,
-          previousStatus,
-          'disabled',
-          reason,
-          adminEmail
-        );
+          await contract.submitTransaction(
+            'LogUserStatusChange',
+            user.email,
+            previousStatus,
+            'disabled',
+            reason,
+            adminEmail
+          );
+        } catch (chainErr) {
+          blockchainLogWarning = `User disabled in database, but blockchain log failed: ${chainErr.message}`;
+          console.error('[Disable_User] blockchain log failed (non-fatal):', chainErr.message);
+        }
       }
 
       return res.status(200).json({
@@ -208,18 +216,26 @@ const adminAuditController = {
       const orgName = 'Org1';
 
       if (typeof getContractAndGateway === 'function') {
-        const cg = await getContractAndGateway(identityName, orgName);
-        gateway = cg.gateway;
-        const contract = cg.contract;
+        // Blockchain log is best-effort: the CouchDB status change already succeeded above.
+        // A Fabric failure here must NOT 500 the admin — return a partial-success warning
+        // instead (mirrors adminIssuerController.Enable_Issuer and the dual-write contract).
+        try {
+          const cg = await getContractAndGateway(identityName, orgName);
+          gateway = cg.gateway;
+          const contract = cg.contract;
 
-        await contract.submitTransaction(
-          'LogUserStatusChange',
-          user.email,
-          previousStatus,
-          'active',
-          reason,
-          adminEmail
-        );
+          await contract.submitTransaction(
+            'LogUserStatusChange',
+            user.email,
+            previousStatus,
+            'active',
+            reason,
+            adminEmail
+          );
+        } catch (chainErr) {
+          blockchainLogWarning = `User re-enabled in database, but blockchain log failed: ${chainErr.message}`;
+          console.error('[Enable_User] blockchain log failed (non-fatal):', chainErr.message);
+        }
       }
 
       return res.status(200).json({

@@ -401,13 +401,22 @@ const issuerOnboardingController = {
         });
       }
 
-     const requirements = ISSUER_CATEGORY_REQUIREMENTS[category];
+      const requirements = ISSUER_CATEGORY_REQUIREMENTS[category];
 
-        const requirementDetails = requirements.map((key) => ({
-          key,
-          label: ISSUER_REQUIREMENT_METADATA[key]?.label || key,
-          description: ISSUER_REQUIREMENT_METADATA[key]?.description || ""
-        }));
+      // Guard: an unknown/misspelled category yields undefined here — return a clean 400
+      // instead of letting .map() throw into a generic 500 (matches registerIssuer's guard).
+      if (!requirements) {
+        return res.status(400).json({
+          success: false,
+          message: 'Invalid category.'
+        });
+      }
+
+      const requirementDetails = requirements.map((key) => ({
+        key,
+        label: ISSUER_REQUIREMENT_METADATA[key]?.label || key,
+        description: ISSUER_REQUIREMENT_METADATA[key]?.description || ""
+      }));
 
         return res.status(200).json({
           success: true,

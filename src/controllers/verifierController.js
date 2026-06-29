@@ -199,6 +199,7 @@ const Verify_Credential = async (req, res, getContractAndGateway) => {
             credentialID: credentialId,
             credentialType: c.credentialType || undefined,
             credentialName: c.credentialName || undefined,
+            issuerID: c.issuerID || undefined,
             issuerName: c.issuerID || c.issuerName || undefined,
             holderID: c.holderID || undefined,
             status: chainStatus,

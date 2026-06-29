@@ -971,6 +971,7 @@ async GetAllVerificationLogs(ctx) {
   // buuin natin ulit sa canonical / fixed field order para deterministic ang ProposalResponsePayload.
   const updatedCredential = {
     id: credential.id,
+    templateId: credential.templateId,        // preserve link to template (was dropped on revoke)
     holderID: credential.holderID,
     issuerID: credential.issuerID,
     credentialType: credential.credentialType,
@@ -981,6 +982,7 @@ async GetAllVerificationLogs(ctx) {
     expiryDate: credential.expiryDate || '',
     assignedDate: credential.assignedDate,
     metadata: credential.metadata,
+    skills: credential.skills || [],          // preserve badge skills (was dropped on revoke)
     version: credential.version,
     isTemplate: credential.isTemplate,
     txId: credential.txId,
@@ -1050,6 +1052,7 @@ async GetAllVerificationLogs(ctx) {
     */
     const updatedCredential = {
       id: credential.id,
+      templateId: credential.templateId,        // preserve link to template (was dropped on expire)
       holderID: credential.holderID,
       issuerID: credential.issuerID,
       credentialType: credential.credentialType,
@@ -1060,6 +1063,7 @@ async GetAllVerificationLogs(ctx) {
       expiryDate: credential.expiryDate || '',
       assignedDate: credential.assignedDate,
       metadata: credential.metadata,
+      skills: credential.skills || [],          // preserve badge skills (was dropped on expire)
       version: credential.version,
       isTemplate: credential.isTemplate,
       txId: credential.txId,
@@ -2213,7 +2217,8 @@ async LogAdminChangePassword(ctx, adminEmail, changeType, reason, actingAdminEma
    throw new Error("actingAdminEmail is required");
  }
 
- // reason is OPTIONAL for this log (unlike disable/enable); keep it best-effort reason = reason || "";
+ // reason is OPTIONAL for this log (unlike disable/enable); keep it best-effort
+ reason = reason || "";
 
  const txTimestamp = ctx.stub.getTxTimestamp();
  const timestamp = new Date(
@@ -2221,7 +2226,7 @@ async LogAdminChangePassword(ctx, adminEmail, changeType, reason, actingAdminEma
  ).toISOString();
 
  const txId = ctx.stub.getTxID();
- const logId = `admin\_pwdchg\_${txId}`;
+ const logId = `admin_pwdchg_${txId}`;
 
  const log = {
    id: logId,

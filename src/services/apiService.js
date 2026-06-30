@@ -2506,10 +2506,6 @@ GetRootSubordinateRejectionLogsByRootAuthority: async () => {
       console.error('Error fetching my share links:', error.response?.data?.message || error.message);
       throw error;
     }
-  },
-
-  getApiBaseUrl: () => {
-    return axios.defaults.baseURL || 'http://localhost:4000';
   }
 };
 

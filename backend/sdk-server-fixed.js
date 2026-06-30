@@ -85,7 +85,7 @@ const app = express();
 // ==========================================================================================================================================================================
 
 app.use(cors({
-  origin: 'http://localhost:3000',
+  origin: process.env.CORS_ORIGIN || 'http://localhost:3000',
   credentials: true
 }));
 
@@ -265,9 +265,6 @@ if (process.env.DISABLE_PASSWORD_POLICY === 'true') {
 // ==========================================================================================================================================================================
 
 const docker = new Docker({ socketPath: '/var/run/docker.sock' });
-
-const FABRIC_SAMPLES_PATH = '/home/kaitanz_/fabric-samples/fabric-samples';
-const CORE_YAML_PATH = `${FABRIC_SAMPLES_PATH}/config/core.yaml`;
 
 couchdb.initializeDatabases().catch(err => {
   console.error('⚠️  CouchDB init error:', err.message);

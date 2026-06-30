@@ -21,6 +21,7 @@
     "helmet": "^8.0.0",
     "jsonwebtoken": "^9.0.2",
     "multer": "^2.0.2",
+    "nano": "^10.0.0",
     "node-cron": "^4.2.1",
     "nodemailer": "^8.0.2"
   }

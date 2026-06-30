@@ -2,6 +2,8 @@
 
 # Backend Files That Run in Ubuntu | Copy Commands
 
+> **VM deployment (CAP2):** do NOT run these by hand on the VM — use **`deploy-sync.sh`** (repo root). It performs this entire source→runtime copy idempotently for the **Plan 2 layout** (`~/chaincert-src` → `~/chaincert-api` + `~/chaincert-chaincode`), applies the connection-profile + `docker.sock` patches, and **never touches `wallet/` or `.env`**. The list below remains the canonical reference for **LOCAL** Windows→WSL single-file syncs during dev.
+
 ## Updated Outline — Backend Files and Locations
 
 ### 1. Chaincode file (Ubuntu)

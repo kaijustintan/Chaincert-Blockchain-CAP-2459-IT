@@ -249,7 +249,7 @@ const accountController = {
 
     EXAMPLE
       POST /api/auth/profile-share/generate  body { recipientEmail:"hr@co.com", durationDays:"7" }
-      → 200 { success:true, shareUrl:"http://localhost:3000/profile/<token>", token:"<token>" }
+      → 200 { success:true, shareUrl:"<FRONTEND_URL>/profile/<token>", token:"<token>" }
   */
   generateShareLink: async (req, res) => {
     try {
@@ -279,7 +279,7 @@ const accountController = {
         description
       });
 
-      const shareUrl = `http://localhost:3000/profile/${token}`;
+      const shareUrl = `${process.env.FRONTEND_URL || 'http://localhost:3000'}/profile/${token}`;
 
       return res.status(200).json({
         success: true,
@@ -785,7 +785,7 @@ const accountController = {
         return res.status(200).json({
           success: true,
           message: 'Public share link ready.',
-          shareUrl: `http://localhost:3000/profile/${existing.token}`,
+          shareUrl: `${process.env.FRONTEND_URL || 'http://localhost:3000'}/profile/${existing.token}`,
           token: existing.token,
           reused: true
         });
@@ -800,7 +800,7 @@ const accountController = {
         description
       });
 
-      const shareUrl = `http://localhost:3000/profile/${token}`;
+      const shareUrl = `${process.env.FRONTEND_URL || 'http://localhost:3000'}/profile/${token}`;
 
       return res.status(200).json({
         success: true,

@@ -54,7 +54,7 @@ const formatPhilippineDate = (value) => {
 const sanitizeFilename = (s) => String(s || '').replace(/[\\/:*?"<>|]/g, '').replace(/\s+/g, ' ').trim();
 
 const buildVerifyUrl = (credential) =>
-  `http://localhost:3000/verifier/dashboard?credentialId=${credential.blockchainId || ''}`;
+  `${process.env.REACT_APP_FRONTEND_URL || 'http://localhost:3000'}/verifier/dashboard?credentialId=${credential.blockchainId || ''}`;
 
 // Human-readable status + its color (issued → "Active"). Used everywhere status is shown.
 function statusDisplay(status) {

@@ -24,9 +24,11 @@
 
 ---
 
-## Source-code changes for deployment — NOT yet applied (do in the finalized CAP2 repo)
+## Source-code changes for deployment — ✅ APPLIED (June 30 2026, AFTER-Defense)
 
-**Core rule:** *frontend* code runs in the browser, so `localhost` = the user's PC (WRONG). *Backend* code runs on the VM, so `localhost` for CouchDB (`:5985`) / Fabric peers = the VM itself (FINE — leave alone).
+**DONE (this section is now history):** all URLs/paths below are env-driven; dead `getApiBaseUrl` + dead `FABRIC_SAMPLES_PATH`/`CORE_YAML_PATH` removed; `backend/package.json` gained the missing **`nano`** dep; added **`deploy-sync.sh`** + `backend/.env.example` + `.env.production.example` (+ `.gitignore` now ignores `.env.production` / `backend/.env`). VM layout = **Plan 2 clean split** (source `~/chaincert-src` → runtime `~/chaincert-api` + `~/chaincert-chaincode` via `deploy-sync.sh`; wallet/`.env` persist in the runtime dir, untouched by re-sync; no symlink needed). Env vars introduced: `REACT_APP_API_URL`, `REACT_APP_FRONTEND_URL` (frontend build) + `CORS_ORIGIN`, `FRONTEND_URL` (backend `.env`). `forgotPassword.js` kept raw `fetch` (only the base URL swapped). The DLSU connection profile's `/home/` paths are auto-patched by `deploy-sync.sh`; the Docker-29 org2 `docker.sock` fix is folded into it too.
+
+**Core rule (still the principle):** *frontend* code runs in the browser, so `localhost` = the user's PC (WRONG). *Backend* code runs on the VM, so `localhost` for CouchDB (`:5985`) / Fabric peers = the VM itself (FINE — leave alone).
 
 ### 1. localhost URLs + CORS
 | File | What |
@@ -46,7 +48,7 @@
 | Location | Issue | Fix |
 |---|---|---|
 | `backend/sdk-server-fixed.js:269` (+`:270` `CORE_YAML_PATH`) | `FABRIC_SAMPLES_PATH = '/home/kaitanz_/…'` | `process.env.FABRIC_SAMPLES_PATH \|\| path.resolve(__dirname,'..','fabric-samples','fabric-samples')` (matches the already-correct pattern at `:367`) |
-| `backend/node_creation/dlsu/connection-delasalleuniversity.json` | 7 frozen `/home/kaitanz_/` TLS-cert paths (lines 28–96) | On the VM **use the `network.sh up`-generated profile; do NOT cp the committed copy over it** |
+| `backend/node_creation/dlsu/connection-delasalleuniversity.json` | 7 frozen `/home/kaitanz_/` TLS-cert paths (lines 28–96) | **cp the committed file** (it's the canonical workflow — Copy Commands §10, Installation Manual). It is a **hand-made multi-org profile** (`name: DLSU-MultiOrg`; statically lists Org1+Org2 peers so DLSU submits auto-collect Org1 co-endorsement — see Node Creation for DLSU §18). A `network.sh`-generated single-org profile would FAIL DLSU's endorsement policy → **do NOT regenerate.** After cp, patch the 7 `/home/kaitanz_/` paths for the VM user (sed, or templatize with `${FABRIC_SAMPLES_PATH}`). |
 
 - Everything else is `__dirname`/`$HOME`-relative (portable).
 - **BIGGEST TRAP — folder shape:** all relative paths assume the **double-nested** `~/fabric-samples/fabric-samples/` layout. The VM must replicate it, **or** normalize to single-level `~/fabric-samples/` and drop one `fabric-samples` segment in code. (Layout-dependence > username-dependence.)
@@ -96,4 +98,4 @@ HTTPS/TLS + HSTS (M10) · CouchDB creds `admin:adminpw` → env (M11) · JWT in 
 
 1. Get **C1 + C4** from groupmates (C1 via DevTools, C4 via `ls ~/fabric-samples`).
 2. Do the **localhost + CORS env-var refactor now** (value-independent), then the **path fix** once C4 lands.
-3. Finalize repo → groupmates **re-clone** + create `.env` (security toggles + `JWT_SECRET`) + **regenerate wallets** + use the generated connection profile → `npm run build` → working app for remote users.
+3. Finalize repo → groupmates **re-clone** + create `.env` (security toggles + `JWT_SECRET`) + **regenerate wallets** + **cp the committed multi-org connection profile then patch its `/home/` path** (NOT the generated single-org one — see §2) → `npm run build` → working app for remote users.

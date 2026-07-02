@@ -47,7 +47,7 @@ We finalized the **canonical `AFTER-Defense` repo** so a fresh clone deploys cle
 Part A (source env-var): **DONE** · Part B (tooling/docs): **DONE** · Committed: **DONE** · Part C (VM run): **NOT STARTED** (commands issued, awaiting execution).
 
 ## Next session — START HERE (drive the VM deploy, phase-by-phase)
-The user is SSH'd into the VM (`ssh -p 20172 -o ServerAliveInterval=60 chaincert@ccscloud.dlsu.edu.ph`, pw `Chaincert2026!`) **via phone hotspot** (office WiFi firewalls port 20172 — confirmed). Reuse the proven Fabric 2.5.16 runbook in `docs/Claude Reference - MD Files/CAP2 - Deployment Status & Pending.md` + the groupmates' Complete Deployment Guide.
+The user is SSH'd into the VM (`ssh -p 20172 -o ServerAliveInterval=60 chaincert@ccscloud.dlsu.edu.ph`, pw `<VM_SSH_PASSWORD — kept out of git; ask the team>`) **via phone hotspot** (office WiFi firewalls port 20172 — confirmed). Reuse the proven Fabric 2.5.16 runbook in `docs/Claude Reference - MD Files/CAP2 - Deployment Status & Pending.md` + the groupmates' Complete Deployment Guide.
 
 **Step 0 (off-VM):** `git push origin AFTER-Defense`; have a GitHub PAT (private repo `kaijustintan/CAP-2459-IT`).
 **Step 1 — teardown (⚠️ wipes CAP1 demo):** `pm2 delete all`; `cd ~/fabric-samples/fabric-samples/test-network && ./network.sh down`; `docker stop/rm -f $(docker ps -aq)`; `docker volume rm $(docker volume ls -q)`; `docker network prune -f`; `rm -rf ~/chaincert-deploy`.

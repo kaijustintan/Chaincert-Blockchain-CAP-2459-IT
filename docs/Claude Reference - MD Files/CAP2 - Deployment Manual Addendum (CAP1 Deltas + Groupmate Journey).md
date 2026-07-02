@@ -188,6 +188,11 @@ the `DOCKER_API_VERSION` line from `~/.bashrc`, then `sudo systemctl restart doc
 **Phase 3 — Clone canonical + sync** (B4): `git clone -b AFTER-Defense …` then `deploy-sync.sh`
 (it will print "skip connection profile" — correct, DLSU org not created yet). **Verify:**
 `ls ~/chaincert-api` + `ls ~/chaincert-chaincode` populated.
+- **Then trim the VM footprint:** `rm -rf ~/chaincert-src/docs` — the `docs/` tree (manuals, defense
+  material, ops notes) has **zero runtime need** on the VM and keeps internal reference off a shared
+  box. Nginx only serves `build/`, so docs were never web-exposed, but there's no reason to keep them
+  on the deployment host. (Do NOT gitignore/untrack them — they belong in the repo; just don't ship
+  them here.)
 
 **Phase 4 — Admin CouchDB `:5985` + databases** (CAP1 manual). **Verify:** the 7 DBs return on
 `_all_dbs`.

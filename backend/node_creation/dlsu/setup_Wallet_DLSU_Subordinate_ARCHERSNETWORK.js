@@ -8,7 +8,7 @@ async function main() {
 
     const credPath = path.join(
       process.env.HOME,
-      'fabric-samples/fabric-samples/test-network/organizations/peerOrganizations/dlsu.example.com/users/SubordinateINNOCENCIO@dlsu.example.com/msp'
+      'fabric-samples/fabric-samples/test-network/organizations/peerOrganizations/dlsu.example.com/users/delasalleuniversity-subordinate-archersnetwork@dlsu.example.com/msp'
     );
 
     const certificate = fs.readFileSync(
@@ -29,7 +29,7 @@ async function main() {
     const walletPath = path.join(process.cwd(), 'wallet');
     const wallet = await Wallets.newFileSystemWallet(walletPath);
 
-    const identityLabel = 'delasalleuniversity-subordinate-innocencio';
+    const identityLabel = 'delasalleuniversity-subordinate-archersnetwork';
 
     const identity = {
       credentials: {

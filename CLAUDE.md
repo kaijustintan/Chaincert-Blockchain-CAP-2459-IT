@@ -23,7 +23,7 @@ Backend (run from ~/chaincert-api/ inside Ubuntu/WSL):
 node sdk-server-fixed.js (or npm start) — boots the API against CouchDB and Fabric. There is no test script.
 node enrollChaincertAdmin.js — one-time CA enrollment for the chaincert-admin identity into ~/chaincert-api/wallet/.
 node enrollAdmin.js / enrollOrg2Admin.js — Org1/Org2 admin wallet provisioning (these correspond to setupWallet_ORG1.js/setupWallet_ORG2.js in the Windows tree).
-node setup_Wallet_DLSU.js and setup_Wallet_DLSU_Subordinate_INNOCENCIO.js / ..._LASALLECOMPUTERSOCIETY.js — DLSU root + subordinate identity wallet imports.
+node setup_Wallet_DLSU.js and setup_Wallet_DLSU_Subordinate_ARCHERSNETWORK.js / ..._LASALLECOMPUTERSOCIETY.js — DLSU root + subordinate identity wallet imports.
 Health check: curl http://localhost:4000/api/health.
 
 Chaincode (run from ~/chaincert-chaincode/ inside Ubuntu/WSL):
@@ -103,18 +103,18 @@ Service layer (couchDB_service.js) holds shared CouchDB access; chaincode (chain
 Data layer
 
 Central CouchDB at http://admin:adminpw@localhost:5985 (note non-standard port). Databases: users, issuers, user_notifications, admin_notifications, profile_share_links, couchdb_connections (subordinate CouchDB URL mapping). couchDB_service.initializeDatabases() runs on boot; a Mango index idx-type-status-created is created on issuers.
-Subordinate CouchDBs run on separate ports (e.g. :9085 for INNOCENCIO) via dedicated compose-couch-<sub>.yaml files. Each holds wallet_issuer_credentials and issued_credentials for that subordinate. The backend resolves the right CouchDB by looking up orgName in the couchdb_connections map.
+Subordinate CouchDBs run on separate ports (e.g. :9085 for ARCHERSNETWORK) via dedicated compose-couch-<sub>.yaml files. Each holds wallet_issuer_credentials and issued_credentials for that subordinate. The backend resolves the right CouchDB by looking up orgName in the couchdb_connections map.
 Fabric — channel chaincert-channel, contract chaincert. Org routing inside getContractAndGateway decides between connection-org1.json and connection-delasalleuniversity.json by substring-matching orgName/identityName. DLSU peer is at localhost:12051 with MSP DLSUMSP; DLSU CA is at localhost:12054.
 Wallets — file system wallet at ~/chaincert-api/wallet/ (gitignored). Identities seeded by the setup_Wallet_*.js and enrollChaincertAdmin.js scripts. The API will throw Identity ${identityName} not found if a script hasn't been run for that identity.
 
 Identity & port reference
-ComponentAddress / PortIdentity / MSPFrontend dev server:3000—Backend API:4000—Orderer:7050OrdererMSP (single Raft orderer)Org1 peer / CA:7051 / :7054Org1MSPOrg2 peer / CA:9051 / :8054Org2MSPDLSU peer / CA:12051 / :12054DLSUMSPAdmin CouchDB:5985 (note: NOT default 5984)admin:adminpwDLSU issuer CouchDB:9084admin:adminpwINNOCENCIO subordinate CouchDB:9085admin:adminpwLASALLECOMPUTERSOCIETY subordinate CouchDB:9086admin:adminpw
+ComponentAddress / PortIdentity / MSPFrontend dev server:3000—Backend API:4000—Orderer:7050OrdererMSP (single Raft orderer)Org1 peer / CA:7051 / :7054Org1MSPOrg2 peer / CA:9051 / :8054Org2MSPDLSU peer / CA:12051 / :12054DLSUMSPAdmin CouchDB:5985 (note: NOT default 5984)admin:adminpwDLSU issuer CouchDB:9084admin:adminpwARCHERSNETWORK subordinate CouchDB:9085admin:adminpwLASALLECOMPUTERSOCIETY subordinate CouchDB:9086admin:adminpw
 Identity types (don't conflate these):
 
 System account (e.g. admin1@email.com) — CouchDB login row, used by the web dashboard.
 Fabric admin identity (chaincert-admin) — system-level chaincode invokes from the API.
 Root authority identity (delasalleuniversity-admin) — DLSU credential operations.
-Subordinate identity (delasalleuniversity-subordinate-innocencio, …-lasallecomputersociety) — issued under DLSU's CA, operates under DLSUMSP, no own peer.
+Subordinate identity (delasalleuniversity-subordinate-archersnetwork, …-lasallecomputersociety) — issued under DLSU's CA, operates under DLSUMSP, no own peer.
 
 Dual-write pattern
 Every credential lifecycle action (template create, issue, revoke, expire) and every governance action (issuer/user status change) follows the same order: blockchain first, then CouchDB. Rationale: the ledger is the source of truth; the CouchDB mirror exists for fast reads.
@@ -142,7 +142,7 @@ Only three issuer accounts have fully provisioned Fabric identities + dedicated 
 
 dlsu@email.com → delasalleuniversity-admin (root, DLSU CouchDB :9084)
 lasallecomputersociety@email.com → delasalleuniversity-subordinate-lasallecomputersociety (:9086)
-INNOCENCIO subordinate → delasalleuniversity-subordinate-innocencio (:9085)
+ARCHERSNETWORK subordinate → delasalleuniversity-subordinate-archersnetwork (:9085)
 
 Demo credentials in docs/Claude Reference - MD Files/CAP1 Documents to Submit/CAP-2459-IT-WALKTHROUGH.md §3. Plus admins admin1@email.com / admin2@email.com and holder kylejustin.tan7@gmail.com (all pw123).
 A new issuer registration through the UI will NOT be able to issue credentials immediately after admin approval. Approval flips the status, but a working subordinate also requires the 12-phase manual workflow in docs/Claude Reference - MD Files/Final_Design.md (CA register/enroll → MSP NodeOU → wallet import → CouchDB instance → couchdb_connections row). If the API throws Identity <name> not found, that workflow hasn't been run for that account — it is not a code bug. Same for "no CouchDB URL for org" failures: check the couchdb_connections mapping.
@@ -184,7 +184,7 @@ CRITICAL architectural facts — do NOT re-investigate:
 - view_logs / performance_logs / share-link VIEW tracking: DO NOT EXIST (no instrumentation). Future Work only.
 
 Future Work (document in Final Document, tracker D2): issuer-scoped Verification Reach (#6, needs issuer-filtered endpoint), share-link view analytics (needs new logging/chaincode), issuer Trust Tiering (forgery-attribution infeasible per above).
-Demo sparseness: only DLSU + INNOCENCIO + LASALLECOMPUTERSOCIETY provisioned. SEED verifications before any demo (incl. one fake/non-existent ID + one revoked credential) or the verification-based reports render empty. Mockup fake issuers (AWS, Google, Mapúa) must be labeled "illustrative."
+Demo sparseness: only DLSU + ARCHERSNETWORK + LASALLECOMPUTERSOCIETY provisioned. SEED verifications before any demo (incl. one fake/non-existent ID + one revoked credential) or the verification-based reports render empty. Mockup fake issuers (AWS, Google, Mapúa) must be labeled "illustrative."
 
 Phase 5 security hardening (implemented June 2026 — these were FIXED; do not re-flag as holes)
 Two batches landed. Per-measure exploit/fix/test detail is in the session handoffs; short version:

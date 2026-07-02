@@ -35,7 +35,7 @@ ALWAYS prefer reading the `.md` mirrors over the original PDFs. Cheaper on token
 ### Things ChainCert actually IS
 - Hyperledger Fabric 2.5.14
 - JavaScript chaincode (in `chaincode/index.js`)
-- Multi-org Fabric network: Org1, Org2, DLSU (with subordinates INNOCENCIO and LASALLECOMPUTERSOCIETY), plus Orderer
+- Multi-org Fabric network: Org1, Org2, DLSU (with subordinates ARCHERSNETWORK and LASALLECOMPUTERSOCIETY), plus Orderer
 - Single channel: `chaincert-channel`
 - Contract name: `chaincert`
 - DLSU CouchDB port: **9084** (NEVER 9984 — common typo trap)

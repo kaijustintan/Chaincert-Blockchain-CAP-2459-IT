@@ -59,7 +59,7 @@ The user is SSH'd into the VM (`ssh -p 20172 -o ServerAliveInterval=60 chaincert
 - **Public URL:** `http://ccscloud.dlsu.edu.ph:20173` (HTTP). **SSH** port **20172** (VM user `chaincert`). **Proxmox** `https://ccscloud.dlsu.edu.ph`, login `CAP-2459-IT`. VM 11620, node Mayari. (Secrets are in the groupmates' throwaway docs — NOT in the repo; user said keep them out.)
 - **Office network firewalls the VM** (silent timeout) → hotspot or DLSU VPN. See memory [[ccscloud-vm-access]] (won't exist on the new account — facts are above).
 - **Fabric double-nested:** `~/fabric-samples/fabric-samples/test-network`. Keep it.
-- **Demo:** admins `admin1@/admin2@email.com`, holder `kylejustin.tan7@gmail.com` (pw123-ish); 3 working issuers: `dlsu@email.com` (root), `lasallecomputersociety@email.com`, INNOCENCIO.
+- **Demo:** admins `admin1@/admin2@email.com`, holder `kylejustin.tan7@gmail.com` (pw123-ish); 3 working issuers: `dlsu@email.com` (root), `lasallecomputersociety@email.com`, ARCHERSNETWORK.
 - **Sync rules:** Claude **never runs git** (reminder only). Backend files run on Ubuntu — local single-file syncs via cp (`/mnt/c/...` absolute, quoted). On the VM use `deploy-sync.sh`, not manual cp.
 - **Env vars:** frontend build `REACT_APP_API_URL` (VM `/api`), `REACT_APP_FRONTEND_URL`; backend `.env` `CORS_ORIGIN`, `FRONTEND_URL`, `JWT_SECRET` (required), `DISABLE_RATE_LIMIT`/`DISABLE_PASSWORD_POLICY` (OFF for demo), `SMTP_*`.
 

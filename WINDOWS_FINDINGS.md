@@ -35,7 +35,7 @@ Read-only investigation snapshot. No files modified.
 **Fabric / DLSU node provisioning files:** ✅ All present under `backend/node_creation/dlsu/`:
 - `configtx-DEFAULT.yaml`, `configtx-WITHDLSU.yaml`
 - `connection-delasalleuniversity.json`
-- `compose/compose-ca-dlsu.yaml`, `compose-couch-dlsu.yaml`, `compose-couch-innocencio.yaml`, `compose-couch-lasallecomputersociety.yaml`, `compose-dlsu.yaml`
+- `compose/compose-ca-dlsu.yaml`, `compose-couch-dlsu.yaml`, `compose-couch-archersnetwork.yaml`, `compose-couch-lasallecomputersociety.yaml`, `compose-dlsu.yaml`
 - `compose/docker/peercfg/` (peer config)
 - `fabric-ca/registerEnrollFORDLSU.sh` ✅ exists (one duplicate was deleted per commit `af23d0c`)
 
@@ -109,7 +109,7 @@ chaincode/*.tar.gz
 .env
 backend/node_creation/dlsu/connection-delasalleuniversity.json
 backend/node_creation/dlsu/setupWallet_DLSU.js
-backend/node_creation/dlsu/setup_Wallet_DLSU_Subordinate_INNOCENCIO.js
+backend/node_creation/dlsu/setup_Wallet_DLSU_Subordinate_ARCHERSNETWORK.js
 backend/node_creation/dlsu/setup_Wallet_DLSU_Subordinate_LASALLECOMPUTERSOCIETY.js
 backend/setupWallet_ORG1.js
 backend/setupWallet_ORG2.js
@@ -246,7 +246,7 @@ backend/sdk-server-fixed.js
 backend/setupWallet_ORG1.js
 backend/setupWallet_ORG2.js
 backend/node_creation/dlsu/setupWallet_DLSU.js
-backend/node_creation/dlsu/setup_Wallet_DLSU_Subordinate_INNOCENCIO.js
+backend/node_creation/dlsu/setup_Wallet_DLSU_Subordinate_ARCHERSNETWORK.js
 backend/node_creation/dlsu/setup_Wallet_DLSU_Subordinate_LASALLECOMPUTERSOCIETY.js
 ```
 

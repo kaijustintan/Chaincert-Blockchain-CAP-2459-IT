@@ -31,7 +31,7 @@ CAP-2459-IT-AFTER-RESET/
 │   │       │   │       └── core.yaml
 │   │       │   ├── compose-ca-dlsu.yaml
 │   │       │   ├── compose-couch-dlsu.yaml
-│   │       │   ├── compose-couch-innocencio.yaml
+│   │       │   ├── compose-couch-archersnetwork.yaml
 │   │       │   ├── compose-couch-lasallecomputersociety.yaml
 │   │       │   └── compose-dlsu.yaml
 │   │       ├── fabric-ca/
@@ -39,7 +39,7 @@ CAP-2459-IT-AFTER-RESET/
 │   │       ├── configtx-DEFAULT.yaml
 │   │       ├── configtx-WITHDLSU.yaml
 │   │       ├── connection-delasalleuniversity.json
-│   │       ├── setup_Wallet_DLSU_Subordinate_INNOCENCIO.js
+│   │       ├── setup_Wallet_DLSU_Subordinate_ARCHERSNETWORK.js
 │   │       ├── setup_Wallet_DLSU_Subordinate_LASALLECOMPUTERSOCIETY.js
 │   │       └── setupWallet_DLSU.js
 │   ├── couchDB_service.js

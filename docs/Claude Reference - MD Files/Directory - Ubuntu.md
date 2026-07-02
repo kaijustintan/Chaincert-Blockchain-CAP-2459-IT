@@ -42,7 +42,7 @@ Counts: **662 directories, 1453 files**.
 │   ├── package.json
 │   ├── sdk-server-fixed.js
 │   ├── setup_Wallet_DLSU.js
-│   ├── setup_Wallet_DLSU_Subordinate_INNOCENCIO.js
+│   ├── setup_Wallet_DLSU_Subordinate_ARCHERSNETWORK.js
 │   └── setup_Wallet_DLSU_Subordinate_LASALLECOMPUTERSOCIETY.js
 ├── chaincert-chaincode
 │   ├── index.js
@@ -1121,7 +1121,7 @@ Counts: **662 directories, 1453 files**.
 │       │   │   │   ├── peercfg
 │       │   │   │   ├── compose-ca-dlsu.yaml
 │       │   │   │   ├── compose-couch-dlsu.yaml
-│       │   │   │   ├── compose-couch-innocencio.yaml
+│       │   │   │   ├── compose-couch-archersnetwork.yaml
 │       │   │   │   ├── compose-couch-lasallecomputersociety.yaml
 │       │   │   │   └── compose-dlsu.yaml
 │       │   │   ├── docker
@@ -1485,7 +1485,7 @@ Counts: **662 directories, 1453 files**.
 │       │   │   │   │   │   │       ├── IssuerPublicKey
 │       │   │   │   │   │   │       ├── IssuerRevocationPublicKey
 │       │   │   │   │   │   │       └── config.yaml
-│       │   │   │   │   │   ├── SubordinateINNOCENCIO@dlsu.example.com
+│       │   │   │   │   │   ├── delasalleuniversity-subordinate-archersnetwork@dlsu.example.com
 │       │   │   │   │   │   │   └── msp
 │       │   │   │   │   │   │       ├── cacerts
 │       │   │   │   │   │   │       │   └── localhost-12054-ca-dlsu.pem

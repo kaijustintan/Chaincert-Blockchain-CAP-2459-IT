@@ -157,6 +157,33 @@ These survive a repo re-clone and a reboot; clear them on the fresh start:
 - `DISABLE_RATE_LIMIT` and `DISABLE_PASSWORD_POLICY` must be **unset** before demo (they print loud
   startup warnings while on). `SMTP_OVERRIDE_TO` only for a fake-email demo.
 
+### B8. Subordinate identity rename — INNOCENCIO → ARCHERSNETWORK (CAP2, 2026-07-02)
+The demo subordinate issuer was renamed `delasalleuniversity-subordinate-innocencio` →
+**`delasalleuniversity-subordinate-archersnetwork`**. Done at rename-time (pre-fresh-deploy) so the
+identity is *born* with the new name — no live migration needed.
+
+- **Canonical convention (chosen):** `delasalleuniversity-subordinate-archersnetwork` everywhere —
+  the CA `--id.name`/enroll username, the enroll `-M` MSP folder
+  (`.../users/delasalleuniversity-subordinate-archersnetwork@dlsu.example.com/msp`), the wallet label,
+  the `couchdb_connections` orgName (`archersnetwork`, lowercase), and the CouchDB container
+  (`couchdb_archersnetwork`, port **9085** unchanged).
+- **Reconciled a pre-existing wart:** the repo previously had **three** conventions for this one
+  identity — Final Design/Design Details used `dlsusubordinateinnocencio` + an MSP folder
+  `SubordinateINNOCENCIO@…`, while the Installation Manual used `delasalleuniversity-subordinate-innocencio@…`,
+  and the old wallet script read the `Subordinate…` folder. All now unified to the single canonical
+  folder above (so enroll-writes == script-reads).
+- **Changed:** 2 code/config files (`setup_Wallet_DLSU_Subordinate_ARCHERSNETWORK.js`,
+  `compose-couch-archersnetwork.yaml`) + working docs (CLAUDE.md, Copy Commands, both directory files,
+  Final Design, Design Details #2, README, WINDOWS_FINDINGS, SESSION-HANDOFF, this addendum, the
+  doc-format skill). `deploy-sync.sh` needed no change (wildcard copies).
+- **⚠️ Deliberately NOT changed — the 4 CAP1 submission manuals** (Installation, Technical, Walkthrough,
+  Defense Knowledge) still say `innocencio`, preserved as submitted artifacts. **When following the
+  Installation Manual's Phase 11 for the fresh deploy, substitute `archersnetwork` for `innocencio`**
+  (id.name, secret `archersnetworkpw`, MSP folder, wallet script name, compose file, `couchdb_connections`
+  orgName). This addendum is the override of record. **When the submission manuals are eventually
+  updated for CAP2, produce a NEW versioned document — do NOT edit the CAP1 manuals in place** (same
+  preserve-history principle applied to the Fabric 2.5.16 version delta).
+
 ---
 
 ## Part C — Corrected from-scratch runbook (CAP2)
@@ -215,9 +242,9 @@ that failed under 2.5.0 — it must now succeed on 2.5.16.** **Verify:** committ
 channel config update → start DLSU peer → join → install/approve as DLSU.
 
 **Phase 8 — Re-run `deploy-sync.sh`** (now drops + path-patches the connection profile) + run the DLSU
-wallet scripts (`setup_Wallet_DLSU*.js`, subordinate INNOCENCIO + LASALLECOMPUTERSOCIETY).
+wallet scripts (`setup_Wallet_DLSU*.js`, subordinate ARCHERSNETWORK + LASALLECOMPUTERSOCIETY).
 
-**Phase 9 — Issuer CouchDBs** `:9084` (DLSU) / `:9085` (INNOCENCIO) / `:9086` (LASALLECOMPUTERSOCIETY)
+**Phase 9 — Issuer CouchDBs** `:9084` (DLSU) / `:9085` (ARCHERSNETWORK) / `:9086` (LASALLECOMPUTERSOCIETY)
 + each one's `wallet_issuer_credentials` + `issued_credentials` + the `couchdb_connections` rows.
 
 **Phase 10 — Backend `.env`** (B6/B7): `JWT_SECRET`, `CORS_ORIGIN` + `FRONTEND_URL` =

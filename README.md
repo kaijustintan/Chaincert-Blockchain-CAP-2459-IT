@@ -27,7 +27,7 @@ Hyperledger Fabric Network (Docker containers)
 | DLSU peer / CA | :12051 / :12054 | |
 | Central CouchDB | :5985 | Non-standard port (not 5984) |
 | DLSU issuer CouchDB | :9084 | |
-| INNOCENCIO subordinate CouchDB | :9085 | |
+| ARCHERSNETWORK subordinate CouchDB | :9085 | |
 | LASALLECOMPUTERSOCIETY subordinate CouchDB | :9086 | |
 
 ---
@@ -79,7 +79,7 @@ node enrollAdmin.js
 node enrollOrg2Admin.js
 node enrollChaincertAdmin.js
 node setup_Wallet_DLSU.js
-node setup_Wallet_DLSU_Subordinate_INNOCENCIO.js
+node setup_Wallet_DLSU_Subordinate_ARCHERSNETWORK.js
 node setup_Wallet_DLSU_Subordinate_LASALLECOMPUTERSOCIETY.js
 ```
 

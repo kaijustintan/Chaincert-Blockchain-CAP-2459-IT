@@ -3,8 +3,8 @@ networks:
     name: fabric_test
 
 services:
-  couchdb_innocencio:
-    container_name: couchdb_innocencio
+  couchdb_archersnetwork:
+    container_name: couchdb_archersnetwork
     image: couchdb:3.4.2
     labels:
       service: hyperledger-fabric

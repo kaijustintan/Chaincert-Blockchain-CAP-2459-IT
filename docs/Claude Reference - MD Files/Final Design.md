@@ -13,8 +13,8 @@ This workflow manually provisions a subordinate issuer under an existing root au
 Example case used:
 
 - **Root Authority:** De La Salle University
-- **Subordinate Org:** INNOCENCIO
-- **Fabric Identity Label:** `delasalleuniversity-subordinate-innocencio`
+- **Subordinate Org:** ARCHERSNETWORK
+- **Fabric Identity Label:** `delasalleuniversity-subordinate-archersnetwork`
 
 ### Phase 1 — Prepare Fabric CA Client
 
@@ -62,8 +62,8 @@ Register a new client identity in the DLSU Certificate Authority.
 ```bash
 fabric-ca-client register \
   --caname ca-dlsu \
-  --id.name dlsusubordinateinnocencio \
-  --id.secret dlsusubordinateinnocenciopw \
+  --id.name dlsusubordinatearchersnetwork \
+  --id.secret dlsusubordinatearchersnetworkpw \
   --id.type client \
   --tls.certfiles "${PWD}/../../organizations/fabric-ca/dlsu/tls-cert.pem"
 ```
@@ -76,16 +76,16 @@ This generates the actual certificate and private key.
 
 ```bash
 fabric-ca-client enroll \
-  -u https://dlsusubordinateinnocencio:dlsusubordinateinnocenciopw@localhost:12054 \
+  -u https://dlsusubordinatearchersnetwork:dlsusubordinatearchersnetworkpw@localhost:12054 \
   --caname ca-dlsu \
-  -M "${PWD}/../../organizations/peerOrganizations/dlsu.example.com/users/SubordinateINNOCENCIO@dlsu.example.com/msp" \
+  -M "${PWD}/../../organizations/peerOrganizations/dlsu.example.com/users/delasalleuniversity-subordinate-archersnetwork@dlsu.example.com/msp" \
   --tls.certfiles "${PWD}/../../organizations/fabric-ca/dlsu/tls-cert.pem"
 ```
 
 This creates the MSP folder:
 
 ```
-organizations/peerOrganizations/dlsu.example.com/users/SubordinateINNOCENCIO@dlsu.example.com/msp
+organizations/peerOrganizations/dlsu.example.com/users/delasalleuniversity-subordinate-archersnetwork@dlsu.example.com/msp
 ```
 
 ### Phase 5 — Apply NodeOU Configuration
@@ -94,7 +94,7 @@ Copy the NodeOU config file into the subordinate MSP.
 
 ```bash
 cp "${PWD}/../../organizations/peerOrganizations/dlsu.example.com/msp/config.yaml" \
-   "${PWD}/../../organizations/peerOrganizations/dlsu.example.com/users/SubordinateINNOCENCIO@dlsu.example.com/msp/config.yaml"
+   "${PWD}/../../organizations/peerOrganizations/dlsu.example.com/users/delasalleuniversity-subordinate-archersnetwork@dlsu.example.com/msp/config.yaml"
 ```
 
 ### Phase 6 — Verify MSP Files
@@ -102,7 +102,7 @@ cp "${PWD}/../../organizations/peerOrganizations/dlsu.example.com/msp/config.yam
 Check that the MSP structure is complete.
 
 ```bash
-ls "${PWD}/../../organizations/peerOrganizations/dlsu.example.com/users/SubordinateINNOCENCIO@dlsu.example.com/msp"
+ls "${PWD}/../../organizations/peerOrganizations/dlsu.example.com/users/delasalleuniversity-subordinate-archersnetwork@dlsu.example.com/msp"
 ```
 
 Expected contents:
@@ -119,13 +119,13 @@ IssuerRevocationPublicKey
 Check certificate:
 
 ```bash
-ls "${PWD}/../../organizations/peerOrganizations/dlsu.example.com/users/SubordinateINNOCENCIO@dlsu.example.com/msp/signcerts"
+ls "${PWD}/../../organizations/peerOrganizations/dlsu.example.com/users/delasalleuniversity-subordinate-archersnetwork@dlsu.example.com/msp/signcerts"
 ```
 
 Check private key:
 
 ```bash
-ls "${PWD}/../../organizations/peerOrganizations/dlsu.example.com/users/SubordinateINNOCENCIO@dlsu.example.com/msp/keystore"
+ls "${PWD}/../../organizations/peerOrganizations/dlsu.example.com/users/delasalleuniversity-subordinate-archersnetwork@dlsu.example.com/msp/keystore"
 ```
 
 ### Phase 7 — Import Subordinate Identity into Backend Wallet
@@ -139,13 +139,13 @@ cd ~/chaincert-api
 Run the wallet import script.
 
 ```bash
-node setup_Wallet_DLSU_Subordinate_INNOCENCIO.js
+node setup_Wallet_DLSU_Subordinate_ARCHERSNETWORK.js
 ```
 
 Expected output:
 
 ```
-Successfully imported delasalleuniversity-subordinate-innocencio into wallet
+Successfully imported delasalleuniversity-subordinate-archersnetwork into wallet
 ```
 
 Verify wallet contents:
@@ -159,19 +159,19 @@ Example:
 ```
 chaincert-admin.id
 delasalleuniversity-admin.id
-delasalleuniversity-subordinate-innocencio.id
+delasalleuniversity-subordinate-archersnetwork.id
 ```
 
 ### Phase 8 — Create Subordinate CouchDB Instance
 
 Create a dedicated CouchDB container for the subordinate issuer.
 
-Example compose file: `compose-couch-innocencio.yaml`
+Example compose file: `compose-couch-archersnetwork.yaml`
 
 Start container:
 
 ```bash
-docker-compose -f compose-couch-innocencio.yaml up -d couchdb_innocencio
+docker-compose -f compose-couch-archersnetwork.yaml up -d couchdb_archersnetwork
 ```
 
 Verify container:
@@ -197,7 +197,7 @@ Insert mapping into the central `couchdb_connections` database.
 curl -X POST http://admin:adminpw@localhost:5985/couchdb_connections \
   -H "Content-Type: application/json" \
   -d '{
-  "orgName": "innocencio",
+  "orgName": "archersnetwork",
   "couchDBUrl": "http://admin:adminpw@localhost:9085"
 }'
 ```
@@ -209,7 +209,7 @@ This allows the backend approval process to resolve the subordinate's CouchDB in
 After approval, the issuer document should contain:
 
 ```
-fabricIdentity = delasalleuniversity-subordinate-innocencio
+fabricIdentity = delasalleuniversity-subordinate-archersnetwork
 ```
 
 ### Phase 12 — Verify Blockchain Interaction
@@ -227,7 +227,7 @@ Example environment for subordinate identity:
 export CORE_PEER_TLS_ENABLED=true
 export CORE_PEER_LOCALMSPID="DLSUMSP"
 export CORE_PEER_TLS_ROOTCERT_FILE=${PWD}/organizations/peerOrganizations/dlsu.example.com/peers/peer0.dlsu.example.com/tls/ca.crt
-export CORE_PEER_MSPCONFIGPATH=${PWD}/organizations/peerOrganizations/dlsu.example.com/users/SubordinateINNOCENCIO@dlsu.example.com/msp
+export CORE_PEER_MSPCONFIGPATH=${PWD}/organizations/peerOrganizations/dlsu.example.com/users/delasalleuniversity-subordinate-archersnetwork@dlsu.example.com/msp
 export CORE_PEER_ADDRESS=localhost:12051
 ```
 

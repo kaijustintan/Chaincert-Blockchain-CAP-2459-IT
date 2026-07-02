@@ -5677,12 +5677,12 @@ kaitanz_@EmperorKai:~$ tree -a -I 'node_modules'
 │   │   └── walletRoutes.js
 │   ├── sdk-server-fixed.js
 │   ├── setup_Wallet_DLSU.js
-│   ├── setup_Wallet_DLSU_Subordinate_INNOCENCIO.js
+│   ├── setup_Wallet_DLSU_Subordinate_ARCHERSNETWORK.js
 │   ├── setup_Wallet_DLSU_Subordinate_LASALLECOMPUTERSOCIETY.js
 │   └── wallet
 │       ├── chaincert-admin.id
 │       ├── delasalleuniversity-admin.id
-│       ├── delasalleuniversity-subordinate-innocencio.id
+│       ├── delasalleuniversity-subordinate-archersnetwork.id
 │       └── delasalleuniversity-subordinate-lasallecomputersociety.id
 ├── chaincert-chaincode
 │   ├── index.js
@@ -6806,7 +6806,7 @@ kaitanz_@EmperorKai:~$ tree -a -I 'node_modules'
 │       │   │   ├── compose
 │       │   │   │   ├── compose-ca-dlsu.yaml
 │       │   │   │   ├── compose-couch-dlsu.yaml
-│       │   │   │   ├── compose-couch-innocencio.yaml
+│       │   │   │   ├── compose-couch-archersnetwork.yaml
 │       │   │   │   ├── compose-couch-lasallecomputersociety.yaml
 │       │   │   │   ├── compose-dlsu.yaml
 │       │   │   │   ├── docker
@@ -7194,7 +7194,7 @@ kaitanz_@EmperorKai:~$ tree -a -I 'node_modules'
 │       │   │       │       │       ├── signcerts
 │       │   │       │       │       │   └── cert.pem
 │       │   │       │       │       └── user
-│       │   │       │       ├── SubordinateINNOCENCIO@dlsu.example.com
+│       │   │       │       ├── delasalleuniversity-subordinate-archersnetwork@dlsu.example.com
 │       │   │       │       │   └── msp
 │       │   │       │       │       ├── IssuerPublicKey
 │       │   │       │       │       ├── IssuerRevocationPublicKey

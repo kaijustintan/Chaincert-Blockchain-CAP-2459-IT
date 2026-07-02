@@ -21,7 +21,7 @@
 - `mailerService.js`
 - `securityHelpers.js`
 - `setup_Wallet_DLSU.js`
-- `setup_Wallet_DLSU_Subordinate_INNOCENCIO.js`
+- `setup_Wallet_DLSU_Subordinate_ARCHERSNETWORK.js`
 - `setup_Wallet_DLSU_Subordinate_LASALLECOMPUTERSOCIETY.js`
 
 ### 3. API config files (Ubuntu `~/chaincert-api/config/`)
@@ -63,7 +63,7 @@
 ### 8. DLSU Docker Compose files (Ubuntu `~/fabric-samples/fabric-samples/test-network/addDLSU/compose/`)
 
 - `compose-couch-dlsu.yaml`
-- `compose-couch-innocencio.yaml`
+- `compose-couch-archersnetwork.yaml`
 - `compose-couch-lasallecomputersociety.yaml`
 - `compose-dlsu.yaml`
 - `compose-ca-dlsu.yaml`
@@ -118,8 +118,8 @@ cp "/mnt/c/Users/kaita/OneDrive/Desktop/CAP-2459-IT-AFTER-RESET/backend/security
 # setupWallet_DLSU.js
 cp "/mnt/c/Users/kaita/OneDrive/Desktop/CAP-2459-IT-AFTER-RESET/backend/node_creation/dlsu/setupWallet_DLSU.js" ~/chaincert-api/setup_Wallet_DLSU.js
 
-# setup_Wallet_DLSU_Subordinate_INNOCENCIO.js
-cp "/mnt/c/Users/kaita/OneDrive/Desktop/CAP-2459-IT-AFTER-RESET/backend/node_creation/dlsu/setup_Wallet_DLSU_Subordinate_INNOCENCIO.js" ~/chaincert-api/setup_Wallet_DLSU_Subordinate_INNOCENCIO.js
+# setup_Wallet_DLSU_Subordinate_ARCHERSNETWORK.js
+cp "/mnt/c/Users/kaita/OneDrive/Desktop/CAP-2459-IT-AFTER-RESET/backend/node_creation/dlsu/setup_Wallet_DLSU_Subordinate_ARCHERSNETWORK.js" ~/chaincert-api/setup_Wallet_DLSU_Subordinate_ARCHERSNETWORK.js
 
 # setup_Wallet_DLSU_Subordinate_LASALLECOMPUTERSOCIETY.js
 cp "/mnt/c/Users/kaita/OneDrive/Desktop/CAP-2459-IT-AFTER-RESET/backend/node_creation/dlsu/setup_Wallet_DLSU_Subordinate_LASALLECOMPUTERSOCIETY.js" ~/chaincert-api/setup_Wallet_DLSU_Subordinate_LASALLECOMPUTERSOCIETY.js
@@ -220,8 +220,8 @@ cp "/mnt/c/Users/kaita/OneDrive/Desktop/CAP-2459-IT-AFTER-RESET/backend/node_cre
 # compose-couch-dlsu.yaml
 cp "/mnt/c/Users/kaita/OneDrive/Desktop/CAP-2459-IT-AFTER-RESET/backend/node_creation/dlsu/compose/compose-couch-dlsu.yaml" ~/fabric-samples/fabric-samples/test-network/addDLSU/compose/compose-couch-dlsu.yaml
 
-# compose-couch-innocencio.yaml
-cp "/mnt/c/Users/kaita/OneDrive/Desktop/CAP-2459-IT-AFTER-RESET/backend/node_creation/dlsu/compose/compose-couch-innocencio.yaml" ~/fabric-samples/fabric-samples/test-network/addDLSU/compose/compose-couch-innocencio.yaml
+# compose-couch-archersnetwork.yaml
+cp "/mnt/c/Users/kaita/OneDrive/Desktop/CAP-2459-IT-AFTER-RESET/backend/node_creation/dlsu/compose/compose-couch-archersnetwork.yaml" ~/fabric-samples/fabric-samples/test-network/addDLSU/compose/compose-couch-archersnetwork.yaml
 
 # compose-couch-lasallecomputersociety.yaml
 cp "/mnt/c/Users/kaita/OneDrive/Desktop/CAP-2459-IT-AFTER-RESET/backend/node_creation/dlsu/compose/compose-couch-lasallecomputersociety.yaml" ~/fabric-samples/fabric-samples/test-network/addDLSU/compose/compose-couch-lasallecomputersociety.yaml

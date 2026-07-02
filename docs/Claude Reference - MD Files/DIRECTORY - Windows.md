@@ -73,6 +73,7 @@ CAP-2459-IT-AFTER-RESET/
 │   │   │   ├── CAP-2459-IT-WALKTHROUGH.md
 │   │   │   └── Defense Knowledge - March 25.md
 │   │   ├── CAP2 - Deployment Gameplan.md
+│   │   ├── CAP2 - Deployment Manual Addendum (CAP1 Deltas + Groupmate Journey).md
 │   │   ├── CAP-2459-IT-PROPOSAL.md
 │   │   ├── CAP-2459-IT-WALKTHROUGH-OUTDATED.md
 │   │   ├── Chaincert Design Details #1.md

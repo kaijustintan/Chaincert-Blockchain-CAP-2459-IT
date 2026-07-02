@@ -70,8 +70,11 @@ cd ~/fabric-samples/fabric-samples/test-network
 ./network.sh up createChannel -ca -s couchdb -c chaincert-channel
 
 #
+# CAP2: pinned to 2.5.16/1.5.17 (Docker-29 fix) — see "CAP2 - Deployment Manual Addendum
+# (CAP1 Deltas + Groupmate Journey).md" Part B1. Do NOT use the old unversioned bootstrap.sh here.
 cd ~/fabric-samples/fabric-samples
-curl -sSL https://bit.ly/2ysbOFE | bash -s
+curl -sSL https://raw.githubusercontent.com/hyperledger/fabric/main/scripts/install-fabric.sh \
+  | bash -s -- --fabric-version 2.5.16 --ca-version 1.5.17 docker samples binary
 export PATH="$PATH:$(pwd)/bin"
 ```
 

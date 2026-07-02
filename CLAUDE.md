@@ -218,7 +218,7 @@ Single orderer (no Raft cluster); all infra on one host.
 Credential expiry has a timing gap — VerifyCredential chaincode does not re-check expiry in real time; the cron job in adminDashboardController.initExpiryCron flips status.
 Duplicate issuance prevention is CouchDB-based, not chaincode-level.
 Credential IDs use Date.now() + Math.random() — not cryptographically secure, but the ID is not a security token. (NOTE: profile-share tokens DO use crypto.randomBytes — those are secure.)
-Integrity check is one-directional (CouchDB → ledger only) and still manual-trigger only (the scheduled integrity cron was planned but not yet implemented).
+Integrity check is one-directional (CouchDB → ledger only). It runs BOTH on-demand (admin trigger) and on a daily schedule — initIntegrityCron (sdk-server-fixed.js:498) fires adminDashboardController's integrity check at 08:00 Asia/Manila, always writing an admin notification and emailing admins only when issues > 0 (M13, June 2026). The one-directional comparison is the remaining accepted limitation; the cron is DONE.
 
 Touch these only when the user explicitly asks to.
 Directory maintenance

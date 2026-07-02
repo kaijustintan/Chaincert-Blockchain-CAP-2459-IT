@@ -171,6 +171,13 @@ These survive a repo re-clone and a reboot; clear them on the fresh start:
 **Phase 0 — Off-VM:** push `AFTER-Defense` (done); have a GitHub PAT for the private repo ready.
 
 **Phase 1 — Full teardown (⚠️ wipes the CAP1 demo entirely):**
+
+> **🔐 First action on the box — rotate the VM SSH password.** As `chaincert`, run `passwd` and set a
+> fresh strong password. The old value (`Chaincert2026!`) was committed in a handoff doc — since
+> scrubbed to a placeholder, but it **lingers in git history** until rotated, so rotation is the real
+> fix. Share the new password out-of-band (chat/DM, a password manager — **never in git or a committed
+> doc**) and update the team's store. This is independent of the deploy flow; do it once, first.
+
 ```bash
 pm2 delete all 2>/dev/null
 docker stop $(docker ps -aq) 2>/dev/null; docker rm -f $(docker ps -aq) 2>/dev/null

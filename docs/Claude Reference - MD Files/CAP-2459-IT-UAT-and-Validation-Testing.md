@@ -8,120 +8,129 @@
 
 # PART A — UAT Google Forms Content
 
-There are **four forms, one per role**: Credential Holder, Issuer, Verifier, Admin/Internal. Each form has the same three sections:
+There are **four forms, one per role**: Credential Holder, Issuer, Verifier, Admin/Internal. Each form has the same four sections:
 
-1. **Tester Information** (short)
-2. **Test Cases** (the role's scenarios — each answered Pass / Fail / remarks)
-3. **Experience Rating + Open-Ended Feedback** (shared block, below)
+1. **User Manual** (the manual PDF is embedded/attached at the top of the form)
+2. **Tester Information** (short)
+3. **Test Cases** (the role's checks — each answered Pass / Fail / remarks)
+4. **Experience Rating + Open-Ended Feedback** (shared block, below)
 
-## A.0 — Section 1: Tester Information (all forms)
+> **How the form and the manual work together (read this first):** The **User Manual (UAT Edition)** is the *only* place that walks through the click-by-click steps and shows screenshots. This form does **not** repeat those steps — it only asks the tester to confirm what happened after they followed the manual. That's why each test case below has a **Manual Phase** column instead of a Steps column: it tells the tester exactly which phase to open in the manual to do that check. There's nothing to figure out on the form itself — just follow the phase, then come back and mark Pass/Fail.
+>
+> **Assumption used below:** every tester works through the manual's **full phase sequence** using the shared demo accounts (Phase 1 → 8, in order), so a Verifier-only tester still does Phases 1–4 first to produce their own credential ID to verify, rather than being handed a pre-made one. This matches how the manual is written. *(If your group instead pre-seeds data so each role only touches its own screens, tell me and the "Manual Phase" column / preconditions below need to change.)*
+
+## A.0 — Section: Tester Information (all forms)
 
 - Name *(optional)*
 - Role you are testing *(pre-filled per form: Holder / Issuer / Verifier / Admin)*
 - Date of testing
 - Have you used a similar digital-credential or verification system before? *(Yes / No)*
 
-## A.1 — Section 2 format: Test Cases
+## A.1 — Section format: Test Cases
 
-Each test case below is shown to the tester with its **Scenario** and **Steps**, and the **Expected Result**. For each one the tester answers:
+Each row below has a **Manual Phase** (where to find the steps) and a **What to Confirm** question (what the tester should check happened). For each one the tester answers:
 
 - **Result:** ☐ Passed ☐ Failed
 - **Remarks (if failed / any observation):** *short text*
 
-*(In the paper's 6.1.2 Results table, the same rows carry an "Actual Result" and "Status" column.)*
+*(In the paper's 6.1.2 Results table, the same rows carry an "Actual Result" and "Status" column instead.)*
 
 ---
 
-### Form 1 — Credential Holder (target ≈ 21 test cases)
+### Form 1 — Credential Holder (22 test cases)
 
-| ID | Scenario | Steps | Expected Result |
-|---|---|---|---|
-| H-01 | Register a holder account | Create Account → User → fill details → Register | Account is created; redirected to login |
-| H-02 | Password strength is enforced | Register using a short/common password | Rejected with a message (min. 10 chars, not a common password) |
-| H-03 | Log in as holder | Enter email + password → Login | Redirected to the wallet dashboard |
-| H-04 | Empty wallet state | Log in as a new holder with no credentials | Wallet shows an empty state (no credentials yet) |
-| H-05 | In-app issuance notification | After an issuer issues to you, open the bell | "You received a new credential" notification appears |
-| H-06 | Email issuance notification | Check your email inbox after issuance | An email about the new credential is received |
-| H-07 | Credential appears in wallet | Open the wallet | Credential card shows badge, name, issuer, status *Issued* |
-| H-08 | Switch Cards / List view | Toggle the view buttons | Layout switches between cards and list |
-| H-09 | Search / filter / sort | Use search, status filter, and sort controls | Credential list updates accordingly |
-| H-10 | Open credential details | Click a credential | Detail view shows type, description, skills, dates, issuer, Credential ID |
-| H-11 | Obtain the Credential ID | Open details | The Credential ID is visible and can be copied |
-| H-12 | View blockchain history | Details → View Blockchain History | On-chain timeline shows events with transaction IDs and timestamps |
-| H-13 | Toggle visibility Public/Private | Set a credential to Private | Saved; Private credentials are hidden from the shared profile |
-| H-14 | Edit profile (bio, picture) | Profile → edit summary / upload picture → Save | Changes are saved |
-| H-15 | Reorder credentials on profile | Drag-and-drop to reorder | New order persists on the shared profile |
-| H-16 | Generate a public share link | Share Profile → Public link → copy | A working link is generated and copyable |
-| H-17 | Generate a recipient-specific link | Share Profile → Specific recipient → enter email | Recipient must enter a 6-digit emailed code before the profile shows |
-| H-18 | Revoke a share link | Share Links → Revoke | The link immediately becomes invalid |
-| H-19 | Export credential as PDF | Credential → Export PDF | PDF includes details, Credential ID, and a verification link |
-| H-20 | Holder insights render | Open Credential Health / Verification Insights / Renewal Alerts | Charts render with a "what this means" note |
-| H-21 | Revoked credential reflects in wallet | After an issuer revokes, view the credential | Status shows *Revoked* + a revocation notification appears |
-| H-22 | Forgot / reset password | Login → Forgot Password → OTP → new password | OTP email received; password reset succeeds |
+*Intro line for the form: "Follow Phases 1, 3, 5, and 8 of the User Manual (attached above) as a Credential Holder. Answer each item below after doing the matching phase."*
 
-### Form 2 — Issuer (target ≈ 16 test cases)
+| ID | Manual Phase | What to Confirm |
+|---|---|---|
+| H-01 | Phase 1 | Were you able to register a holder account and get redirected to the login page? |
+| H-02 | Phase 1 | If you tried a short/common password, was it rejected with a clear message? |
+| H-03 | Phase 1 | Were you able to log in and reach your wallet dashboard? |
+| H-04 | Phase 1 | Did a brand-new account show an empty wallet (no credentials yet)? |
+| H-05 | Phase 3 | After a credential was issued to you, did an in-app notification appear? |
+| H-06 | Phase 3 | Did you also receive an email about the new credential? |
+| H-07 | Phase 3 | Did the credential appear correctly in your wallet (badge, name, issuer, status *Issued*)? |
+| H-08 | Phase 8 | Were you able to switch between Cards and List view? |
+| H-09 | Phase 8 | Did search, status filter, and sort work as expected? |
+| H-10 | Phase 3 | Did opening the credential show its full details (type, description, skills, dates, issuer, Credential ID)? |
+| H-11 | Phase 3 | Were you able to find and copy the Credential ID? |
+| H-12 | Phase 3 | Did Blockchain History show the on-chain timeline with timestamps? |
+| H-13 | Phase 8 | Were you able to toggle a credential to Private and confirm it's hidden from your shared profile? |
+| H-14 | Phase 8 | Were you able to edit your bio/picture and save it? |
+| H-15 | Phase 8 | Were you able to drag-and-drop to reorder your credentials? |
+| H-16 | Phase 8 | Were you able to generate a working public share link? |
+| H-17 | Phase 8 | For a recipient-specific link, did the viewer need a 6-digit emailed code before seeing your profile? |
+| H-18 | Phase 8 | After clicking Revoke on a share link, did it immediately stop working? |
+| H-19 | Phase 8 | Did the exported PDF include the credential details, Credential ID, and a verification link? |
+| H-20 | Phase 8 | Did the Holder Insights (Credential Health / Verification Insights / Renewal Alerts) render with an explanation? |
+| H-21 | Phase 5 | After the issuer revoked your credential, did it show as *Revoked* with a notification? |
+| H-22 | Phase 1 | Were you able to use Forgot Password (OTP email → new password) successfully? |
 
-*(Log in with a shared, pre-provisioned issuer account — e.g. `dlsu@email.com`. See demo limit: a newly self-registered issuer cannot actually issue.)*
+### Form 2 — Issuer (16 test cases)
 
-| ID | Scenario | Steps | Expected Result |
-|---|---|---|---|
-| I-01 | Log in as issuer | Enter issuer email + password | Redirected to the Issuer Dashboard |
-| I-02 | Home statistics display | Open the dashboard home | Totals for templates / issued / revoked are shown |
-| I-03 | Create a credential template | Create Template → fill fields → Create | Template is created; success message shown |
-| I-04 | Required fields enforced | Submit a template with a missing field | Blocked with a validation message |
-| I-05 | Issue a credential | Issue Credential → select template + recipient → Issue | Success; the holder is notified (in-app + email) |
-| I-06 | Duplicate issuance prevented | Try to issue the same template to the same holder again | The holder is not listed as eligible / issuance is blocked |
-| I-07 | Issue with an expiry date | Set an expiry date, then issue | Credential is issued carrying that expiry |
-| I-08 | View all credentials | Open View All Credentials | Templates + issued credentials listed with their IDs |
-| I-09 | Revoke a credential | Revoke Credential → select + reason → Revoke | Success; holder notified; status becomes *Revoked* |
-| I-10 | Credential history | Open Credential History | On-chain trail of create / issue / revoke events |
-| I-11 | Issuance Performance report | Analytics → Issuance Performance | Chart renders with interpretation |
-| I-12 | Revocation Self-Audit report | Analytics → Revocation Self-Audit | Breakdown by template and time-to-revoke buckets |
-| I-13 | Issuer onboarding (screens only) | Create Account → Issuer → complete Parts 1–4 → Submit | Application status becomes *Pending* |
-| I-14 | Root: view pending subordinates | As `dlsu@email.com` → Subordinate Management → Pending | Pending subordinate applications are listed |
-| I-15 | Root: approve/reject subordinate | Open an application → Approve/Reject | Status → *Root Approved* (or rejected); decision logged on-chain |
-| I-16 | Change password | Settings → Change Password | Password change succeeds |
+*Intro line for the form: "Log in with a shared issuer account (see the manual's account table). Follow Phases 2, 5, 6, and 8. A newly self-registered issuer cannot actually issue — that's expected (see the manual's demo-limit note)."*
 
-### Form 3 — Verifier (target = 9 test cases)
+| ID | Manual Phase | What to Confirm |
+|---|---|---|
+| I-01 | Phase 2 | Were you able to log in and reach the Issuer Dashboard? |
+| I-02 | Phase 2 | Did the dashboard home show totals for templates / issued / revoked? |
+| I-03 | Phase 2 | Were you able to create a credential template successfully? |
+| I-04 | Phase 2 | If you left a required field blank, was it blocked with a validation message? |
+| I-05 | Phase 2 | Were you able to issue a credential to a recipient successfully? |
+| I-06 | Phase 2 | If you tried issuing the same template to the same holder again, was it prevented? |
+| I-07 | Phase 2 | Were you able to set an expiry date when issuing? |
+| I-08 | Phase 2 | Did View All Credentials list your templates and issued credentials with their IDs? |
+| I-09 | Phase 5 | Were you able to revoke a credential with a reason, and did the holder get notified? |
+| I-10 | Phase 2 | Did Credential History show the on-chain trail (create / issue / revoke)? |
+| I-11 | Phase 2 | Did the Issuance Performance report render with an interpretation? |
+| I-12 | Phase 2 | Did the Revocation Self-Audit report show a breakdown by template and time-to-revoke? |
+| I-13 | Phase 6 | Were you able to complete the issuer registration screens (Parts 1–4) and reach *Pending* status? |
+| I-14 | Phase 6 | As the root authority, could you see pending subordinate applications? |
+| I-15 | Phase 6 | Were you able to approve (or reject) a subordinate application, with the decision recorded? |
+| I-16 | Phase 8 | Were you able to change your password successfully? |
 
-| ID | Scenario | Steps | Expected Result |
-|---|---|---|---|
-| V-01 | Access Verify page (no login) | Open the Verify page | Page loads and prompts for verifier identity |
-| V-02 | Request email code | Enter name + real email → Send verification code | A 6-digit code is emailed to that address |
-| V-03 | Confirm email code | Enter the code → Verify & continue | Access granted; email marked verified |
-| V-04 | Invalid/expired code handling | Enter a wrong or old code | An error message is shown; access not granted |
-| V-05 | Verify a VALID credential | Paste a valid Credential ID → Verify | **VALID** with issued-to, issuer, status, Credential ID |
-| V-06 | Verify a REVOKED credential | Verify a revoked credential's ID | **REVOKED**, with the revocation reason shown |
-| V-07 | Verify an EXPIRED credential | Verify a past-expiry credential's ID | **EXPIRED** |
-| V-08 | Verify a fake ID | Enter a made-up / non-existent ID | **NOT FOUND** |
-| V-09 | Verification is recorded | Complete any verification | The event is logged on-chain (visible to the admin) with time and source |
+### Form 3 — Verifier (9 test cases)
 
-### Form 4 — Admin / Internal (target ≈ 20 test cases)
+*Intro line for the form: "No login needed, but you first need a credential to check. If none is available yet, do Phases 1–3 of the manual once (as Holder + Issuer) to produce a credential ID, then follow Phases 4 and 5 as Verifier."*
 
-*(Items marked **\[internal]** need backend/DB access and are for the dev team, not external testers.)*
+| ID | Manual Phase | What to Confirm |
+|---|---|---|
+| V-01 | Phase 4 | Were you able to open the Verify page without logging in? |
+| V-02 | Phase 4 | After entering your name and real email, did you receive a 6-digit code? |
+| V-03 | Phase 4 | Were you able to enter the code and gain access to verify? |
+| V-04 | Phase 4 | If you entered a wrong/expired code, was it rejected with a clear message? |
+| V-05 | Phase 4 | Did verifying a valid credential return **VALID** with the correct details? |
+| V-06 | Phase 5 | Did verifying a revoked credential return **REVOKED** with the reason shown? |
+| V-07 | Phase 5 | Did verifying a past-expiry credential return **EXPIRED**? |
+| V-08 | Phase 5 | Did verifying a made-up ID return **NOT FOUND**? |
+| V-09 | Phase 4 | (For the admin group to confirm in Phase 7) Was your verification later visible in the admin's logs? |
 
-| ID | Scenario | Steps | Expected Result |
-|---|---|---|---|
-| A-01 | Log in as admin | Enter admin email + password | Redirected to the Admin Dashboard |
-| A-02 | Dashboard overview | Open the dashboard | System-wide counts and charts are shown |
-| A-03 | Credentials tab — view all | Open Credentials tab | Templates + issued credentials across all issuers |
-| A-04 | Filter / search credentials | Apply issuer/type/status filters and search | Results update accordingly |
-| A-05 | Integrity check (clean) | Run Integrity Check on untouched data | All records reported as matched |
-| A-06 | Integrity check detects tampering **\[internal]** | Alter a CouchDB record in Fauxton → re-run | The tampered record is flagged with the mismatched field |
-| A-07 | Issuers tab — pending list | Issuers → Pending | Pending applications shown with sub-filters |
-| A-08 | Approve an issuer | Open a pending app → Approve | Status → *Approved*; identity assigned; decision logged |
-| A-09 | Reject an issuer | Open a pending app → Reject | Status → *Rejected*; decision logged |
-| A-10 | Subordinate gate | Try to approve a subordinate before root approval | Approve is disabled; status shows *Awaiting Root Approval* |
-| A-11 | Enable / disable an issuer | Toggle an issuer's status | Status toggles; change logged on-chain |
-| A-12 | Enable / disable a user | Users tab → toggle a holder | Status toggles; change logged on-chain |
-| A-13 | Verification logs | Logs → Verification | Verification events listed (verifier, credential, result, time) |
-| A-14 | Status logs | Logs → Status | Issuer/user enable-disable events listed |
-| A-15 | Issuer decision logs | Logs → Issuer Decisions | Approvals/rejections listed with the acting admin's email |
-| A-16 | Root subordinate logs | Logs → Root Subordinate | Root authority decisions listed |
-| A-17 | Analytics & Reports | Open Analytics & Reports | Verification summary, suspicious activity, demand, integrity insight render |
-| A-18 | Credential Dossier | Open a credential's Dossier | Provenance timeline + verification proof trail shown |
-| A-19 | Admin attribution | Perform actions as `admin1` and `admin2` | Logs show which admin performed each action |
-| A-20 | Change admin password | Settings → Change Password | Succeeds; change is logged on-chain |
+### Form 4 — Admin / Internal (20 test cases)
+
+*Intro line for the form: "Log in as admin1@email.com (or admin2@email.com). Follow Phases 6, 7, and 8. Items marked \[internal] need backend/database access — only the dev team should answer those."*
+
+| ID | Manual Phase | What to Confirm |
+|---|---|---|
+| A-01 | Phase 7 | Were you able to log in and reach the Admin Dashboard? |
+| A-02 | Phase 7 | Did the dashboard show system-wide counts/charts on first load? |
+| A-03 | Phase 7 | Did the Credentials tab list templates and issued credentials across all issuers? |
+| A-04 | Phase 7 | Did the issuer/type/status filters and search work as expected? |
+| A-05 | Phase 7 | On untouched data, did the Integrity Check report all records as matched? |
+| A-06 | Phase 7 **\[internal]** | After manually altering a database record, did the Integrity Check flag it with the specific mismatched field? |
+| A-07 | Phase 6 | Did the Issuers tab show pending applications with the correct sub-filters? |
+| A-08 | Phase 6 | Were you able to approve a pending issuer, with an identity assigned and the decision logged? |
+| A-09 | Phase 6 | Were you able to reject a pending issuer, with the decision logged? |
+| A-10 | Phase 6 | Was Approve correctly disabled for a subordinate until the root authority approved first? |
+| A-11 | Phase 7 | Were you able to enable/disable an issuer's access? |
+| A-12 | Phase 7 | Were you able to enable/disable a holder account? |
+| A-13 | Phase 7 | Did the Verification Logs list events with verifier, credential, result, and time? |
+| A-14 | Phase 7 | Did the Status Logs list issuer/user enable-disable events? |
+| A-15 | Phase 7 | Did the Issuer Decision Logs list approvals/rejections with the acting admin's email? |
+| A-16 | Phase 7 | Did the Root Subordinate Logs list the root authority's decisions? |
+| A-17 | Phase 7 | Did Analytics & Reports render (verification summary, suspicious activity, demand, integrity insight)? |
+| A-18 | Phase 7 | Did a credential's Dossier show its provenance timeline and verification proof trail? |
+| A-19 | Phase 7 | When switching between admin1 and admin2, did the logs correctly show which admin did what? |
+| A-20 | Phase 8 | Were you able to change the admin password successfully? |
 
 ---
 
@@ -169,19 +178,19 @@ Below are ready-to-fill templates matching the required outline. Replace every `
 > **Tools and materials used:**
 > - The deployed ChainCert web application (React frontend, Node/Express API, and a Hyperledger Fabric blockchain network with CouchDB).
 > - A modern web browser (Chrome / Edge / Firefox).
-> - **Google Forms** — used to distribute the role-specific test scripts and to collect tester responses.
-> - The **ChainCert User Manual (UAT Edition)** — provided to testers as the step-by-step reference.
+> - The **ChainCert User Manual (UAT Edition)** — the step-by-step reference (with screenshots) that testers followed for every action; it was attached at the start of each form.
+> - **Google Forms** — one per role, used to collect Pass/Fail results and tester feedback. Each form's test cases reference the specific manual phase the tester had just completed, so the manual supplied the *how* and the form recorded the *outcome*.
 >
 > Testing was performed **manually** by human testers to reflect real-world use; no automated test scripts were employed. A total of **[N]** testers participated: **[n1]** Holders, **[n2]** Issuers, **[n3]** Verifiers, and **[n4]** Admin/internal testers.
 
 ### 6.1.2 Results *(Table Format)*
 
-**Table 6.1 — Functional test results (repeat per role, or combine).** Populate "Actual Result" and "Status" from the UAT responses.
+**Table 6.1 — Functional test results (repeat per role, or combine).** Populate "Actual Result" and "Status" from the UAT responses. ("What to Confirm" is the same question shown to the tester in the form; see Part A for the full list, each already mapped to its User Manual phase.)
 
-| TC ID | Test Scenario | Expected Result | Actual Result | Status (Pass/Fail) |
-|---|---|---|---|---|
-| H-01 | Register a holder account | Account created; redirected to login | [ ] | [ ] |
-| … | *(paste all Holder, Issuer, Verifier, Admin test cases from Part A)* | | [ ] | [ ] |
+| TC ID | What to Confirm (Expected Result) | Actual Result | Status (Pass/Fail) |
+|---|---|---|---|
+| H-01 | Were you able to register a holder account and get redirected to the login page? | [ ] | [ ] |
+| … | *(paste all Holder, Issuer, Verifier, Admin test cases from Part A)* | [ ] | [ ] |
 
 **Table 6.2 — Summary of test results by role.**
 
@@ -230,7 +239,7 @@ Below are ready-to-fill templates matching the required outline. Replace every `
 
 ## Appendices / Bibliography / Resource Persons / Personal Vitae *(mapping — group to finalize)*
 
-- **Appendices:** include the four UAT Google Forms (screenshots or exported copies), the raw/collated response data, and the completed Tables 6.1–6.3. The ChainCert User Manual (UAT Edition) may also be appended.
+- **Appendices:** include the ChainCert User Manual (UAT Edition) itself (it's what testers followed), the four UAT Google Forms (screenshots or exported copies), the raw/collated response data, and the completed Tables 6.1–6.3.
 - **Bibliography:** references cited throughout the paper (APA/IEEE per your program's format). *Group to compile — outside UAT scope.*
 - **Resource Persons:** the individuals consulted (e.g., the HR interviewees from Avesco Marketing Corporation and Sunlife Philippines cited in the problem baseline, adviser, panelists). *Group to fill.*
 - **Personal Vitae:** each member's CV. *Group to fill.*
@@ -239,6 +248,9 @@ Below are ready-to-fill templates matching the required outline. Replace every `
 
 ## Notes for the group
 
-- Test-case counts above are close to the existing form counts (Holder 21, Issuer 16, Verifier 9, Admin 20). Add/trim rows to match your actual forms; adjust the totals in Table 6.2 accordingly.
+- **The forms and the manual are now unified** — every test case's "Manual Phase" column points to a real, existing phase in the User Manual (UAT Edition). The manual was extended slightly (a few short bullets added to Phases 2, 3, 6, 7, and 8) specifically so nothing in the forms is left unexplained. If you add or remove a test case, check that its corresponding manual phase actually covers it — otherwise re-add a short manual bullet rather than duplicating steps in the form.
+- **Attach/embed the User Manual PDF at the top of each Google Form.** The forms intentionally do not repeat steps — testers are expected to open the manual, do the phase, then come back and answer.
+- Test-case counts (Holder 22, Issuer 16, Verifier 9, Admin 20 = 67 total) already match Table 6.2 — no adjustment needed unless you add/remove rows.
 - Items marked **\[internal]** (e.g., the integrity-check tamper demo) require backend/DB access — assign these to a dev-team tester, not an external UAT participant.
+- **Assumption used for the "Manual Phase" mapping:** every tester follows the manual's full sequence (Phases 1–8, in order) using the shared demo accounts — including Verifier-only testers, who first do Phases 1–3 to produce their own credential ID. If your group instead pre-seeds credentials so role groups never leave their own screens, the Verifier form's intro line and precondition need to change (Form 3's note above already flags this).
 - Keep the disclaimers from the User Manual in mind when scripting testers (e.g., a newly registered issuer cannot actually issue; verifier needs a real email; issuer/admin demo emails route to a central inbox).

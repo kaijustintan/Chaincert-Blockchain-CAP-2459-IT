@@ -77,6 +77,8 @@ Everyone tests against the same shared environment, so you may see data created 
    *[Screenshot: User registration form]*
 4. Log in with your new email and password.
    *[Screenshot: Login page]*
+5. *(Optional)* Try **Forgot Password**: click it on the login page, enter your email, check your inbox for the OTP, then set a new password.
+   *[Screenshot: Forgot Password — OTP flow]*
 
 → **What to expect:** You land on your wallet dashboard. It is **empty** — no credentials yet.
 *[Screenshot: Empty wallet]*
@@ -102,12 +104,17 @@ Everyone tests against the same shared environment, so you may see data created 
    *[Screenshot: Create Template — success message]*
 3. Open **Issue Credential** and select the template you just created.
    *[Screenshot: Issue Credential — template dropdown]*
-4. Select the **recipient** — your holder account from Phase 1.
+4. Select the **recipient** — your holder account from Phase 1. *(The dropdown only lists holders who don't already hold this credential — you can't issue the same template to the same person twice.)*
    *[Screenshot: Issue Credential — recipient dropdown]*
 5. *(Optional)* set an expiry date — e.g. one year from today — then click **Issue Credential**.
    *[Screenshot: Issue Credential — success]*
 
 → **What to expect:** a success confirmation, and the credential is recorded on the blockchain. The holder is notified **two ways at once**: an in-app notification (bell icon) **and** an email to their registered address. *(You'll see both in Phase 3.)*
+
+**Also on the Issuer Dashboard:**
+- **View All Credentials** — every template and issued credential you've created, with search and filters.
+- **Credential History** (navigation bar) — the full blockchain trail of your credentials: creation, issuance, revocation, expiration.
+- **Analytics** — **Issuance Performance** (how much you've issued over time) and **Revocation Self-Audit** (revocations by template and how quickly after issuance).
 
 ---
 
@@ -125,6 +132,8 @@ Everyone tests against the same shared environment, so you may see data created 
    *[Screenshot: Credential detail view]*
 5. **Copy the Credential ID** — you'll paste it in Phase 4.
    *[Screenshot: Credential detail — Credential ID highlighted]*
+6. Click **View Blockchain History** to see the on-chain timeline of this credential (creation, issuance, and any later events, with timestamps).
+   *[Screenshot: Credential detail — Blockchain History]*
 
 → **What to expect:** the credential appears in the wallet with status **Issued** (issuer, dates, skills, Credential ID), **plus** an in-app notification **and** an email — confirming the holder is alerted both ways.
 
@@ -223,18 +232,22 @@ Everyone tests against the same shared environment, so you may see data created 
 
 **Goal:** review the records your earlier phases created. Log in as **admin1@email.com**.
 
-1. **Integrity Check** — Credentials tab → **Run Integrity Check**.
+1. **Credentials tab** — browse every template and issued credential across all issuers; filter by issuer/type/status and search by name or ID.
+   *[Screenshot: Admin — Credentials tab]*
+2. **Integrity Check** — Credentials tab → **Run Integrity Check**.
    *What it's for: lets the admin catch tampering — it checks each record in the fast-read database against the blockchain, so if any record was altered outside the app, the mismatch is flagged. (The blockchain is the source of truth.)*
    *[Screenshot: Admin — Integrity Check results]*
-2. **Logs** — Logs tab → verification, status, issuer-decision, and root-subordinate logs.
+3. **Logs** — Logs tab → verification, status, issuer-decision, and root-subordinate logs. *(If you switch between `admin1@email.com` and `admin2@email.com`, notice each logged action shows which admin performed it.)*
    *What it's for: a tamper-evident audit trail — every verification and governance decision is recorded on the blockchain and can't be edited or deleted after the fact.*
    *[Screenshot: Admin — Logs tab]*
-3. **Analytics & Reports** — verification summary, suspicious activity, demand index, and integrity insight; open a credential's **Dossier** for its full trail.
+4. **Analytics & Reports** — verification summary, suspicious activity, demand index, and integrity insight; open a credential's **Dossier** for its full trail.
    *What it's for: turns the raw logs into plain-language insights — e.g. how many checks came back valid vs. fake, and which credentials are most in demand. Each chart has a "what this means" note.*
    *[Screenshot: Admin — Analytics & Reports]*
-4. **Users** — enable or disable a holder account.
+5. **Users** — enable or disable a holder account.
    *What it's for: lets the admin restrict an account; a disabled user can't log in. Every change is logged on the blockchain. (Don't disable the shared accounts.)*
    *[Screenshot: Admin — Users tab]*
+6. **Issuers** — from the Issuers tab, enable or disable an approved issuer's access. *(Don't disable the shared demo issuers.)*
+   *[Screenshot: Admin — Issuers tab, enable/disable]*
 
 → **What to expect:** the credential you issued, verified, and revoked in earlier phases appears across these logs and reports.
 
@@ -242,10 +255,19 @@ Everyone tests against the same shared environment, so you may see data created 
 
 ## Phase 8 — Extra Features (Optional)
 
+- **Wallet views & search** — on your wallet dashboard, switch between **Cards** and **List** view, and use the search box, status filter, and sort options to find a credential.
+  *[Screenshot: Wallet — Cards/List toggle and filters]*
+- **Holder insights** — your wallet also shows **Credential Health**, **Renewal Alerts**, and **Verification Insights** — a plain-language read on how your credentials are doing.
+  *[Screenshot: Wallet — Holder insights]*
+- **Edit your profile** — Profile page → update your bio and profile picture → **Save**.
+  *[Screenshot: Profile — edit bio and picture]*
+- **Reorder credentials** — on the Profile page, drag-and-drop your credentials to change the order they appear on your shared profile.
+  *[Screenshot: Profile — drag-and-drop reorder]*
 - **Profile sharing** — Profile → **Share Profile**, then choose a mode and copy the link:
   - **Public link** — anyone with the link can view your public credentials.
   - **Specific-recipient link** — you enter the recipient's email; when they open the link, they must enter a **6-digit code emailed to them** before your profile shows. *(Same idea as the verifier code — it confirms the viewer is who you meant to share with. The recipient needs a real, checkable email.)*
   *[Screenshot: Profile — Share Profile]*
+- **Revoke a share link** — from the Share Links list, click **Revoke** to immediately invalidate a link you created.
 - **PDF export** — from a credential, **Export PDF** (single or full portfolio). Includes the Credential ID and a verification link, so anyone can re-verify it later.
   *[Screenshot: Credential — Export PDF]*
 - **Visibility** — toggle a credential **Public/Private**. Private credentials are hidden from your shared profile but stay in your own wallet.

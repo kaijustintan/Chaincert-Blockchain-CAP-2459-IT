@@ -72,7 +72,8 @@ Everyone tests against the same shared environment, so you may see data created 
 2. Choose **User** (credential holder).
    *[Screenshot: Role selection — User or Issuer]*
 3. Fill in your details and click **Register**.
-   *Example:* First Name `Juan`, Last Name `Dela Cruz`, Email `your.real@email.com` (use one you can check), Username `juandc`, Password `Chaincert2026!` (min. 10 characters).
+   *Example:* First Name `Juan`, Last Name `Dela Cruz`, Email `your.real@email.com`, Username `juandc`, Password `Chaincert2026!` (min. 10 characters).
+   > **Use a real email you can open.** The system sends credential notifications (and password resets) to this address, so you'll want to receive them during testing.
    *[Screenshot: User registration form]*
 4. Log in with your new email and password.
    *[Screenshot: Login page]*
@@ -89,6 +90,7 @@ Everyone tests against the same shared environment, so you may see data created 
 1. Log out, then log in as **dlsu@email.com / pw123**.
    *[Screenshot: Issuer dashboard — home]*
 2. Open **Create Template**. Fill in the fields and click **Create Template**.
+   *(A template is a reusable blueprint — you fill in the details once, then issue many credentials from it without re-typing everything.)*
    *Example values:*
    - **Credential Name:** `Bachelor of Science in Information Technology`
    - **Credential Type:** `Academic` *(or `Professional` / `Training`)*
@@ -105,7 +107,7 @@ Everyone tests against the same shared environment, so you may see data created 
 5. *(Optional)* set an expiry date — e.g. one year from today — then click **Issue Credential**.
    *[Screenshot: Issue Credential — success]*
 
-→ **What to expect:** a success confirmation. The credential is now recorded on the blockchain and sent to the holder.
+→ **What to expect:** a success confirmation, and the credential is recorded on the blockchain. The holder is notified **two ways at once**: an in-app notification (bell icon) **and** an email to their registered address. *(You'll see both in Phase 3.)*
 
 ---
 
@@ -117,30 +119,33 @@ Everyone tests against the same shared environment, so you may see data created 
    *[Screenshot: Wallet — with the new credential]*
 2. Open the **notification bell** — you'll see "you received a new credential."
    *[Screenshot: Holder notification]*
-3. Click the credential to open its **details**.
+3. Check your **email inbox** — you should also have received an email about the new credential.
+   *[Screenshot: Email — new credential notification]*
+4. Click the credential to open its **details**.
    *[Screenshot: Credential detail view]*
-4. **Copy the Credential ID** — you'll paste it in Phase 4.
+5. **Copy the Credential ID** — you'll paste it in Phase 4.
    *[Screenshot: Credential detail — Credential ID highlighted]*
 
-→ **What to expect:** the credential shows status **Issued**, with the issuer, dates, skills, and its Credential ID.
+→ **What to expect:** the credential appears in the wallet with status **Issued** (issuer, dates, skills, Credential ID), **plus** an in-app notification **and** an email — confirming the holder is alerted both ways.
 
 ---
 
 ## Phase 4 — Verify the Credential (Verifier)
 
-**Goal:** confirm the credential is authentic. No login required.
+**Goal:** confirm the credential is authentic. No login required, but you must confirm your email first.
 
 1. Go to the **Verify** page.
    *[Screenshot: Verifier — landing]*
-2. Enter your **name** and a **real email**, then click **Send verification code**.
+2. Enter your **name** and a **real email**, then click **Send verification code**. A 6-digit code is emailed to that address.
    *Example:* Name `Maria Santos` (HR, Acme Corp), Email `your.real@email.com` (use one you can check for the code).
    *[Screenshot: Verifier — email confirmation]*
-3. Enter the **6-digit code** from your email, then click **Verify & continue**.
+3. Open your email, then enter the **6-digit code** and click **Verify & continue**.
+   *(Why this step: it proves you own the email, so each verification is recorded under a real identity and can't be faked. You only do this once per browser session.)*
    *[Screenshot: Verifier — enter code]*
 4. Paste the **Credential ID** from Phase 3 and click **Verify**.
    *[Screenshot: Verifier — credential ID entered]*
 
-→ **What to expect: VALID** — authentic and active, showing who it was issued to, the issuer, the status, and the Credential ID.
+→ **What to expect: VALID** — authentic and active, showing who it was issued to, the issuer, the status, and the Credential ID. The check itself is also recorded on the blockchain (visible later to the admin in Phase 7).
 *[Screenshot: Verification result — VALID]*
 
 ---
@@ -156,10 +161,11 @@ Everyone tests against the same shared environment, so you may see data created 
 2. As the verifier, re-verify the **same Credential ID**.
    → **REVOKED**, with the reason shown.
    *[Screenshot: Verification result — REVOKED]*
+   → **What to expect:** the holder is also alerted about the revocation — in-app notification **and** email. When they open the credential in their wallet, it now shows **Revoked**.
 
 **Expired**
 3. As the issuer, issue a new credential with an **expiry date in the past** (e.g. yesterday's date), copy its ID, then verify it.
-   → **EXPIRED**.
+   → **EXPIRED**. *(The system checks the date at verification time, so a past-dated credential reads as expired immediately — you don't have to wait. A daily background job also flips expired credentials automatically.)*
    *[Screenshot: Verification result — EXPIRED]*
 
 **Not Found**
@@ -181,6 +187,8 @@ Everyone tests against the same shared environment, so you may see data created 
 ## Phase 6 — Issuer Onboarding: Register → Root → Admin (Governance)
 
 **Goal:** test the issuer sign-up and two-tier approval screens.
+
+*Why two tiers: a subordinate issuer is first vouched for by its root authority (e.g. its parent university), then cleared by the platform admin — so no organization can issue credentials without being checked. Every approval/rejection is recorded on the blockchain.*
 
 > **Reminder (demo limit 1):** this tests the onboarding **screens**. The resulting issuer will show as *Approved* but **cannot actually issue** — use the shared demo issuers for real issuing.
 
@@ -207,7 +215,7 @@ Everyone tests against the same shared environment, so you may see data created 
 8. Open the application, review the documents, and click **Approve**. Status becomes **Approved**.
    *[Screenshot: Admin — issuer review + approve]*
 
-→ **What to expect:** the status flows **Pending → Root Approved → Approved**. (For root-issuer applications there is no root step — the admin approves directly.)
+→ **What to expect:** the status flows **Pending → Root Approved → Approved**. (For root-issuer applications there is no root step — the admin approves directly.) Each submission and root decision also raises an **in-app notification** for the admin. *(The matching email goes to the central demo inbox, not to you — see demo limit 4.)*
 
 ---
 
@@ -215,13 +223,17 @@ Everyone tests against the same shared environment, so you may see data created 
 
 **Goal:** review the records your earlier phases created. Log in as **admin1@email.com**.
 
-1. **Integrity Check** — Credentials tab → **Run Integrity Check**. Compares each record against the blockchain and flags any mismatch.
+1. **Integrity Check** — Credentials tab → **Run Integrity Check**.
+   *What it's for: lets the admin catch tampering — it checks each record in the fast-read database against the blockchain, so if any record was altered outside the app, the mismatch is flagged. (The blockchain is the source of truth.)*
    *[Screenshot: Admin — Integrity Check results]*
 2. **Logs** — Logs tab → verification, status, issuer-decision, and root-subordinate logs.
+   *What it's for: a tamper-evident audit trail — every verification and governance decision is recorded on the blockchain and can't be edited or deleted after the fact.*
    *[Screenshot: Admin — Logs tab]*
 3. **Analytics & Reports** — verification summary, suspicious activity, demand index, and integrity insight; open a credential's **Dossier** for its full trail.
+   *What it's for: turns the raw logs into plain-language insights — e.g. how many checks came back valid vs. fake, and which credentials are most in demand. Each chart has a "what this means" note.*
    *[Screenshot: Admin — Analytics & Reports]*
-4. **Users** — enable or disable a holder account. *(Don't disable the shared accounts.)*
+4. **Users** — enable or disable a holder account.
+   *What it's for: lets the admin restrict an account; a disabled user can't log in. Every change is logged on the blockchain. (Don't disable the shared accounts.)*
    *[Screenshot: Admin — Users tab]*
 
 → **What to expect:** the credential you issued, verified, and revoked in earlier phases appears across these logs and reports.
@@ -230,13 +242,15 @@ Everyone tests against the same shared environment, so you may see data created 
 
 ## Phase 8 — Extra Features (Optional)
 
-- **Profile sharing** — Profile → **Share Profile** → choose a **public link** or a **specific-recipient link** (viewer enters an emailed code) → copy the link.
+- **Profile sharing** — Profile → **Share Profile**, then choose a mode and copy the link:
+  - **Public link** — anyone with the link can view your public credentials.
+  - **Specific-recipient link** — you enter the recipient's email; when they open the link, they must enter a **6-digit code emailed to them** before your profile shows. *(Same idea as the verifier code — it confirms the viewer is who you meant to share with. The recipient needs a real, checkable email.)*
   *[Screenshot: Profile — Share Profile]*
-- **PDF export** — from a credential, **Export PDF** (single or full portfolio). Includes the Credential ID and a verification link.
+- **PDF export** — from a credential, **Export PDF** (single or full portfolio). Includes the Credential ID and a verification link, so anyone can re-verify it later.
   *[Screenshot: Credential — Export PDF]*
-- **Visibility** — toggle a credential **Public/Private**. Private credentials are hidden from your shared profile.
+- **Visibility** — toggle a credential **Public/Private**. Private credentials are hidden from your shared profile but stay in your own wallet.
 - **Settings** — change your password (min. 10 characters) and notification preferences.
-- **Notifications** — the bell icon shows issue/revoke alerts for holders.
+- **Notifications** — the bell icon shows issue/revoke alerts for holders (also sent by email).
 
 ---
 

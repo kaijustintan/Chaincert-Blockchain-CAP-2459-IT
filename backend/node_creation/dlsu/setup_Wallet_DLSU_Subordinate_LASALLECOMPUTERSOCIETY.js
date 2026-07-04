@@ -8,7 +8,7 @@ async function main() {
 
     const credPath = path.join(
       process.env.HOME,
-      'fabric-samples/fabric-samples/test-network/organizations/peerOrganizations/dlsu.example.com/users/SubordinateLASALLECOMPUTERSOCIETY@dlsu.example.com/msp'
+      'fabric-samples/fabric-samples/test-network/organizations/peerOrganizations/dlsu.example.com/users/delasalleuniversity-subordinate-lasallecomputersociety@dlsu.example.com/msp'
     );
 
     const certificate = fs.readFileSync(

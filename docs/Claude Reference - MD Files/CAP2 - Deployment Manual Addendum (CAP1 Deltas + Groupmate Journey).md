@@ -281,6 +281,41 @@ wallet scripts (`setup_Wallet_DLSU*.js`, subordinate ARCHERSNETWORK + LASALLECOM
 
 ---
 
+## Part E — Live-deploy gotchas (found during the 2026-07-04 from-scratch VM deploy)
+
+These bit us during the *actual* clean deploy on the CCSCloud VM (Fabric 2.5.16, Docker 29.1.3,
+docker-compose v1.29.2). All four are now fixed in the repo, but they're documented here in case a
+stale clone or a different box resurfaces them.
+
+1. **`deploy-sync.sh` docker.sock mismatch (FIXED in `deploy-sync.sh`).** The old sed remapped the
+   Org1/Org2 peer socket mount to `/run/docker.sock` while `CORE_VM_ENDPOINT` stayed
+   `unix:///host/var/run/docker.sock` → `deployCC` died with *"dial unix /host/var/run/docker.sock:
+   connect: no such file or directory."* Fix: mount stays at `/host/var/run/docker.sock` (aligned with
+   the endpoint). If you hit it on a stale clone: `sed -i 's|:/run/docker.sock|:/host/var/run/docker.sock|g'`
+   on `compose/docker/docker-compose-test-net.yaml`, then recreate the peers (see #2).
+
+2. **docker-compose v1 + Docker 29 crash on `--force-recreate`.** Recreating a container makes
+   docker-compose v1 inspect the old one and crash with `KeyError: 'ContainerConfig'` (Docker 29's
+   image API dropped that field). It also leaves renamed zombie containers (`<id>_peer0.org1...`).
+   **Never `--force-recreate`** — instead: `docker ps -a --format '{{.Names}}' | grep peer0.org1 |
+   xargs -r docker rm -f`, then `docker-compose ... up -d --no-deps peer0.org1.example.com ...` (a
+   *fresh* create doesn't inspect anything). Ledger volumes persist, so the peer rejoins the channel.
+
+3. **Issuer CouchDB startup race.** Right after `docker-compose -f compose-couch-*.yaml up -d`, the
+   container reports "Up" but its HTTP API isn't ready for a second or two → the `curl -X PUT` DB
+   creates fail with *"Recv failure: Connection reset by peer."* Just re-run the two `curl -X PUT`s
+   after a moment (idempotent).
+
+4. **`dompurify` missing from the frontend build (FIXED in `package.json`).** `jspdf@4` needs
+   `dompurify@^3.3.1` but it wasn't a direct dependency, so a fresh `npm install` on the VM failed the
+   build with *"Can't resolve 'dompurify'."* Added as a direct dep. On a stale clone: `npm install dompurify`.
+
+5. **LSCS wallet-script MSP path (FIXED — reconciled to Convention B).** `setup_Wallet_DLSU_Subordinate_LASALLECOMPUTERSOCIETY.js`
+   used to read the `SubordinateLASALLECOMPUTERSOCIETY@…` folder while the manual enrolls to
+   `delasalleuniversity-subordinate-lasallecomputersociety@…`. Both now use the descriptive
+   Convention-B folder, matching ARCHERSNETWORK (see B8). Follow the Installation Manual's Phase 12
+   `-M` path verbatim now.
+
 ## Cross-references
 - `CAP2 - Deployment Status & Pending.md` — current state + pending list (canonical status tracker).
 - `SESSION-HANDOFF - CAP2 Deployment (2026-06-30).md` — the 14-phase runbook this Part C expands.

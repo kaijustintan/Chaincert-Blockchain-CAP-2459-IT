@@ -74,10 +74,19 @@ if [ -d "$FAB/test-network" ]; then
   else
     echo "   (skip connection profile — create the DLSU org first, then re-run this script)"
   fi
-  # Docker-29 / Fabric-2.5.16 org2 docker.sock fix (idempotent — no-op if already applied).
+  # Docker-29 / Fabric-2.5.16 org1+org2 docker.sock fix (idempotent — no-op if already applied).
+  # Pin ${DOCKER_SOCK} to the real host path AND keep the container-side mount at
+  # /host/var/run/docker.sock so it stays ALIGNED with the peer's CORE_VM_ENDPOINT
+  # (unix:///host/var/run/docker.sock) in this same file. Mounting to /run/docker.sock instead
+  # leaves the endpoint dangling -> deployCC fails with:
+  #   "dial unix /host/var/run/docker.sock: connect: no such file or directory"  (fixed 2026-07-04).
+  # GOTCHA: if you edit this mount after the peers are already running, recreate them with
+  #   docker rm -f peer0.org1.example.com peer0.org2.example.com  &&  docker-compose ... up -d
+  # do NOT use `--force-recreate` — docker-compose v1.29 + Docker 29 crashes with
+  # KeyError: 'ContainerConfig' when it inspects the existing container.
   STOCK="$FAB/test-network/compose/docker/docker-compose-test-net.yaml"
   if [ -f "$STOCK" ]; then
-    sed -i 's|${DOCKER_SOCK}:/host/var/run/docker.sock|/var/run/docker.sock:/run/docker.sock|g' "$STOCK"
+    sed -i 's|${DOCKER_SOCK}:/host/var/run/docker.sock|/var/run/docker.sock:/host/var/run/docker.sock|g' "$STOCK"
   fi
 else
   echo "   (skip Fabric files — $FAB/test-network not found yet; run after the Fabric bootstrap)"

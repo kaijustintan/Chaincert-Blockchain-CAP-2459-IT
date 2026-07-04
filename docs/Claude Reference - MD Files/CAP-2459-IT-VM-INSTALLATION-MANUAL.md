@@ -746,11 +746,17 @@ them — but a stale clone or different box might.)*
 
 ### C.1 Backend change (controller / route / service / `sdk-server-fixed.js` / `couchDB_service.js`)
 ```bash
-cd ~/chaincert-src && git pull
+cd ~/chaincert-src
+git pull origin AFTER-Defense    # prompts: Username = kaijustintan, Password = PASTE YOUR PAT (not your GitHub password)
 bash ~/chaincert-src/deploy-sync.sh
 pm2 restart chaincert-api
 pm2 logs chaincert-api --lines 20 --nostream && curl -s http://localhost:4000/api/health
 ```
+> **The PAT prompt (git):** GitHub disabled plain-password auth, so `git pull` asks for a **Personal Access
+> Token** as the password. Generate a fresh short-lived one at *github.com → Settings → Developer settings →
+> Personal access tokens* if yours expired. If `git pull` **never** prompts, a token is baked into the remote
+> URL — check `git remote -v` and scrub it (see C.6). The same `git pull origin AFTER-Defense` line begins the
+> frontend (C.2) and chaincode (C.3) flows too.
 
 ### C.2 Frontend change (pages / components / services / styles)
 ```bash
@@ -787,6 +793,22 @@ Phase 15). For a lighter reset, status-flip / re-seed existing records.
 ### C.6 Prerequisite — credential-clean git remote
 The VM remote must be token-less (`git remote -v` shows no `ghp_…`). `git pull` prompts for a fresh,
 short-lived PAT each time — don't bake a token into the remote URL.
+
+### C.7 Live logs (watch while the system is in use)
+Run any of these in a spare SSH session while demoing / testing. `Ctrl+C` to stop (does not affect the service).
+```bash
+pm2 logs chaincert-api                         # live API logs (stream)
+pm2 logs chaincert-api --lines 100             # live API logs + last 100 lines of backscroll
+docker logs -f peer0.dlsu.example.com          # live DLSU peer / chaincode-container logs
+sudo tail -f /var/log/nginx/access.log         # live Nginx requests (frontend + /api proxy)
+sudo tail -f /var/log/nginx/error.log          # live Nginx errors (502s, upstream failures)
+pm2 monit                                      # live dashboard: CPU/mem + logs for all PM2 apps
+```
+- **API not responding?** `pm2 logs chaincert-api` first — boot errors (missing `JWT_SECRET`, Fabric/CouchDB
+  connect failures) surface here.
+- **Frontend 502 / blank?** `sudo tail -f /var/log/nginx/error.log` — usually the API is down or `/api` proxy
+  target is wrong.
+- **Chaincode invoke failing?** `docker logs -f peer0.dlsu.example.com` — endorsement / build errors show here.
 
 ---
 

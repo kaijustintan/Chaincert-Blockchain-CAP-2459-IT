@@ -48,6 +48,19 @@ Everyone tests against the same shared environment, so you may see data created 
 3. There are **no ready-made credential IDs** — you create one by issuing (Phase 2), then verify it (Phase 4).
 4. Emails to the demo **issuer/admin** addresses go to a central inbox, so you won't receive them. Emails to your own holder account, the verifier code, and share codes arrive normally.
 
+**At a glance** — do the phases in order and tick each one off:
+
+| ✔ | Phase | Role | You will… |
+|---|---|---|---|
+| ☐ | 1 | Holder | Register your own account and log in |
+| ☐ | 2 | Issuer | Create a template and issue a credential to your holder |
+| ☐ | 3 | Holder | Open the credential and copy its Credential ID |
+| ☐ | 4 | Verifier | Verify the credential → **VALID** |
+| ☐ | 5 | Issuer + Verifier | Revoke / expire / fake it → **REVOKED / EXPIRED / NOT FOUND** |
+| ☐ | 6 | Issuer → Root → Admin | Register a new issuer and approve it (screens only) |
+| ☐ | 7 | Admin | Review the logs, integrity check, and analytics |
+| ☐ | 8 | Holder | *(Optional)* Profile sharing, PDF export, settings |
+
 ---
 
 ## Phase 1 — Register & Log In (Holder)
@@ -58,7 +71,8 @@ Everyone tests against the same shared environment, so you may see data created 
    *[Screenshot: Landing page — Create Account]*
 2. Choose **User** (credential holder).
    *[Screenshot: Role selection — User or Issuer]*
-3. Fill in your name, a **real email**, username, and password (min. 10 characters). Click **Register**.
+3. Fill in your details and click **Register**.
+   *Example:* First Name `Juan`, Last Name `Dela Cruz`, Email `your.real@email.com` (use one you can check), Username `juandc`, Password `Chaincert2026!` (min. 10 characters).
    *[Screenshot: User registration form]*
 4. Log in with your new email and password.
    *[Screenshot: Login page]*
@@ -74,14 +88,21 @@ Everyone tests against the same shared environment, so you may see data created 
 
 1. Log out, then log in as **dlsu@email.com / pw123**.
    *[Screenshot: Issuer dashboard — home]*
-2. Open **Create Template**. Fill in the credential name, type, description, skills, and badge image, then click **Create Template**.
+2. Open **Create Template**. Fill in the fields and click **Create Template**.
+   *Example values:*
+   - **Credential Name:** `Bachelor of Science in Information Technology`
+   - **Credential Type:** `Academic` *(or `Professional` / `Training`)*
+   - **Description:** `Awarded upon completion of the BSIT program at De La Salle University.`
+   - **Skills:** `Programming`, `Database Management`, `Web Development` *(type each and press Enter)*
+   - **Badge Image:** any image file, e.g. a program or school logo (PNG/JPG)
+
    *[Screenshot: Create Template — form filled]*
    *[Screenshot: Create Template — success message]*
 3. Open **Issue Credential** and select the template you just created.
    *[Screenshot: Issue Credential — template dropdown]*
 4. Select the **recipient** — your holder account from Phase 1.
    *[Screenshot: Issue Credential — recipient dropdown]*
-5. *(Optional)* set an expiry date, then click **Issue Credential**.
+5. *(Optional)* set an expiry date — e.g. one year from today — then click **Issue Credential**.
    *[Screenshot: Issue Credential — success]*
 
 → **What to expect:** a success confirmation. The credential is now recorded on the blockchain and sent to the holder.
@@ -112,6 +133,7 @@ Everyone tests against the same shared environment, so you may see data created 
 1. Go to the **Verify** page.
    *[Screenshot: Verifier — landing]*
 2. Enter your **name** and a **real email**, then click **Send verification code**.
+   *Example:* Name `Maria Santos` (HR, Acme Corp), Email `your.real@email.com` (use one you can check for the code).
    *[Screenshot: Verifier — email confirmation]*
 3. Enter the **6-digit code** from your email, then click **Verify & continue**.
    *[Screenshot: Verifier — enter code]*
@@ -128,7 +150,7 @@ Everyone tests against the same shared environment, so you may see data created 
 **Goal:** see the other three verdicts.
 
 **Revoked**
-1. As the issuer (**dlsu@email.com**), open **Revoke Credential**, select the credential and holder, enter a reason, then click **Revoke Credential**.
+1. As the issuer (**dlsu@email.com**), open **Revoke Credential**, select the credential and holder, enter a reason (e.g. `Issued to the wrong recipient`), then click **Revoke Credential**.
    *[Screenshot: Revoke Credential — form]*
    *[Screenshot: Revoke Credential — success]*
 2. As the verifier, re-verify the **same Credential ID**.
@@ -136,7 +158,7 @@ Everyone tests against the same shared environment, so you may see data created 
    *[Screenshot: Verification result — REVOKED]*
 
 **Expired**
-3. As the issuer, issue a new credential with an **expiry date in the past**, copy its ID, then verify it.
+3. As the issuer, issue a new credential with an **expiry date in the past** (e.g. yesterday's date), copy its ID, then verify it.
    → **EXPIRED**.
    *[Screenshot: Verification result — EXPIRED]*
 
@@ -164,12 +186,13 @@ Everyone tests against the same shared environment, so you may see data created 
 
 **Register a new issuer**
 1. **Create Account → Issuer.** Fill in Part 1 (organization details).
+   *Example:* Organization Name `Sample Training Institute`, Organization Email `sampletraining@email.com`, Password `Chaincert2026!`.
    *[Screenshot: Issuer registration — Part 1]*
-2. Part 2 — pick a **category**; the required-documents list appears.
+2. Part 2 — pick a **category** (e.g. `Training Provider`); the required-documents list appears.
    *[Screenshot: Issuer registration — Part 2]*
 3. Part 3 — pick a **type**. If **Subordinate**, choose *De La Salle University* as the root authority.
    *[Screenshot: Issuer registration — Part 3]*
-4. Part 4 — upload documents, review, and **Submit**. Status becomes **Pending**.
+4. Part 4 — upload the required documents (any sample **PDF** works for testing), review, and **Submit**. Status becomes **Pending**.
    *[Screenshot: Issuer registration — Part 4]*
 
 **Root authority approves** *(subordinate applications only)*

@@ -65,24 +65,23 @@ CAP-2459-IT-AFTER-RESET/
 │   │   ├── CAP-2459-IT-WALKTHROUGH.pdf
 │   │   └── Defense Knowledge - March 25.pdf
 │   │
-│   ├── Claude Reference - MD Files/          ← .md mirrors (prefer these over PDFs)
+│   ├── Claude Reference - MD Files/          ← canonical working reference set (.md)
 │   │   ├── CAP1 Documents to Submit/
 │   │   │   ├── CAP-2459-IT-INSTALLATION-MANUAL.md
 │   │   │   ├── CAP-2459-IT-TECHNICAL-MANUAL.md
 │   │   │   ├── CAP-2459-IT-USER-MANUAL.md
 │   │   │   ├── CAP-2459-IT-WALKTHROUGH.md
 │   │   │   └── Defense Knowledge - March 25.md
-│   │   ├── CAP2 - Deployment Gameplan.md
 │   │   ├── CAP2 - Deployment Manual Addendum (CAP1 Deltas + Groupmate Journey).md
+│   │   ├── CAP2 - Deployment Status & Pending.md
 │   │   ├── CAP-2459-IT-PROPOSAL.md
 │   │   ├── CAP-2459-IT-VM-INSTALLATION-MANUAL.md
-│   │   ├── CAP-2459-IT-WALKTHROUGH-OUTDATED.md
 │   │   ├── Chaincert Design Details #1.md
-│   │   ├── Chaincert Design Details #2.md
 │   │   ├── Chaincode - Query Commands.md
 │   │   ├── CONTROLLER Files and its Responsibilities.md
 │   │   ├── Copy Commands.md
 │   │   ├── DIRECTORY - Windows.md            ← this file
+│   │   ├── Directory - Ubuntu.md
 │   │   ├── Final Design.md
 │   │   ├── Installation Dependencies.md
 │   │   ├── Issuer Required Docs per Category.md
@@ -90,25 +89,6 @@ CAP-2459-IT-AFTER-RESET/
 │   │   ├── Predemo Setup.md
 │   │   ├── Redeploy CC Instructions.md
 │   │   └── ROUTE Files and its Responsibilities.md
-│   │
-│   ├── Claude Reference - PDF Files/         ← original PDFs (working/internal docs)
-│   │   ├── DIRECTORY - Ubuntu.txt
-│   │   ├── CAP2 - Deployment Gameplan.pdf
-│   │   ├── CAP-2459-IT-PROPOSAL.pdf
-│   │   ├── CAP-2459-IT-WALKTHROUGH-OUTDATED.pdf
-│   │   ├── Chaincert Design Details #1.pdf
-│   │   ├── Chaincert Design Details #2.pdf
-│   │   ├── Chaincode - Query Commands.pdf
-│   │   ├── CONTROLLER Files and its Responsibilities.pdf
-│   │   ├── Copy Commands.pdf
-│   │   ├── DIRECTORY - Windows.pdf
-│   │   ├── Final Design.pdf
-│   │   ├── Installation Dependencies.pdf
-│   │   ├── Issuer Required Docs per Category.pdf
-│   │   ├── Node Creation for DLSU.pdf
-│   │   ├── Predemo Setup.pdf
-│   │   ├── Redeploy CC Instructions.pdf
-│   │   └── ROUTE Files and its Responsibilities.pdf
 │   │
 │   └── Security Checklist/                   ← AI-readable security review framework (KB)
 │       ├── README.md
@@ -238,8 +218,7 @@ CAP-2459-IT-AFTER-RESET/
 ├── CLAUDE.md
 ├── package.json
 ├── package-lock.json
-├── README.md
-└── WINDOWS_FINDINGS.md
+└── README.md
 ```
 
 ---
@@ -256,7 +235,7 @@ CAP-2459-IT-AFTER-RESET/
 | `src/routes/` | Express route definitions | `~/chaincert-api/routes/` |
 | `backend/` | API server, CouchDB service, wallet scripts | `~/chaincert-api/` |
 | `chaincode/` | Hyperledger Fabric smart contract | `~/chaincert-chaincode/` |
-| `docs/` | Project docs (PDFs + MD mirrors) | Reference only |
+| `docs/` | Project docs (.md reference set + submission manuals) | Reference only |
 | `.claude/` | Claude Code config (commands, skills, settings) | Synced to WSL home |
 
-> For the Ubuntu-side equivalent paths, see `docs/Claude Reference - PDF Files/DIRECTORY - Ubuntu.txt`.
+> For the Ubuntu-side equivalent paths, see `docs/Claude Reference - MD Files/Directory - Ubuntu.md`.

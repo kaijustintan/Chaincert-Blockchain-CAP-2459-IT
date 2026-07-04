@@ -1,7 +1,7 @@
 # CAP2 — Deployment Status & Pending
 
 > Single source of truth for the CCSCloud deployment thread. Captured 2026-06-29 (deployment session).
-> Companion to `CAP2 - Deployment Gameplan.md` (the original plan) — this file is the *current state + what's left*.
+> Companion to `CAP-2459-IT-VM-INSTALLATION-MANUAL.md` (the executable runbook) — this file is the *current state + what's left*.
 
 > ## ✅ UPDATE 2026-07-04 — DEPLOYED (canonical, fresh)
 > The full from-scratch deployment of the **canonical `AFTER-Defense` repo** onto the CCSCloud VM is

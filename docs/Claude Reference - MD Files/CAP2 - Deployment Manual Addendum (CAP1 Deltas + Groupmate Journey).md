@@ -178,7 +178,7 @@ identity is *born* with the new name — no live migration needed.
   folder above (so enroll-writes == script-reads).
 - **Changed:** 2 code/config files (`setup_Wallet_DLSU_Subordinate_ARCHERSNETWORK.js`,
   `compose-couch-archersnetwork.yaml`) + working docs (CLAUDE.md, Copy Commands, both directory files,
-  Final Design, Design Details #2, README, WINDOWS_FINDINGS, SESSION-HANDOFF, this addendum, the
+  Final Design, README, this addendum, the
   doc-format skill). `deploy-sync.sh` needed no change (wildcard copies).
 - **⚠️ Deliberately NOT changed — the 4 CAP1 submission manuals** (Installation, Technical, Walkthrough,
   Defense Knowledge) still say `innocencio`, preserved as submitted artifacts. **When following the
@@ -322,6 +322,6 @@ stale clone or a different box resurfaces them.
 
 ## Cross-references
 - `CAP2 - Deployment Status & Pending.md` — current state + pending list (canonical status tracker).
-- `SESSION-HANDOFF - CAP2 Deployment (2026-06-30).md` — the 14-phase runbook this Part C expands.
+- `CAP-2459-IT-VM-INSTALLATION-MANUAL.md` — the full from-scratch VM runbook (Phases 0–15) this Part C summarizes.
 - `CAP-2459-IT-INSTALLATION-MANUAL.md` (CAP1, unchanged) — detailed sub-commands for unchanged phases.
 - `deploy-sync.sh` (repo root) — the source→runtime sync this addendum relies on.

@@ -172,7 +172,7 @@ ChainCert is deployed and live on the DLSU **CCSCloud VM** at **http://ccscloud.
 
 ## Docs
 
-All reference docs are under `docs/Claude Reference - MD Files/`. Prefer `.md` files over PDFs in `docs/Claude Reference - PDF Files/` — same content, faster to read.
+All reference docs are under `docs/Claude Reference - MD Files/` (the canonical `.md` working set). The formally submitted CAP1 PDFs live in `docs/CAP1 Documents to Submit/`.
 
 | Doc | What it covers |
 |---|---|

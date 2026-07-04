@@ -9,7 +9,7 @@ Chaincode (chaincode/) — Hyperledger Fabric smart contract (ChainCertContract)
 
 CAP2 deployment target is a single Ubuntu cloud VM — CCSCloud (DLSU-provided). As of 2026-07-04 the CANONICAL AFTER-Defense repo is DEPLOYED FRESH on the VM and reachable at http://ccscloud.dlsu.edu.ph:20173/ (plain HTTP, CCSCloud-mapped port; frontend served from the VM via Nginx + PM2, not Vercel) — this SUPERSEDES the old throwaway Xeidonn/ChainCert-Deploy CAP1 fork. Full from-scratch + day-2-update (git pull → deploy-sync.sh → build/redeploy/pm2 restart) runbook: docs/Claude Reference - MD Files/CAP-2459-IT-VM-INSTALLATION-MANUAL.md. Hosts Docker + Fabric + CouchDB + Node API + React frontend; open the mapped VM firewall ports. DOCKER/FABRIC NOTE: Docker Engine v29 breaks Fabric 2.5.14 chaincode builds (abandoned fsouza/go-dockerclient incompatibility — NOT a removed builder) — fix is to upgrade Fabric 2.5.14→2.5.16 (keep Docker 29) or downgrade Docker to 28; pin 2.5.16 going forward (refs: hyperledger/fabric #5350/#5441, PR #5353/#5355). Before re-deploy: the frontend localhost URLs + CORS are now ENV-DRIVEN (June 2026 refactor — REACT_APP_API_URL / REACT_APP_FRONTEND_URL / CORS_ORIGIN / FRONTEND_URL; see env-vars section); sdk-server-fixed.js:269 FABRIC_SAMPLES_PATH was DEAD CODE (removed); the committed DLSU connection profile's /home/kaitanz_ paths are auto-patched by deploy-sync.sh. VM layout = Plan 2 "clean split" (git clone at ~/chaincert-src → runtime ~/chaincert-api + ~/chaincert-chaincode, copied by deploy-sync.sh which never touches the runtime wallet/ + .env). Still: set the .env security toggles OFF before demo. FULL current state + pending list: docs/Claude Reference - MD Files/CAP2 - Deployment Status & Pending.md. AWS EC2 / DigitalOcean remain fallbacks if CCSCloud is unavailable.
 
-📄 Doc-reading tip — prefer .md over .pdf to save tokens. When referencing project docs, read the .md mirrors under docs/Claude Reference - MD Files/ (and docs/Claude Reference - MD Files/CAP1 Documents to Submit/ for the formal CAP1 submission manuals) instead of the original PDFs in docs/Claude Reference - PDF Files/. The .md files have identical content and are dramatically cheaper to consume. The full doc index lives in the Canonical docs section at the bottom of this file.
+📄 Doc-reading tip — the canonical working docs are the .md files under docs/Claude Reference - MD Files/ (and docs/Claude Reference - MD Files/CAP1 Documents to Submit/ for the .md mirrors of the formal CAP1 submission manuals). The formally submitted CAP1 PDFs live separately in docs/CAP1 Documents to Submit/ — read the .md set, not those. The full doc index lives in the Canonical docs section at the bottom of this file.
 
 Commands
 Frontend (run from repo root, Windows side — runs npm start against the WSL backend):
@@ -164,7 +164,7 @@ Conventions worth knowing
 File-level outline comments at the top of major backend files (couchDB_service.js, sdk-server-fixed.js, controllers, chaincode index.js) list public functions by category. Keep these in sync when adding or renaming exports — the team uses them as a quick-reference index.
 Auth: tokens live in localStorage.token on the client; backend treats absence of Authorization as req.user = null rather than rejecting at middleware. Per-route auth checks live in the controllers.
 Roles: student (holder), issuer (root or subordinate), admin, verifier. Plus the chaincode-level chaincert-admin Fabric identity used by the API for system-level invokes.
-When in doubt about layout: read docs/DIRECTORY - Ubuntu.txt and docs/Claude Reference - MD Files/DIRECTORY_-_Windows.md for the authoritative directory tree on each side.
+When in doubt about layout: read docs/Claude Reference - MD Files/Directory - Ubuntu.md and docs/Claude Reference - MD Files/DIRECTORY - Windows.md for the authoritative directory tree on each side.
 
 Phase 4 analytics/reports — SHIPPED June 2026 (tracker S4/IMP7). Adviser Sir Danny directive: end-user-first (Holder → Verifier → Issuer → Admin), processed interpreted insights, not raw tables — every chart has a "what this means" box. Full GATE findings + investigation history in project memory (project-phase4-analytics.md).
 
@@ -232,7 +232,7 @@ Whenever files or folders are added, removed, or moved in the Ubuntu environment
 
 This applies vice-versa: a Windows change requires updating the Ubuntu copy of the Windows directory file, and a Ubuntu change requires updating the Windows copy of the Ubuntu directory file.
 Canonical docs
-Always prefer the .md mirrors below over the original PDFs in docs/Claude Reference - PDF Files/ — same content, far cheaper on tokens.
+The .md files below are the canonical working reference set. The formally submitted CAP1 PDFs live separately in docs/CAP1 Documents to Submit/ — read the .md set here, not those.
 docs/Claude Reference - MD Files/CAP1 Documents to Submit/ (formal CAP1 submission manuals)
 
 CAP-2459-IT-INSTALLATION-MANUAL.md — phased setup; canonical for ports, identities, CouchDB DB names.
@@ -243,7 +243,7 @@ CAP-2459-IT-PROPOSAL.md — original problem statement (Problems #1–#9) and pr
 
 docs/Claude Reference - MD Files/ (working / internal docs)
 
-Final_Design.md — governance model, 12-phase subordinate creation workflow, 4-part issuer registration form with prerequisites. (Note: Chaincert_Design_Details__2.md is a near-identical earlier copy of this — prefer Final_Design.md.)
+Final_Design.md — governance model, 12-phase subordinate creation workflow, 4-part issuer registration form with prerequisites.
 Defense_Knowledge_-_March_25.md — rationale for every accepted limitation, Q&A style; consult before proposing hardening changes.
 Chaincode_-_Query_Commands.md — full CLI catalog for chaincode functions (GET vs INVOKE).
 Node_Creation_for_DLSU.md — channel config update dance, peer addition, and the "Quick Reference" peer/org switch commands.
@@ -251,7 +251,6 @@ Redeploy_CC_Instructions.md + Predemo_Setup.md — exact configtx swap sequence 
 Issuer_Required_Docs_per_Category.md — rationale per required document in backend/issuerRequirements.js.
 Chaincert_Design_Details__1.md — Platform vs Consortium architecture rationale.
 CAP-2459-IT-VM-INSTALLATION-MANUAL.md — THE VM deployment manual (companion to the local Installation Manual): from-scratch Phases 0–15 + Appendix A (gotchas) / B (CCSCloud access, SSH tunnels) / C (day-2 update ops). Fabric 2.5.16, deploy-sync.sh, Nginx+PM2. Follow this for any VM deploy or update.
-CAP2_-_Deployment_Gameplan.md — Older cloud VM gameplan (EC2/DigitalOcean framing; superseded by the VM Installation Manual + the Deployment Addendum for actual CCSCloud steps).
 CONTROLLER_Files_and_its_Responsibilities.md — canonical controller-placement rules.
 ROUTE_Files_and_its_Responsibilities.md — canonical route-placement rules.
 Copy_Commands.md — full Windows → Ubuntu cp command list.

@@ -56,11 +56,8 @@ Counts: **662 directories, 1453 files**.
 │       │   ├── CAP-2459-IT-WALKTHROUGH.md
 │       │   └── Defense Knowledge - March 25.md
 │       ├── CAP-2459-IT-PROPOSAL.md
-│       ├── CAP-2459-IT-WALKTHROUGH-OUTDATED.md
-│       ├── CAP2 - Deployment Gameplan.md
 │       ├── CONTROLLER Files and its Responsibilities.md
 │       ├── Chaincert Design Details #1.md
-│       ├── Chaincert Design Details #2.md
 │       ├── Chaincode - Query Commands.md
 │       ├── Copy Commands.md
 │       ├── Directory - Windows.md

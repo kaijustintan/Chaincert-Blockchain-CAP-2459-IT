@@ -2,6 +2,13 @@
 
 # Redeploy Chaincode Instructions
 
+> ⚠️ **These steps are LOCAL (Windows→WSL).** For redeploying chaincode on the **CCSCloud VM**, follow
+> `CAP-2459-IT-VM-INSTALLATION-MANUAL.md` **Appendix C.3** — the same configtx-swap dance, but with the
+> VM flow: `git pull` → `deploy-sync.sh` (replaces the cp commands) → `network.sh deployCC` on **Fabric
+> 2.5.16** → DLSU install/approve → `pm2 restart chaincert-api`. **Bump `-ccv` every redeploy** (initial
+> VM deploy was `1.0`). If a redeploy recreates peers, use `docker rm -f` + `up`, **never `--force-recreate`**
+> (docker-compose-v1 / Docker-29 crash).
+
 > **KAPAG MAY BINAGO KA SA:**
 
 ## 1) Chaincode

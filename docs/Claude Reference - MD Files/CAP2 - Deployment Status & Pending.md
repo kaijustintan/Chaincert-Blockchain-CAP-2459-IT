@@ -3,6 +3,14 @@
 > Single source of truth for the CCSCloud deployment thread. Captured 2026-06-29 (deployment session).
 > Companion to `CAP2 - Deployment Gameplan.md` (the original plan) — this file is the *current state + what's left*.
 
+> ## ✅ UPDATE 2026-07-04 — DEPLOYED (canonical, fresh)
+> The full from-scratch deployment of the **canonical `AFTER-Defense` repo** onto the CCSCloud VM is
+> **complete and verified** — site live at `http://ccscloud.dlsu.edu.ph:20173`, chaincode committed with
+> all 3 orgs endorsing, backend↔chaincode round-trip confirmed. The everything-below (Xeidonn fork,
+> re-clone plan, C1–C5 unknowns, env-refactor "pending") is now **historical** — the pending items are done.
+> **The step-by-step runbook is now its own manual:** `CAP-2459-IT-VM-INSTALLATION-MANUAL.md`
+> (from-scratch + day-2 updates). The live-deploy gotchas are in this doc's companion Addendum, Part E.
+
 ---
 
 ## Status snapshot

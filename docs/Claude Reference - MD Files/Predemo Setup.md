@@ -4,6 +4,11 @@
 
 *As of Mar 9, 2026*
 
+> ⚠️ **This is a March-2026 LOCAL (WSL) snapshot — superseded for the VM.** For the CCSCloud VM, the
+> current runbook is `CAP-2459-IT-VM-INSTALLATION-MANUAL.md` (from-scratch Phases 0–15; predemo reset =
+> Appendix C.5). Key VM differences: Fabric **2.5.16** (not 2.5.0), chaincode initial deploy `-ccv 1.0`,
+> and `deploy-sync.sh` replaces the manual cp commands referenced below.
+
 ## Tasks Done Even Before Doing Predemo Setup
 
 - Already made user accounts

@@ -119,6 +119,11 @@ node setup_Wallet_DLSU_Subordinate_LASALLECOMPUTERSOCIETY.js
 | kylejustin.tan7@gmail.com | pw123 | Holder |
 
 > Full demo walkthrough: `docs/Claude Reference - MD Files/CAP1 Documents to Submit/CAP-2459-IT-WALKTHROUGH.md`
+>
+> ⚠️ **These accounts/passwords are the local-dev demo set.** The `pw123` password (5 chars) is now
+> **rejected by the password policy (M8, min 10 chars)** — it only works if `DISABLE_PASSWORD_POLICY` is
+> set. On the **VM**, the seeded admin accounts are `admin@email.com` / `admin2@email.com` with password
+> **`adminpw123`**; other accounts are seeded during UAT (see the VM manual, Phase 15).
 
 ---
 
@@ -148,9 +153,20 @@ docs/Claude Reference - MD Files/Copy Commands.md
 
 ---
 
-## Deployment Target (CAP2)
+## Deployment (CAP2) — DEPLOYED on the CCSCloud VM ✅
 
-CCSCloud (DLSU-provided Ubuntu VM). Same setup as local WSL2 — Docker + Fabric + Node API + React frontend on one machine. Ports 3000 and 4000 must be open on the VM firewall.
+ChainCert is deployed and live on the DLSU **CCSCloud VM** at **http://ccscloud.dlsu.edu.ph:20173**
+(fresh canonical `AFTER-Defense` deploy, 2026-07-04).
+
+> ⚠️ The VM setup is **NOT** "the same as local WSL2." The Quick Start above is for **local
+> development**. The VM is native Ubuntu (no WSL), runs **Fabric 2.5.16** (not 2.5.14 — a Docker-29
+> compatibility patch; cite 2.5.14 in defense materials), uses **`deploy-sync.sh`** instead of manual
+> `cp` commands, and serves the built frontend through **Nginx + PM2**.
+>
+> **To deploy or update on the VM, follow the dedicated manual — not this README:**
+> `docs/Claude Reference - MD Files/CAP-2459-IT-VM-INSTALLATION-MANUAL.md`
+> (initial install Phases 0–15 + Appendix C for day-2 updates: `git pull` → `deploy-sync.sh` →
+> build/redeploy/`pm2 restart`).
 
 ---
 

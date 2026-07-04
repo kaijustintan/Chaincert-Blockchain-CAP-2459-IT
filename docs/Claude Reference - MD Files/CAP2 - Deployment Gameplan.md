@@ -2,6 +2,11 @@
 
 # CAP2 - Deployment Gameplan
 
+> ⚠️ **Historical/background only.** This early gameplan was framed around EC2/DigitalOcean. The
+> **actual deployment target is the DLSU CCSCloud VM**, and it is **DEPLOYED (2026-07-04)**. For the
+> real, executable steps use **`CAP-2459-IT-VM-INSTALLATION-MANUAL.md`** (+ the Deployment Addendum for
+> rationale). Keep the FAQs below as conceptual background.
+
 ## Deployment Overview | Gist on How We Are Going to Do CAP2 Deployment
 
 ### Goal

@@ -16,6 +16,11 @@ The following sections describe the required system tools, infrastructure compon
 
 ### 2.1 Operating Environment
 
+> **⚠️ For the CCSCloud VM deployment:** the VM runs **native Ubuntu 22.04 (no WSL, no Windows)** — the
+> React frontend is **built and served on the VM** (via Nginx), not run from Windows. **Skip the
+> "Windows Environment" subsection below** on the VM. The dependency *lists* in this doc still apply;
+> only the host differs. See `CAP-2459-IT-VM-INSTALLATION-MANUAL.md`.
+
 The development and deployment environment requires the following system-level components:
 
 #### Windows Environment
@@ -78,6 +83,7 @@ The ChainCert frontend is implemented as a React-based web application and runs 
 | Library | Purpose |
 |---|---|
 | `jspdf` | Generates downloadable PDF files for issued credentials |
+| `dompurify` | Required by `jspdf@4` for HTML sanitization. **Must be a direct dependency** or the frontend build fails with `Can't resolve 'dompurify'` (added 2026-07-04 after it blocked the VM build). |
 | `qrcode` | Generates QR codes embedded within exported credential PDFs |
 
 ### File Handling
@@ -100,7 +106,7 @@ The following libraries are used for testing and development validation but are 
 Run the following command inside the frontend project directory:
 
 ```bash
-npm install react react-dom react-router-dom react-scripts axios jspdf qrcode @fortawesome/fontawesome-free multer web-vitals
+npm install react react-dom react-router-dom react-scripts axios jspdf dompurify qrcode @fortawesome/fontawesome-free multer web-vitals
 ```
 
 Optional testing libraries may be installed using:

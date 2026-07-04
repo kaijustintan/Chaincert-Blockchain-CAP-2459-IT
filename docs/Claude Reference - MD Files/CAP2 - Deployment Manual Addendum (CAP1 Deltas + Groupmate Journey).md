@@ -12,6 +12,10 @@
 > Captured 2026-06-30 (AFTER-Defense). Sources: groupmates' `CCSCloud_VM_Deployment_Session_Log.md`
 > + `..._Resume_Context.md` (throwaway, not in repo), `CAP2 - Deployment Status & Pending.md`,
 > the CAP1 Installation Manual, and Hyperledger Fabric release docs.
+>
+> **✅ 2026-07-04 — the from-scratch VM deploy using this runbook SUCCEEDED.** The clean, executable
+> step-by-step now lives in its own doc: **`CAP-2459-IT-VM-INSTALLATION-MANUAL.md`**. This addendum
+> remains the *rationale* for the CAP1→CAP2 deltas and the source of the Part-E gotchas.
 
 ---
 
@@ -200,7 +204,7 @@ identity is *born* with the new name — no live migration needed.
 **Phase 1 — Full teardown (⚠️ wipes the CAP1 demo entirely):**
 
 > **🔐 First action on the box — rotate the VM SSH password.** As `chaincert`, run `passwd` and set a
-> fresh strong password. The old value (`Chaincert2026!`) was committed in a handoff doc — since
+> fresh strong password. The old value was committed in a handoff doc — since
 > scrubbed to a placeholder, but it **lingers in git history** until rotated, so rotation is the real
 > fix. Share the new password out-of-band (chat/DM, a password manager — **never in git or a committed
 > doc**) and update the team's store. This is independent of the deploy flow; do it once, first.

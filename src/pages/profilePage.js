@@ -553,7 +553,7 @@ const [showAll, setShowAll] = useState(false);
     setShareCopied(false);
     setShowShareModal(true);
     // B2: issuers have ONE permanent link — fetch/reuse it immediately, no "Generate" step.
-    if (isIssuer) handleGenerateShareLink();
+    if (isIssuer) handleGenerateShareLink('public');
   };
 
   const handleCloseShareModal = () => {
@@ -563,9 +563,12 @@ const [showAll, setShowAll] = useState(false);
     setShareDescription('');
   };
 
-  const handleGenerateShareLink = async () => {
-    // handle both specific and public share types
-    if (shareType === 'specific' && !shareRecipientEmail.trim()) {
+  const handleGenerateShareLink = async (typeOverride) => {
+    // handle both specific and public share types. typeOverride lets the "Anyone with Link"
+    // tab (and the issuer auto-open) fetch the public link immediately without waiting on the
+    // async shareType state update.
+    const type = typeOverride || shareType;
+    if (type === 'specific' && !shareRecipientEmail.trim()) {
       setShareError('Recipient email is required.');
       return;
     }
@@ -574,7 +577,7 @@ const [showAll, setShowAll] = useState(false);
     setShareGeneratedUrl('');
     try {
       let result;
-      if (shareType === 'specific') {
+      if (type === 'specific') {
         result = await apiService.generateProfileShareLink({
           recipientEmail: shareRecipientEmail.trim(),
           durationDays: shareDuration,
@@ -1175,73 +1178,61 @@ const [showAll, setShowAll] = useState(false);
               <button className="close-btn" onClick={handleCloseShareModal}>✕</button>
             </div>
             <div className="modal-body">
-              {!shareGeneratedUrl ? (
-                isIssuer ? (
-                  <SpinnerBlock label="Preparing your permanent link…" minHeight={120} />
-                ) : (
+              {/* Share type toggle — always visible for holders (issuers are public-only). */}
+              {!isIssuer && (
+                <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
+                  <button
+                    onClick={() => { setShareType('specific'); setShareError(''); setShareGeneratedUrl(''); setShareCopied(false); }}
+                    style={{
+                      flex: 1, padding: '8px 0', borderRadius: 8, fontSize: '13px',
+                      fontWeight: 600, cursor: 'pointer', fontFamily: 'Poppins, sans-serif',
+                      border: shareType === 'specific' ? 'none' : '1px solid var(--accent-weak)',
+                      background: shareType === 'specific' ? 'linear-gradient(135deg, var(--accent), var(--accent-strong))' : 'transparent',
+                      color: shareType === 'specific' ? 'var(--text)' : 'var(--accent-strong)'
+                    }}
+                  >
+                    Specific Recipient
+                  </button>
+                  <button
+                    onClick={() => { setShareType('public'); setShareError(''); setShareGeneratedUrl(''); setShareCopied(false); handleGenerateShareLink('public'); }}
+                    style={{
+                      flex: 1, padding: '8px 0', borderRadius: 8, fontSize: '13px',
+                      fontWeight: 600, cursor: 'pointer', fontFamily: 'Poppins, sans-serif',
+                      border: shareType === 'public' ? 'none' : '1px solid var(--accent-weak)',
+                      background: shareType === 'public' ? 'linear-gradient(135deg, var(--accent), var(--accent-strong))' : 'transparent',
+                      color: shareType === 'public' ? 'var(--text)' : 'var(--accent-strong)'
+                    }}
+                  >
+                    Anyone with Link
+                  </button>
+                </div>
+              )}
+
+              {/* Per-state intro / form. The URL box + copy button render once, below. */}
+              {isIssuer ? (
+                !shareGeneratedUrl && <SpinnerBlock label="Preparing your permanent link…" minHeight={120} />
+              ) : shareType === 'public' ? (
                 <>
-                  {/* share type toggle — PROFILE2: hidden for issuers (public-only) */}
-                  {!isIssuer && (
-                  <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
-                    <button
-                      onClick={() => { setShareType('specific'); setShareError(''); }}
-                      style={{
-                        flex: 1, padding: '8px 0', borderRadius: 8, fontSize: '13px',
-                        fontWeight: 600, cursor: 'pointer', fontFamily: 'Poppins, sans-serif',
-                        border: shareType === 'specific' ? 'none' : '1px solid var(--accent-weak)',
-                        background: shareType === 'specific' ? 'linear-gradient(135deg, var(--accent), var(--accent-strong))' : 'transparent',
-                        color: shareType === 'specific' ? 'var(--text)' : 'var(--accent-strong)'
-                      }}
-                    >
-                      Specific Recipient
-                    </button>
-                    <button
-                      onClick={() => { setShareType('public'); setShareError(''); }}
-                      style={{
-                        flex: 1, padding: '8px 0', borderRadius: 8, fontSize: '13px',
-                        fontWeight: 600, cursor: 'pointer', fontFamily: 'Poppins, sans-serif',
-                        border: shareType === 'public' ? 'none' : '1px solid var(--accent-weak)',
-                        background: shareType === 'public' ? 'linear-gradient(135deg, var(--accent), var(--accent-strong))' : 'transparent',
-                        color: shareType === 'public' ? 'var(--text)' : 'var(--accent-strong)'
-                      }}
-                    >
-                      Anyone with Link
-                    </button>
+                  <p style={{ color: 'var(--text-muted)', fontSize: '13px', margin: '0 0 12px 0', lineHeight: 1.5 }}>
+                    Anyone with this link can view your public profile. No email or verification required —
+                    it's a single permanent link, reused every time, so you only ever have one public door to revoke.
+                  </p>
+                  {!shareGeneratedUrl && <SpinnerBlock label="Preparing your link…" minHeight={100} />}
+                </>
+              ) : !shareGeneratedUrl ? (
+                <>
+                  <div className="detail-row" style={{ flexDirection: 'column', gap: 6 }}>
+                    <label style={{ color: 'var(--accent-strong)', fontSize: '0.85rem', fontWeight: 600 }}>
+                      Recipient Email <span style={{ color: 'var(--danger)' }}>*</span>
+                    </label>
+                    <input
+                      type="email"
+                      value={shareRecipientEmail}
+                      onChange={(e) => setShareRecipientEmail(e.target.value)}
+                      placeholder="hr@company.com"
+                      style={{ background: 'var(--border)', border: '1px solid var(--accent-strong)', borderRadius: 8, color: 'var(--text)', padding: '8px 12px', fontSize: '14px', outline: 'none', width: '100%' }}
+                    />
                   </div>
-                  )}
-
-                  {shareType === 'specific' && (
-                    <div className="detail-row" style={{ flexDirection: 'column', gap: 6 }}>
-                      <label style={{ color: 'var(--accent-strong)', fontSize: '0.85rem', fontWeight: 600 }}>
-                        Recipient Email <span style={{ color: 'var(--danger)' }}>*</span>
-                      </label>
-                      <input
-                        type="email"
-                        value={shareRecipientEmail}
-                        onChange={(e) => setShareRecipientEmail(e.target.value)}
-                        placeholder="hr@company.com"
-                        style={{
-                          background: 'var(--border)',
-                          border: '1px solid var(--accent-strong)',
-                          borderRadius: 8, color: 'var(--text)',
-                          padding: '8px 12px', fontSize: '14px',
-                          outline: 'none', width: '100%'
-                        }}
-                      />
-                    </div>
-                  )}
-
-                  {shareType === 'public' && (
-                    <p style={{ color: 'var(--text-muted)', fontSize: '13px', margin: '0 0 8px 0', lineHeight: 1.5 }}>
-                      Anyone with this link can view your public profile. No email or verification required.
-                      It's a single permanent link — reused every time, so you only ever have one public door to revoke.
-                    </p>
-                  )}
-
-                  {/* B: issuers get a permanent, reusable link — no duration picker.
-                      Public links are also permanent (reused) for holders, so the duration picker
-                      only applies to the Specific-Recipient tab. */}
-                  {!isIssuer && shareType === 'specific' && (
                   <div className="detail-row" style={{ flexDirection: 'column', gap: 6, marginTop: 14 }}>
                     <label style={{ color: 'var(--accent-strong)', fontSize: '0.85rem', fontWeight: 600 }}>
                       Link Duration
@@ -1249,13 +1240,7 @@ const [showAll, setShowAll] = useState(false);
                     <select
                       value={shareDuration}
                       onChange={(e) => setShareDuration(e.target.value)}
-                      style={{
-                        background: 'rgba(20,10,40,0.95)',
-                        border: '1px solid var(--accent-strong)',
-                        borderRadius: 8, color: 'var(--text)',
-                        padding: '8px 12px', fontSize: '14px',
-                        outline: 'none', width: '100%'
-                      }}
+                      style={{ background: 'rgba(20,10,40,0.95)', border: '1px solid var(--accent-strong)', borderRadius: 8, color: 'var(--text)', padding: '8px 12px', fontSize: '14px', outline: 'none', width: '100%' }}
                     >
                       <option value="1">1 Day</option>
                       <option value="3">3 Days</option>
@@ -1264,12 +1249,6 @@ const [showAll, setShowAll] = useState(false);
                       <option value="none">No Expiry</option>
                     </select>
                   </div>
-                  )}
-                  {isIssuer && (
-                    <p style={{ color: 'var(--text-muted)', fontSize: '13px', margin: '14px 0 0', lineHeight: 1.5 }}>
-                      Your public profile link is permanent — anyone with it can view your issuer profile.
-                    </p>
-                  )}
                   <div className="detail-row" style={{ flexDirection: 'column', gap: 6, marginTop: 14 }}>
                     <label style={{ color: 'var(--accent-strong)', fontSize: '0.85rem', fontWeight: 600 }}>
                       Description <span style={{ color: 'var(--text-muted)', fontWeight: 400 }}>(optional)</span>
@@ -1280,67 +1259,48 @@ const [showAll, setShowAll] = useState(false);
                       onChange={(e) => setShareDescription(e.target.value)}
                       placeholder="e.g., For employer at Company X"
                       maxLength={200}
-                      style={{
-                        background: 'var(--border)',
-                        border: '1px solid var(--accent-strong)',
-                        borderRadius: 8, color: 'var(--text)',
-                        padding: '8px 12px', fontSize: '14px',
-                        outline: 'none', width: '100%'
-                      }}
+                      style={{ background: 'var(--border)', border: '1px solid var(--accent-strong)', borderRadius: 8, color: 'var(--text)', padding: '8px 12px', fontSize: '14px', outline: 'none', width: '100%' }}
                     />
                   </div>
                   {shareError && (
                     <p style={{ color: 'var(--danger)', fontSize: '0.85rem', marginTop: 10 }}>{shareError}</p>
                   )}
                 </>
-                )
               ) : (
+                <p style={{ color: 'var(--ok)', fontSize: '0.85rem', marginBottom: 10, lineHeight: 1.5 }}>
+                  ✅ Link generated — an email with it was sent to <strong style={{ color: 'var(--text)' }}>{shareRecipientEmail}</strong>. You can also copy it below.
+                </p>
+              )}
+
+              {/* Shared URL box + copy — shown whenever a link exists. */}
+              {shareGeneratedUrl && (
                 <>
-                  <p style={{ color: 'var(--accent-strong)', fontSize: '0.85rem', marginBottom: 10 }}>
-                    {isIssuer
-                      ? 'Your permanent public profile link:'
-                      : (shareRecipientEmail
-                          ? <>✅ Link generated! Share this with <strong style={{ color: 'var(--text)' }}>{shareRecipientEmail}</strong>:</>
-                          : '✅ Link generated! Anyone with this link can view your profile:')}
-                  </p>
-                  <div style={{
-                    background: 'var(--border)',
-                    border: '1px solid var(--border-accent)',
-                    borderRadius: 8,
-                    padding: '10px 12px',
-                    wordBreak: 'break-all',
-                    fontSize: '0.82rem',
-                    color: 'var(--accent-strong)',
-                    marginBottom: 12
-                  }}>
+                  {(isIssuer || shareType === 'public') && (
+                    <p style={{ color: 'var(--accent-strong)', fontSize: '0.85rem', marginBottom: 10 }}>
+                      {isIssuer ? 'Your permanent public profile link:' : 'Your public profile link — copy and share it with anyone:'}
+                    </p>
+                  )}
+                  <div style={{ background: 'var(--border)', border: '1px solid var(--border-accent)', borderRadius: 8, padding: '10px 12px', wordBreak: 'break-all', fontSize: '0.82rem', color: 'var(--accent-strong)', marginBottom: 12 }}>
                     {shareGeneratedUrl}
                   </div>
                   <button
                     onClick={handleCopyShareUrl}
-                    style={{
-                      background: shareCopied ? 'var(--ok-weak)' : 'linear-gradient(135deg, var(--accent), var(--accent-strong))',
-                      border: 'none',
-                      borderRadius: 8,
-                      color: 'var(--text)',
-                      padding: '8px 18px',
-                      cursor: 'pointer',
-                      fontSize: '0.9rem',
-                      width: '100%'
-                    }}
+                    style={{ background: shareCopied ? 'var(--ok-weak)' : 'linear-gradient(135deg, var(--accent), var(--accent-strong))', border: 'none', borderRadius: 8, color: 'var(--text)', padding: '8px 18px', cursor: 'pointer', fontSize: '0.9rem', width: '100%' }}
                   >
                     {shareCopied ? '✅ Copied!' : '📋 Copy Link'}
                   </button>
                 </>
               )}
             </div>
-            {!shareGeneratedUrl && !isIssuer && (
+            {/* Footer Generate — ONLY the Specific Recipient tab, before a link is made. */}
+            {!isIssuer && shareType === 'specific' && !shareGeneratedUrl && (
               <div className="modal-footer">
                 <button
                   className="action-btn history"
-                  onClick={handleGenerateShareLink}
+                  onClick={() => handleGenerateShareLink('specific')}
                   disabled={shareLoading}
                 >
-                  {shareLoading ? 'Generating...' : '🔗 Generate Link'}
+                  {shareLoading ? 'Generating...' : '🔗 Generate & Send Link'}
                 </button>
               </div>
             )}

@@ -1,3 +1,6 @@
+// Install the crypto.randomUUID polyfill FIRST — before React or any dependency loads —
+// so plain-HTTP deployments (e.g. the CCSCloud VM) don't throw on a missing randomUUID.
+import './utils/cryptoPolyfill';
 import React from 'react';
 import ReactDOM from 'react-dom/client';
 // Bundle the UI font (Inter) so it loads for everyone, not just machines that

@@ -23,6 +23,7 @@ import React, { useState, useEffect, useRef, useMemo } from "react";
 import apiService from "../services/apiService";
 import AppToast from "../components/appToast";
 import { buildAvatarUrl, getDisplayName, syncStoredUser } from "../utils/userDisplay";
+import { copyToClipboard } from "../utils/clipboard";
 import { SpinnerBlock, SkeletonCardGrid } from "../components/ui";
 import "../styles/profilePage.css";
 
@@ -583,11 +584,14 @@ const [showAll, setShowAll] = useState(false);
     }
   };
 
-  const handleCopyShareUrl = () => {
-    navigator.clipboard.writeText(shareGeneratedUrl).then(() => {
+  const handleCopyShareUrl = async () => {
+    const ok = await copyToClipboard(shareGeneratedUrl);
+    if (ok) {
       setShareCopied(true);
       setTimeout(() => setShareCopied(false), 2000);
-    });
+    } else {
+      showToast('Failed to copy link. Please copy it manually.', 'danger');
+    }
   };
 
   if (loading) {
@@ -1095,7 +1099,7 @@ const [showAll, setShowAll] = useState(false);
                             <a href={(link.shareUrl || `${window.location.origin}/profile/${link.token}`)} target="_blank" rel="noreferrer" title={link.shareUrl || `${window.location.origin}/profile/${link.token}`}>
                               {link.shareUrl || `${window.location.origin}/profile/${link.token}`}
                             </a>
-                            <button type="button" className="share-link-copy-btn" onClick={() => navigator.clipboard.writeText(link.shareUrl || `${window.location.origin}/profile/${link.token}`).then(() => showToast('Share link copied.')).catch(() => showToast('Failed to copy share link.', 'danger'))}>Copy</button>
+                            <button type="button" className="share-link-copy-btn" onClick={async () => { const ok = await copyToClipboard(link.shareUrl || `${window.location.origin}/profile/${link.token}`); if (ok) showToast('Share link copied.'); else showToast('Failed to copy share link.', 'danger'); }}>Copy</button>
                           </div>
                         </td>
                         <td style={{ padding: '10px 12px', color: 'var(--text-muted)', textAlign: 'center' }}>

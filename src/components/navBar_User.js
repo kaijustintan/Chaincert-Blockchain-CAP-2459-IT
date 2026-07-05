@@ -64,6 +64,11 @@ function NavBar() {
   const token = localStorage.getItem('token');
   const user = storedUser;
   const isLoggedIn = !!token;
+  // Group 8: the verifier dashboard is a public, anonymous context. Hide the logged-in account
+  // UI (profile menu + role dashboard link) there so opening it reads as a fresh no-login page,
+  // even if a holder/issuer is logged in. The verifier flow itself never uses the account token.
+  const onVerifierRoute = location.pathname === '/verifier/dashboard';
+  const showAccountUI = isLoggedIn && !onVerifierRoute;
   const userRole = user.role || localStorage.getItem('role') || '';
   const userName = useMemo(() => getDisplayName({ ...user, role: userRole }), [user, userRole]);
   const profileImage = buildAvatarUrl(user.profilePicture || user.avatar || '', user.profilePictureUpdatedAt || user.updatedAt || '');
@@ -109,25 +114,25 @@ function NavBar() {
           </>
         )}
 
-        {isLoggedIn && (userRole === 'student' || userRole === 'user') && (
+        {showAccountUI && (userRole === 'student' || userRole === 'user') && (
           <li className={location.pathname === '/student/dashboard' ? 'active' : ''}>
             <Link to="/student/dashboard">My Dashboard</Link>
           </li>
         )}
 
-        {isLoggedIn && userRole === 'admin' && (
+        {showAccountUI && userRole === 'admin' && (
           <li className={location.pathname === '/admin/dashboard' ? 'active' : ''}>
             <Link to="/admin/dashboard">Admin Dashboard</Link>
           </li>
         )}
 
-        {isLoggedIn && userRole === 'issuer' && (
+        {showAccountUI && userRole === 'issuer' && (
           <li className={location.pathname === '/issuer/dashboard' ? 'active' : ''}>
             <Link to="/issuer/dashboard">Issuer Dashboard</Link>
           </li>
         )}
 
-        {isLoggedIn && (
+        {showAccountUI && (
           <div className="profile-dropdown-container" ref={dropdownRef}>
             <button
               className="profile-btn"

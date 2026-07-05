@@ -438,6 +438,9 @@ export default function StudentDashboard() {
   // ── Render ─────────────────────────────────────────────────────────────────
 
   const hasCreds = !loading && !error && credentials.length > 0;
+  // Group 9: Export-all only produces PUBLIC credentials. If none are public the button was a
+  // silent no-op ("dead button"), so disable it with an explanatory tooltip instead.
+  const hasPublicCreds = hasCreds && credentials.some((c) => c.visibility === 'public');
 
   return (
     <div className="holder-page">
@@ -612,9 +615,11 @@ export default function StudentDashboard() {
             </div>
 
             {hasCreds && (
-              <Button variant="secondary" size="sm" icon={Download} onClick={() => exportAllCredentialsToPDF(credentials, displayName)}>
-                Export all
-              </Button>
+              <span title={hasPublicCreds ? undefined : "No public credentials to export. Set at least one credential to public first."}>
+                <Button variant="secondary" size="sm" icon={Download} disabled={!hasPublicCreds} onClick={() => { if (hasPublicCreds) exportAllCredentialsToPDF(credentials, displayName); }}>
+                  Export all
+                </Button>
+              </span>
             )}
           </div>
 

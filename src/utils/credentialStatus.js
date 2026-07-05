@@ -37,5 +37,9 @@ export function effectiveCredentialStatus(credential) {
 // Manila, since same-day expiry is blocked (a credential must be valid for at
 // least one full day). 32h = 8h Manila offset + 24h.
 export function minIssueExpiryDate() {
+  // Group 5 (UAT): when REACT_APP_ALLOW_PAST_EXPIRY=true, drop the min so already-expired
+  // dates are selectable and the EXPIRED verdict is demoable. Pair with the backend F01
+  // issuance guard (currently commented for UAT). Leave UNSET for production.
+  if (process.env.REACT_APP_ALLOW_PAST_EXPIRY === 'true') return undefined;
   return new Date(Date.now() + 32 * 60 * 60 * 1000).toISOString().slice(0, 10);
 }

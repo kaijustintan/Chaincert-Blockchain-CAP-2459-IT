@@ -93,13 +93,22 @@ router.post('/reject-issuer/:issuerId', (req, res) => {
   adminIssuerController.Reject_Issuer(req, res, req.app.locals.getContractAndGateway);
 });
 
+// Group 5 (UAT): env toggle to freeze issuer enable/disable so testers can't lock out an
+// issuer account mid-UAT. Set DISABLE_ISSUER_TOGGLE=true in .env; REMOVE before demo/prod.
+const issuerToggleFrozen = (req, res, next) => {
+  if (process.env.DISABLE_ISSUER_TOGGLE === 'true') {
+    return res.status(403).json({ success: false, message: 'Issuer enable/disable is temporarily turned off (UAT).' });
+  }
+  next();
+};
+
 // POST /api/admin/disable-issuer/:issuerId
-router.post('/disable-issuer/:issuerId', (req, res) => {
+router.post('/disable-issuer/:issuerId', issuerToggleFrozen, (req, res) => {
   adminIssuerController.Disable_Issuer(req, res, req.app.locals.getContractAndGateway);
 });
 
 // POST /api/admin/enable-issuer/:issuerId
-router.post('/enable-issuer/:issuerId', (req, res) => {
+router.post('/enable-issuer/:issuerId', issuerToggleFrozen, (req, res) => {
   adminIssuerController.Enable_Issuer(req, res, req.app.locals.getContractAndGateway);
 });
 

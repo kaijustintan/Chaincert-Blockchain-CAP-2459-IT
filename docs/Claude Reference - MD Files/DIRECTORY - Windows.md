@@ -124,6 +124,7 @@ CAP-2459-IT-AFTER-RESET/
 │   │   ├── credentialCard.js
 │   │   ├── footer.js
 │   │   ├── navBar_User.js
+│   │   ├── passwordCriteria.jsx              ← always-visible password-rule checklist (Group 3)
 │   │   └── protectedRoutes.js
 │   │
 │   ├── controllers/                          ← Express controllers (deploy → ~/chaincert-api/controllers/)
@@ -141,10 +142,8 @@ CAP-2459-IT-AFTER-RESET/
 │   ├── pages/                                ← role-scoped React page components
 │   │   ├── aboutUsPage.js
 │   │   ├── adminDashboard.js
-│   │   ├── badgeDetailsPage.js
 │   │   ├── BadgeDetailsProfilePreviewPage.js
 │   │   ├── createAccount.js
-│   │   ├── credentialDetails.js
 │   │   ├── credentialHistoryPage.js
 │   │   ├── forgotPassword.js
 │   │   ├── helpPage.js
@@ -203,6 +202,8 @@ CAP-2459-IT-AFTER-RESET/
 │   │   └── verifierDashboard.css
 │   │
 │   ├── utils/
+│   │   ├── clipboard.js                      ← HTTP-safe copy-to-clipboard helper (Group 1)
+│   │   ├── cryptoPolyfill.js                 ← crypto.randomUUID polyfill for plain-HTTP (Group 1)
 │   │   ├── formatDate.js
 │   │   └── userDisplay.js
 │   │

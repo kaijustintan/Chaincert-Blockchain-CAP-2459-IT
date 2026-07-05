@@ -714,7 +714,16 @@ const handleDownloadIssuerDocument = async (doc) => {
     }
   };
 
+  // Group 5 (UAT): env toggle to hide issuer enable/disable during UAT so testers can't lock
+  // out an issuer account. Set REACT_APP_DISABLE_ISSUER_TOGGLE=true (build-time); the backend
+  // also enforces it (403). REMOVE before demo/prod.
+  const ISSUER_TOGGLE_DISABLED = process.env.REACT_APP_DISABLE_ISSUER_TOGGLE === 'true';
+
   const openIssuerStatusModal = (issuer, action) => {
+    if (ISSUER_TOGGLE_DISABLED) {
+      showFeedback("info", "Issuer enable/disable is turned off during UAT.");
+      return;
+    }
     setIssuerStatusTarget(issuer);
     setIssuerStatusAction(action);
     setIssuerStatusReason("");
@@ -3335,6 +3344,7 @@ const handleDownloadIssuerDocument = async (doc) => {
                       if (issuerFilter === "approved") {
                         return (
                           <>
+                            {!ISSUER_TOGGLE_DISABLED && (
                             <button
                               type="button"
                               onClick={() => openIssuerStatusModal(issuer, isDisabled ? "enable" : "disable")}
@@ -3351,6 +3361,7 @@ const handleDownloadIssuerDocument = async (doc) => {
                             >
                               {isDisabled ? "Enable" : "Disable"}
                             </button>
+                            )}
                             <button
                               type="button"
                               onClick={() => openHistoryStatusModal(issuer.email, "issuer")}
@@ -3390,6 +3401,9 @@ const handleDownloadIssuerDocument = async (doc) => {
                       }
 
                       if (issuerFilter === "disabled") {
+                        if (ISSUER_TOGGLE_DISABLED) {
+                          return <span style={{ opacity: 0.65 }}>—</span>;
+                        }
                         return (
                           <button
                             type="button"

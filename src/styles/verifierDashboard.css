@@ -102,3 +102,28 @@
   .verifier-detail-row { flex-direction: column; align-items: flex-start; gap: 2px; }
   .verifier-detail-value { text-align: left; }
 }
+
+/* =====================================================
+   UAT FEEDBACK (Group 6) — de-cramp + left-align the verdict result, and
+   style the added Type / Description / Skills. Appended last to win source order.
+   ===================================================== */
+/* Breathing room so the credential title isn't tight against the verdict band */
+.verifier-cred-name { padding-top: var(--s4); }
+
+/* Left-align the detail rows (was label-left / value-right space-between) */
+.verifier-detail-row { justify-content: flex-start; }
+.verifier-detail-label { min-width: 104px; }
+.verifier-detail-value { text-align: left; }
+
+/* Added full-width fields: Description paragraph + Skills chips */
+.verifier-detail-block { padding: 10px 0; border-bottom: 1px solid var(--border); }
+.verifier-detail-block:last-of-type { border-bottom: none; }
+.verifier-detail-block .verifier-detail-label { display: block; margin-bottom: 6px; min-width: 0; }
+.verifier-detail-desc { margin: 0; font-size: var(--fs-body); color: var(--text); line-height: 1.55; }
+.verifier-skills { display: flex; flex-wrap: wrap; gap: 6px; }
+.verifier-skill-chip {
+  display: inline-block; padding: 3px 10px; border-radius: 999px;
+  background: var(--accent-weak, rgba(109,40,217,0.12));
+  color: var(--accent-strong, #6d28d9);
+  font-size: var(--fs-small); font-weight: 600;
+}

@@ -281,6 +281,23 @@ const accountController = {
 
       const shareUrl = `${process.env.FRONTEND_URL || 'http://localhost:3000'}/profile/${token}`;
 
+      // Group 9: email the specific recipient the link directly. They're a real, owner-chosen
+      // address (realRecipient bypasses the demo catch-all). Fire-and-forget so a mail hiccup
+      // never fails the link generation — the link is still returned to the owner regardless.
+      mailerService.sendMailFireAndForget({
+        to: recipientEmail,
+        realRecipient: true,
+        subject: 'A ChainCert profile has been shared with you',
+        html: mailerService.renderEmail({
+          heading: 'A ChainCert profile was shared with you',
+          bodyHtml: `
+            <p style="margin:0 0 16px;color:#3a3a4c;font-size:15px;line-height:1.6;">Someone has shared their verified ChainCert credential profile with you. Open it below &mdash; you'll be asked for a one-time verification code sent to this email address.</p>
+            ${mailerService.renderButton(shareUrl, 'View Shared Profile')}
+            <p style="margin:14px 0 0;color:#8a8a99;font-size:12px;line-height:1.6;word-break:break-all;">Or paste this link into your browser:<br>${shareUrl}</p>`
+        }),
+        text: `A ChainCert profile was shared with you. Open it here (a verification code will be required): ${shareUrl}`
+      }, '[SHARE-LINK]');
+
       return res.status(200).json({
         success: true,
         message: 'Share link generated.',

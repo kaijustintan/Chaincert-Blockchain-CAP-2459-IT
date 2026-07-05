@@ -36,12 +36,26 @@ import TrendBars from "../components/analytics/TrendBars";
 import Sparkline from "../components/analytics/Sparkline";
 import InterpretationBox from "../components/analytics/InterpretationBox";
 import { computeIssuance, computeRevocationAudit, COLORS as ANALYTICS_COLORS } from "../components/analytics/analytics";
-import { AppShell, Sidebar, Button, StatusPill, SpinnerBlock } from "../components/ui";
+import { AppShell, Sidebar, Button, StatusPill, SpinnerBlock, Spinner } from "../components/ui";
 import StatusLegend from "../components/ui/StatusLegend";
 import CredentialHistory from "../components/analytics/CredentialHistory";
 import { effectiveCredentialStatus, minIssueExpiryDate } from "../utils/credentialStatus"; // F01
 import { getCredentialLineage, isSameInstance } from "../utils/credentialLineage"; // Q1
 import { LayoutDashboard, FilePlus, Award, Ban, List, BarChart3, Receipt, Building2, Bell } from "lucide-react";
+
+// Group 4.2: collapse credential-type strings case-insensitively (trim + first-seen casing
+// wins) so "Academic" / "academic" / "Academic " become ONE dropdown option. The create form
+// takes credentialType as free text, so variants are otherwise possible ("Double Academic").
+function dedupeTypesCI(values) {
+  const seen = new Map();
+  for (const v of values || []) {
+    const raw = String(v || "").trim();
+    if (!raw) continue;
+    const key = raw.toLowerCase();
+    if (!seen.has(key)) seen.set(key, raw);
+  }
+  return Array.from(seen.values()).sort((a, b) => a.localeCompare(b));
+}
 
 export default function IssuerDashboard() {
   // - polo: get current issuer type to hide subordinate sections for subordinate issuers
@@ -67,6 +81,7 @@ export default function IssuerDashboard() {
   });
   const [createError, setCreateError] = useState("");
   const [createLoading, setCreateLoading] = useState(false);
+  const [createConfirmStep, setCreateConfirmStep] = useState(false); // Group 4.5: confirm before create
 
   // Skills state for create form - polo
   const [skillInput, setSkillInput] = useState("");
@@ -75,6 +90,7 @@ export default function IssuerDashboard() {
   // Badge image state for create form - polo
   const [badgeImageBase64, setBadgeImageBase64] = useState("");
   const [badgeImagePreview, setBadgeImagePreview] = useState("");
+  const [badgeImageName, setBadgeImageName] = useState(""); // Group 4.3: show chosen filename
 
   // Issue Credential Modal State
   const [showIssueModal, setShowIssueModal] = useState(false);
@@ -107,6 +123,7 @@ export default function IssuerDashboard() {
   });
   const [revokeError, setRevokeError] = useState("");
   const [revokeLoading, setRevokeLoading] = useState(false);
+  const [revokeConfirmStep, setRevokeConfirmStep] = useState(false); // Group 4.5: confirm before revoke
 
   // R2: when the revoke modal is opened from a specific credential's row, lock the
   // holder + credential to that record (read-only) instead of showing the pickers.
@@ -241,7 +258,7 @@ export default function IssuerDashboard() {
 
   const applyFilters = useCallback(() => {
     let result = [...credentials];
-    if (filterType !== "all") result = result.filter((cred) => cred.credentialType === filterType);
+    if (filterType !== "all") result = result.filter((cred) => String(cred.credentialType || "").toLowerCase() === String(filterType).toLowerCase());
     if (filterStatus !== "all") {
       result = result.filter((cred) => {
         const normalizedStatus = String(cred.status || "").toLowerCase();
@@ -458,7 +475,7 @@ export default function IssuerDashboard() {
     return sorted;
   };
 
-  const getUniqueCredentialTypes = () => { const types = new Set(credentials.map((cred) => cred.credentialType).filter(Boolean)); return Array.from(types).sort(); };
+  const getUniqueCredentialTypes = () => dedupeTypesCI(credentials.map((cred) => cred.credentialType));
 
 
   // R1: only genuinely revokable credentials. Use EFFECTIVE status so a credential
@@ -468,7 +485,7 @@ export default function IssuerDashboard() {
     const eff = effectiveCredentialStatus(c);
     return eff === "issued" || eff === "active";
   }), [credentials]);
-  const issueTemplateTypeOptions = useMemo(() => Array.from(new Set(templateOptions.map((template) => template.credentialType).filter(Boolean))).sort((a, b) => a.localeCompare(b)), [templateOptions]);
+  const issueTemplateTypeOptions = useMemo(() => dedupeTypesCI(templateOptions.map((template) => template.credentialType)), [templateOptions]);
 
   const filteredTemplateOptions = useMemo(() => {
     const query = issueTemplateSearch.trim().toLowerCase();
@@ -505,7 +522,7 @@ export default function IssuerDashboard() {
     return d ? new Date(d).toLocaleDateString() : "";
   }, []);
 
-  const uniqueTemplateTypes = useMemo(() => Array.from(new Set(templateOptions.map((template) => template.credentialType).filter(Boolean))).sort((a, b) => a.localeCompare(b)), [templateOptions]);
+  const uniqueTemplateTypes = useMemo(() => dedupeTypesCI(templateOptions.map((template) => template.credentialType)), [templateOptions]);
 
   const filteredTemplates = useMemo(() => {
     let result = [...(templateOptions || [])];
@@ -672,7 +689,7 @@ export default function IssuerDashboard() {
 
   // Revoke Modal handlers
   const openRevokeModal = () => { setShowRevokeModal(true); setRevokeError(""); setRevokeLocked(false); setRevokeLockedCred(null); setRevokeHolderOpen(false); setRevokeHolderSearch(""); setRevokeSelectedHolder(""); setRevokeCredentialOpen(false); setRevokeCredentialSearch(""); setRevokeForm({ credentialId: "", rejectionReason: "" }); };
-  const closeRevokeModal = () => { setShowRevokeModal(false); setRevokeError(""); setRevokeLoading(false); setRevokeLocked(false); setRevokeLockedCred(null); setRevokeHolderOpen(false); setRevokeHolderSearch(""); setRevokeSelectedHolder(""); setRevokeCredentialOpen(false); setRevokeCredentialSearch(""); };
+  const closeRevokeModal = () => { setShowRevokeModal(false); setRevokeError(""); setRevokeLoading(false); setRevokeConfirmStep(false); setRevokeLocked(false); setRevokeLockedCred(null); setRevokeHolderOpen(false); setRevokeHolderSearch(""); setRevokeSelectedHolder(""); setRevokeCredentialOpen(false); setRevokeCredentialSearch(""); };
   const handleRevokeFormChange = (e) => { const { name, value } = e.target; setRevokeForm((prev) => ({ ...prev, [name]: value })); };
 
   const handleSelectRevokeHolder = (holderName) => {
@@ -692,15 +709,24 @@ export default function IssuerDashboard() {
     setRevokeCredentialOpen(false);
   };
 
-  const handleRevokeSubmit = async (e) => {
-    e.preventDefault(); setRevokeLoading(true); setRevokeError("");
+  // Group 4.5: validate, then open the confirmation step (no write yet).
+  const handleRevokeSubmit = (e) => {
+    e.preventDefault();
+    setRevokeError("");
+    if (!revokeForm.credentialId) { setRevokeError("Please select a credential to revoke"); return; }
+    if (!revokeForm.rejectionReason.trim()) { setRevokeError("Please provide a rejection reason"); return; }
+    setRevokeConfirmStep(true);
+  };
+
+  // Group 4.5: the actual revocation — invoked from the confirmation modal's Confirm button.
+  const confirmRevokeCredential = async () => {
+    setRevokeLoading(true); setRevokeError("");
     try {
-      if (!revokeForm.credentialId) { setRevokeError("Please select a credential to revoke"); setRevokeLoading(false); return; }
-      if (!revokeForm.rejectionReason.trim()) { setRevokeError("Please provide a rejection reason"); setRevokeLoading(false); return; }
       await apiService.Revoke_Credential(revokeForm.credentialId, revokeForm.rejectionReason);
       showToast("Credential revoked successfully!"); closeRevokeModal(); fetchCredentials();
-    } catch (err) { setRevokeError(err?.message || "Failed to revoke credential"); }
-    finally { setRevokeLoading(false); }
+    } catch (err) {
+      setRevokeError(err?.response?.data?.error || err?.response?.data?.message || err?.message || "Failed to revoke credential");
+    } finally { setRevokeLoading(false); }
   };
 
   // Skills handlers - polo
@@ -708,21 +734,33 @@ export default function IssuerDashboard() {
   const handleRemoveSkill = (skillToRemove) => { setSkillsList(prev => prev.filter(s => s !== skillToRemove)); };
 
   // Badge image handler - polo
-  const handleBadgeImageChange = (e) => { const file = e.target.files?.[0]; if (!file) return; const reader = new FileReader(); reader.onloadend = () => { setBadgeImageBase64(reader.result); setBadgeImagePreview(reader.result); }; reader.readAsDataURL(file); };
+  const handleBadgeImageChange = (e) => { const file = e.target.files?.[0]; if (!file) return; setBadgeImageName(file.name); const reader = new FileReader(); reader.onloadend = () => { setBadgeImageBase64(reader.result); setBadgeImagePreview(reader.result); }; reader.readAsDataURL(file); };
 
-  const openCreateModal = () => { setShowCreateModal(true); setCreateError(""); setCreateForm({ credentialType: "", credentialName: "", description: "", metadata: "" }); setSkillsList([]); setSkillInput(""); setBadgeImageBase64(""); setBadgeImagePreview(""); };
-  const closeCreateModal = () => { setShowCreateModal(false); setCreateError(""); setCreateLoading(false); setSkillsList([]); setSkillInput(""); setBadgeImageBase64(""); setBadgeImagePreview(""); };
+  const openCreateModal = () => { setShowCreateModal(true); setCreateError(""); setCreateConfirmStep(false); setCreateForm({ credentialType: "", credentialName: "", description: "", metadata: "" }); setSkillsList([]); setSkillInput(""); setBadgeImageBase64(""); setBadgeImagePreview(""); setBadgeImageName(""); };
+  const closeCreateModal = () => { setShowCreateModal(false); setCreateError(""); setCreateLoading(false); setCreateConfirmStep(false); setSkillsList([]); setSkillInput(""); setBadgeImageBase64(""); setBadgeImagePreview(""); setBadgeImageName(""); };
   const handleCreateFormChange = (e) => { const { name, value } = e.target; setCreateForm((prev) => ({ ...prev, [name]: value })); };
 
-  const handleCreateCredential = async (e) => {
-    e.preventDefault(); setCreateLoading(true); setCreateError("");
+  // Group 4.5: validate + normalize the type, then open the confirmation step (no write yet).
+  const handleCreateCredential = (e) => {
+    e.preventDefault();
+    setCreateError("");
+    const type = createForm.credentialType.trim();
+    const name = createForm.credentialName.trim();
+    if (!type || !name) { setCreateError("Please fill in Credential Type and Name"); return; }
+    setCreateConfirmStep(true);
+  };
+
+  // Group 4.5: the actual template creation — invoked from the confirmation modal's Confirm button.
+  const confirmCreateCredential = async () => {
+    setCreateLoading(true); setCreateError("");
     try {
-      if (!createForm.credentialType || !createForm.credentialName) { setCreateError("Please fill in Credential Type and Name"); setCreateLoading(false); return; }
       const credentialId = `cred_${Date.now()}_${Math.random().toString(36).substring(2, 17)}`;
-      await apiService.Create_CredentialTemplate({ id: credentialId, credentialType: createForm.credentialType, credentialName: createForm.credentialName, description: createForm.description, metadata: createForm.metadata, skills: skillsList, badgeImage: badgeImageBase64, visibility: 'private' });
+      await apiService.Create_CredentialTemplate({ id: credentialId, credentialType: createForm.credentialType.trim(), credentialName: createForm.credentialName.trim(), description: createForm.description, metadata: createForm.metadata, skills: skillsList, badgeImage: badgeImageBase64, visibility: 'private' });
       showToast("Credential Template created successfully!"); closeCreateModal(); fetchCredentials(); fetchTemplateOptions();
-    } catch (err) { setCreateError(err?.message || "Failed to create credential"); }
-    finally { setCreateLoading(false); }
+    } catch (err) {
+      // Keep the confirm modal open and surface the server message (e.g. duplicate-name 409).
+      setCreateError(err?.response?.data?.error || err?.response?.data?.message || err?.message || "Failed to create credential");
+    } finally { setCreateLoading(false); }
   };
 
   // Issue Modal handlers
@@ -1486,17 +1524,40 @@ export default function IssuerDashboard() {
               </div>
               <div className="form-group">
                 <label>Badge Image <span className="form-label-hint">(optional)</span></label>
-                <label className="file-input-label">
-                  <span>Choose File</span>
-                  <input type="file" accept="image/png, image/jpeg, image/gif" onChange={handleBadgeImageChange} className="file-input" />
-                </label>
-                {badgeImagePreview && <div className="badge-preview"><img src={badgeImagePreview} alt="Badge preview" /><button type="button" className="badge-remove-btn" onClick={() => { setBadgeImageBase64(""); setBadgeImagePreview(""); }}>✕ Remove</button></div>}
+                <div className="badge-file-row">
+                  <label className="file-input-label">
+                    <span>Choose File</span>
+                    <input type="file" accept="image/png, image/jpeg, image/gif" onChange={handleBadgeImageChange} className="file-input" />
+                  </label>
+                  <span className="badge-file-name" title={badgeImageName}>{badgeImageName || "No file chosen"}</span>
+                </div>
+                {badgeImagePreview && <div className="badge-preview"><img src={badgeImagePreview} alt="Badge preview" /><button type="button" className="badge-remove-btn" onClick={() => { setBadgeImageBase64(""); setBadgeImagePreview(""); setBadgeImageName(""); }}>✕ Remove</button></div>}
               </div>
               {createError && <div className="form-error">{createError}</div>}
-              <div className="form-actions"><button type="submit" className="action-btn" disabled={createLoading}>{createLoading ? "Creating..." : "Create Template"}</button><button type="button" onClick={closeCreateModal} className="action-btn btn-cancel">Cancel</button></div>
+              <div className="form-actions"><button type="submit" className="action-btn">Create Template</button><button type="button" onClick={closeCreateModal} className="action-btn btn-cancel">Cancel</button></div>
             </form>
           </div>
           <div className="modal-backdrop" onClick={closeCreateModal}></div>
+        </div>
+      )}
+
+      {/* Group 4.5: create-template confirmation, stacked over the create modal. */}
+      {showCreateModal && createConfirmStep && (
+        <div className="modal-overlay confirm-overlay">
+          <div className="modal confirm-modal">
+            <div className="modal-header"><h3>Create this template?</h3></div>
+            <p style={{ margin: "12px 0 4px", fontSize: "14px", lineHeight: 1.6, color: "var(--text)" }}>
+              You're about to create the template <strong>"{createForm.credentialName.trim()}"</strong> (type: <strong>{createForm.credentialType.trim()}</strong>). You can issue credentials from it right after.
+            </p>
+            {createError && <div className="form-error">{createError}</div>}
+            <div className="form-actions">
+              <button type="button" className="action-btn" onClick={confirmCreateCredential} disabled={createLoading}>
+                {createLoading ? <span className="btn-loading"><Spinner className="btn-spinner" /> Creating…</span> : "Confirm Create"}
+              </button>
+              <button type="button" className="action-btn btn-cancel" onClick={() => { setCreateConfirmStep(false); setCreateError(""); }} disabled={createLoading}>Go Back</button>
+            </div>
+          </div>
+          <div className="modal-backdrop" onClick={() => { if (!createLoading) { setCreateConfirmStep(false); setCreateError(""); } }}></div>
         </div>
       )}
 
@@ -1624,7 +1685,7 @@ export default function IssuerDashboard() {
             {issueError && <div className="form-error">{issueError}</div>}
             <div className="form-actions">
               <button type="button" className="action-btn issue-btn" onClick={confirmIssueCredential} disabled={issueLoading}>
-                {issueLoading ? "Issuing..." : "Confirm Issue"}
+                {issueLoading ? <span className="btn-loading"><Spinner className="btn-spinner" /> Issuing…</span> : "Confirm Issue"}
               </button>
               <button type="button" className="action-btn btn-cancel" onClick={() => { setIssueConfirmStep(false); setIssueError(""); }} disabled={issueLoading}>
                 Go Back
@@ -1755,10 +1816,30 @@ export default function IssuerDashboard() {
               )}
               <div className="form-group"><label>Revocation Reason:</label><textarea name="rejectionReason" value={revokeForm.rejectionReason} onChange={handleRevokeFormChange} rows={3} placeholder="State the reason for revoking this credential..." required /></div>
               {revokeError && <div className="form-error">{revokeError}</div>}
-              <div className="form-actions"><button type="submit" className="action-btn revoke-btn" disabled={revokeLoading}>{revokeLoading ? "Revoking..." : "Revoke"}</button><button type="button" onClick={closeRevokeModal} className="action-btn btn-cancel">Cancel</button></div>
+              <div className="form-actions"><button type="submit" className="action-btn revoke-btn">Revoke</button><button type="button" onClick={closeRevokeModal} className="action-btn btn-cancel">Cancel</button></div>
             </form>
           </div>
           <div className="modal-backdrop" onClick={closeRevokeModal}></div>
+        </div>
+      )}
+
+      {/* Group 4.5: revoke confirmation, stacked over the revoke modal. */}
+      {showRevokeModal && revokeConfirmStep && (
+        <div className="modal-overlay confirm-overlay">
+          <div className="modal confirm-modal">
+            <div className="modal-header"><h3>Confirm Revocation</h3></div>
+            <p style={{ margin: "12px 0 4px", fontSize: "14px", lineHeight: 1.6, color: "var(--text)" }}>
+              <strong style={{ color: "var(--danger)" }}>Are you sure?</strong> This revokes the selected credential. The action is recorded on the blockchain and <strong>cannot be undone</strong>.
+            </p>
+            {revokeError && <div className="form-error">{revokeError}</div>}
+            <div className="form-actions">
+              <button type="button" className="action-btn revoke-btn" onClick={confirmRevokeCredential} disabled={revokeLoading}>
+                {revokeLoading ? <span className="btn-loading"><Spinner className="btn-spinner" /> Revoking…</span> : "Confirm Revoke"}
+              </button>
+              <button type="button" className="action-btn btn-cancel" onClick={() => { setRevokeConfirmStep(false); setRevokeError(""); }} disabled={revokeLoading}>Go Back</button>
+            </div>
+          </div>
+          <div className="modal-backdrop" onClick={() => { if (!revokeLoading) { setRevokeConfirmStep(false); setRevokeError(""); } }}></div>
         </div>
       )}
 

@@ -234,7 +234,7 @@ Everyone tests against the same shared environment, so you may see data created 
 
 1. **Credentials tab** — browse every template and issued credential across all issuers; filter by issuer/type/status and search by name or ID.
    *[Screenshot: Admin — Credentials tab]*
-2. **Integrity Check** — Credentials tab → **Run Integrity Check**.
+2. **Integrity Check** — Analytics & Reports tab → **Run Integrity Check**.
    *What it's for: lets the admin catch tampering — it checks each record in the fast-read database against the blockchain, so if any record was altered outside the app, the mismatch is flagged. (The blockchain is the source of truth.)*
    *[Screenshot: Admin — Integrity Check results]*
 3. **Logs** — Logs tab → verification, status, issuer-decision, and root-subordinate logs. *(If you switch between `admin1@email.com` and `admin2@email.com`, notice each logged action shows which admin performed it.)*

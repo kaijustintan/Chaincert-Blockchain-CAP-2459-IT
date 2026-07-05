@@ -2592,3 +2592,45 @@
 .issuer-dashboard .filter-group label { text-align: left !important; }
 .issuer-dashboard .results-info { margin: 6px 0 14px !important; color: var(--text-muted); font-size: var(--fs-small); }
 
+/* =====================================================
+   UAT FEEDBACK (Group 4) — badge-image control cleanup + in-button spinner.
+   Appended last so it wins source order over the earlier duplicate
+   .file-input-label / .badge-preview rules (unscoped to survive any portal).
+   ===================================================== */
+.badge-file-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.badge-file-name {
+  font-size: var(--fs-small);
+  color: var(--text-muted);
+  max-width: 220px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.badge-preview {
+  margin-top: 12px;
+  flex-direction: row;
+  align-items: center;
+  gap: 14px;
+}
+.badge-preview img {
+  width: 72px;
+  height: 72px;
+  max-height: 72px;
+  object-fit: contain;
+  border-radius: var(--radius-modal);
+  border: 1px solid var(--border-strong);
+  background: var(--surface-2);
+  padding: 6px;
+}
+.badge-remove-btn { align-self: center; }
+
+/* In-button loading spinner (create / issue / revoke confirmations) */
+.btn-loading { display: inline-flex; align-items: center; gap: 8px; }
+.cc-spinner.btn-spinner { width: 16px; height: 16px; }
+.cc-spinner.btn-spinner circle { stroke: currentColor; }
+

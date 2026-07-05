@@ -260,6 +260,11 @@ if (process.env.DISABLE_PASSWORD_POLICY === 'true') {
   console.warn('⚠️  ⚠️  PASSWORD STRENGTH POLICY IS DISABLED (DISABLE_PASSWORD_POLICY=true in .env). FOR TESTING ONLY — remove it before any demo or deployment.  ⚠️  ⚠️');
 }
 
+// Group 5 (UAT): issuer enable/disable freeze so testers can't lock out an issuer account.
+if (process.env.DISABLE_ISSUER_TOGGLE === 'true') {
+  console.warn('⚠️  ⚠️  ISSUER ENABLE/DISABLE IS FROZEN (DISABLE_ISSUER_TOGGLE=true in .env). FOR UAT ONLY — remove it before any demo or deployment.  ⚠️  ⚠️');
+}
+
 // ==========================================================================================================================================================================
 // DOCKER & DB INIT
 // ==========================================================================================================================================================================

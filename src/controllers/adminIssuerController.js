@@ -103,7 +103,7 @@ const ensureIssuerFabricIdentityExists = async (issuerDoc) => {
   const identity = await wallet.get(identityName);
 
   if (!identity) {
-    const err = new Error(`Fabric identity '${identityName}' was not found in the wallet. Please create/enroll this identity before approving the issuer.`);
+    const err = new Error(`This issuer doesn't have a configured signing node yet, so it can't be approved. Please set up (enroll) their node first, then approve.`);
     err.statusCode = 400;
     throw err;
   }

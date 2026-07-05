@@ -135,25 +135,50 @@ function isMailerConfigured() {
 function renderEmail({ heading, bodyHtml, accent = '#6d28d9' }) {
   return `<!DOCTYPE html>
 <html>
-  <body style="margin:0;padding:0;background:#f1f1f4;">
-    <div style="background:#f1f1f4;padding:32px 12px;font-family:'Segoe UI',Roboto,Helvetica,Arial,sans-serif;">
-      <div style="max-width:560px;margin:0 auto;background:#ffffff;border-radius:14px;overflow:hidden;border:1px solid #e6e6ec;box-shadow:0 1px 3px rgba(16,16,40,0.06);">
-        <!-- Header: clean wordmark, no emoji -->
-        <div style="padding:24px 32px 18px;border-bottom:1px solid #ededf2;">
-          <span style="font-size:19px;font-weight:700;color:#1a1a2e;letter-spacing:-0.2px;">Chain<span style="color:${accent};">Cert</span></span>
-        </div>
-        <div style="padding:28px 32px;">
-          ${heading ? `<h1 style="margin:0 0 14px;font-size:18px;font-weight:600;color:#1a1a2e;line-height:1.4;">${heading}</h1>` : ''}
-          ${bodyHtml}
-        </div>
-        <div style="padding:18px 32px;background:#fafafb;border-top:1px solid #ededf2;color:#8a8a99;font-size:12px;line-height:1.6;">
-          Automated message from ChainCert &mdash; a blockchain-backed credential platform. Please don&rsquo;t reply to this email.
-        </div>
-      </div>
-      <p style="max-width:560px;margin:14px auto 0;color:#9a9aa8;font-size:11px;text-align:center;">&copy; ChainCert</p>
-    </div>
+  <head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"></head>
+  <body style="margin:0;padding:0;background:#eef0f4;">
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#eef0f4;">
+      <tr><td align="center" style="padding:32px 12px;">
+        <table role="presentation" width="600" cellpadding="0" cellspacing="0" style="max-width:600px;width:100%;background:#ffffff;border-radius:16px;overflow:hidden;box-shadow:0 4px 18px rgba(16,16,40,0.09);font-family:'Segoe UI',Roboto,Helvetica,Arial,sans-serif;">
+          <!-- Accent header band -->
+          <tr><td style="background:${accent};padding:20px 32px;">
+            <table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr>
+              <td style="font-size:21px;font-weight:700;color:#ffffff;letter-spacing:-0.2px;">Chain<span style="color:rgba(255,255,255,0.82);">Cert</span></td>
+              <td align="right" style="font-size:11px;font-weight:600;color:rgba(255,255,255,0.85);text-transform:uppercase;letter-spacing:1px;">Verified Credentials</td>
+            </tr></table>
+          </td></tr>
+          <!-- Body -->
+          <tr><td style="padding:32px 32px 8px;">
+            ${heading ? `<h1 style="margin:0 0 16px;font-size:20px;font-weight:700;color:#16162a;line-height:1.35;">${heading}</h1>` : ''}
+            ${bodyHtml}
+          </td></tr>
+          <!-- Footer -->
+          <tr><td style="padding:20px 32px 26px;">
+            <div style="border-top:1px solid #ececf2;padding-top:16px;color:#8a8a99;font-size:12px;line-height:1.6;">
+              Automated message from <strong style="color:#6a6a7a;">ChainCert</strong> &mdash; a blockchain-backed credential platform. Please don&rsquo;t reply to this email.
+            </div>
+          </td></tr>
+        </table>
+        <div style="max-width:600px;margin:14px auto 0;color:#9a9aa8;font-size:11px;text-align:center;">&copy; ChainCert &middot; Secured on Hyperledger Fabric</div>
+      </td></tr>
+    </table>
   </body>
 </html>`;
+}
+
+/*
+  Function Name: renderButton
+  LAYMAN (Tropang Ex): Gumagawa ng malinis na "button" (call-to-action) sa loob ng email —
+  gaya ng "View Shared Profile". Table-based para gumana kahit sa Outlook.
+  TECHNICAL: Email-client-safe CTA button (rounded table cell + anchor). Inline CSS only.
+  PARAMS: href — link target; label — button text; accent — background color (default purple).
+  RETURNS: HTML string (a <table> block) to drop into a renderEmail bodyHtml.
+*/
+function renderButton(href, label, accent = '#6d28d9') {
+  return `<table role="presentation" cellpadding="0" cellspacing="0" style="margin:6px 0 10px;"><tr>
+    <td align="center" style="border-radius:9px;background:${accent};">
+      <a href="${href}" style="display:inline-block;padding:12px 28px;font-size:14px;font-weight:600;color:#ffffff;text-decoration:none;border-radius:9px;">${label}</a>
+    </td></tr></table>`;
 }
 
 /*
@@ -167,13 +192,13 @@ function renderEmail({ heading, bodyHtml, accent = '#6d28d9' }) {
 */
 function renderOtpEmail({ heading, intro, otp, note }) {
   const bodyHtml = `
-    <p style="margin:0 0 20px;color:#3a3a4c;font-size:14px;line-height:1.6;">${intro}</p>
-    <div style="margin:0 0 20px;">
-      <div style="background:#f5f3ff;border:1px solid #e4dcff;border-radius:10px;padding:18px 24px;text-align:center;">
-        <div style="font-size:11px;font-weight:600;letter-spacing:1px;color:#7a6aa8;text-transform:uppercase;margin:0 0 8px;">Your verification code</div>
-        <div style="font-size:30px;font-weight:700;letter-spacing:8px;color:#1a1a2e;font-family:'Courier New',monospace;">${otp}</div>
-      </div>
-    </div>
+    <p style="margin:0 0 20px;color:#3a3a4c;font-size:15px;line-height:1.6;">${intro}</p>
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:0 0 20px;"><tr>
+      <td align="center" style="background:#f5f3ff;border:1px solid #e4dcff;border-radius:12px;padding:22px 24px;">
+        <div style="font-size:11px;font-weight:700;letter-spacing:1.5px;color:#7a6aa8;text-transform:uppercase;margin:0 0 10px;">Your verification code</div>
+        <div style="font-size:34px;font-weight:700;letter-spacing:10px;color:#16162a;font-family:'Courier New',monospace;">${otp}</div>
+      </td>
+    </tr></table>
     <p style="margin:0;color:#8a8a99;font-size:13px;line-height:1.6;">${note}</p>`;
   return renderEmail({ heading, bodyHtml });
 }
@@ -228,4 +253,4 @@ function sendMailFireAndForget(opts, label = '[MAILER]') {
     .catch((err) => console.error(`${label} email failed (non-fatal):`, err?.message || err));
 }
 
-module.exports = { sendMail, sendMailFireAndForget, isMailerConfigured, renderEmail, renderOtpEmail };
+module.exports = { sendMail, sendMailFireAndForget, isMailerConfigured, renderEmail, renderOtpEmail, renderButton };

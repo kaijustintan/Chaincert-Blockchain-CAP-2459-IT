@@ -54,7 +54,7 @@ const [showAll, setShowAll] = useState(false);
   const [credSearch, setCredSearch] = useState('');
   const [credStatusFilter, setCredStatusFilter] = useState('all');
   const [credTypeFilter, setCredTypeFilter] = useState('all');
-  const [credSortBy, setCredSortBy] = useState('newest');
+  const [credSortBy, setCredSortBy] = useState('custom'); // Group 9: default to the user's saved custom order
   // - polo: 13C skill click → show source credential
   const [selectedSkill, setSelectedSkill] = useState(null);
 
@@ -242,36 +242,51 @@ const [showAll, setShowAll] = useState(false);
     )
   )];
 
-  // Drag-to-reorder handlers - polo
+  // Group 9: manual drag-reorder is only coherent when the shown list IS the full custom order
+  // (sorted by currentOrder) with NO filters/search hiding items — otherwise the rendered index
+  // would not map to the stored order and the drag would snap back / mis-save. Previously the
+  // handlers spliced the raw `credentials` array using indices from the filtered/sorted/sliced
+  // display list, and the grid re-sorted by credSortBy (never currentOrder), so drags did nothing.
+  const canReorder = credSortBy === 'custom'
+    && credStatusFilter === 'all'
+    && credTypeFilter === 'all'
+    && !credSearch.trim();
+
+  // Drag-to-reorder handlers - polo (Group 9 fix: operate on the DISPLAYED custom order by id)
   const handleDragStart = (index) => {
+    if (!canReorder) return;
     setDraggedIndex(index);
   };
 
   const handleDragOver = (e, index) => {
+    if (!canReorder || draggedIndex === null) return;
     e.preventDefault();
-    if (draggedIndex === null || draggedIndex === index) return;
+    if (draggedIndex === index) return;
 
-    // Reorder credentials array locally
-    const updated = [...credentials];
-    const dragged = updated.splice(draggedIndex, 1)[0];
-    updated.splice(index, 0, dragged);
+    // Reorder in the current displayed (custom) order, then renumber currentOrder so the
+    // custom sort reflects the move immediately (no snap-back).
+    const ordered = [...credentials].sort((a, b) => (a.currentOrder ?? Infinity) - (b.currentOrder ?? Infinity));
+    const [moved] = ordered.splice(draggedIndex, 1);
+    ordered.splice(index, 0, moved);
+    const renumbered = ordered.map((cred, i) => ({ ...cred, currentOrder: i + 1 }));
     setDraggedIndex(index);
-    setCredentials(updated);
+    setCredentials(renumbered);
   };
 
   const handleDragEnd = async () => {
+    const wasDragging = draggedIndex !== null;
     setDraggedIndex(null);
-    // Save new order to CouchDB - polo
+    if (!canReorder || !wasDragging) return;
+
+    // Persist the new order. Key by blockchainId, falling back to _id (matches the visibility
+    // handler) so a credential missing blockchainId doesn't reject the whole Promise.all batch.
     setIsSavingOrder(true);
     try {
+      const ordered = [...credentials].sort((a, b) => (a.currentOrder ?? Infinity) - (b.currentOrder ?? Infinity));
       await Promise.all(
-        credentials.map((cred, index) =>
-          apiService.Update_CredentialOrder(cred.blockchainId, index + 1)
+        ordered.map((cred, index) =>
+          apiService.Update_CredentialOrder(cred.blockchainId || cred._id, index + 1)
         )
-      );
-      // Update local currentOrder values to match saved order - polo
-      setCredentials(prev =>
-        prev.map((cred, index) => ({ ...cred, currentOrder: index + 1 }))
       );
     } catch (err) {
       console.error('[PROFILE PAGE] Error saving credential order:', err);
@@ -447,6 +462,9 @@ const [showAll, setShowAll] = useState(false);
     }
 
     switch (credSortBy) {
+      case 'custom':
+        result.sort((a, b) => (a.currentOrder ?? Infinity) - (b.currentOrder ?? Infinity));
+        break;
       case 'oldest':
         result.sort((a, b) => new Date(a.savedToUserWalletAt || 0) - new Date(b.savedToUserWalletAt || 0));
         break;
@@ -874,24 +892,30 @@ const [showAll, setShowAll] = useState(false);
                 {profileCredentialTypes.map((type) => <option key={type} value={type}>{type}</option>)}
               </select>
               <select className="filter-select" value={credSortBy} onChange={(e) => setCredSortBy(e.target.value)}>
+                <option value="custom">Custom order</option>
                 <option value="newest">Most Recent</option>
                 <option value="oldest">Oldest</option>
                 <option value="name-asc">Name A-Z</option>
               </select>
             </div>
             {isSavingOrder && <div className="order-saving-msg">Saving order...</div>}
+            {credentials.length > 1 && credSortBy === 'custom' && !canReorder && (
+              <div className="reorder-hint" style={{ fontSize: 'var(--fs-small)', color: 'var(--text-muted)', margin: '0 0 10px' }}>
+                Clear search and filters to drag-and-drop your credentials into a custom order.
+              </div>
+            )}
             <div className="badges-grid">
               {(showAll ? filteredProfileCreds : filteredProfileCreds.slice(0, 5)).map((cred, index) => (
                 <div
                   key={cred._id}
-                  className={`badge-card draggable${draggedIndex === index ? ' dragging' : ''}`}
-                  draggable
-                  onDragStart={() => handleDragStart(index)}
-                  onDragOver={(e) => handleDragOver(e, index)}
-                  onDragEnd={handleDragEnd}
+                  className={`badge-card${canReorder ? ' draggable' : ''}${draggedIndex === index ? ' dragging' : ''}`}
+                  draggable={canReorder}
+                  onDragStart={canReorder ? () => handleDragStart(index) : undefined}
+                  onDragOver={canReorder ? (e) => handleDragOver(e, index) : undefined}
+                  onDragEnd={canReorder ? handleDragEnd : undefined}
                   onClick={() => { setSelectedCred(cred); setHistoryOpen(false); setHistoryData(null); }}
                 >
-                  <div className="drag-handle" title="Drag to reorder">⠿</div>
+                  {canReorder && <div className="drag-handle" title="Drag to reorder">⠿</div>}
                   {/* Public indicator — shows which credentials appear on public profile - polo */}
                   {cred.visibility === 'public' && (
                     <div className="public-indicator" title="Visible on your public profile">🌐</div>

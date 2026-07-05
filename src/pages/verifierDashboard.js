@@ -397,6 +397,12 @@ export default function VerifierDashboard() {
                 <span className="verifier-detail-label">Issued by</span>
                 <span className="verifier-detail-value">{result.issuerName || 'N/A'}</span>
               </div>
+              {result.credentialType && (
+                <div className="verifier-detail-row">
+                  <span className="verifier-detail-label">Type</span>
+                  <span className="verifier-detail-value">{result.credentialType}</span>
+                </div>
+              )}
               <div className="verifier-detail-row">
                 <span className="verifier-detail-label">Status</span>
                 <span className="verifier-detail-value"><StatusPill status={result.status} /></span>
@@ -405,6 +411,20 @@ export default function VerifierDashboard() {
                 <div className="verifier-detail-row">
                   <span className="verifier-detail-label">Expires</span>
                   <span className="verifier-detail-value">{new Date(result.expiryDate).toLocaleDateString()}</span>
+                </div>
+              )}
+              {result.description && (
+                <div className="verifier-detail-block">
+                  <span className="verifier-detail-label">Description</span>
+                  <p className="verifier-detail-desc">{result.description}</p>
+                </div>
+              )}
+              {Array.isArray(result.skills) && result.skills.length > 0 && (
+                <div className="verifier-detail-block">
+                  <span className="verifier-detail-label">Skills</span>
+                  <div className="verifier-skills">
+                    {result.skills.map((skill, i) => <span key={i} className="verifier-skill-chip">{skill}</span>)}
+                  </div>
                 </div>
               )}
 

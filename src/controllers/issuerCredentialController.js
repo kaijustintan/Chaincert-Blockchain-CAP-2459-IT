@@ -96,6 +96,37 @@ exports.Create_CredentialTemplate = async (req, res, getContractAndGateway) => {
     const credentialId = `cred_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
     const issuerId = req.user.id;
 
+    /* Step 2.5: Block duplicate ACTIVE template names per issuer (UAT feedback Group 4.1)
+
+       Technical:
+       Chaincode only enforces uniqueness by ID, so an issuer could create two "BSIT"
+       templates. Enforce name-uniqueness here at the controller layer (case-insensitive,
+       trimmed) against the CouchDB template mirror — consistent with the existing
+       CouchDB-based duplicate-prevention (chaincode-level would require a redeploy). Scoped
+       per issuer + active-only so a revoked/archived template name can be reused.
+       Tropang Ex:
+       Bawal magkaroon ng dalawang aktibong template na pareho ang pangalan (e.g. dalawang
+       "BSIT"). Kung meron na, i-reject bago pa sumulat sa blockchain.
+    */
+    try {
+      const existingTemplates = await couchdbService.getIssuerTemplatesByIssuerId(issuerId);
+      const wantedName = String(credentialName).trim().toLowerCase();
+      const clash = (Array.isArray(existingTemplates) ? existingTemplates : []).find((t) => {
+        const status = String(t.status || '').toLowerCase();
+        const isActive = status !== 'revoked' && status !== 'disabled' && status !== 'inactive' && status !== 'archived';
+        return isActive && String(t.credentialName || '').trim().toLowerCase() === wantedName;
+      });
+      if (clash) {
+        return res.status(409).json({
+          success: false,
+          error: `You already have an active template named "${String(credentialName).trim()}". Please use a different name or archive the existing one.`
+        });
+      }
+    } catch (dupCheckErr) {
+      // Non-fatal: a read hiccup on the mirror shouldn't block creation entirely.
+      console.warn('[CREATE TEMPLATE] duplicate-name check skipped:', dupCheckErr.message);
+    }
+
     // =====================================================
     // STEP 1: RESOLVE ISSUER IDENTITY (for blockchain)
     // =====================================================

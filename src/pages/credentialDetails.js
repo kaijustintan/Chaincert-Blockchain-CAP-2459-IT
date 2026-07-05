@@ -1,1 +1,0 @@
-// Page to show detailed information of a credential

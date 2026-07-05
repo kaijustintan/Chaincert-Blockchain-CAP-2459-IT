@@ -17,7 +17,7 @@
 */
 
 (function installRandomUUIDPolyfill() {
-  const c = (typeof globalThis !== 'undefined' && globalThis.crypto) || null;
+  const c = (typeof window !== 'undefined' && window.crypto) || null;
   if (!c || typeof c.getRandomValues !== 'function') return; // no CSPRNG to build on — bail
   if (typeof c.randomUUID === 'function') return;             // native impl present — leave it
 

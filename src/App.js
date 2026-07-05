@@ -11,7 +11,6 @@ import StudentDashboard from './pages/studentDashboard';
 import AdminDashboard from './pages/adminDashboard';
 import VerifierDashboard from './pages/verifierDashboard';
 import IssuerDashboard from './pages/issuerDashboardPage';
-import CredentialDetails from './pages/credentialDetails';
 import AboutPage from './pages/aboutUsPage';
 import HelpPage from './pages/helpPage';
 import ForgotPassword from './pages/forgotPassword';
@@ -22,7 +21,6 @@ import SettingsPage from './pages/settingsPage';
 import ProfilePage from './pages/profilePage';
 import ProfilePreview from './pages/profilePreview';
 import IssuerDirectory from './pages/issuerDirectory';
-import BadgeDetails from './pages/badgeDetailsPage';
 import BadgeDetailsProfilePreviewPage from './pages/BadgeDetailsProfilePreviewPage';
 import ShareCredentialPage from './pages/shareCredentialPage';
 import CredentialHistoryPage from './pages/credentialHistoryPage';
@@ -70,10 +68,8 @@ function AnimatedRoutes() {
           <Route path="/issuer/history" element={<CredentialHistoryPage />} />
           <Route path="/settings" element={<SettingsPage />} />
           <Route path="/profile" element={<ProfilePage />} />
-          <Route path="/badge-details/:id" element={<BadgeDetails />} />
           <Route path="/profile-preview/badge-details/:id" element={<BadgeDetailsProfilePreviewPage />} />
           <Route path="/share-credential/:id" element={<ShareCredentialPage />} />
-          <Route path="/credential/details" element={<CredentialDetails />} />
         </Route>
 
         {/* ========== ADMIN-ONLY ROUTES ========== */}

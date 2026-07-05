@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import apiService from "../services/apiService";
 import "../styles/createAccount.css";
 import AppToast from "../components/appToast";
+import PasswordCriteria from "../components/passwordCriteria";
 import { User, Building2 } from "lucide-react";
 
 const VALID_EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
@@ -125,6 +126,10 @@ export default function CreateAccount() {
 
     if (user.password !== user.confirmPassword) {
       setUserError("User passwords do not match.");
+      return;
+    }
+    if (user.password.length < 10) {
+      setUserError("Password must be at least 10 characters.");
       return;
     }
     if (!user.email) {
@@ -443,6 +448,9 @@ const getDocumentDescription = (docKey) => {
     if (issuer.password !== issuer.confirmPassword) {
       return "Issuer passwords do not match.";
     }
+    if (issuer.password.length < 10) {
+      return "Password must be at least 10 characters.";
+    }
     return "";
   };
 
@@ -693,6 +701,7 @@ const getDocumentDescription = (docKey) => {
                 placeholder="Choose a strong password"
                 required
               />
+              <PasswordCriteria password={user.password} />
             </div>
 
             <div className="input-group">
@@ -828,6 +837,7 @@ const getDocumentDescription = (docKey) => {
                   />
                 </div>
               </div>
+              <PasswordCriteria password={issuer.password} />
 
               </>
               )}

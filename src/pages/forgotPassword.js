@@ -1,6 +1,7 @@
 // forgotPassword.js - polo
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
+import PasswordCriteria from "../components/passwordCriteria";
 import "../styles/loginPage.css";
 
 function ForgotPassword() {
@@ -53,8 +54,8 @@ function ForgotPassword() {
       setError("Passwords do not match.");
       return;
     }
-    if (newPassword.length < 6) {
-      setError("Password must be at least 6 characters.");
+    if (newPassword.length < 10) {
+      setError("Password must be at least 10 characters.");
       return;
     }
 
@@ -161,6 +162,7 @@ function ForgotPassword() {
               required
               disabled={loading}
             />
+            <PasswordCriteria password={newPassword} tone="dark" />
           </div>
           <div className="input-group">
             <label htmlFor="confirmPassword">Confirm New Password</label>

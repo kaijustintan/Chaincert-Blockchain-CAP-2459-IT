@@ -758,6 +758,17 @@ pm2 logs chaincert-api --lines 20 --nostream && curl -s http://localhost:4000/ap
 > URL — check `git remote -v` and scrub it (see C.6). The same `git pull origin AFTER-Defense` line begins the
 > frontend (C.2) and chaincode (C.3) flows too.
 
+> **If `git pull` aborts with "Your local changes to `package.json` would be overwritten by merge":** the VM's
+> `package.json` was dirtied by a direct `npm install` on the VM (e.g. the Phase 13 `dompurify` step), so it
+> diverges from the repo. Discard the local edit and re-pull — the dependency is restored by `npm install`:
+> ```bash
+> git diff package.json                                 # confirm it's only the dependency line (e.g. dompurify)
+> git checkout -- package.json
+> git pull origin AFTER-Defense
+> grep -q dompurify package.json || npm install dompurify   # re-add only if the pulled file lacks it
+> npm install
+> ```
+
 ### C.2 Frontend change (pages / components / services / styles)
 ```bash
 cd ~/chaincert-src && git pull
@@ -780,10 +791,19 @@ pm2 restart chaincert-api
 - **Bump `-ccv` every redeploy.** The docker.sock fix is already in the compose, so builds work — but if
   peers get recreated, use **`rm -f` + `up`, never `--force-recreate`** (Appendix A #2).
 
-### C.4 Env / config change (`.env`)
+### C.4 Backend env / config change (`~/chaincert-api/.env`)
 ```bash
 nano ~/chaincert-api/.env         # deploy-sync never overwrites this — safe to hand-edit
-pm2 restart chaincert-api
+pm2 restart chaincert-api         # the API loads .env via dotenv at BOOT, so a plain restart re-reads it —
+                                  # PM2's "Use --update-env to update environment variables" hint is safe to ignore
+```
+
+### C.4b Frontend env change (`~/chaincert-src/.env.production`)
+Frontend `REACT_APP_*` vars are baked in at **build time** (CRA), not read at runtime — so a **rebuild**, not a
+restart, applies them. `deploy-sync` never overwrites this file either. Example (the UAT toggles):
+```bash
+nano ~/chaincert-src/.env.production      # e.g. REACT_APP_ALLOW_PAST_EXPIRY=true, REACT_APP_DISABLE_ISSUER_TOGGLE=true
+cd ~/chaincert-src && CI=false npm run build
 ```
 
 ### C.5 Predemo reset (clean demo data)

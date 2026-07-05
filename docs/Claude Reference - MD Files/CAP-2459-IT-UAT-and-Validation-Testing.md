@@ -101,13 +101,13 @@ Each row below has a **Manual Phase** (where to find the steps) and a **What to 
 | V-04 | Phase 4 | If you entered a wrong/expired code, was it rejected with a clear message? |
 | V-05 | Phase 4 | Did verifying a valid credential return **VALID** with the correct details? |
 | V-06 | Phase 5 | Did verifying a revoked credential return **REVOKED** with the reason shown? |
-| V-07 | Phase 5 | Did verifying a past-expiry credential return **EXPIRED**? |
+| V-07 | Phase 5 | Did verifying a past-expiry credential return **EXPIRED**? *(Requires the UAT-only past-expiry toggle to be enabled on the VM so the issuer can issue a past-dated credential — see the manual's Phase 5 note.)* |
 | V-08 | Phase 5 | Did verifying a made-up ID return **NOT FOUND**? |
 | V-09 | Phase 4 | (For the admin group to confirm in Phase 7) Was your verification later visible in the admin's logs? |
 
 ### Form 4 — Admin / Internal (20 test cases)
 
-*Intro line for the form: "Log in as admin1@email.com (or admin2@email.com). Follow Phases 6, 7, and 8. Items marked \[internal] need backend/database access — only the dev team should answer those."*
+*Intro line for the form: "Log in as admin@email.com (or admin2@email.com). Follow Phases 6, 7, and 8. Items marked \[internal] need backend/database access — only the dev team should answer those."*
 
 | ID | Manual Phase | What to Confirm |
 |---|---|---|
@@ -129,7 +129,7 @@ Each row below has a **Manual Phase** (where to find the steps) and a **What to 
 | A-16 | Phase 7 | Did the Root Subordinate Logs list the root authority's decisions? |
 | A-17 | Phase 7 | Did Analytics & Reports render (verification summary, suspicious activity, demand, integrity insight)? |
 | A-18 | Phase 7 | Did a credential's Dossier show its provenance timeline and verification proof trail? |
-| A-19 | Phase 7 | When switching between admin1 and admin2, did the logs correctly show which admin did what? |
+| A-19 | Phase 7 | When switching between admin@email.com and admin2@email.com, did the logs correctly show which admin did what? |
 | A-20 | Phase 8 | Were you able to change the admin password successfully? |
 
 ---

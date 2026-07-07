@@ -57,6 +57,24 @@ function dedupeTypesCI(values) {
   return Array.from(seen.values()).sort((a, b) => a.localeCompare(b));
 }
 
+// Group 4.2b: curated credential-type list for the Create Template form. Replacing the old
+// free-text input with this dropdown kills the accidental "Academic"/"AcademiK" variant
+// proliferation the type filters/analytics suffered from. "Other…" (handled as a special
+// select value, NOT part of this array) reveals a free-text input for the rare case a type
+// here doesn't cover — so the common path is constrained without boxing issuers in.
+const CREDENTIAL_TYPE_OPTIONS = [
+  "Academic Degree",
+  "Diploma",
+  "Certificate",
+  "Professional Certification",
+  "License",
+  "Award / Honor",
+  "Badge / Micro-credential",
+  "Training / Completion",
+  "Membership",
+];
+const CREDENTIAL_TYPE_OTHER = "__other__";
+
 export default function IssuerDashboard() {
   // - polo: get current issuer type to hide subordinate sections for subordinate issuers
   const currentUser = JSON.parse(localStorage.getItem("user") || "{}");
@@ -81,6 +99,9 @@ export default function IssuerDashboard() {
   });
   const [createError, setCreateError] = useState("");
   const [createLoading, setCreateLoading] = useState(false);
+  // Group 4.2b: true when "Other…" is picked in the type dropdown — reveals the custom
+  // free-text input. createForm.credentialType still holds the actual value either way.
+  const [typeIsOther, setTypeIsOther] = useState(false);
   const [createConfirmStep, setCreateConfirmStep] = useState(false); // Group 4.5: confirm before create
 
   // Skills state for create form - polo
@@ -736,9 +757,21 @@ export default function IssuerDashboard() {
   // Badge image handler - polo
   const handleBadgeImageChange = (e) => { const file = e.target.files?.[0]; if (!file) return; setBadgeImageName(file.name); const reader = new FileReader(); reader.onloadend = () => { setBadgeImageBase64(reader.result); setBadgeImagePreview(reader.result); }; reader.readAsDataURL(file); };
 
-  const openCreateModal = () => { setShowCreateModal(true); setCreateError(""); setCreateConfirmStep(false); setCreateForm({ credentialType: "", credentialName: "", description: "", metadata: "" }); setSkillsList([]); setSkillInput(""); setBadgeImageBase64(""); setBadgeImagePreview(""); setBadgeImageName(""); };
-  const closeCreateModal = () => { setShowCreateModal(false); setCreateError(""); setCreateLoading(false); setCreateConfirmStep(false); setSkillsList([]); setSkillInput(""); setBadgeImageBase64(""); setBadgeImagePreview(""); setBadgeImageName(""); };
+  const openCreateModal = () => { setShowCreateModal(true); setCreateError(""); setCreateConfirmStep(false); setTypeIsOther(false); setCreateForm({ credentialType: "", credentialName: "", description: "", metadata: "" }); setSkillsList([]); setSkillInput(""); setBadgeImageBase64(""); setBadgeImagePreview(""); setBadgeImageName(""); };
+  const closeCreateModal = () => { setShowCreateModal(false); setCreateError(""); setCreateLoading(false); setCreateConfirmStep(false); setTypeIsOther(false); setSkillsList([]); setSkillInput(""); setBadgeImageBase64(""); setBadgeImagePreview(""); setBadgeImageName(""); };
   const handleCreateFormChange = (e) => { const { name, value } = e.target; setCreateForm((prev) => ({ ...prev, [name]: value })); };
+  // Group 4.2b: type dropdown change. Picking "Other…" flips to custom-text mode and clears the
+  // value so the issuer types fresh; picking a preset stores it directly and exits Other mode.
+  const handleCreateTypeSelect = (e) => {
+    const value = e.target.value;
+    if (value === CREDENTIAL_TYPE_OTHER) {
+      setTypeIsOther(true);
+      setCreateForm((prev) => ({ ...prev, credentialType: "" }));
+    } else {
+      setTypeIsOther(false);
+      setCreateForm((prev) => ({ ...prev, credentialType: value }));
+    }
+  };
 
   // Group 4.5: validate + normalize the type, then open the confirmation step (no write yet).
   const handleCreateCredential = (e) => {
@@ -1512,7 +1545,17 @@ export default function IssuerDashboard() {
             </div>
             <form onSubmit={handleCreateCredential}>
               <div className="modal-two-col">
-                <div className="form-group"><label>Credential Type <span className="required-star">*</span></label><input type="text" name="credentialType" value={createForm.credentialType} onChange={handleCreateFormChange} placeholder="e.g. Certificate, ID, Award" required /></div>
+                <div className="form-group">
+                  <label>Credential Type <span className="required-star">*</span></label>
+                  <select name="credentialTypeSelect" value={typeIsOther ? CREDENTIAL_TYPE_OTHER : createForm.credentialType} onChange={handleCreateTypeSelect} required>
+                    <option value="" disabled>Select a type…</option>
+                    {CREDENTIAL_TYPE_OPTIONS.map((t) => <option key={t} value={t}>{t}</option>)}
+                    <option value={CREDENTIAL_TYPE_OTHER}>Other…</option>
+                  </select>
+                  {typeIsOther && (
+                    <input type="text" name="credentialType" value={createForm.credentialType} onChange={handleCreateFormChange} placeholder="Enter a custom credential type" maxLength={60} required style={{ marginTop: "8px" }} />
+                  )}
+                </div>
                 <div className="form-group"><label>Credential Name <span className="required-star">*</span></label><input type="text" name="credentialName" value={createForm.credentialName} onChange={handleCreateFormChange} placeholder="e.g. Company Staff Card" required /></div>
               </div>
               <div className="form-group"><label>Description</label><textarea name="description" value={createForm.description} onChange={handleCreateFormChange} rows={2} placeholder="Describe the credential's purpose..." /></div>

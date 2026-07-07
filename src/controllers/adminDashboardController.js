@@ -442,8 +442,9 @@ function initExpiryCron(getContractAndGateway) {
     } catch (err) {
       console.error('[CRON] ❌ Expiry cron failed:', err.message);
     }
-  });
-  console.log('✅ [CRON] Midnight expiry cron job scheduled');
+  }, { timezone: 'Asia/Manila' }); // pin to Manila midnight (matches initIntegrityCron) so the
+  // sweep fires at a predictable local time regardless of the VM's system clock (e.g. UTC).
+  console.log('✅ [CRON] Midnight (Asia/Manila) expiry cron job scheduled');
 }
 
 /*

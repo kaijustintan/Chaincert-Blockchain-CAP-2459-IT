@@ -369,7 +369,9 @@ export default function VerifierDashboard() {
                 {result.isValid
                   ? "This credential is authentic and currently valid."
                   : String(result.status).toLowerCase() === "revoked"
-                  ? "This credential was revoked by the issuer."
+                  ? (result.revocationReason
+                      ? `This credential was revoked by the issuer. Reason: ${result.revocationReason}`
+                      : "This credential was revoked by the issuer.")
                   : String(result.status).toLowerCase() === "expired"
                   ? "This credential has passed its expiry date."
                   : String(result.status).toLowerCase() === "not_found"

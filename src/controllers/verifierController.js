@@ -243,6 +243,12 @@ const Verify_Credential = async (req, res, getContractAndGateway) => {
           mainPayload.skills = couchCred.skills || [];
           mainPayload.description = couchCred.description || undefined;
           mainPayload.savedToUserWalletAt = couchCred.savedToUserWalletAt || undefined;
+          // V-06: surface the issuer's revocation reason to the verifier. The reason
+          // the issuer typed at revoke time is mirrored onto the wallet doc as
+          // rejectionReason (couchDB_service.Revoke_Credential_DB). VerifyCredential
+          // on-chain only returns a generic 'Credential has been revoked' string, so
+          // this CouchDB field is the only source of the specific reason text.
+          mainPayload.revocationReason = couchCred.rejectionReason || undefined;
         }
 
         if (mainPayload.holderID && !mainPayload.holderName) {
@@ -322,6 +328,8 @@ const Verify_Credential = async (req, res, getContractAndGateway) => {
           expiryDate: credential.expiryDate,
           verifiedAt: new Date().toISOString(),
           source: 'couchdb_fallback',
+          // V-06: same revocation-reason surfacing on the CouchDB-only fallback path.
+          revocationReason: credential.rejectionReason || undefined,
         };
         mainPayload.status = String(mainPayload.status || 'unknown').toLowerCase();
         finalIsValid = isValid;
@@ -360,6 +368,9 @@ const Verify_Credential = async (req, res, getContractAndGateway) => {
       isExpired: mainPayload.isExpired,
       expiryDate: mainPayload.expiryDate,
       reason: finalReason,
+      // V-06: only expose the specific revocation reason when the credential is
+      // actually revoked (it is meaningless / unset otherwise).
+      revocationReason: mainPayload.isRevoked ? (mainPayload.revocationReason || undefined) : undefined,
       sources: {
         blockchain: sourceUsed === 'blockchain',
         couchDB: sourceUsed === 'couchdb_fallback',

@@ -493,11 +493,31 @@ const accountController = {
         return res.status(404).json({ success: false, message: 'User not found.' });
       }
 
+      // C10: the recipient's email was just OTP-proven (same guarantee as the verifier OTP),
+      // so issue the same 'verifier_email_proof' JWT verifierController.confirmVerifierOtp
+      // issues. The profile page uses it to LOG "Verify all" checks under this proven email
+      // WITHOUT a second OTP. Best-effort — profile viewing works even if signing fails.
+      let verifierProofToken = null;
+      if (doc.recipientEmail && process.env.JWT_SECRET) {
+        try {
+          const jwt = require('jsonwebtoken');
+          verifierProofToken = jwt.sign(
+            { verifierEmail: String(doc.recipientEmail).toLowerCase(), purpose: 'verifier_email_proof' },
+            process.env.JWT_SECRET,
+            { expiresIn: '2h' }
+          );
+        } catch (tErr) {
+          console.warn('[SHARE] verifier proof-token sign failed (non-fatal):', tErr.message);
+        }
+      }
+
       return res.status(200).json({
         success: true,
         message: 'Verified.',
         userId,
-        profile
+        profile,
+        verifierProofToken,
+        verifierEmail: doc.recipientEmail || null
       });
     } catch (error) {
       console.error('[SHARE] verifyOTP error:', error);

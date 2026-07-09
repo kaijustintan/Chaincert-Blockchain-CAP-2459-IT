@@ -3818,6 +3818,106 @@ async function getAllIssuedCredentialsForIntegrity() {
   return rows;
 }
 
+// ==========================================================================================
+// C11: CREDENTIAL RENEWAL REQUESTS (stored in user_notifications with type:'renewal_request')
+// ------------------------------------------------------------------------------------------
+// LAYMAN (Tropang Ex): "Paki-renew naman" na bilin ng holder papunta sa issuer. Naka-imbak sa
+// EXISTING user_notifications DB (walang bagong database na kailangang i-setup) — hiwalay sa
+// mga notification dahil sa sariling type na 'renewal_request'. May status na
+// pending → approved / declined. Ang issuer ang nagdedesisyon gamit ang SARILI nilang records;
+// ChainCert ang nagre-route lang ng request at nagre-re-issue pag in-approve.
+// TECHNICAL: Same-DB pattern as the two coexisting notification kinds ('notification' vs
+// 'credential_notification'). Mango find by type + holderId / issuerId. Update = read-modify-
+// write via _rev. No new database, no chaincode change.
+// ==========================================================================================
+
+/*
+  Function Name: createRenewalRequest
+  LAYMAN (Tropang Ex): Gumagawa ng "renewal request" na record — sino ang humihingi, aling
+  credential, at kaninong issuer papunta.
+  TECHNICAL: Inserts a type:'renewal_request' doc (status 'pending') into user_notifications.
+  credentialId = on-chain instance id (blockchainId); templateId = what to re-issue on approve.
+  PARAMS: data — { holderId, holderName, holderEmail, issuerId, issuerName, credentialId,
+                   templateId, credentialName, credentialType }.
+  RETURNS: the inserted doc (with _id).
+*/
+async function createRenewalRequest(data = {}) {
+  const doc = {
+    _id: `renew_${Date.now()}_${Math.random().toString(36).slice(2, 11)}`,
+    type: 'renewal_request',
+    status: 'pending', // pending | approved | declined
+    holderId: data.holderId,
+    holderName: data.holderName || '',
+    holderEmail: data.holderEmail || '',
+    issuerId: data.issuerId || '',
+    issuerName: data.issuerName || '',
+    credentialId: data.credentialId,      // on-chain instance id (blockchainId)
+    templateId: data.templateId || '',    // template to re-issue from on approve
+    credentialName: data.credentialName || '',
+    credentialType: data.credentialType || '',
+    requestedAt: new Date().toISOString(),
+    decidedAt: null,
+    declineReason: '',
+    newCredentialId: '',                  // set on approve — the re-issued instance (lineage)
+    newExpiryDate: '',
+  };
+  await notificationsDb.insert(doc);
+  return doc;
+}
+
+/*
+  Function Name: getRenewalRequestsByHolder
+  LAYMAN (Tropang Ex): Lahat ng renewal requests NG ISANG holder (para makita niya kung alin
+  ang pending pa).
+  TECHNICAL: Mango find { type:'renewal_request', holderId }, newest first.
+  PARAMS: holderId — the holder's user id.
+  RETURNS: array of request docs (possibly []).
+*/
+async function getRenewalRequestsByHolder(holderId) {
+  const result = await notificationsDb.find({
+    selector: { type: 'renewal_request', holderId },
+    limit: 200,
+  });
+  return (result.docs || []).sort((a, b) => String(b.requestedAt).localeCompare(String(a.requestedAt)));
+}
+
+/*
+  Function Name: getRenewalRequestsByIssuer
+  LAYMAN (Tropang Ex): Ang renewal queue NG ISANG issuer — pending muna, tapos pinakabago.
+  TECHNICAL: Mango find { type:'renewal_request', issuerId }; sort pending-first then newest.
+  PARAMS: issuerId — the issuer's account id (matches credential.issuerID).
+  RETURNS: array of request docs (possibly []).
+*/
+async function getRenewalRequestsByIssuer(issuerId) {
+  const result = await notificationsDb.find({
+    selector: { type: 'renewal_request', issuerId },
+    limit: 200,
+  });
+  return (result.docs || []).sort((a, b) => {
+    const ap = a.status === 'pending' ? 0 : 1;
+    const bp = b.status === 'pending' ? 0 : 1;
+    return ap - bp || String(b.requestedAt).localeCompare(String(a.requestedAt));
+  });
+}
+
+// One renewal request by _id; null if missing. (Compact: pure wrapper.)
+async function getRenewalRequestById(requestId) {
+  try {
+    const doc = await notificationsDb.get(requestId);
+    return doc && doc.type === 'renewal_request' ? doc : null;
+  } catch (e) {
+    return null;
+  }
+}
+
+// Read-modify-write patch (keeps _rev). Returns the updated doc.
+async function updateRenewalRequest(requestId, patch = {}) {
+  const doc = await notificationsDb.get(requestId);
+  const updated = { ...doc, ...patch };
+  await notificationsDb.insert(updated);
+  return updated;
+}
+
 module.exports = {
   // Core initialization
   nano,
@@ -3870,6 +3970,13 @@ module.exports = {
   getIssuerNotifications,
   getUnreadIssuerNotifications,
   markNotificationAsRead,
+
+  // C11: credential renewal requests
+  createRenewalRequest,
+  getRenewalRequestsByHolder,
+  getRenewalRequestsByIssuer,
+  getRenewalRequestById,
+  updateRenewalRequest,
 
   // Credentials (Star Feature!)
   Issue_Credential_DB,         // ✅ NEW - Use this!

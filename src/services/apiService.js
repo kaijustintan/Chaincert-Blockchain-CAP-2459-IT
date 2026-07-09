@@ -1529,6 +1529,51 @@ Get_IssuerVerifications: async () => {
   }
 },
 
+// ── C11: credential renewal requests (holder asks → issuer decides → re-issue) ────────────
+// Holder side: identity always derived server-side from the JWT (no IDOR).
+requestCredentialRenewal: async (credentialId) => {
+  try {
+    const response = await axios.post('/wallet/renewal-requests', { credentialId });
+    return response.data; // { success, request }
+  } catch (error) {
+    console.error('Error requesting renewal:', error.response?.data?.message || error.message);
+    throw error;
+  }
+},
+
+getMyRenewalRequests: async () => {
+  try {
+    const response = await axios.get('/wallet/renewal-requests');
+    return response.data; // { success, requests, count }
+  } catch (error) {
+    console.error('Error fetching my renewal requests:', error.response?.data?.message || error.message);
+    throw error;
+  }
+},
+
+// Issuer side: their own queue + the decision endpoint (approve marks status after the
+// frontend re-issues via the existing Issue_Credential flow; decline records a reason).
+getIssuerRenewalRequests: async () => {
+  try {
+    const response = await axios.get('/issuer/renewal-requests');
+    return response.data; // { success, requests, count }
+  } catch (error) {
+    console.error('Error fetching renewal requests:', error.response?.data?.message || error.message);
+    throw error;
+  }
+},
+
+decideRenewalRequest: async (requestId, action, extras = {}) => {
+  try {
+    // action: 'approve' | 'decline'; extras: { declineReason?, newCredentialId?, newExpiryDate? }
+    const response = await axios.patch(`/issuer/renewal-requests/${requestId}/decision`, { action, ...extras });
+    return response.data; // { success, request }
+  } catch (error) {
+    console.error('Error deciding renewal request:', error.response?.data?.message || error.message);
+    throw error;
+  }
+},
+
 // Get all issuer/user status-change logs (blockchain)
 Get_AllStatusLogs: async () => {
   try {

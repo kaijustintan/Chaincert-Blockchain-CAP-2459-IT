@@ -231,6 +231,14 @@ export default function IssuerDashboard() {
   const [batchProgress, setBatchProgress] = useState({ done: 0, total: 0 });
   const [batchResults, setBatchResults] = useState([]);
   const [batchError, setBatchError] = useState("");
+  // C11: renewal requests queue (holder-initiated; the issuer decides from their OWN records)
+  const [renewalRequests, setRenewalRequests] = useState([]);
+  const [renewalLoading, setRenewalLoading] = useState(false);
+  const [renewalDecide, setRenewalDecide] = useState(null); // { request, action } drives the decision modal
+  const [renewalExpiry, setRenewalExpiry] = useState("");
+  const [renewalDeclineReason, setRenewalDeclineReason] = useState("");
+  const [renewalActionLoading, setRenewalActionLoading] = useState(false);
+  const [renewalError, setRenewalError] = useState("");
 
   // -------------------------------------------------------------------
   // EFFECTS (unchanged)
@@ -242,7 +250,68 @@ export default function IssuerDashboard() {
     fetchRootSubordinateLogs("all");
     fetchIssuerNotifications();
     fetchIssuerVerifications();
+    fetchRenewalRequests();
   }, []);
+
+  // C11: load this issuer's renewal-request queue (scope derived server-side from the JWT).
+  const fetchRenewalRequests = async () => {
+    setRenewalLoading(true);
+    try {
+      const data = await apiService.getIssuerRenewalRequests();
+      setRenewalRequests(Array.isArray(data?.requests) ? data.requests : []);
+    } catch (err) {
+      console.error("Error fetching renewal requests:", err);
+    } finally {
+      setRenewalLoading(false);
+    }
+  };
+
+  const openRenewalDecision = (request, action) => {
+    setRenewalDecide({ request, action });
+    setRenewalExpiry("");
+    setRenewalDeclineReason("");
+    setRenewalError("");
+  };
+
+  // C11: approve = re-issue via the EXISTING issuance flow (same chaincode + dual-write +
+  // holder email as a manual issue), THEN mark the request approved with the new instance id
+  // (lineage old → new lives on the request doc). Decline = mark + reason → holder notified.
+  const confirmRenewalDecision = async () => {
+    const { request, action } = renewalDecide || {};
+    if (!request) return;
+    setRenewalError("");
+    if (action === "decline" && !renewalDeclineReason.trim()) {
+      setRenewalError("Please give the holder a reason — they will see it.");
+      return;
+    }
+    if (action === "approve" && !request.templateId) {
+      setRenewalError("This request has no credential reference to re-issue from — issue it manually via + Issue Credential instead.");
+      return;
+    }
+    setRenewalActionLoading(true);
+    try {
+      let newCredentialId = "";
+      if (action === "approve") {
+        const issueRes = await apiService.Issue_Credential(request.templateId, request.holderId, renewalExpiry || null);
+        newCredentialId = issueRes?.credential?.id || issueRes?.credential?.credentialId || "";
+      }
+      await apiService.decideRenewalRequest(
+        request._id,
+        action,
+        action === "approve"
+          ? { newCredentialId, newExpiryDate: renewalExpiry || "" }
+          : { declineReason: renewalDeclineReason.trim() }
+      );
+      showToast(action === "approve" ? "Renewal approved — a renewed credential was issued." : "Renewal declined.");
+      setRenewalDecide(null);
+      fetchRenewalRequests();
+      if (action === "approve") fetchCredentials();
+    } catch (err) {
+      setRenewalError(err?.response?.data?.error || err?.response?.data?.message || err?.message || "Failed to process the decision.");
+    } finally {
+      setRenewalActionLoading(false);
+    }
+  };
 
   // C5: load this issuer's Verification Reach (server derives the issuer from the JWT — no IDOR).
   const fetchIssuerVerifications = async () => {
@@ -1273,6 +1342,49 @@ export default function IssuerDashboard() {
             {noTemplateError && <div className="no-template-warning">{noTemplateError}</div>}
           </div>
 
+          {/* C11: Renewal Requests — holders asking for a re-issue; YOUR records justify the decision */}
+          <div className="table-container" style={{ marginBottom: 20 }}>
+            <h3 style={{ marginBottom: 4 }}>
+              Renewal Requests
+              {renewalRequests.filter((r) => r.status === "pending").length > 0
+                ? ` (${renewalRequests.filter((r) => r.status === "pending").length} pending)`
+                : ""}
+            </h3>
+            <p style={{ fontSize: 12.5, color: "var(--text-muted)", margin: "0 0 10px" }}>
+              Approving re-issues the same credential with a new expiry. Check your own records first —
+              ChainCert routes the request; it doesn't verify requalification.
+            </p>
+            {renewalLoading ? (
+              <SpinnerBlock label="Loading renewal requests…" minHeight={60} />
+            ) : renewalRequests.length === 0 ? (
+              <div className="no-results"><p>No renewal requests yet. When a holder taps "Request renewal," it appears here.</p></div>
+            ) : (
+              <div className="analytics-flag-list">
+                {renewalRequests.map((r) => (
+                  <div className="analytics-flag-row" key={r._id}>
+                    <div>
+                      <div className="analytics-flag-issuer">{r.credentialName || r.credentialId}</div>
+                      <div className="analytics-flag-reason">
+                        {r.holderName || r.holderId}
+                        {r.requestedAt ? ` • requested ${new Date(r.requestedAt).toLocaleDateString()}` : ""}
+                        {r.status === "declined" && r.declineReason ? ` • declined: ${r.declineReason}` : ""}
+                        {r.status === "approved" ? ` • renewed${r.newExpiryDate ? ` until ${new Date(r.newExpiryDate).toLocaleDateString()}` : ""}` : ""}
+                      </div>
+                    </div>
+                    {r.status === "pending" ? (
+                      <div style={{ display: "flex", gap: 8 }}>
+                        <button type="button" className="action-btn" onClick={() => openRenewalDecision(r, "approve")}>Approve</button>
+                        <button type="button" className="action-btn btn-cancel" onClick={() => openRenewalDecision(r, "decline")}>Decline</button>
+                      </div>
+                    ) : (
+                      <span className={`status-badge status-${r.status === "approved" ? "issued" : "revoked"}`}>{r.status}</span>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
           {/* Filter Section */}
           <div className="filter-section">
             <h3>Filter &amp; sort</h3>
@@ -1778,6 +1890,49 @@ export default function IssuerDashboard() {
       {/* ============================================================
           ALL MODALS (preserved exactly from original)
           ============================================================ */}
+
+      {/* C11: renewal decision modal — approve (new expiry → re-issue) or decline (reason) */}
+      {renewalDecide && (
+        <div className="modal-overlay">
+          <div className="modal" style={{ maxWidth: 460 }}>
+            <div className="modal-header">
+              <h3>{renewalDecide.action === "approve" ? "Approve renewal?" : "Decline renewal?"}</h3>
+              <button type="button" className="modal-close" onClick={() => !renewalActionLoading && setRenewalDecide(null)}>✕</button>
+            </div>
+            <p style={{ margin: "8px 0 12px", fontSize: 13, color: "var(--text-muted)", lineHeight: 1.5 }}>
+              {renewalDecide.action === "approve" ? (
+                <>A fresh <strong>{renewalDecide.request.credentialName || "credential"}</strong> will be issued to{" "}
+                <strong>{renewalDecide.request.holderName || renewalDecide.request.holderId}</strong> with the expiry you set —
+                the old copy stays in their history, clearly labeled.</>
+              ) : (
+                <>Tell <strong>{renewalDecide.request.holderName || "the holder"}</strong> why their renewal of{" "}
+                <strong>{renewalDecide.request.credentialName || "this credential"}</strong> is declined.</>
+              )}
+            </p>
+            {renewalDecide.action === "approve" ? (
+              <div className="form-group compact-form-group">
+                <label>New expiry date <span className="form-label-hint">(optional — blank = no expiry)</span></label>
+                <input type="date" value={renewalExpiry} onChange={(e) => setRenewalExpiry(e.target.value)} min={minIssueExpiryDate()} />
+              </div>
+            ) : (
+              <div className="form-group">
+                <label>Reason <span className="required-star">*</span></label>
+                <textarea rows={2} value={renewalDeclineReason} onChange={(e) => setRenewalDeclineReason(e.target.value)} placeholder="e.g. CPD hours not yet completed" />
+              </div>
+            )}
+            {renewalError && <div className="form-error">{renewalError}</div>}
+            <div className="form-actions">
+              <button type="button" className="action-btn" onClick={confirmRenewalDecision} disabled={renewalActionLoading}>
+                {renewalActionLoading
+                  ? <span className="btn-loading"><Spinner className="btn-spinner" /> Working…</span>
+                  : (renewalDecide.action === "approve" ? "Approve & issue" : "Decline")}
+              </button>
+              <button type="button" className="action-btn btn-cancel" onClick={() => setRenewalDecide(null)} disabled={renewalActionLoading}>Cancel</button>
+            </div>
+          </div>
+          <div className="modal-backdrop" onClick={() => !renewalActionLoading && setRenewalDecide(null)}></div>
+        </div>
+      )}
 
       {/* C17: batch revocation modal — form → confirm → sequential run with live progress */}
       {showBatchModal && (

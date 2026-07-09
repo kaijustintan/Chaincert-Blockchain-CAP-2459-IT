@@ -1777,3 +1777,115 @@ exports.getIssuerVerifications = async (req, res, getContractAndGateway) => {
     }
   }
 };
+
+// ==========================================================================================
+// C11: CREDENTIAL RENEWAL REQUESTS (issuer side)
+// ==========================================================================================
+
+/*
+  Function Name: getRenewalRequests  (C11)
+
+  LAYMAN (Tropang Ex):
+  Ang renewal queue ng NAKA-LOGIN na issuer — mga holder na nagsabing "paki-renew naman."
+  Pending muna sa taas, tapos yung mga na-desisyunan na.
+
+  TECHNICAL:
+  Identity from the JWT (req.user.id) — matches renewal_request.issuerId (which came from the
+  credential's issuerID). Self-auth because /api/issuer has no route guard.
+
+  PARAMS: req, res.
+  RETURNS: 200 { success, requests, count } | 401 | 403 wrong role.
+*/
+exports.getRenewalRequests = async (req, res) => {
+  try {
+    const user = req.user;
+    if (!user || !user.id) {
+      return res.status(401).json({ success: false, message: 'Authentication required.' });
+    }
+    if (user.role !== 'issuer' && user.role !== 'admin') {
+      return res.status(403).json({ success: false, message: 'Issuer access only.' });
+    }
+    const requests = await couchdbService.getRenewalRequestsByIssuer(user.id);
+    return res.status(200).json({ success: true, requests, count: requests.length });
+  } catch (error) {
+    return sendServerError(res, error, 'ISSUER'); // M9
+  }
+};
+
+/*
+  Function Name: decideRenewalRequest  (C11)
+
+  LAYMAN (Tropang Ex):
+  Dito nagdedesisyon ang issuer sa isang renewal request. HINDI ito ang nag-iissue — ang
+  frontend ang tumatawag sa NORMAL na issue flow (para pare-pareho ang chaincode + dual-write
+  + holder email), tapos itong endpoint ang nagmamarka ng approved/declined at nag-aabiso sa
+  holder. Ang basehan ng desisyon ay ang SARILING records ng issuer — hindi alam ng ChainCert
+  kung qualified pa ang holder.
+
+  TECHNICAL:
+  Ownership: request.issuerId must equal req.user.id. Only 'pending' requests are decidable
+  (409 otherwise). approve → { status:'approved', decidedAt, newCredentialId, newExpiryDate }
+  (lineage: the renewal doc links old credentialId → newCredentialId — no chaincode change);
+  decline → requires declineReason. Both create a best-effort holder in-app notification.
+
+  PARAMS:
+  - req.params.requestId; req.body { action:'approve'|'decline', declineReason?,
+    newCredentialId?, newExpiryDate? }.
+
+  RETURNS: 200 { success, request } | 400 | 401 | 403 | 404 | 409 already decided.
+*/
+exports.decideRenewalRequest = async (req, res) => {
+  try {
+    const user = req.user;
+    if (!user || !user.id) {
+      return res.status(401).json({ success: false, message: 'Authentication required.' });
+    }
+    if (user.role !== 'issuer' && user.role !== 'admin') {
+      return res.status(403).json({ success: false, message: 'Issuer access only.' });
+    }
+    const { requestId } = req.params;
+    const { action, declineReason, newCredentialId, newExpiryDate } = req.body || {};
+    if (!requestId || !['approve', 'decline'].includes(action)) {
+      return res.status(400).json({ success: false, message: "action must be 'approve' or 'decline'." });
+    }
+
+    const request = await couchdbService.getRenewalRequestById(requestId);
+    if (!request) {
+      return res.status(404).json({ success: false, message: 'Renewal request not found.' });
+    }
+    if (String(request.issuerId) !== String(user.id)) {
+      return res.status(403).json({ success: false, message: 'You can only decide renewal requests addressed to you.' });
+    }
+    if (request.status !== 'pending') {
+      return res.status(409).json({ success: false, message: 'This request was already decided.' });
+    }
+    if (action === 'decline' && !String(declineReason || '').trim()) {
+      return res.status(400).json({ success: false, message: 'A decline reason is required — the holder will see it.' });
+    }
+
+    const patch = action === 'approve'
+      ? { status: 'approved', decidedAt: new Date().toISOString(), newCredentialId: newCredentialId || '', newExpiryDate: newExpiryDate || '' }
+      : { status: 'declined', decidedAt: new Date().toISOString(), declineReason: String(declineReason).trim() };
+    const updated = await couchdbService.updateRenewalRequest(requestId, patch);
+
+    // Best-effort holder in-app notification. (On approve, the issuance itself already
+    // notified + emailed the holder about the NEW credential — this closes the request loop.)
+    try {
+      await couchdbService.Create_CredentialNotification(request.holderId, {
+        notificationType: action === 'approve' ? 'renewal_approved' : 'renewal_declined',
+        credentialId: request.credentialId,
+        credentialName: request.credentialName,
+        issuerName: request.issuerName,
+        message: action === 'approve'
+          ? `Your renewal request for "${request.credentialName}" was approved — a renewed credential has been issued to you.`
+          : `Your renewal request for "${request.credentialName}" was declined. Reason: ${patch.declineReason}`,
+      });
+    } catch (nErr) {
+      console.warn('[RENEWAL] holder notification failed (non-fatal):', nErr.message);
+    }
+
+    return res.status(200).json({ success: true, request: updated });
+  } catch (error) {
+    return sendServerError(res, error, 'ISSUER'); // M9
+  }
+};

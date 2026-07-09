@@ -24,9 +24,27 @@ import "../styles/verifierDashboard.css";
 import apiService from "../services/apiService";
 import { Card, Button, Field, Input, StatusPill } from "../components/ui";
 import NotesCard from "../components/ui/NotesCard";
-import { ShieldCheck, CheckCircle2, XCircle, AlertTriangle, Search } from "lucide-react";
+import { ShieldCheck, CheckCircle2, XCircle, AlertTriangle, Search, FileText } from "lucide-react";
+// C10: pdfjs-dist reads the LINK ANNOTATIONS out of a ChainCert portfolio PDF (each credential
+// row embeds its own verify URL). Loaded LAZILY (dynamic import → its own chunk) so the ~100 kB
+// library never weighs down the main bundle; worker resolved as a webpack-5 asset.
+const loadPdfjs = async () => {
+  const pdfjsLib = await import("pdfjs-dist");
+  pdfjsLib.GlobalWorkerOptions.workerSrc = new URL("pdfjs-dist/build/pdf.worker.min.js", import.meta.url).toString();
+  return pdfjsLib;
+};
 
 const VALID_EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
+
+// C10: bulk-verify verdict meta (mirrors the single-verify verdict wording).
+const BULK_OUTCOME_META = {
+  valid: { label: "VALID", color: "var(--ok)" },
+  revoked: { label: "REVOKED", color: "var(--danger)" },
+  expired: { label: "EXPIRED", color: "var(--warn)" },
+  not_found: { label: "NOT FOUND", color: "var(--accent-strong)" },
+  invalid: { label: "INVALID", color: "var(--danger)" },
+  error: { label: "CHECK FAILED", color: "var(--text-muted)" },
+};
 
 
 export default function VerifierDashboard() {
@@ -228,6 +246,107 @@ export default function VerifierDashboard() {
     sessionStorage.removeItem("verifierTokenExp");
   };
 
+  // ── C10: bulk verify from a ChainCert portfolio PDF ────────────────────────
+  const [bulkIds, setBulkIds] = useState([]);
+  const [bulkFileName, setBulkFileName] = useState("");
+  const [bulkParsing, setBulkParsing] = useState(false);
+  const [bulkError, setBulkError] = useState("");
+  const [bulkRunning, setBulkRunning] = useState(false);
+  const [bulkDone, setBulkDone] = useState(false);
+  const [bulkProgress, setBulkProgress] = useState({ done: 0, total: 0 });
+  const [bulkResults, setBulkResults] = useState([]);
+
+  // Extract every embedded verify-link's credentialId from the uploaded PDF's link
+  // annotations. Only works on the ORIGINAL digital export — scanning/printing strips links.
+  const handleBulkPdf = async (e) => {
+    const file = e.target.files?.[0];
+    e.target.value = ""; // allow re-selecting the same file
+    if (!file) return;
+    setBulkError(""); setBulkIds([]); setBulkResults([]); setBulkDone(false);
+    setBulkFileName(file.name); setBulkParsing(true);
+    try {
+      const pdfjsLib = await loadPdfjs();
+      const buf = await file.arrayBuffer();
+      const pdf = await pdfjsLib.getDocument({ data: buf }).promise;
+      const ids = new Set();
+      for (let p = 1; p <= pdf.numPages; p++) {
+        // eslint-disable-next-line no-await-in-loop
+        const page = await pdf.getPage(p);
+        // eslint-disable-next-line no-await-in-loop
+        const annots = await page.getAnnotations();
+        annots.forEach((a) => {
+          if (a && a.url) {
+            try {
+              const cid = new URL(a.url).searchParams.get("credentialId");
+              if (cid) ids.add(cid);
+            } catch (_) { /* not a parseable link — skip */ }
+          }
+        });
+      }
+      const list = [...ids];
+      if (list.length === 0) {
+        setBulkError("No ChainCert verification links found in this PDF. Bulk verify needs the original digital export — a scanned or printed copy loses the embedded links.");
+      }
+      setBulkIds(list);
+    } catch (err) {
+      console.error("[BULK PDF] parse failed:", err);
+      setBulkError("Could not read that PDF. Make sure it's the original ChainCert export.");
+    } finally {
+      setBulkParsing(false);
+    }
+  };
+
+  // Sequential verify + on-chain log per extracted credential — same read + same proven-email
+  // logging as a single check, so bulk results feed the same analytics.
+  const runBulkVerify = async () => {
+    if (bulkIds.length === 0) return;
+    setBulkRunning(true); setBulkDone(false);
+    setBulkResults([]); setBulkProgress({ done: 0, total: bulkIds.length });
+    const results = [];
+    for (let i = 0; i < bulkIds.length; i++) {
+      const id = bulkIds[i];
+      try {
+        // eslint-disable-next-line no-await-in-loop
+        const resp = await apiService.Verify_Credential(id);
+        const status = String(resp.status || "").toLowerCase();
+        results.push({
+          id,
+          name: resp.credentialName || id,
+          holder: resp.holderName || "",
+          outcome: resp.isValid ? "valid" : (BULK_OUTCOME_META[status] ? status : "invalid"),
+        });
+        try {
+          // eslint-disable-next-line no-await-in-loop
+          await apiService.logVerificationOnChain(
+            resp.credentialID || id, verifierName, verifierEmail,
+            JSON.stringify({ isValid: !!resp.isValid, reason: resp.reason, status: resp.status, source: resp.sources?.primarySource || "unknown" }),
+            verifierToken
+          );
+        } catch (logErr) {
+          if (logErr.response?.status === 401) resetVerifierEmail();
+          console.warn("[BULK VERIFY] log failed (non-fatal):", logErr.message);
+        }
+      } catch (err) {
+        if (err?.response?.status === 404) {
+          results.push({ id, name: id, holder: "", outcome: "not_found" });
+          try {
+            // eslint-disable-next-line no-await-in-loop
+            await apiService.logVerificationOnChain(
+              id, verifierName, verifierEmail,
+              JSON.stringify({ valid: false, reason: "Credential not found", status: "not_found", source: "not_found" }),
+              verifierToken
+            );
+          } catch (logErr) { console.warn("[BULK VERIFY] not-found log failed (non-fatal):", logErr.message); }
+        } else {
+          results.push({ id, name: id, holder: "", outcome: "error" });
+        }
+      }
+      setBulkResults([...results]);
+      setBulkProgress({ done: i + 1, total: bulkIds.length });
+    }
+    setBulkRunning(false); setBulkDone(true);
+  };
+
   // Gate: verifier must provide name+email AND prove email ownership via OTP (V1) before
   // entering the dashboard. Step 1 = details + send code; step 2 = enter code.
   if (!hasVerifierInfo) {
@@ -329,6 +448,80 @@ export default function VerifierDashboard() {
           ]}
         />
       </div>
+
+      {/* C10: bulk verify from a ChainCert portfolio PDF (Employer/Regulator module) */}
+      <Card style={{ marginTop: 18 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 4 }}>
+          <FileText size={18} aria-hidden="true" />
+          <h3 style={{ margin: 0, fontSize: "1.05rem" }}>Bulk verify from a ChainCert PDF</h3>
+        </div>
+        <p style={{ fontSize: 13, color: "var(--text-muted)", margin: "4px 0 12px", lineHeight: 1.5 }}>
+          Upload a holder's ChainCert credential portfolio — every embedded verification link is
+          checked against the blockchain in one pass and logged under your verified email.
+          Works with the <strong>original digital export</strong>; scanned or printed copies lose the embedded links.
+        </p>
+
+        <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center" }}>
+          <label className="verifier-bulk-file" style={{ display: "inline-flex", alignItems: "center", gap: 8, padding: "9px 16px", borderRadius: 10, border: "1px solid var(--border-strong)", cursor: bulkRunning ? "not-allowed" : "pointer", fontSize: 14, opacity: bulkRunning ? 0.6 : 1 }}>
+            Choose PDF
+            <input type="file" accept="application/pdf,.pdf" onChange={handleBulkPdf} disabled={bulkRunning} style={{ display: "none" }} />
+          </label>
+          {bulkFileName && !bulkParsing && (
+            <span style={{ fontSize: 13, color: "var(--text-muted)" }}>
+              {bulkFileName}{bulkIds.length > 0 ? ` — ${bulkIds.length} credential link(s) found` : ""}
+            </span>
+          )}
+          {bulkParsing && <span style={{ fontSize: 13, color: "var(--text-muted)" }}>Reading PDF…</span>}
+          {bulkIds.length > 0 && !bulkRunning && (
+            <Button onClick={runBulkVerify}>{bulkDone ? "Verify all again" : `Verify all ${bulkIds.length}`}</Button>
+          )}
+        </div>
+
+        {bulkError && (
+          <div className="verifier-banner is-error" style={{ marginTop: 10 }}>
+            <XCircle size={16} aria-hidden="true" /><span>{bulkError}</span>
+          </div>
+        )}
+
+        {(bulkRunning || bulkDone) && bulkProgress.total > 0 && (
+          <div style={{ marginTop: 14 }}>
+            <p style={{ fontSize: 13, color: "var(--text-muted)", margin: "0 0 8px" }}>
+              {bulkRunning
+                ? `Verifying ${Math.min(bulkProgress.done + 1, bulkProgress.total)} of ${bulkProgress.total}… each check reads the live blockchain.`
+                : (() => {
+                    const c = (o) => bulkResults.filter((r) => r.outcome === o).length;
+                    const parts = [];
+                    if (c("valid")) parts.push(`${c("valid")} valid`);
+                    if (c("revoked")) parts.push(`${c("revoked")} revoked`);
+                    if (c("expired")) parts.push(`${c("expired")} expired`);
+                    if (c("not_found")) parts.push(`${c("not_found")} not found`);
+                    if (c("invalid")) parts.push(`${c("invalid")} invalid`);
+                    if (c("error")) parts.push(`${c("error")} failed`);
+                    return `Done — ${bulkResults.length} checked: ${parts.join(" · ")}. Each check was logged on-chain under ${verifierEmail}.`;
+                  })()}
+            </p>
+            <div style={{ height: 8, borderRadius: 999, background: "var(--border)", overflow: "hidden", marginBottom: 12 }}>
+              <div style={{ height: "100%", width: `${Math.round((bulkProgress.done / bulkProgress.total) * 100)}%`, background: "var(--accent-strong)", transition: "width .3s ease" }} />
+            </div>
+            <div style={{ display: "flex", flexDirection: "column", gap: 8, maxHeight: 280, overflowY: "auto" }}>
+              {bulkResults.map((r) => {
+                const m = BULK_OUTCOME_META[r.outcome] || BULK_OUTCOME_META.error;
+                return (
+                  <div key={r.id} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, padding: "8px 12px", borderRadius: 10, border: "1px solid var(--border)", background: "var(--surface-2, transparent)" }}>
+                    <div style={{ minWidth: 0 }}>
+                      <div style={{ fontSize: 13.5, fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{r.name}</div>
+                      <div style={{ fontSize: 12, color: "var(--text-muted)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                        {r.holder ? `${r.holder} · ` : ""}<span className="verifier-mono">{r.id}</span>
+                      </div>
+                    </div>
+                    <span style={{ fontSize: 12.5, fontWeight: 700, color: m.color, flexShrink: 0 }}>{m.label}</span>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+      </Card>
 
       {/* Inline error */}
       {error && !result && (

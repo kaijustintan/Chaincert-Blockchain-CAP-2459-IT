@@ -4,6 +4,16 @@ import apiService from "../services/apiService";
 import { SpinnerBlock } from "../components/ui";
 import '../styles/profilePreview.css';
 
+// C10: live-check verdict meta for the "Verify all" results (colors = design tokens).
+const VA_OUTCOME_META = {
+  valid: { label: "VALID", color: "var(--ok)" },
+  revoked: { label: "REVOKED", color: "var(--danger)" },
+  expired: { label: "EXPIRED", color: "var(--warn)" },
+  not_found: { label: "NOT FOUND", color: "var(--accent-strong)" },
+  invalid: { label: "INVALID", color: "var(--danger)" },
+  error: { label: "CHECK FAILED", color: "var(--text-muted)" },
+};
+
 const filterVisibleProfileCredentials = (items, role) => {
   const normalizedRole = String(role || '').toLowerCase();
 
@@ -80,6 +90,21 @@ export default function ProfilePreview() {
   const [credentials, setCredentials] = useState([]);
   const [credLoading, setCredLoading] = useState(false);
   const [selectedPreviewCred, setSelectedPreviewCred] = useState(null);
+
+  // ── C10: "Verify all" — bulk-check every listed credential against the blockchain ──
+  // vaToken = 'verifier_email_proof' JWT. Specific-recipient links get it free from the
+  // share-OTP verify; public links prove an email via the verifier OTP on first click.
+  const [vaToken, setVaToken] = useState("");
+  const [vaEmail, setVaEmail] = useState("");
+  const [vaGate, setVaGate] = useState("hidden"); // 'hidden' | 'email' | 'code'
+  const [vaOtpEmail, setVaOtpEmail] = useState("");
+  const [vaOtpCode, setVaOtpCode] = useState("");
+  const [vaOtpError, setVaOtpError] = useState("");
+  const [vaOtpLoading, setVaOtpLoading] = useState(false);
+  const [vaRunning, setVaRunning] = useState(false);
+  const [vaDone, setVaDone] = useState(false);
+  const [vaProgress, setVaProgress] = useState({ done: 0, total: 0 });
+  const [vaResults, setVaResults] = useState({}); // blockchainId -> { outcome }
 
   // ── Derived skills (MUST be before any early returns) ──────────
   const derivedSkills = useMemo(() => [...new Set(
@@ -289,6 +314,12 @@ export default function ProfilePreview() {
         if (Array.isArray(result.profile?.sharedCredentials)) {
           setCredentials(filterVisibleProfileCredentials(result.profile.sharedCredentials, result.profile?.role));
         }
+        // C10: the recipient's email is now OTP-proven — keep the verifier proof token so
+        // "Verify all" can log checks under it without a second OTP.
+        if (result.verifierProofToken) {
+          setVaToken(result.verifierProofToken);
+          setVaEmail(result.verifierEmail || gateEmail.trim());
+        }
         setGateStage('verified');
       } else {
         setGateError(result.message || 'Invalid code.');
@@ -313,6 +344,106 @@ export default function ProfilePreview() {
       setGateLoading(false);
     }
   };
+
+  // ── C10: Verify-all handlers ─────────────────────────────────────
+  // Every check reads the LIVE blockchain (never the cache) and is logged under the
+  // OTP-proven email — bulk checks feed the same verification analytics as single ones.
+  const startVerifyAll = () => {
+    if (vaRunning) return;
+    if (vaToken) { runVerifyAll(vaToken, vaEmail); return; }
+    // Public link: no proven email yet — prove one via the verifier OTP first.
+    setVaOtpEmail(gateEmail.trim() || "");
+    setVaOtpCode(""); setVaOtpError("");
+    setVaGate("email");
+  };
+
+  const sendVaOtp = async () => {
+    const email = vaOtpEmail.trim();
+    if (!email) { setVaOtpError("Please enter your email."); return; }
+    setVaOtpLoading(true); setVaOtpError("");
+    try {
+      await apiService.requestVerifierOtp(email);
+      setVaGate("code");
+    } catch (err) {
+      setVaOtpError(err.response?.data?.message || "Failed to send the code.");
+    } finally { setVaOtpLoading(false); }
+  };
+
+  const confirmVaOtp = async () => {
+    const email = vaOtpEmail.trim();
+    if (!vaOtpCode.trim()) { setVaOtpError("Enter the 6-digit code from your email."); return; }
+    setVaOtpLoading(true); setVaOtpError("");
+    try {
+      const res = await apiService.confirmVerifierOtp(email, vaOtpCode.trim());
+      setVaToken(res.token);
+      setVaEmail(email);
+      setVaGate("hidden");
+      runVerifyAll(res.token, email);
+    } catch (err) {
+      setVaOtpError(err.response?.data?.message || "Invalid or expired code.");
+    } finally { setVaOtpLoading(false); }
+  };
+
+  // Sequential on purpose — each check is its own ledger read + on-chain log; the
+  // progress counter stays honest and the API isn't hammered with parallel gateways.
+  const runVerifyAll = async (tok, em) => {
+    const list = credentials.filter((c) => c.blockchainId);
+    if (list.length === 0) return;
+    setVaRunning(true); setVaDone(false);
+    setVaResults({}); setVaProgress({ done: 0, total: list.length });
+    const results = {};
+    for (let i = 0; i < list.length; i++) {
+      const id = list[i].blockchainId;
+      try {
+        const resp = await apiService.Verify_Credential(id);
+        const status = String(resp.status || "").toLowerCase();
+        results[id] = { outcome: resp.isValid ? "valid" : (VA_OUTCOME_META[status] ? status : "invalid") };
+        try {
+          await apiService.logVerificationOnChain(
+            resp.credentialID || id, "", em,
+            JSON.stringify({ isValid: !!resp.isValid, reason: resp.reason, status: resp.status, source: resp.sources?.primarySource || "unknown" }),
+            tok
+          );
+        } catch (logErr) { console.warn("[VERIFY ALL] log failed (non-fatal):", logErr.message); }
+      } catch (err) {
+        if (err?.response?.status === 404) {
+          results[id] = { outcome: "not_found" };
+          try {
+            await apiService.logVerificationOnChain(
+              id, "", em,
+              JSON.stringify({ valid: false, reason: "Credential not found", status: "not_found", source: "not_found" }),
+              tok
+            );
+          } catch (logErr) { console.warn("[VERIFY ALL] not-found log failed (non-fatal):", logErr.message); }
+        } else {
+          results[id] = { outcome: "error" };
+        }
+      }
+      setVaResults({ ...results });
+      setVaProgress({ done: i + 1, total: list.length });
+    }
+    setVaRunning(false); setVaDone(true);
+  };
+
+  // Verify-all is for third parties viewing a HOLDER's shared profile — not the owner
+  // checking themselves, and not issuer template galleries (drafts aren't verifiable).
+  const vaEligible = gateStage === 'verified' && !isOwner && !publicIssuerId
+    && String(profileData?.role || 'student').toLowerCase() !== 'issuer'
+    && credentials.some((c) => c.blockchainId);
+
+  const vaSummary = (() => {
+    const vals = Object.values(vaResults);
+    if (vals.length === 0) return null;
+    const count = (o) => vals.filter((r) => r.outcome === o).length;
+    const parts = [];
+    if (count("valid")) parts.push(`${count("valid")} valid`);
+    if (count("revoked")) parts.push(`${count("revoked")} revoked`);
+    if (count("expired")) parts.push(`${count("expired")} expired`);
+    if (count("not_found")) parts.push(`${count("not_found")} not found`);
+    if (count("invalid")) parts.push(`${count("invalid")} invalid`);
+    if (count("error")) parts.push(`${count("error")} failed`);
+    return `${vals.length} checked — ${parts.join(" · ")}`;
+  })();
 
   // ── Gate overlay styles - polo ─────────────────────────────────
   const overlayStyle = {
@@ -528,7 +659,35 @@ export default function ProfilePreview() {
 
       {/* Badge Wallet — vertical list with order numbers - polo */}
       <section className="badge-wallet">
-        <h3>Credentials & Badges</h3>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
+          <h3 style={{ margin: 0 }}>Credentials &amp; Badges</h3>
+          {/* C10: bulk verification — every credential checked live against the blockchain */}
+          {vaEligible && (
+            <button
+              type="button"
+              onClick={startVerifyAll}
+              disabled={vaRunning}
+              style={{ ...gateBtnStyle, width: 'auto', marginTop: 0, padding: '8px 16px', fontSize: 14, opacity: vaRunning ? 0.6 : 1, cursor: vaRunning ? 'wait' : 'pointer' }}
+            >
+              {vaRunning
+                ? `Verifying ${Math.min(vaProgress.done + 1, vaProgress.total)} of ${vaProgress.total}…`
+                : vaDone ? 'Verify all again' : 'Verify all on the blockchain'}
+            </button>
+          )}
+        </div>
+        {(vaRunning || vaDone) && (
+          <div style={{ margin: '10px 0 4px' }}>
+            <div style={{ height: 6, borderRadius: 999, background: 'var(--border)', overflow: 'hidden' }}>
+              <div style={{ height: '100%', width: `${vaProgress.total ? Math.round((vaProgress.done / vaProgress.total) * 100) : 0}%`, background: 'var(--accent-strong)', transition: 'width .3s ease' }} />
+            </div>
+            {vaSummary && (
+              <p style={{ margin: '6px 0 0', fontSize: '0.82rem', color: 'var(--text-muted)' }}>
+                {vaDone ? `Live blockchain check: ${vaSummary}` : vaSummary}
+                {vaDone && vaEmail ? ` · logged under ${vaEmail}` : ''}
+              </p>
+            )}
+          </div>
+        )}
         <div className="badge-list">
           {credLoading && <SpinnerBlock label="Loading credentials…" minHeight={120} />}
           {!credLoading && credentials.length === 0 && (
@@ -557,6 +716,15 @@ export default function ProfilePreview() {
                 {cred.status === 'expired' && (
                   <span className="status-pill expired">Expired</span>
                 )}
+                {/* C10: live ledger verdict from "Verify all" (distinct from the stored status above) */}
+                {vaResults[cred.blockchainId] && (() => {
+                  const m = VA_OUTCOME_META[vaResults[cred.blockchainId].outcome] || VA_OUTCOME_META.error;
+                  return (
+                    <div style={{ marginTop: 4, fontSize: '0.74rem', fontWeight: 700, color: m.color }}>
+                      ⛓ Live check: {m.label}
+                    </div>
+                  );
+                })()}
                 {cred.status === 'revoked' && cred.rejectionReason && (
                   <p style={{color: "var(--danger)", fontSize: "0.75rem", margin: "4px 0"}}>
                     Reason: {cred.rejectionReason}
@@ -602,6 +770,55 @@ export default function ProfilePreview() {
       <footer className="preview-footer">
         <p>Verified on ChainCert • Blockchain-Secured Credentials</p>
       </footer>
+
+      {/* C10: mini OTP gate for PUBLIC links — prove an email once, then verify + log all */}
+      {vaGate !== 'hidden' && (
+        <div style={overlayStyle}>
+          <div style={gateBoxStyle}>
+            <div style={{ textAlign: 'center' }}>
+              <div style={{ fontSize: 36, marginBottom: 8 }}>{vaGate === 'email' ? '🛡️' : '📧'}</div>
+              <h2 style={{ color: 'var(--accent-strong)', margin: 0, fontSize: '1.3rem' }}>
+                {vaGate === 'email' ? 'Verify as yourself' : 'Check your email'}
+              </h2>
+              <p style={{ color: 'var(--text-muted)', fontSize: '0.88rem', marginTop: 8 }}>
+                {vaGate === 'email'
+                  ? 'Each check is logged on the blockchain under a confirmed email — enter yours to continue.'
+                  : `Enter the 6-digit code we sent to ${vaOtpEmail}`}
+              </p>
+            </div>
+            {vaGate === 'email' ? (
+              <input
+                type="email"
+                placeholder="your@email.com"
+                value={vaOtpEmail}
+                onChange={(e) => setVaOtpEmail(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && sendVaOtp()}
+                style={gateInputStyle}
+              />
+            ) : (
+              <input
+                type="text"
+                placeholder="000000"
+                value={vaOtpCode}
+                onChange={(e) => setVaOtpCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                onKeyDown={(e) => e.key === 'Enter' && confirmVaOtp()}
+                style={{ ...gateInputStyle, letterSpacing: '0.28em', textAlign: 'center', fontSize: '1.25rem' }}
+                maxLength={6}
+              />
+            )}
+            {vaOtpError && <p style={{ color: 'var(--danger)', fontSize: '0.85rem', margin: 0 }}>{vaOtpError}</p>}
+            <button onClick={vaGate === 'email' ? sendVaOtp : confirmVaOtp} disabled={vaOtpLoading} style={gateBtnStyle}>
+              {vaOtpLoading ? 'Working…' : vaGate === 'email' ? 'Send verification code' : 'Verify & check all'}
+            </button>
+            <button
+              onClick={() => setVaGate('hidden')}
+              style={{ ...gateBtnStyle, background: 'var(--border)', border: '1px solid var(--border-strong)' }}
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
 
       {selectedPreviewCred && (
         <div className="modal-overlay" onClick={() => setSelectedPreviewCred(null)}>

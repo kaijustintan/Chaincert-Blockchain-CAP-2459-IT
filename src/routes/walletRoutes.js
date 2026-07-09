@@ -19,6 +19,12 @@ router.get('/my-verifications', (req, res) =>
   walletController.getMyVerifications(req, res, req.app.locals.getContractAndGateway)
 );
 
+// C11: credential renewal requests — holder side (identity derived from the JWT; no IDOR).
+// POST /api/wallet/renewal-requests   — ask the issuer to renew one of YOUR credentials
+// GET  /api/wallet/renewal-requests   — your own requests (pending "Requested" button state)
+router.post('/renewal-requests', walletController.requestCredentialRenewal);
+router.get('/renewal-requests', walletController.getMyRenewalRequests);
+
 // PATCH /api/wallet/visibility/:credentialId
 // Update credential visibility state.
 router.patch('/visibility/:credentialId', walletController.updateCredentialVisibility);

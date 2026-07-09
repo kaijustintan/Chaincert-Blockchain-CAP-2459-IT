@@ -260,6 +260,44 @@ export default function StudentDashboard() {
   /* Phase 4 NICE: actionable renewal list (which credentials, soonest-first) */
   const renewal = useMemo(() => computeExpirationAlerts(credentials), [credentials]);
 
+  // C11: renewal requests — blockchainIds of this holder's credentials with a PENDING request,
+  // so the "Request renewal" button shows "Requested" across reloads. Identity derived server-side.
+  const [renewalPending, setRenewalPending] = useState(new Set());
+  const [renewalActionError, setRenewalActionError] = useState("");
+
+  useEffect(() => {
+    let live = true;
+    (async () => {
+      try {
+        const data = await apiService.getMyRenewalRequests();
+        if (!live) return;
+        const pend = new Set(
+          (Array.isArray(data?.requests) ? data.requests : [])
+            .filter((r) => r.status === "pending")
+            .map((r) => String(r.credentialId))
+        );
+        setRenewalPending(pend);
+      } catch (e) {
+        // non-fatal — buttons just won't show the persisted "Requested" state
+      }
+    })();
+    return () => { live = false; };
+  }, []);
+
+  // C11: holder asks the issuer to renew — the issuer decides from their own records;
+  // ChainCert only routes the request (and the issuer re-issues via the normal flow).
+  const handleRequestRenewal = async (cred) => {
+    const cid = String(cred?.blockchainId || cred?.credentialId || cred?.id || "");
+    if (!cid) { setRenewalActionError("This credential has no blockchain ID to reference."); return; }
+    setRenewalActionError("");
+    try {
+      await apiService.requestCredentialRenewal(cid);
+      setRenewalPending((prev) => new Set(prev).add(cid));
+    } catch (err) {
+      setRenewalActionError(err?.response?.data?.message || "Failed to send the renewal request. Please try again.");
+    }
+  };
+
   /* Phase 4: Verification Insights — the holder's OWN verification logs (server-side filtered) */
   const [myVerifications, setMyVerifications] = useState([]);
   const [viLoading, setViLoading] = useState(false);
@@ -756,11 +794,24 @@ export default function StudentDashboard() {
                                 {expired ? `Expired ${Math.abs(a.daysLeft)}d ago` : `${a.daysLeft}d left`}
                               </span>
                               <Button size="sm" variant="secondary" onClick={() => handleCardClick(a.cred)}>View</Button>
+                              {/* C11: ask the issuer to renew — they decide from their own records */}
+                              {(() => {
+                                const cid = String(a.cred?.blockchainId || a.cred?.credentialId || a.cred?.id || "");
+                                const requested = renewalPending.has(cid);
+                                return (
+                                  <Button size="sm" variant="secondary" disabled={requested} onClick={() => handleRequestRenewal(a.cred)}>
+                                    {requested ? "Renewal requested ✓" : "Request renewal"}
+                                  </Button>
+                                );
+                              })()}
                             </div>
                           </div>
                         );
                       })}
                     </div>
+                    {renewalActionError && (
+                      <p style={{ color: "var(--danger)", fontSize: 12.5, margin: "6px 0 0" }}>{renewalActionError}</p>
+                    )}
                     <InterpretationBox>{renewal.summary}</InterpretationBox>
                   </div>
                 )}

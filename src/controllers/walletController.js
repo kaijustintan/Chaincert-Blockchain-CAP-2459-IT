@@ -327,6 +327,106 @@ const walletController = {
     } catch (error) {
       return sendServerError(res, error, 'WALLET'); // M9
     }
+  },
+
+  /*
+    Function Name: requestCredentialRenewal  (C11)
+
+    LAYMAN (Tropang Ex):
+    "Paki-renew naman itong credential ko" — padadala ng holder sa issuer. Hindi ito
+    automatic na renewal: ang issuer ang magdedesisyon gamit ang SARILI nilang records
+    (attendance, bayad, CPD hours). ChainCert ang nagre-route lang ng request.
+
+    TECHNICAL:
+    Identity from the JWT (req.user.id) — never the body (no IDOR). Ownership check reuses
+    the same owned-docs matching as holderOwnsCredential, but keeps the matched doc so we can
+    copy issuerID/templateId/names into the request. One PENDING request per credential (409).
+    Creates a type:'renewal_request' doc + a best-effort in-app notification for the issuer.
+
+    PARAMS:
+    - req.body.credentialId — any id form of the holder's own credential (blockchainId/_id/id).
+
+    RETURNS:
+    201 { success, request } | 400 no id | 403 not yours | 409 already pending.
+  */
+  requestCredentialRenewal: async (req, res) => {
+    try {
+      const holderId = req.user?.id;
+      if (!holderId) {
+        return res.status(401).json({ success: false, message: 'Authentication required.' });
+      }
+      const { credentialId } = req.body || {};
+      if (!credentialId) {
+        return res.status(400).json({ success: false, message: 'credentialId is required.' });
+      }
+      const target = stripCredPrefix(credentialId);
+
+      // Ownership + resolve the credential doc in one pass (issuer/template/names ride along).
+      const ownDocs = await couchDB.getUserCredentialsByHolderId(holderId);
+      const cred = (ownDocs || []).find((doc) =>
+        [doc._id, doc.blockchainId, doc.credentialId, doc.id]
+          .filter(Boolean).map(stripCredPrefix).includes(target)
+      );
+      if (!cred) {
+        return res.status(403).json({ success: false, message: 'You can only request renewal for your own credentials.' });
+      }
+
+      // One pending request per credential.
+      const existing = await couchDB.getRenewalRequestsByHolder(holderId);
+      const alreadyPending = (existing || []).some(
+        (r) => r.status === 'pending' && stripCredPrefix(r.credentialId) === target
+      );
+      if (alreadyPending) {
+        return res.status(409).json({ success: false, message: 'A renewal request for this credential is already pending with the issuer.' });
+      }
+
+      const issuerId = cred.issuerID || cred.issuerId || '';
+      const request = await couchDB.createRenewalRequest({
+        holderId,
+        holderName: cred.holderName || req.user?.email || '',
+        holderEmail: cred.holderEmail || req.user?.email || '',
+        issuerId,
+        issuerName: cred.issuerName || '',
+        credentialId: target,
+        templateId: cred.templateId || '',
+        credentialName: cred.credentialName || '',
+        credentialType: cred.credentialType || '',
+      });
+
+      // Best-effort in-app notification for the issuer (targetRole:'issuer' reaches their bell).
+      if (issuerId) {
+        try {
+          await couchDB.createNotification({
+            targetRole: 'issuer',
+            issuerId,
+            issuerEmail: cred.issuerEmail || '',
+            category: 'renewal_request',
+            title: 'Credential renewal requested',
+            message: `${request.holderName || 'A holder'} requested renewal of "${request.credentialName || target}". Review it under Issue Credentials → Renewal Requests.`,
+          });
+        } catch (nErr) {
+          console.warn('[RENEWAL] issuer notification failed (non-fatal):', nErr.message);
+        }
+      }
+
+      return res.status(201).json({ success: true, request });
+    } catch (error) {
+      return sendServerError(res, error, 'WALLET'); // M9
+    }
+  },
+
+  // C11: the holder's own renewal requests (drives the persistent "Requested" button state).
+  getMyRenewalRequests: async (req, res) => {
+    try {
+      const holderId = req.user?.id;
+      if (!holderId) {
+        return res.status(401).json({ success: false, message: 'Authentication required.' });
+      }
+      const requests = await couchDB.getRenewalRequestsByHolder(holderId);
+      return res.status(200).json({ success: true, requests, count: requests.length });
+    } catch (error) {
+      return sendServerError(res, error, 'WALLET'); // M9
+    }
   }
 };
 

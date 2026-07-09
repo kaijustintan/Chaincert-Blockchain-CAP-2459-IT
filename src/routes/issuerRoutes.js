@@ -114,6 +114,11 @@ router.get('/my-verifications', (req, res) => {
   );
 });
 
+// C11: renewal requests — this issuer's queue + the decision endpoint (self-auth in controller).
+// Approve marks the request AFTER the frontend re-issues via the existing issue flow.
+router.get('/renewal-requests', issuerCredentialController.getRenewalRequests);
+router.patch('/renewal-requests/:requestId/decision', issuerCredentialController.decideRenewalRequest);
+
 // POST /api/issuer/credentials/create
 // Create credential template on blockchain
 router.post('/credentials/create', (req, res) => {

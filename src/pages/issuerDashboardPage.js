@@ -35,7 +35,7 @@ import DonutChart from "../components/analytics/DonutChart";
 import TrendBars from "../components/analytics/TrendBars";
 import Sparkline from "../components/analytics/Sparkline";
 import InterpretationBox from "../components/analytics/InterpretationBox";
-import { computeIssuance, computeRevocationAudit, computeHolderVerificationInsights, COLORS as ANALYTICS_COLORS } from "../components/analytics/analytics";
+import { computeIssuance, computeRevocationAudit, computeHolderVerificationInsights, computeCirculationHealth, COLORS as ANALYTICS_COLORS } from "../components/analytics/analytics";
 import { AppShell, Sidebar, Button, StatusPill, SpinnerBlock, Spinner } from "../components/ui";
 import StatusLegend from "../components/ui/StatusLegend";
 import CredentialHistory from "../components/analytics/CredentialHistory";
@@ -221,6 +221,16 @@ export default function IssuerDashboard() {
   // C5: this issuer's Verification Reach (verifications of their OWN credentials, server-filtered)
   const [issuerVerifications, setIssuerVerifications] = useState([]);
   const [reachLoading, setReachLoading] = useState(false);
+  // C17: batch revocation — checkbox/CSV selection + sequential runner state
+  const [batchSelected, setBatchSelected] = useState(new Set());
+  const [showBatchModal, setShowBatchModal] = useState(false);
+  const [batchReason, setBatchReason] = useState("");
+  const [batchConfirmStep, setBatchConfirmStep] = useState(false);
+  const [batchRunning, setBatchRunning] = useState(false);
+  const [batchDone, setBatchDone] = useState(false);
+  const [batchProgress, setBatchProgress] = useState({ done: 0, total: 0 });
+  const [batchResults, setBatchResults] = useState([]);
+  const [batchError, setBatchError] = useState("");
 
   // -------------------------------------------------------------------
   // EFFECTS (unchanged)
@@ -768,6 +778,126 @@ export default function IssuerDashboard() {
     } finally { setRevokeLoading(false); }
   };
 
+  // ── C17: batch revocation ────────────────────────────────────────────────
+  // The issuer's business rules produce the LIST (checkboxes or a CSV of IDs);
+  // ChainCert just executes — looping the proven single-revoke endpoint per ID so
+  // dual-write + notifications behave exactly like a manual revoke, N at once.
+
+  // ids of the currently-visible revocable rows (drives the select-all checkbox)
+  const revocableVisibleIds = useMemo(
+    () => revokeTableCredentials
+      .filter((c) => { const eff = effectiveCredentialStatus(c); return eff === "issued" || eff === "active"; })
+      .map((c) => c.blockchainId || c.id),
+    [revokeTableCredentials]
+  );
+
+  const toggleBatchSelect = (id) => {
+    setBatchSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  };
+
+  const toggleBatchSelectAll = () => {
+    setBatchSelected((prev) => {
+      const allIn = revocableVisibleIds.length > 0 && revocableVisibleIds.every((id) => prev.has(id));
+      const next = new Set(prev);
+      if (allIn) revocableVisibleIds.forEach((id) => next.delete(id));
+      else revocableVisibleIds.forEach((id) => next.add(id));
+      return next;
+    });
+  };
+
+  // CSV import → selects matching revocable credentials (one credential ID per line/comma).
+  // Unknown / already-revoked / expired IDs are reported and skipped — pre-validated client-side
+  // so we never waste a chaincode call on an ID that would fail anyway.
+  const handleBatchCsvImport = (e) => {
+    const file = e.target.files?.[0];
+    e.target.value = ""; // allow re-selecting the same file later
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      const tokens = String(reader.result || "")
+        .split(/[\r\n,;]+/)
+        .map((t) => t.trim().replace(/^"|"$/g, ""))
+        .filter((t) => t && !["credentialid", "credential id", "id", "blockchainid"].includes(t.toLowerCase()));
+      if (tokens.length === 0) { showToast("No credential IDs found in that file.", "danger"); return; }
+
+      const byId = new Map();
+      credentials.forEach((c) => {
+        [c.blockchainId, c.id, c._id].filter(Boolean).forEach((k) => byId.set(String(k), c));
+      });
+
+      let matched = 0, notRevocable = 0, unknown = 0;
+      setBatchSelected((prev) => {
+        const next = new Set(prev);
+        tokens.forEach((t) => {
+          const cred = byId.get(t);
+          if (!cred) { unknown++; return; }
+          const eff = effectiveCredentialStatus(cred);
+          if (eff !== "issued" && eff !== "active") { notRevocable++; return; }
+          next.add(cred.blockchainId || cred.id);
+          matched++;
+        });
+        return next;
+      });
+
+      const parts = [`${matched} selected`];
+      if (notRevocable) parts.push(`${notRevocable} skipped (already revoked/expired)`);
+      if (unknown) parts.push(`${unknown} not found in your issued credentials`);
+      showToast(`CSV import: ${parts.join(", ")}.`, matched > 0 ? "success" : "danger");
+    };
+    reader.readAsText(file);
+  };
+
+  const openBatchRevokeModal = () => {
+    if (batchSelected.size === 0) { showToast("Select credentials first (checkboxes or CSV import).", "danger"); return; }
+    setBatchReason(""); setBatchError(""); setBatchConfirmStep(false);
+    setBatchDone(false); setBatchResults([]); setBatchProgress({ done: 0, total: 0 });
+    setShowBatchModal(true);
+  };
+
+  const closeBatchRevokeModal = () => {
+    if (batchRunning) return; // never close mid-run — revocations are in flight
+    setShowBatchModal(false); setBatchConfirmStep(false); setBatchError("");
+    if (batchDone) { setBatchSelected(new Set()); setBatchDone(false); setBatchResults([]); }
+  };
+
+  const handleBatchSubmit = () => {
+    setBatchError("");
+    if (!batchReason.trim()) { setBatchError("Please provide a revocation reason — it applies to every selected credential."); return; }
+    setBatchConfirmStep(true);
+  };
+
+  const runBatchRevoke = async () => {
+    const ids = [...batchSelected];
+    const reason = batchReason.trim();
+    setBatchRunning(true); setBatchDone(false); setBatchError("");
+    setBatchResults([]); setBatchProgress({ done: 0, total: ids.length });
+    const results = [];
+    for (let i = 0; i < ids.length; i++) {
+      const id = ids[i];
+      const cred = credentials.find((c) => (c.blockchainId || c.id) === id);
+      try {
+        // Sequential on purpose: each revoke is its own chaincode invoke (blockchain is slow);
+        // one-at-a-time keeps the progress honest and avoids parallel gateway churn.
+        // eslint-disable-next-line no-await-in-loop
+        await apiService.Revoke_Credential(id, reason);
+        results.push({ id, name: cred?.credentialName || id, holder: cred?.holderName || "", success: true });
+      } catch (err) {
+        results.push({
+          id, name: cred?.credentialName || id, holder: cred?.holderName || "", success: false,
+          error: err?.response?.data?.error || err?.response?.data?.message || err?.message || "Failed",
+        });
+      }
+      setBatchResults([...results]);
+      setBatchProgress({ done: i + 1, total: ids.length });
+    }
+    setBatchRunning(false); setBatchDone(true);
+    fetchCredentials(); // refresh statuses (table + circulation + self-audit all recompute)
+  };
+
   // Skills handlers - polo
   const handleAddSkill = () => { const trimmed = skillInput.trim(); if (!trimmed) return; if (skillsList.includes(trimmed)) { showToast('Skill already added.', 'danger'); return; } setSkillsList(prev => [...prev, trimmed]); setSkillInput(""); };
   const handleRemoveSkill = (skillToRemove) => { setSkillsList(prev => prev.filter(s => s !== skillToRemove)); };
@@ -945,6 +1075,8 @@ export default function IssuerDashboard() {
   // insights helper on THIS issuer's verification logs (verifications of their own credentials).
   const reach = useMemo(() => computeHolderVerificationInsights(issuerVerifications), [issuerVerifications]);
   const reachStale = useMemo(() => (reach.alerts || []).filter((a) => a.outcome === "revoked" || a.outcome === "expired"), [reach]);
+  // C13: circulation health — active/expiring/expired/revoked share of everything this issuer issued
+  const circulation = useMemo(() => computeCirculationHealth(credentials), [credentials]);
 
   // -------------------------------------------------------------------
   // LOADING / ERROR STATES
@@ -1293,8 +1425,24 @@ export default function IssuerDashboard() {
             ]}
           />
 
-          <div style={{ margin: "20px 0" }}>
+          <div style={{ margin: "20px 0", display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center" }}>
             <button onClick={openRevokeModal} className="action-btn revoke-btn">Revoke a credential</button>
+            {/* C17: batch revocation — selection comes from the checkboxes below or a CSV of IDs */}
+            <button
+              onClick={openBatchRevokeModal}
+              className="action-btn revoke-btn"
+              disabled={batchSelected.size === 0}
+              style={batchSelected.size === 0 ? { opacity: 0.45, cursor: "not-allowed" } : undefined}
+            >
+              Revoke selected ({batchSelected.size})
+            </button>
+            <label className="action-btn" style={{ cursor: "pointer" }} title="One credential ID per line (or comma-separated)">
+              Import CSV of IDs
+              <input type="file" accept=".csv,.txt" onChange={handleBatchCsvImport} style={{ display: "none" }} />
+            </label>
+            {batchSelected.size > 0 && (
+              <button type="button" className="action-btn btn-cancel" onClick={() => setBatchSelected(new Set())}>Clear selection</button>
+            )}
           </div>
 
           {/* Revokable credentials list */}
@@ -1310,12 +1458,27 @@ export default function IssuerDashboard() {
               <div className="no-results"><p>{credentials.length === 0 ? "No issued credentials found." : "No credentials match your filters."}</p></div>
             ) : (
               <table className="template-table">
-                <thead><tr><th>Credential ID</th><th>Name</th><th>Holder</th><th>Type</th><th>Status</th><th>Issued Date</th><th>Revoked Date</th><th>Actions</th></tr></thead>
+                <thead><tr><th style={{ width: 34 }}><input type="checkbox" aria-label="Select all revocable credentials" checked={revocableVisibleIds.length > 0 && revocableVisibleIds.every((id) => batchSelected.has(id))} disabled={revocableVisibleIds.length === 0} onChange={toggleBatchSelectAll} /></th><th>Credential ID</th><th>Name</th><th>Holder</th><th>Type</th><th>Status</th><th>Issued Date</th><th>Revoked Date</th><th>Actions</th></tr></thead>
                 <tbody>
                   {revokeTableCredentials.map((credential) => {
                     const blockchainId = credential.blockchainId || credential.id;
                     return (
                       <tr key={blockchainId}>
+                        <td>
+                          {(() => {
+                            const eff = effectiveCredentialStatus(credential);
+                            const revocable = eff === "issued" || eff === "active";
+                            return (
+                              <input
+                                type="checkbox"
+                                aria-label={`Select ${credential.credentialName || blockchainId}`}
+                                checked={batchSelected.has(blockchainId)}
+                                disabled={!revocable}
+                                onChange={() => toggleBatchSelect(blockchainId)}
+                              />
+                            );
+                          })()}
+                        </td>
                         <td>{blockchainId || "N/A"}</td>
                         <td>{credential.credentialName || "N/A"}</td>
                         <td>{credential.holderName || "N/A"}</td>
@@ -1561,6 +1724,16 @@ export default function IssuerDashboard() {
 
           <InterpretationBox>{issuance.summary}</InterpretationBox>
 
+          {/* C13: Credentials in Circulation — how much of what you've issued is still alive */}
+          <h2 style={{ marginTop: 32 }}>Credentials in Circulation</h2>
+          <div className="analytics-grid" style={{ marginTop: 18 }}>
+            <div className="analytics-card">
+              <h3>Status of issued credentials</h3>
+              <DonutChart slices={circulation.slices} centerValue={circulation.total} centerLabel="Issued" showBreakdown />
+            </div>
+          </div>
+          <InterpretationBox>{circulation.summary}</InterpretationBox>
+
           {/* Phase 4 GOOD: Revocation Self-Audit — where is our issuance process breaking? */}
           <h2 style={{ marginTop: 32 }}>Revocation Self-Audit</h2>
           <div className="issuer-stats-row" style={{ marginTop: 16 }}>
@@ -1605,6 +1778,99 @@ export default function IssuerDashboard() {
       {/* ============================================================
           ALL MODALS (preserved exactly from original)
           ============================================================ */}
+
+      {/* C17: batch revocation modal — form → confirm → sequential run with live progress */}
+      {showBatchModal && (
+        <div className="modal-overlay">
+          <div className="modal" style={{ maxWidth: 560 }}>
+            <div className="modal-header">
+              <h3>
+                {batchDone ? "Batch revocation results"
+                  : batchRunning ? "Revoking…"
+                  : batchConfirmStep ? "Confirm batch revocation"
+                  : `Revoke ${batchSelected.size} credential(s)`}
+              </h3>
+              {!batchRunning && <button type="button" className="modal-close" onClick={closeBatchRevokeModal}>✕</button>}
+            </div>
+
+            {!batchRunning && !batchDone && !batchConfirmStep && (
+              <>
+                <p style={{ margin: "8px 0 12px", fontSize: 13, color: "var(--text-muted)", lineHeight: 1.5 }}>
+                  One reason applies to all selected credentials. Each is revoked on the blockchain
+                  individually — exactly like a manual revoke, just several at once.
+                </p>
+                <div className="analytics-flag-list" style={{ maxHeight: 180, overflowY: "auto", marginBottom: 12 }}>
+                  {[...batchSelected].slice(0, 8).map((id) => {
+                    const cred = credentials.find((c) => (c.blockchainId || c.id) === id);
+                    return (
+                      <div className="analytics-flag-row" key={`bsel-${id}`}>
+                        <div>
+                          <div className="analytics-flag-issuer">{cred?.credentialName || id}</div>
+                          <div className="analytics-flag-reason">{cred?.holderName || ""}</div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                  {batchSelected.size > 8 && (
+                    <div className="analytics-flag-reason" style={{ padding: "6px 0" }}>…and {batchSelected.size - 8} more</div>
+                  )}
+                </div>
+                <div className="form-group">
+                  <label>Revocation reason <span className="required-star">*</span></label>
+                  <textarea rows={2} value={batchReason} onChange={(e) => setBatchReason(e.target.value)} placeholder="e.g. Membership lapsed for AY 2025–2026" />
+                </div>
+                {batchError && <div className="form-error">{batchError}</div>}
+                <div className="form-actions">
+                  <button type="button" className="action-btn revoke-btn" onClick={handleBatchSubmit}>Continue</button>
+                  <button type="button" className="action-btn btn-cancel" onClick={closeBatchRevokeModal}>Cancel</button>
+                </div>
+              </>
+            )}
+
+            {!batchRunning && !batchDone && batchConfirmStep && (
+              <>
+                <p style={{ margin: "12px 0 4px", fontSize: 14, lineHeight: 1.6, color: "var(--text)" }}>
+                  You're about to revoke <strong>{batchSelected.size}</strong> credential(s) with the reason{" "}
+                  <strong>"{batchReason.trim()}"</strong>. This is written to the blockchain and <strong>cannot be undone</strong>.
+                </p>
+                <div className="form-actions">
+                  <button type="button" className="action-btn revoke-btn" onClick={runBatchRevoke}>Confirm — revoke {batchSelected.size}</button>
+                  <button type="button" className="action-btn btn-cancel" onClick={() => setBatchConfirmStep(false)}>Go back</button>
+                </div>
+              </>
+            )}
+
+            {(batchRunning || batchDone) && (
+              <>
+                <p style={{ margin: "8px 0 10px", fontSize: 13, color: "var(--text-muted)" }}>
+                  {batchRunning
+                    ? `Revoking ${Math.min(batchProgress.done + 1, batchProgress.total)} of ${batchProgress.total}… each revocation is its own blockchain transaction, so this takes a moment.`
+                    : `Done — ${batchResults.filter((r) => r.success).length} revoked, ${batchResults.filter((r) => !r.success).length} failed.`}
+                </p>
+                <div style={{ height: 8, borderRadius: 999, background: "var(--border)", overflow: "hidden", marginBottom: 12 }}>
+                  <div style={{ height: "100%", width: `${batchProgress.total ? Math.round((batchProgress.done / batchProgress.total) * 100) : 0}%`, background: "var(--danger)", transition: "width .3s ease" }} />
+                </div>
+                <div className="analytics-flag-list" style={{ maxHeight: 220, overflowY: "auto" }}>
+                  {batchResults.map((r) => (
+                    <div className={`analytics-flag-row${r.success ? "" : " flagged"}`} key={`bres-${r.id}`}>
+                      <div>
+                        <div className="analytics-flag-issuer">{r.success ? "✓" : "✗"} {r.name}</div>
+                        <div className="analytics-flag-reason">{r.success ? (r.holder || "Revoked") : (r.error || "Failed")}</div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                {batchDone && (
+                  <div className="form-actions" style={{ marginTop: 12 }}>
+                    <button type="button" className="action-btn" onClick={closeBatchRevokeModal}>Close</button>
+                  </div>
+                )}
+              </>
+            )}
+          </div>
+          {!batchRunning && <div className="modal-backdrop" onClick={closeBatchRevokeModal}></div>}
+        </div>
+      )}
 
       {/* C2: confirm template visibility change */}
       {pendingVisibilityTemplate && (

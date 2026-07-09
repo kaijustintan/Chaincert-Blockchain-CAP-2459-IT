@@ -30,6 +30,7 @@ import apiService from "../services/apiService";
 import AppToast from "../components/appToast";
 import DonutChart from "../components/analytics/DonutChart";
 import InterpretationBox from "../components/analytics/InterpretationBox";
+import TrendBars from "../components/analytics/TrendBars";
 import {
   computeVerificationOutcomes,
   computeSuspiciousIssuers,
@@ -37,6 +38,7 @@ import {
   computeProvenance,
   computeProofTrail,
   computeIssuerApprovalTurnaround,
+  computeVerificationVolume,
 } from "../components/analytics/analytics";
 import { AppShell, Sidebar, Spinner, SpinnerBlock } from "../components/ui";
 import NotesCard from "../components/ui/NotesCard";
@@ -551,6 +553,8 @@ const handleDownloadIssuerDocument = async (doc) => {
   const integrity = useMemo(() => computeIntegritySummary(integrityResult), [integrityResult]);
   /* C6: issuer approval queue (aging) + turnaround — what an admin actually acts on (per Sir Danny) */
   const approvalQueue = useMemo(() => computeIssuerApprovalTurnaround(pendingIssuers, approvedIssuers), [pendingIssuers, approvedIssuers]);
+  /* C12: verification volume per month — honest usage/load signal (peak seasons like graduation) */
+  const verifVolume = useMemo(() => computeVerificationVolume(verificationLogs), [verificationLogs]);
   /* Phase 4 GOOD: per-credential dossier (processed lifecycle timeline + immutable verification trail) */
   const provenance = useMemo(() => computeProvenance(credentialHistory), [credentialHistory]);
   const proofTrail = useMemo(
@@ -4311,6 +4315,14 @@ const handleDownloadIssuerDocument = async (doc) => {
                 </div>
               )}
               <InterpretationBox>{approvalQueue.summary}</InterpretationBox>
+            </div>
+
+            {/* 5. Verification Volume (C12) — platform usage over time; the honest "peak season" signal */}
+            <div className="analytics-card">
+              <h3>5. Verification Volume</h3>
+              <p className="analytics-card-sub">How many verifications the platform handles per month (last 6 months).</p>
+              <TrendBars data={verifVolume.byMonth} xKey="label" yKey="count" color="#5B8DEF" />
+              <InterpretationBox>{verifVolume.summary}</InterpretationBox>
             </div>
           </div>
           <p className="analytics-footer-note">

@@ -18,12 +18,15 @@
     ISSUER
       - computeIssuance(credentials)            issued totals, by-type, monthly trend
       - computeRevocationAudit(credentials)     revoked-by-template + time-to-revoke buckets [GOOD]
+      - computeCirculationHealth(credentials)   active/expiring/expired/revoked share of issued creds [C13]
     VERIFIER (rendered in admin)
       - computeVerificationOutcomes(logs)       valid/revoked/expired/not-found counts
     ADMIN
       - computeSuspiciousIssuers(rows, opts)    rule-based revocation-rate flags
-      - computeDemand(logs, adminRows)          verifications per credential type (real-world demand) [NICE]
+      - computeDemand(logs, adminRows)          verifications per type (UNUSED — superseded by issuer Verification Reach)
       - computeIntegritySummary(integrityResult) last CouchDB-vs-ledger check, processed [NICE]
+      - computeIssuerApprovalTurnaround(pending, approved) pending-queue aging + avg approval days [C6]
+      - computeVerificationVolume(logs)         verifications per month (peak-season/load signal) [C12]
       - computeProvenance(history)              processed credential lifecycle timeline [GOOD]
       - computeProofTrail(logs, credentialId)   per-credential immutable verification trail [GOOD]
     SHARED
@@ -988,4 +991,97 @@ export function computeIssuerApprovalTurnaround(pending, approved) {
   }
 
   return { pendingCount, oldestDays, queue, decidedCount, avgDays, medianDays, summary };
+}
+
+/*
+  Function Name: computeVerificationVolume
+
+  LAYMAN (Tropang Ex):
+  Para sa admin: "Ilang verification ang dumadaan sa platform kada buwan?" Makikita agad
+  kung may peak season (hal. graduation / hiring season) — kapag alam mo kung kailan
+  dumadagsa, alam mo kung kailan babantayan ang system load. Honest usage signal,
+  hindi vanity: bilang ng TOTOONG on-chain checks.
+
+  TECHNICAL:
+  Buckets the global verification logs into the last-6-months scaffold (reuses
+  lastSixMonths + toTime). total = all logs (even older than 6 months); byMonth counts
+  only in-window logs. peak = busiest in-window month. Pure; null-tolerant.
+
+  PARAMS:
+  - logs — array of verification log objects (verifiedAt/timestamp/createdAt). [] tolerated.
+
+  RETURNS:
+  { total, byMonth:[{label,count}], peak:{label,count}, thisMonth, summary }
+*/
+export function computeVerificationVolume(logs) {
+  const list = Array.isArray(logs) ? logs : [];
+  const months = lastSixMonths();
+  const monthIndex = new Map(months.map((m, i) => [m.key, i]));
+
+  for (const log of list) {
+    const t = toTime(log && (log.verifiedAt || log.timestamp || log.createdAt));
+    if (t === null) continue;
+    const d = new Date(t);
+    const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+    if (monthIndex.has(key)) months[monthIndex.get(key)].count++;
+  }
+
+  const total = list.length;
+  const byMonth = months.map((m) => ({ label: m.label, count: m.count }));
+  const peak = byMonth.reduce((best, m) => (m.count > best.count ? m : best), { label: null, count: 0 });
+  const thisMonth = byMonth[byMonth.length - 1] ? byMonth[byMonth.length - 1].count : 0;
+
+  let summary;
+  if (total === 0) {
+    summary = 'No verifications recorded yet. Once verifiers start checking credentials, monthly volume appears here — useful for anticipating peak periods like graduation or hiring season.';
+  } else {
+    summary = `${total} verification(s) recorded on-chain` +
+      `${peak.count > 0 ? `; the busiest month in the last 6 was ${peak.label} (${peak.count})` : ''}. ` +
+      'Volume trends show when the platform is under the most load — e.g. graduation or hiring seasons.';
+  }
+
+  return { total, byMonth, peak, thisMonth, summary };
+}
+
+/*
+  Function Name: computeCirculationHealth
+
+  LAYMAN (Tropang Ex):
+  Para sa issuer: "Sa lahat ng credential na na-issue ko, ilan pa ang buhay?" Kung malaki
+  ang parte na revoked/expired, baka masyadong maikli (o mali) ang validity periods mo —
+  senyales na dapat i-review kung tugma ang expiry sa kung gaano katagal talagang relevant
+  ang credential.
+
+  TECHNICAL:
+  Thin wrapper over computeHealth (same mutually-exclusive buckets + slices, reused by the
+  DonutChart) with an ISSUER-voiced summary instead of the holder-voiced one. deadShare =
+  (revoked+expired)/total; >= 30% triggers the validity-period nudge.
+
+  PARAMS:
+  - credentials — the issuer's issued credential objects (status, expiryDate). [] tolerated.
+
+  RETURNS:
+  Same shape as computeHealth: { total, healthy, expiringSoon, expired, revoked, slices, summary }
+*/
+export function computeCirculationHealth(credentials) {
+  const h = computeHealth(credentials);
+
+  let summary;
+  if (h.total === 0) {
+    summary = 'No issued credentials in circulation yet. Once you issue credentials, their live/expired/revoked mix appears here.';
+  } else {
+    const alive = h.healthy + h.expiringSoon;
+    const aliveShare = Math.round((alive / h.total) * 100);
+    const deadShare = 100 - aliveShare;
+    const parts = [`${aliveShare}% of the ${h.total} credential(s) you've issued are still active (${alive} of ${h.total})`];
+    if (h.expiringSoon > 0) parts.push(`${h.expiringSoon} expire within ${EXPIRING_SOON_DAYS} days`);
+    if (deadShare >= 30) {
+      parts.push(`${h.revoked} revoked and ${h.expired} expired — a large inactive share; check whether your validity periods match how long these credentials stay relevant`);
+    } else if (h.revoked + h.expired > 0) {
+      parts.push(`${h.revoked} revoked and ${h.expired} expired remain visible in holders' wallets, clearly labeled`);
+    }
+    summary = `${parts.join('. ')}.`;
+  }
+
+  return { ...h, summary };
 }

@@ -103,6 +103,17 @@ router.get('/credentials/history', (req, res) => {
   );
 });
 
+// GET /api/issuer/my-verifications
+// C5: this issuer's own "Verification Reach" — verifications of their credentials, filtered
+// server-side by issuerID (derived from req.user.id, not a URL param → no IDOR).
+router.get('/my-verifications', (req, res) => {
+  return issuerCredentialController.getIssuerVerifications(
+    req,
+    res,
+    req.app.locals.getContractAndGateway
+  );
+});
+
 // POST /api/issuer/credentials/create
 // Create credential template on blockchain
 router.post('/credentials/create', (req, res) => {

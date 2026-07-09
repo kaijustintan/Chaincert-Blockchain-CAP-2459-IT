@@ -29,12 +29,10 @@ import "../styles/analytics.css";
 import apiService from "../services/apiService";
 import AppToast from "../components/appToast";
 import DonutChart from "../components/analytics/DonutChart";
-import TrendBars from "../components/analytics/TrendBars";
 import InterpretationBox from "../components/analytics/InterpretationBox";
 import {
   computeVerificationOutcomes,
   computeSuspiciousIssuers,
-  computeDemand,
   computeIntegritySummary,
   computeProvenance,
   computeProofTrail,
@@ -549,8 +547,6 @@ const handleDownloadIssuerDocument = async (doc) => {
   // Phase 4: Analytics & Reports tab — Verification Result Summary + Suspicious Activity
   const verificationOutcomes = useMemo(() => computeVerificationOutcomes(verificationLogs), [verificationLogs]);
   const suspicious = useMemo(() => computeSuspiciousIssuers(adminCredentials), [adminCredentials]);
-  /* Phase 4 NICE: real-world demand per credential type (verifications ÷ issued) */
-  const demand = useMemo(() => computeDemand(verificationLogs, adminCredentials), [verificationLogs, adminCredentials]);
   /* Phase 4 NICE: processed view of the last CouchDB-vs-ledger integrity check (reuses existing result) */
   const integrity = useMemo(() => computeIntegritySummary(integrityResult), [integrityResult]);
   /* C6: issuer approval queue (aging) + turnaround — what an admin actually acts on (per Sir Danny) */
@@ -4241,27 +4237,9 @@ const handleDownloadIssuerDocument = async (doc) => {
               <InterpretationBox>{suspicious.summary}</InterpretationBox>
             </div>
 
-            {/* Demand Index — which credential TYPES verifiers actually check (blockchain value-proof) */}
-            <div className="analytics-card">
-              <h3>3. Demand Index</h3>
-              <p className="analytics-card-sub">How often each credential type is verified vs issued.</p>
-              <TrendBars
-                data={demand.byType}
-                xKey="type"
-                yKey="verifications"
-                color="#5B8DEF"
-              />
-              {demand.totalVerifications > 0 && (
-                <p className="analytics-flag-reason" style={{ marginTop: 8 }}>
-                  Ratio = verifications ÷ issued (how often each type is checked per credential awarded).
-                </p>
-              )}
-              <InterpretationBox>{demand.summary}</InterpretationBox>
-            </div>
-
             {/* Integrity-Check Insight — surfaces the last CouchDB-vs-ledger check (no auto-run) */}
             <div className="analytics-card">
-              <h3>4. Integrity-Check Insight</h3>
+              <h3>3. Integrity-Check Insight</h3>
               <p className="analytics-card-sub">CouchDB vs blockchain data-integrity check.</p>
               {integrity.available ? (
                 <>
@@ -4315,7 +4293,7 @@ const handleDownloadIssuerDocument = async (doc) => {
 
             {/* 5. Approval Queue & Turnaround — what an admin actually needs (per Sir Danny) */}
             <div className="analytics-card">
-              <h3>5. Approval Queue &amp; Turnaround</h3>
+              <h3>4. Approval Queue &amp; Turnaround</h3>
               <p className="analytics-card-sub">Issuer applications waiting, how long they've waited, and your average time to decide.</p>
               <div style={{ display: "flex", gap: 18, flexWrap: "wrap", margin: "6px 0 10px" }}>
                 <div><div style={{ fontSize: 22, fontWeight: 700 }}>{approvalQueue.pendingCount}</div><div className="analytics-card-sub">Pending</div></div>

@@ -1514,6 +1514,21 @@ Get_MyVerifications: async () => {
   }
 },
 
+// C5: the authenticated issuer's OWN "Verification Reach" — verifications of their credentials,
+// server-side filtered by issuerID (= req.user.id from the JWT, not a URL param → no IDOR).
+Get_IssuerVerifications: async () => {
+  try {
+    const response = await axios.get('/issuer/my-verifications');
+    return response.data; // { success, verifications, count, timestamp }
+  } catch (error) {
+    console.error(
+      'Error fetching issuer verifications:',
+      error.response?.data?.message || error.message
+    );
+    throw error;
+  }
+},
+
 // Get all issuer/user status-change logs (blockchain)
 Get_AllStatusLogs: async () => {
   try {

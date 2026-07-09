@@ -1717,3 +1717,63 @@ exports.markIssuerNotificationAsRead = async (req, res) => {
     return res.status(500).json({ success: false, message: 'Failed to update notification.' });
   }
 };
+
+/*
+  Function Name: getIssuerVerifications  (C5: issuer "Verification Reach")
+
+  LAYMAN (Tropang Ex):
+  Para sa issuer: "Ilang beses na-verify ang mga credential na IN-ISSUE ko, ilang natatanging
+  verifier, at ano ang mga resulta?" — ang "Verification Reach." Proof na aktwal na tinitignan
+  at pinagkakatiwalaan ng labas ang mga credential mo. Sinasala sa server para SARILING
+  credentials mo lang ang makikita mo (privacy boundary — walang verification ng ibang issuer).
+
+  TECHNICAL:
+  Mirrors walletController.getMyVerifications. Identity from the JWT (req.user.id). A credential's
+  issuerID === the issuer's account id (set at template creation → inherited by issued credentials),
+  and LogVerification enriches the log's issuerID from the credential — so we read the global
+  on-chain verification log (GetAllVerificationLogs, read-only, generic admin/Org1 identity) and
+  filter server-side to logs where issuerID === req.user.id. Forged/not-found logs have an empty
+  issuerID and are naturally excluded. No IDOR (identity never comes from a URL/body param).
+
+  PARAMS:
+  - req, res — Express. getContractAndGateway — injected by the route from req.app.locals.
+
+  RETURNS:
+  200 { success, verifications:[...own logs...], count, timestamp } | 401 unauth | 403 wrong role.
+*/
+exports.getIssuerVerifications = async (req, res, getContractAndGateway) => {
+  let gateway;
+  try {
+    const user = req.user;
+    if (!user || !user.id) {
+      return res.status(401).json({ success: false, message: 'Authentication required.' });
+    }
+    if (user.role !== 'issuer' && user.role !== 'admin') {
+      return res.status(403).json({ success: false, message: 'Issuer access only.' });
+    }
+    const issuerId = String(user.id);
+
+    // Read-only verification log; same generic identity selection as the holder endpoint.
+    const identityName = user.role === 'admin' ? 'chaincert-admin' : 'admin';
+    const conn = await getContractAndGateway(identityName, 'Org1');
+    gateway = conn.gateway;
+    const resultBuffer = await conn.contract.evaluateTransaction('GetAllVerificationLogs');
+    const allLogs = JSON.parse(resultBuffer.toString()) || [];
+
+    // PRIVACY BOUNDARY: only verifications of THIS issuer's own credentials.
+    const myLogs = allLogs.filter((log) => log && log.issuerID && String(log.issuerID) === issuerId);
+
+    return res.status(200).json({
+      success: true,
+      verifications: myLogs,
+      count: myLogs.length,
+      timestamp: new Date().toISOString(),
+    });
+  } catch (error) {
+    return sendServerError(res, error, 'ISSUER'); // M9
+  } finally {
+    if (gateway) {
+      try { await gateway.disconnect(); } catch (_) { /* best-effort */ }
+    }
+  }
+};

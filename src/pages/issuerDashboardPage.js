@@ -35,7 +35,7 @@ import DonutChart from "../components/analytics/DonutChart";
 import TrendBars from "../components/analytics/TrendBars";
 import Sparkline from "../components/analytics/Sparkline";
 import InterpretationBox from "../components/analytics/InterpretationBox";
-import { computeIssuance, computeRevocationAudit, COLORS as ANALYTICS_COLORS } from "../components/analytics/analytics";
+import { computeIssuance, computeRevocationAudit, computeHolderVerificationInsights, COLORS as ANALYTICS_COLORS } from "../components/analytics/analytics";
 import { AppShell, Sidebar, Button, StatusPill, SpinnerBlock, Spinner } from "../components/ui";
 import StatusLegend from "../components/ui/StatusLegend";
 import CredentialHistory from "../components/analytics/CredentialHistory";
@@ -218,6 +218,9 @@ export default function IssuerDashboard() {
   const [historyOpen, setHistoryOpen] = useState(false);
   const [historyCredential, setHistoryCredential] = useState(null);
   const [descriptionModal, setDescriptionModal] = useState(null);
+  // C5: this issuer's Verification Reach (verifications of their OWN credentials, server-filtered)
+  const [issuerVerifications, setIssuerVerifications] = useState([]);
+  const [reachLoading, setReachLoading] = useState(false);
 
   // -------------------------------------------------------------------
   // EFFECTS (unchanged)
@@ -228,7 +231,22 @@ export default function IssuerDashboard() {
     fetchSubordinateDirectory("all");
     fetchRootSubordinateLogs("all");
     fetchIssuerNotifications();
+    fetchIssuerVerifications();
   }, []);
+
+  // C5: load this issuer's Verification Reach (server derives the issuer from the JWT — no IDOR).
+  const fetchIssuerVerifications = async () => {
+    setReachLoading(true);
+    try {
+      const data = await apiService.Get_IssuerVerifications();
+      setIssuerVerifications(Array.isArray(data?.verifications) ? data.verifications : []);
+    } catch (err) {
+      console.error("Error fetching issuer verifications:", err);
+      setIssuerVerifications([]);
+    } finally {
+      setReachLoading(false);
+    }
+  };
 
   // N1: load this issuer's notifications (scope derived server-side from the JWT).
   const fetchIssuerNotifications = async () => {
@@ -923,6 +941,10 @@ export default function IssuerDashboard() {
   const issuance = useMemo(() => computeIssuance(credentials), [credentials]);
   // Phase 4 GOOD: Revocation Self-Audit (by template + time-to-revoke; reuses revokedAt/issuedDate)
   const revAudit = useMemo(() => computeRevocationAudit(credentials), [credentials]);
+  // C5 Verification Reach + C14 (revoked/expired copies still being checked) — reuses the holder
+  // insights helper on THIS issuer's verification logs (verifications of their own credentials).
+  const reach = useMemo(() => computeHolderVerificationInsights(issuerVerifications), [issuerVerifications]);
+  const reachStale = useMemo(() => (reach.alerts || []).filter((a) => a.outcome === "revoked" || a.outcome === "expired"), [reach]);
 
   // -------------------------------------------------------------------
   // LOADING / ERROR STATES
@@ -1440,7 +1462,75 @@ export default function IssuerDashboard() {
           ============================================================ */}
       {activeView === "analytics" && (
         <>
-          <h2>Issuance Performance</h2>
+          {/* C5: Verification Reach — third-party proof that your issued credentials are actively verified */}
+          <h2>Verification Reach</h2>
+          {reachLoading ? (
+            <SpinnerBlock label="Loading verification activity…" minHeight={100} />
+          ) : reach.totalChecks === 0 ? (
+            <div className="analytics-card" style={{ marginTop: 12 }}>
+              <div className="analytics-chart-empty" style={{ height: 100 }}>
+                None of your credentials have been verified yet. When an employer or third party checks one, it's recorded on the blockchain and counted here.
+              </div>
+            </div>
+          ) : (
+            <>
+              <div className="issuer-stats-row" style={{ marginTop: 16 }}>
+                <div className="issuer-stat-card">
+                  <span className="issuer-stat-num">{reach.totalChecks}</span>
+                  <span className="issuer-stat-label">Verifications</span>
+                </div>
+                <div className="issuer-stat-card">
+                  <span className="issuer-stat-num">{reach.distinctVerifiers}</span>
+                  <span className="issuer-stat-label">Distinct verifiers</span>
+                </div>
+                <div className="issuer-stat-card">
+                  <span className="issuer-stat-num" style={{ color: reach.allValid ? "var(--ok)" : "var(--warn)" }}>{reach.validCount}/{reach.totalChecks}</span>
+                  <span className="issuer-stat-label">Returned valid</span>
+                </div>
+              </div>
+
+              {reach.mostChecked.length > 0 && (
+                <div className="analytics-card" style={{ marginTop: 18 }}>
+                  <h3>Most-verified credentials</h3>
+                  <div className="analytics-flag-list">
+                    {reach.mostChecked.map((m, i) => (
+                      <div className={`analytics-flag-row${m.invalidCount > 0 ? " flagged" : ""}`} key={`reach-${m.credentialId || i}`}>
+                        <div>
+                          <div className="analytics-flag-issuer">{m.credentialName}</div>
+                          <div className="analytics-flag-reason">{m.count}× verified{m.invalidCount > 0 ? ` • ⚠ ${m.invalidCount} returned revoked/expired` : ""}</div>
+                        </div>
+                        <span className="analytics-flag-rate">{m.count}×</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* C14: revoked/expired credentials still being checked — outdated copies circulating */}
+              {reachStale.length > 0 && (
+                <div className="analytics-card" style={{ marginTop: 14 }}>
+                  <h3>Revoked / expired credentials still being checked</h3>
+                  <p className="analytics-card-sub">{reachStale.length} check(s) hit a revoked or expired credential — outdated copies may still be circulating.</p>
+                  <div className="analytics-flag-list">
+                    {reachStale.slice(0, 6).map((a, i) => (
+                      <div className="analytics-flag-row flagged" key={`c14-${i}`}>
+                        <div><div className="analytics-flag-issuer">{a.credentialName}</div></div>
+                        <span className="analytics-flag-rate flagged">{a.outcome}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              <InterpretationBox>
+                {reach.allValid
+                  ? `Your issued credentials have been verified ${reach.totalChecks} time(s) by ${reach.distinctVerifiers} distinct verifier(s) — every check returned valid. Third-party proof that what you issue is actively trusted and used.`
+                  : `Your issued credentials have been verified ${reach.totalChecks} time(s) by ${reach.distinctVerifiers} distinct verifier(s); ${reach.validCount} returned valid. ${reachStale.length} check(s) hit a revoked/expired credential (see above).`}
+              </InterpretationBox>
+            </>
+          )}
+
+          <h2 style={{ marginTop: 32 }}>Issuance Performance</h2>
 
           <div className="issuer-stats-row" style={{ marginTop: 16 }}>
             <div className="issuer-stat-card">

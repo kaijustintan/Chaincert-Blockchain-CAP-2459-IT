@@ -11,7 +11,9 @@
 import React from 'react';
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 
-export default function DonutChart({ slices = [], centerLabel, centerValue, height = 240 }) {
+// showBreakdown: render a static "name value" row (with color dots) under the donut and
+// hide the hover-only recharts legend — so the per-slice counts are readable without a mouse.
+export default function DonutChart({ slices = [], centerLabel, centerValue, height = 240, showBreakdown = false }) {
   const data = Array.isArray(slices) ? slices.filter((s) => s.value > 0) : [];
   const hasData = data.length > 0;
 
@@ -24,34 +26,47 @@ export default function DonutChart({ slices = [], centerLabel, centerValue, heig
   }
 
   return (
-    <div className="analytics-donut-wrap" style={{ position: 'relative', width: '100%', height }}>
-      <ResponsiveContainer width="100%" height="100%">
-        <PieChart>
-          <Pie
-            data={data}
-            dataKey="value"
-            nameKey="name"
-            innerRadius="60%"
-            outerRadius="85%"
-            paddingAngle={2}
-            stroke="none"
-          >
-            {data.map((s, i) => (
-              <Cell key={i} fill={s.color} />
-            ))}
-          </Pie>
-          <Tooltip
-            contentStyle={{ background: '#1B1B29', border: '1px solid rgba(255,255,255,0.14)', borderRadius: 10, color: '#ECECF1' }}
-          />
-          <Legend wrapperStyle={{ fontSize: 12 }} />
-        </PieChart>
-      </ResponsiveContainer>
-      {(centerValue !== undefined || centerLabel) && (
-        <div className="analytics-donut-center">
-          {centerValue !== undefined && <span className="analytics-donut-center-value">{centerValue}</span>}
-          {centerLabel && <span className="analytics-donut-center-label">{centerLabel}</span>}
+    <>
+      <div className="analytics-donut-wrap" style={{ position: 'relative', width: '100%', height }}>
+        <ResponsiveContainer width="100%" height="100%">
+          <PieChart>
+            <Pie
+              data={data}
+              dataKey="value"
+              nameKey="name"
+              innerRadius="60%"
+              outerRadius="85%"
+              paddingAngle={2}
+              stroke="none"
+            >
+              {data.map((s, i) => (
+                <Cell key={i} fill={s.color} />
+              ))}
+            </Pie>
+            <Tooltip
+              contentStyle={{ background: '#1B1B29', border: '1px solid rgba(255,255,255,0.14)', borderRadius: 10, color: '#ECECF1' }}
+            />
+            {!showBreakdown && <Legend wrapperStyle={{ fontSize: 12 }} />}
+          </PieChart>
+        </ResponsiveContainer>
+        {(centerValue !== undefined || centerLabel) && (
+          <div className="analytics-donut-center">
+            {centerValue !== undefined && <span className="analytics-donut-center-value">{centerValue}</span>}
+            {centerLabel && <span className="analytics-donut-center-label">{centerLabel}</span>}
+          </div>
+        )}
+      </div>
+      {showBreakdown && (
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px 16px', justifyContent: 'center', marginTop: 10, fontSize: 12.5 }}>
+          {data.map((s, i) => (
+            <span key={i} style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+              <span style={{ width: 9, height: 9, borderRadius: 2, background: s.color, display: 'inline-block', flexShrink: 0 }} />
+              <span>{s.name}</span>
+              <strong>{s.value}</strong>
+            </span>
+          ))}
         </div>
       )}
-    </div>
+    </>
   );
 }

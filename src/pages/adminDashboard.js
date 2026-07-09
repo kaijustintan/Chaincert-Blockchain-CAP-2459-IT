@@ -4189,6 +4189,7 @@ const handleDownloadIssuerDocument = async (doc) => {
                 slices={verificationOutcomes.slices}
                 centerValue={verificationOutcomes.total}
                 centerLabel="Verifications"
+                showBreakdown
               />
               <InterpretationBox>{verificationOutcomes.summary}</InterpretationBox>
             </div>
@@ -4214,6 +4215,19 @@ const handleDownloadIssuerDocument = async (doc) => {
                         {iss.flagged ? "⚠️ " : ""}{iss.issuerName}
                       </div>
                       <div className="analytics-flag-reason">{iss.reason}</div>
+                      {iss.flagged && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setTab("issuers");
+                            setIssuerFilter("approved");
+                            setIssuerSearch(iss.issuerName);
+                          }}
+                          style={{ background: "none", border: "none", padding: 0, marginTop: 4, color: "var(--accent-strong)", cursor: "pointer", fontSize: 12.5, fontWeight: 600 }}
+                        >
+                          Review this issuer →
+                        </button>
+                      )}
                     </div>
                     <span className={`analytics-flag-rate ${iss.flagged ? "flagged" : "ok"}`}>
                       {iss.ratePct}%
@@ -4252,6 +4266,7 @@ const handleDownloadIssuerDocument = async (doc) => {
                     slices={integrity.slices}
                     centerValue={integrity.totalChecked}
                     centerLabel="Records"
+                    showBreakdown
                   />
                   {integrity.checkedAt && (
                     <p className="analytics-flag-reason" style={{ marginTop: 8 }}>

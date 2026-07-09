@@ -78,15 +78,16 @@ export default function CredentialHistory({
                 const color = e.outcome === 'valid' ? 'var(--ok)'
                   : e.outcome === 'not_found' ? 'var(--accent-strong)' : 'var(--danger)';
                 const label = e.outcome === 'valid' ? 'Verified valid'
-                  : e.outcome === 'not_found' ? 'Forgery rejected (not found)'
-                  : e.outcome === 'revoked' ? 'Caught as revoked'
-                  : e.outcome === 'expired' ? 'Caught as expired' : 'Checked';
+                  : e.outcome === 'not_found' ? 'Not found'
+                  : e.outcome === 'revoked' ? 'Revoked'
+                  : e.outcome === 'expired' ? 'Expired' : 'Checked';
                 return (
                   <div className="analytics-timeline-item" key={`pt-${i}`}>
                     <span className="analytics-timeline-dot" style={{ background: color }}>✓</span>
                     <div>
                       <div className="analytics-timeline-label">{label}</div>
                       <div className="analytics-timeline-when">{fmt(e.when)}</div>
+                      {e.verifierEmail ? <div className="analytics-timeline-when">Checked by {e.verifierEmail}</div> : null}
                     </div>
                   </div>
                 );

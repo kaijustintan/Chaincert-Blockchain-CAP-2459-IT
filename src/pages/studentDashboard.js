@@ -878,6 +878,7 @@ export default function StudentDashboard() {
                       </div>
                       <div className="analytics-flag-reason">
                         {e.when ? formatDate(e.when) : "Date unknown"}
+                        {e.verifierEmail ? ` · checked by ${e.verifierEmail}` : ""}
                       </div>
                     </div>
                     <span

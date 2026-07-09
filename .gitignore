@@ -38,3 +38,6 @@ backend/*.backup
 chaincode/node_modules/
 chaincode/package-lock.json
 chaincode/*.tar.gz
+
+# Local-only consultation notes (July 7) — for local use, not for GitHub
+docs/July 7, Consultation/

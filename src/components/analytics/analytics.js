@@ -249,9 +249,9 @@ export function computeVerificationOutcomes(logs) {
   const fraudCaught = revoked + expired + notFound;
   const slices = [
     { name: 'Valid', value: valid, color: COLORS.green },
-    { name: 'Revoked (caught)', value: revoked, color: COLORS.red },
-    { name: 'Expired (caught)', value: expired, color: COLORS.amber },
-    { name: 'Forged / not found', value: notFound, color: COLORS.purple },
+    { name: 'Revoked', value: revoked, color: COLORS.red },
+    { name: 'Expired', value: expired, color: COLORS.amber },
+    { name: 'Not found', value: notFound, color: COLORS.purple },
     { name: 'Other', value: other, color: COLORS.gray },
   ].filter((s) => s.value > 0);
 
@@ -260,7 +260,7 @@ export function computeVerificationOutcomes(logs) {
     summary = 'No verifications recorded yet. Each time a credential is checked, the outcome is logged immutably on the blockchain and counted here.';
   } else {
     summary = `Of ${total} verification(s), ${valid} were valid and ${fraudCaught} were rejected as invalid` +
-      `${notFound > 0 ? ` — including ${notFound} forged or non-existent credential(s) that ChainCert blocked` : ''}.`;
+      `${notFound > 0 ? ` — including ${notFound} non-existent credential(s) that ChainCert blocked` : ''}.`;
   }
 
   return { total, valid, revoked, expired, notFound, other, fraudCaught, slices, summary };

@@ -789,7 +789,7 @@ export default function IssuerDashboard() {
     try {
       const credentialId = `cred_${Date.now()}_${Math.random().toString(36).substring(2, 17)}`;
       await apiService.Create_CredentialTemplate({ id: credentialId, credentialType: createForm.credentialType.trim(), credentialName: createForm.credentialName.trim(), description: createForm.description, metadata: createForm.metadata, skills: skillsList, badgeImage: badgeImageBase64, visibility: 'private' });
-      showToast("Credential Template created successfully!"); closeCreateModal(); fetchCredentials(); fetchTemplateOptions();
+      showToast("Credential created successfully!"); closeCreateModal(); fetchCredentials(); fetchTemplateOptions();
     } catch (err) {
       // Keep the confirm modal open and surface the server message (e.g. duplicate-name 409).
       setCreateError(err?.response?.data?.error || err?.response?.data?.message || err?.message || "Failed to create credential");
@@ -801,14 +801,14 @@ export default function IssuerDashboard() {
     try {
       setIssueError(""); setNoTemplateError("");
       const result = await apiService.Check_IssuerHasTemplates();
-      if (!result?.hasTemplates) { setNoTemplateError("No Credential Template Yet To Issue. Please create a template first."); return; }
+      if (!result?.hasTemplates) { setNoTemplateError("No credentials yet to issue. Please create a credential first."); return; }
       setIssueTemplateSearch("");
       setIssueRecipientSearch("");
       setIssueTemplateOpen(false);
       setIssueRecipientOpen(false);
       setAvailableUsers([]);
       setShowIssueModal(true); setIssueForm({ credentialId: "", recipientId: "", expiryDate: "" });
-    } catch (err) { setNoTemplateError("Failed to validate credential templates. Please try again."); }
+    } catch (err) { setNoTemplateError("Failed to validate credentials. Please try again."); }
   };
   const closeIssueModal = () => { setShowIssueModal(false); setIssueError(""); setIssueLoading(false); setIssueConfirmStep(false); setIssueTemplateSearch(""); setIssueRecipientSearch(""); setIssueTemplateOpen(false); setIssueRecipientOpen(false); setAvailableUsers([]); };
 
@@ -823,7 +823,7 @@ export default function IssuerDashboard() {
         const result = await apiService.Get_EligibleUsersForTemplate(value);
         const list = result?.eligibleUsers || [];
         setAvailableUsers(Array.isArray(list) ? list : []);
-      } catch (err) { setAvailableUsers([]); setIssueError("Failed to load eligible users for this template."); }
+      } catch (err) { setAvailableUsers([]); setIssueError("Failed to load eligible users for this credential."); }
     }
   };
 
@@ -838,7 +838,7 @@ export default function IssuerDashboard() {
       const result = await apiService.Get_EligibleUsersForTemplate(value);
       const list = result?.eligibleUsers || [];
       setAvailableUsers(Array.isArray(list) ? list : []);
-    } catch (err) { setAvailableUsers([]); setIssueError("Failed to load eligible users for this template."); }
+    } catch (err) { setAvailableUsers([]); setIssueError("Failed to load eligible users for this credential."); }
   };
 
   const handleSelectRecipient = (user) => {
@@ -867,10 +867,10 @@ export default function IssuerDashboard() {
     try {
       await apiService.Update_IssuerTemplateVisibility(credentialKey, newVisibility);
       setTemplateOptions((prev) => prev.map((item) => ((item.id || item._id) === credentialKey ? { ...item, visibility: newVisibility } : item)));
-      showToast(`Template is now ${newVisibility}.`);
+      showToast(`Credential is now ${newVisibility}.`);
     } catch (err) {
       console.error("[ISSUER DASHBOARD] Failed to update template visibility:", err);
-      showToast(err.response?.data?.message || "Failed to update template visibility.", "danger");
+      showToast(err.response?.data?.message || "Failed to update credential visibility.", "danger");
     }
   };
 
@@ -940,7 +940,7 @@ export default function IssuerDashboard() {
   // -------------------------------------------------------------------
   const navItems = [
     { key: "home", label: "Dashboard", icon: LayoutDashboard },
-    { key: "create", label: "Templates", icon: FilePlus },
+    { key: "create", label: "Credentials", icon: FilePlus },
     { key: "issue", label: "Issue", icon: Award },
     { key: "revoke", label: "Revoke", icon: Ban },
     { key: "viewall", label: "All Credentials", icon: List },
@@ -1020,7 +1020,7 @@ export default function IssuerDashboard() {
           {/* Stats row — each card jumps to its matching view */}
           <div className="issuer-stats-row">
             {[
-              { num: templateOptions.length, label: "Templates", view: "create" },
+              { num: templateOptions.length, label: "Credentials", view: "create" },
               { num: credentials.length, label: "Issued", view: "issue" },
               { num: credentials.filter(c => c.status === "revoked").length, label: "Revoked", view: "revoke" },
               ...(!isSubordinate
@@ -1050,7 +1050,7 @@ export default function IssuerDashboard() {
 
           {/* Quick actions */}
           <div className="issuer-quick-actions">
-            <Button icon={FilePlus} onClick={() => openDashboardView("create")}>Create template</Button>
+            <Button icon={FilePlus} onClick={() => openDashboardView("create")}>Create credential</Button>
             <Button variant="secondary" icon={Award} onClick={() => openDashboardView("issue")}>Issue credential</Button>
           </div>
         </>
@@ -1061,25 +1061,25 @@ export default function IssuerDashboard() {
           ============================================================ */}
       {activeView === "create" && (
         <>
-          <h2>Create Credential Templates</h2>
+          <h2>Create Credentials</h2>
 
           <div style={{ margin: "20px 0" }}>
-            <button onClick={openCreateModal} className="action-btn create-btn">+ Create New Template</button>
+            <button onClick={openCreateModal} className="action-btn create-btn">+ Create New Credential</button>
           </div>
 
           {/* Templates table */}
           <div className="table-container">
-            <h3 style={{ marginBottom: 12 }}>Your Templates ({filteredTemplates.length})</h3>
+            <h3 style={{ marginBottom: 12 }}>Your Credentials ({filteredTemplates.length})</h3>
             <div className="filter-row">
-              <div className="filter-group"><label>Search:</label><input value={templateSearch} onChange={(e) => setTemplateSearch(e.target.value)} placeholder="Search templates..." className="filter-select" /></div>
+              <div className="filter-group"><label>Search:</label><input value={templateSearch} onChange={(e) => setTemplateSearch(e.target.value)} placeholder="Search credentials..." className="filter-select" /></div>
               <div className="filter-group"><label>Type:</label><select value={templateTypeFilter} onChange={(e) => setTemplateTypeFilter(e.target.value)} className="filter-select"><option value="all">All Types</option>{uniqueTemplateTypes.map((type) => <option key={type} value={type}>{type}</option>)}</select></div>
               <div className="filter-group"><label>Sort by:</label><select value={templateSortBy} onChange={(e) => setTemplateSortBy(e.target.value)} className="filter-select"><option value="newest">Most Recent</option><option value="oldest">Oldest First</option><option value="name-asc">Name A-Z</option><option value="name-desc">Name Z-A</option></select></div>
             </div>
             {filteredTemplates.length === 0 ? (
-              <div className="no-results"><p>{templateOptions.length === 0 ? "No credential templates found. Create your first template." : "No templates match your filters."}</p></div>
+              <div className="no-results"><p>{templateOptions.length === 0 ? "No credentials found. Create your first credential." : "No credentials match your filters."}</p></div>
             ) : (
               <table className="template-table">
-                <thead><tr><th>Name</th><th>Type</th><th>Template ID</th><th>Description</th><th>Skills</th><th>Visibility</th><th>Created Date</th></tr></thead>
+                <thead><tr><th>Name</th><th>Type</th><th>Credential ID</th><th>Description</th><th>Skills</th><th>Visibility</th><th>Created Date</th></tr></thead>
                 <tbody>
                   {filteredTemplates.map((template) => {
                     const id = template.id || template._id;
@@ -1220,12 +1220,12 @@ export default function IssuerDashboard() {
               { label: "Issued / Active", color: "var(--ok)", meaning: "issued and currently valid" },
               { label: "Revoked", color: "var(--danger)", meaning: "cancelled by the issuer" },
               { label: "Expired", color: "var(--warn)", meaning: "past its expiry date" },
-              { label: "Template", color: "var(--info)", meaning: "reusable template, not yet issued" },
+              { label: "Draft", color: "var(--info)", meaning: "a credential created but not yet issued to anyone" },
             ]}
           />
           <div className="table-container">
             <div className="filter-row">
-              <div className="filter-group"><label>Record Kind:</label><select value={filterRecordKind} onChange={(e) => setFilterRecordKind(e.target.value)} className="filter-select"><option value="all">All</option><option value="templates">Templates</option><option value="issued">Issued Credentials</option></select></div><div className="filter-group"><label>Type:</label><select value={viewAllTypeFilter} onChange={(e) => setViewAllTypeFilter(e.target.value)} className="filter-select"><option value="all">All Types</option>{getUniqueCredentialTypes().map((type) => <option key={type} value={type}>{type}</option>)}</select></div>
+              <div className="filter-group"><label>Record Kind:</label><select value={filterRecordKind} onChange={(e) => setFilterRecordKind(e.target.value)} className="filter-select"><option value="all">All</option><option value="templates">Credentials</option><option value="issued">Issued Credentials</option></select></div><div className="filter-group"><label>Type:</label><select value={viewAllTypeFilter} onChange={(e) => setViewAllTypeFilter(e.target.value)} className="filter-select"><option value="all">All Types</option>{getUniqueCredentialTypes().map((type) => <option key={type} value={type}>{type}</option>)}</select></div>
               <div className="filter-group"><label>Search:</label><input value={viewAllSearch} onChange={(e) => setViewAllSearch(e.target.value)} placeholder="Search credentials..." className="filter-select" /></div>
               <div className="filter-group"><label>Sort by:</label><select value={viewAllSortBy} onChange={(e) => setViewAllSortBy(e.target.value)} className="filter-select"><option value="newest">Most Recent</option><option value="oldest">Oldest First</option><option value="name-asc">Name A-Z</option><option value="name-desc">Name Z-A</option></select></div>
             </div>
@@ -1239,7 +1239,7 @@ export default function IssuerDashboard() {
                     <tr key={`${row.rowType}-${row.source?.id || row.source?._id || row.source?.blockchainId || index}`}>
                       <td>{row.name}</td>
                       <td>{row.type}</td>
-                      <td>{(() => { const eff = row.rowType === "template" ? (row.status || row.rowType) : effectiveCredentialStatus(row); return <span className={`status-badge status-${String(eff).toLowerCase()}`} style={{ color: getStatusColor(eff), borderColor: `${getStatusColor(eff)}55` }}>{eff}</span>; })()}</td>
+                      <td>{(() => { const eff = row.rowType === "template" ? (row.status || row.rowType) : effectiveCredentialStatus(row); return <span className={`status-badge status-${String(eff).toLowerCase()}`} style={{ color: getStatusColor(eff), borderColor: `${getStatusColor(eff)}55` }}>{eff === "template" ? "Draft" : eff}</span>; })()}</td>
                       <td>{row.holderName}</td>
                       <td>{row.source?.visibility === "public" ? "Public" : "Private"}</td>
                       <td>{row.createdDate ? new Date(row.createdDate).toLocaleDateString() : "N/A"}</td>
@@ -1480,7 +1480,7 @@ export default function IssuerDashboard() {
             </div>
             <div className="issuer-stat-card">
               <span className="issuer-stat-num">{revAudit.topTemplate ? revAudit.topTemplate.count : 0}</span>
-              <span className="issuer-stat-label">Worst Template</span>
+              <span className="issuer-stat-label">Most-Revoked Credential</span>
             </div>
             <div className="issuer-stat-card">
               <span className="issuer-stat-num">{revAudit.fastShare}%</span>
@@ -1491,7 +1491,7 @@ export default function IssuerDashboard() {
           {revAudit.revokedTotal > 0 ? (
             <div className="analytics-grid" style={{ marginTop: 18 }}>
               <div className="analytics-card">
-                <h3>Revocations by Template</h3>
+                <h3>Revocations by Credential</h3>
                 <TrendBars data={revAudit.byTemplate} xKey="label" yKey="count" color={ANALYTICS_COLORS.red} />
               </div>
               <div className="analytics-card">
@@ -1520,11 +1520,11 @@ export default function IssuerDashboard() {
       {pendingVisibilityTemplate && (
         <div className="modal-overlay">
           <div className="modal" style={{ maxWidth: 440 }}>
-            <h3>{pendingVisibilityTemplate.visibility === "public" ? "Make this template private?" : "Make this template public?"}</h3>
+            <h3>{pendingVisibilityTemplate.visibility === "public" ? "Make this credential private?" : "Make this credential public?"}</h3>
             <p style={{ margin: "8px 0 18px", fontSize: 13, color: "var(--text-muted)", lineHeight: 1.5 }}>
               {pendingVisibilityTemplate.visibility === "public"
-                ? `"${pendingVisibilityTemplate.credentialName || "This template"}" will be hidden from your public issuer profile.`
-                : `"${pendingVisibilityTemplate.credentialName || "This template"}" will appear on your public issuer profile for anyone to see.`}
+                ? `"${pendingVisibilityTemplate.credentialName || "This credential"}" will be hidden from your public issuer profile.`
+                : `"${pendingVisibilityTemplate.credentialName || "This credential"}" will appear on your public issuer profile for anyone to see.`}
             </p>
             <div className="form-actions">
               <button type="button" className="action-btn" onClick={confirmToggleTemplateVisibility}>Confirm</button>
@@ -1540,7 +1540,7 @@ export default function IssuerDashboard() {
         <div className="modal-overlay">
           <div className="modal modal-wide">
             <div className="modal-header">
-              <h3>Create Credential Template</h3>
+              <h3>Create Credential</h3>
               <button type="button" className="modal-close" onClick={closeCreateModal}>✕</button>
             </div>
             <form onSubmit={handleCreateCredential}>
@@ -1577,7 +1577,7 @@ export default function IssuerDashboard() {
                 {badgeImagePreview && <div className="badge-preview"><img src={badgeImagePreview} alt="Badge preview" /><button type="button" className="badge-remove-btn" onClick={() => { setBadgeImageBase64(""); setBadgeImagePreview(""); setBadgeImageName(""); }}>✕ Remove</button></div>}
               </div>
               {createError && <div className="form-error">{createError}</div>}
-              <div className="form-actions"><button type="submit" className="action-btn">Create Template</button><button type="button" onClick={closeCreateModal} className="action-btn btn-cancel">Cancel</button></div>
+              <div className="form-actions"><button type="submit" className="action-btn">Create Credential</button><button type="button" onClick={closeCreateModal} className="action-btn btn-cancel">Cancel</button></div>
             </form>
           </div>
           <div className="modal-backdrop" onClick={closeCreateModal}></div>
@@ -1588,9 +1588,9 @@ export default function IssuerDashboard() {
       {showCreateModal && createConfirmStep && (
         <div className="modal-overlay confirm-overlay">
           <div className="modal confirm-modal">
-            <div className="modal-header"><h3>Create this template?</h3></div>
+            <div className="modal-header"><h3>Create this credential?</h3></div>
             <p style={{ margin: "12px 0 4px", fontSize: "14px", lineHeight: 1.6, color: "var(--text)" }}>
-              You're about to create the template <strong>"{createForm.credentialName.trim()}"</strong> (type: <strong>{createForm.credentialType.trim()}</strong>). You can issue credentials from it right after.
+              You're about to create the credential <strong>"{createForm.credentialName.trim()}"</strong> (type: <strong>{createForm.credentialType.trim()}</strong>). You can issue it to recipients right after.
             </p>
             {createError && <div className="form-error">{createError}</div>}
             <div className="form-actions">
@@ -1610,10 +1610,10 @@ export default function IssuerDashboard() {
           <div className="modal modal-wide">
             <div className="modal-header"><h3>Issue Credential</h3><button type="button" className="modal-close" onClick={closeIssueModal}>✕</button></div>
             <form onSubmit={handleIssueCredential}>
-              <div className="modal-section-heading" style={{ marginTop: "12px" }}>Choose a template and recipient to issue a credential quickly.</div>
+              <div className="modal-section-heading" style={{ marginTop: "12px" }}>Choose a credential and recipient to issue quickly.</div>
               <div className="issue-modal-grid">
                 <div className="form-group compact-form-group">
-                  <label>Template Type</label>
+                  <label>Credential Type</label>
                   <select className="filter-select" value={issueTemplateTypeFilter} onChange={(e) => setIssueTemplateTypeFilter(e.target.value)}>
                     <option value="all">All Types</option>
                     {issueTemplateTypeOptions.map((type) => <option key={type} value={type}>{type}</option>)}
@@ -1621,7 +1621,7 @@ export default function IssuerDashboard() {
                 </div>
               </div>
               <div className="form-group">
-                <label>Credential Template <span className="required-star">*</span></label>
+                <label>Credential <span className="required-star">*</span></label>
                 <div className="searchable-select-wrapper">
                   <input
                     type="text"
@@ -1637,7 +1637,7 @@ export default function IssuerDashboard() {
                     }}
                     onFocus={() => setIssueTemplateOpen(true)}
                     onBlur={() => setTimeout(() => setIssueTemplateOpen(false), 180)}
-                    placeholder="Type to search templates..."
+                    placeholder="Type to search credentials..."
                     className="search-select-input"
                     autoComplete="off"
                   />
@@ -1658,7 +1658,7 @@ export default function IssuerDashboard() {
                           <span className="searchable-item-meta">{cred.credentialType}</span>
                         </li>
                       )) : (
-                        <li className="searchable-select-empty">{issueTemplateSearch ? "No templates match your search." : "No templates available."}</li>
+                        <li className="searchable-select-empty">{issueTemplateSearch ? "No credentials match your search." : "No credentials available."}</li>
                       )}
                     </ul>
                   )}
@@ -1679,7 +1679,7 @@ export default function IssuerDashboard() {
                     }}
                     onFocus={() => { if (issueForm.credentialId) setIssueRecipientOpen(true); }}
                     onBlur={() => setTimeout(() => setIssueRecipientOpen(false), 180)}
-                    placeholder={issueForm.credentialId ? "Type to search recipients..." : "Select a template first"}
+                    placeholder={issueForm.credentialId ? "Type to search recipients..." : "Select a credential first"}
                     className="search-select-input"
                     disabled={!issueForm.credentialId}
                     autoComplete="off"
@@ -1698,7 +1698,7 @@ export default function IssuerDashboard() {
                           <span className="searchable-item-name">{user.name || user.fullName || user.username || user.email}</span>
                         </li>
                       )) : (
-                        <li className="searchable-select-empty">{issueRecipientSearch ? "No recipients match your search." : "No eligible recipients for this template."}</li>
+                        <li className="searchable-select-empty">{issueRecipientSearch ? "No recipients match your search." : "No eligible recipients for this credential."}</li>
                       )}
                     </ul>
                   )}

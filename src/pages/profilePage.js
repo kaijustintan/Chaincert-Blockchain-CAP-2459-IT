@@ -830,11 +830,11 @@ const [showAll, setShowAll] = useState(false);
       {isIssuer && (
         <section className="profile-section">
           <div className="section-header">
-            <h3>My Templates</h3>
+            <h3>My Credentials</h3>
           </div>
           {issuerTemplatesLoading && <SkeletonCardGrid count={6} />}
           {!issuerTemplatesLoading && issuerTemplates.length === 0 && (
-            <div className="empty-card">No credential templates yet. Create one from your dashboard.</div>
+            <div className="empty-card">No credentials yet. Create one from your dashboard.</div>
           )}
           {!issuerTemplatesLoading && issuerTemplates.length > 0 && (
             <div className="badges-grid">

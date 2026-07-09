@@ -38,6 +38,7 @@ import {
   computeIntegritySummary,
   computeProvenance,
   computeProofTrail,
+  computeIssuerApprovalTurnaround,
 } from "../components/analytics/analytics";
 import { AppShell, Sidebar, Spinner, SpinnerBlock } from "../components/ui";
 import NotesCard from "../components/ui/NotesCard";
@@ -552,6 +553,8 @@ const handleDownloadIssuerDocument = async (doc) => {
   const demand = useMemo(() => computeDemand(verificationLogs, adminCredentials), [verificationLogs, adminCredentials]);
   /* Phase 4 NICE: processed view of the last CouchDB-vs-ledger integrity check (reuses existing result) */
   const integrity = useMemo(() => computeIntegritySummary(integrityResult), [integrityResult]);
+  /* C6: issuer approval queue (aging) + turnaround — what an admin actually acts on (per Sir Danny) */
+  const approvalQueue = useMemo(() => computeIssuerApprovalTurnaround(pendingIssuers, approvedIssuers), [pendingIssuers, approvedIssuers]);
   /* Phase 4 GOOD: per-credential dossier (processed lifecycle timeline + immutable verification trail) */
   const provenance = useMemo(() => computeProvenance(credentialHistory), [credentialHistory]);
   const proofTrail = useMemo(
@@ -1421,7 +1424,7 @@ const handleDownloadIssuerDocument = async (doc) => {
       categoryKey: "expired",
     },
     {
-      label: "Templates",
+      label: "Drafts",
       value: getStatDisplayValue(
         adminCredentialsLoading,
         adminCredentials.filter((r) => (r.type || "").toLowerCase() === "template").length
@@ -2955,7 +2958,7 @@ const handleDownloadIssuerDocument = async (doc) => {
                     { label: "Active", count: active, color: "var(--ok)" },
                     { label: "Revoked", count: revoked, color: "var(--danger)" },
                     { label: "Expired", count: expired, color: "var(--warn)" },
-                    { label: "Templates", count: templates, color: "var(--accent-strong)" },
+                    { label: "Drafts", count: templates, color: "var(--accent-strong)" },
                   ];
 
                   let cumPercent = 0;
@@ -3005,7 +3008,7 @@ const handleDownloadIssuerDocument = async (doc) => {
                 { label: "Issued / Active", color: "var(--ok)", meaning: "issued and currently valid" },
                 { label: "Revoked", color: "var(--danger)", meaning: "cancelled by the issuer" },
                 { label: "Expired", color: "var(--warn)", meaning: "past its expiry date" },
-                { label: "Template", color: "var(--info)", meaning: "a reusable template (not yet issued)" },
+                { label: "Draft", color: "var(--info)", meaning: "a credential created but not yet issued" },
               ]}
             />
 
@@ -3043,7 +3046,7 @@ const handleDownloadIssuerDocument = async (doc) => {
                 >
                   <option value="all">All</option>
                   <option value="issued">Issued</option>
-                  <option value="templates">Templates</option>
+                  <option value="templates">Credentials</option>
                 </select>
               </div>
 
@@ -3058,7 +3061,7 @@ const handleDownloadIssuerDocument = async (doc) => {
                   <option value="all">All</option>
                   <option value="issued">Issued</option>
                   <option value="revoked">Revoked</option>
-                  <option value="template">Template</option>
+                  <option value="template">Draft</option>
                   <option value="expired">Expired</option>
                 </select>
               </div>
@@ -4308,6 +4311,28 @@ const handleDownloadIssuerDocument = async (doc) => {
                   </button>
                 </>
               )}
+            </div>
+
+            {/* 5. Approval Queue & Turnaround — what an admin actually needs (per Sir Danny) */}
+            <div className="analytics-card">
+              <h3>5. Approval Queue &amp; Turnaround</h3>
+              <p className="analytics-card-sub">Issuer applications waiting, how long they've waited, and your average time to decide.</p>
+              <div style={{ display: "flex", gap: 18, flexWrap: "wrap", margin: "6px 0 10px" }}>
+                <div><div style={{ fontSize: 22, fontWeight: 700 }}>{approvalQueue.pendingCount}</div><div className="analytics-card-sub">Pending</div></div>
+                <div><div style={{ fontSize: 22, fontWeight: 700, color: approvalQueue.oldestDays > 14 ? "var(--danger)" : "var(--text)" }}>{approvalQueue.oldestDays}d</div><div className="analytics-card-sub">Oldest waiting</div></div>
+                <div><div style={{ fontSize: 22, fontWeight: 700 }}>{approvalQueue.avgDays != null ? `${approvalQueue.avgDays}d` : "—"}</div><div className="analytics-card-sub">Avg approval</div></div>
+              </div>
+              {approvalQueue.queue.length > 0 && (
+                <div className="analytics-flag-list">
+                  {approvalQueue.queue.slice(0, 5).map((q, i) => (
+                    <div className="analytics-flag-row" key={`aq-${i}`}>
+                      <div><div className="analytics-flag-issuer">{q.name}</div></div>
+                      <span className="analytics-flag-rate">{q.daysWaiting != null ? `${q.daysWaiting}d waiting` : "—"}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+              <InterpretationBox>{approvalQueue.summary}</InterpretationBox>
             </div>
           </div>
           <p className="analytics-footer-note">

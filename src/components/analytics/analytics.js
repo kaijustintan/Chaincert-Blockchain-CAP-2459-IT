@@ -576,7 +576,7 @@ export function computeProvenance(history) {
   };
 
   const META = {
-    created:  { label: 'Template created', icon: '📄', color: COLORS.blue },
+    created:  { label: 'Credential created', icon: '📄', color: COLORS.blue },
     issued:   { label: 'Issued to holder', icon: '🎓', color: COLORS.green },
     updated:  { label: 'Updated',          icon: '✏️', color: COLORS.gray },
     expired:  { label: 'Expired',          icon: '⏳', color: COLORS.amber },
@@ -611,7 +611,7 @@ export function computeProvenance(history) {
     summary = 'No on-chain history found for this credential yet.';
   } else {
     const parts = [];
-    if (created) parts.push('created as a template');
+    if (created) parts.push('created');
     if (issued) parts.push('issued to the holder');
     if (revoked) parts.push('later revoked');
     else if (expired) parts.push('expired');
@@ -916,4 +916,76 @@ export function computeRevocationAudit(credentials) {
   }
 
   return { total, revokedTotal, byTemplate, bySpeed, topTemplate, fastShare, summary };
+}
+
+/*
+  Function Name: computeIssuerApprovalTurnaround
+
+  LAYMAN (Tropang Ex):
+  Para sa admin: "Ilang issuer ang naghihintay ng approval, gaano na sila katagal
+  naghihintay, at gaano ako kabilis mag-desisyon?" Ipinapakita ang pending queue (na may
+  aging — pinaka-matagal muna) at ang average na araw bago ma-approve ang isang issuer.
+  Ito yung TALAGANG kailangan ng admin (per Sir Danny), hindi yung "most verified".
+
+  TECHNICAL:
+  Pure aggregation over the admin's pending + approved issuer arrays. Aging = now − createdAt
+  per pending issuer (oldest first). Turnaround = mean/median days from createdAt to
+  approvedAt (falls back to updatedAt) across approved issuers where both dates parse. Reuses
+  toTime; null-tolerant. NOTE: turnaround accuracy depends on the backend populating approvedAt.
+
+  PARAMS:
+  - pending — array of pending issuer objects (createdAt, orgName/name/email). [] tolerated.
+  - approved — array of approved issuer objects (createdAt, approvedAt|updatedAt). [] tolerated.
+
+  RETURNS:
+  { pendingCount, oldestDays, queue:[{name, daysWaiting}], decidedCount, avgDays, medianDays, summary }
+*/
+export function computeIssuerApprovalTurnaround(pending, approved) {
+  const now = Date.now();
+  const DAY = 24 * 60 * 60 * 1000;
+  const pend = Array.isArray(pending) ? pending : [];
+  const appr = Array.isArray(approved) ? approved : [];
+
+  const nameOf = (iss) => iss.orgName || iss.organizationName || iss.name || iss.email || 'Unknown issuer';
+
+  // pending queue with aging (oldest first)
+  const queue = pend.map((iss) => {
+    const t = toTime(iss.createdAt);
+    const daysWaiting = t !== null ? Math.max(0, Math.floor((now - t) / DAY)) : null;
+    return { name: nameOf(iss), daysWaiting };
+  }).sort((a, b) => (b.daysWaiting ?? -1) - (a.daysWaiting ?? -1));
+
+  const pendingCount = queue.length;
+  const oldestDays = queue.length && queue[0].daysWaiting !== null ? queue[0].daysWaiting : 0;
+
+  // turnaround over decided (approved) issuers
+  const durations = [];
+  for (const iss of appr) {
+    const c = toTime(iss.createdAt);
+    const a = toTime(iss.approvedAt || iss.updatedAt);
+    if (c === null || a === null || a < c) continue;
+    durations.push((a - c) / DAY);
+  }
+  const decidedCount = durations.length;
+  const avgDays = decidedCount ? Math.round((durations.reduce((s, d) => s + d, 0) / decidedCount) * 10) / 10 : null;
+  let medianDays = null;
+  if (decidedCount) {
+    const sorted = [...durations].sort((x, y) => x - y);
+    const mid = Math.floor(sorted.length / 2);
+    medianDays = sorted.length % 2 ? sorted[mid] : (sorted[mid - 1] + sorted[mid]) / 2;
+    medianDays = Math.round(medianDays * 10) / 10;
+  }
+
+  let summary;
+  if (pendingCount === 0 && decidedCount === 0) {
+    summary = 'No issuer applications to report yet.';
+  } else {
+    const parts = [];
+    if (pendingCount > 0) parts.push(`${pendingCount} application(s) awaiting your decision${oldestDays > 0 ? ` — the oldest has waited ${oldestDays} day(s)` : ''}`);
+    else parts.push('No applications are waiting');
+    if (decidedCount > 0) parts.push(`you approve in about ${avgDays} day(s) on average (median ${medianDays})`);
+    summary = `${parts.join('; ')}.`;
+  }
+
+  return { pendingCount, oldestDays, queue, decidedCount, avgDays, medianDays, summary };
 }

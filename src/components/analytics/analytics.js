@@ -188,19 +188,12 @@ export function computeIssuance(credentials) {
 
   const total = issued.length;
   const topType = byType.length ? byType[0].type : null;
-  const thisMonth = months[months.length - 1].count;
-  const prevMonth = months[months.length - 2] ? months[months.length - 2].count : 0;
 
   let summary;
   if (total === 0) {
     summary = 'No credentials issued yet. Issue your first credential to start tracking performance.';
   } else {
-    let trendNote = '';
-    if (prevMonth > 0) {
-      const delta = Math.round(((thisMonth - prevMonth) / prevMonth) * 100);
-      trendNote = ` Issuance this month is ${delta >= 0 ? 'up' : 'down'} ${Math.abs(delta)}% vs last month.`;
-    }
-    summary = `You have issued ${total} credential(s)${topType ? `, most commonly "${topType}"` : ''}.${trendNote}`;
+    summary = `You have issued ${total} credential(s)${topType ? `, most commonly "${topType}"` : ''}.`;
   }
 
   return { total, byType, byMonth: months, topType, summary };

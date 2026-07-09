@@ -4144,7 +4144,7 @@ const handleDownloadIssuerDocument = async (doc) => {
                       { label: "Valid", color: "var(--ok)", meaning: "authentic and active" },
                       { label: "Revoked", color: "var(--danger)", meaning: "cancelled by the issuer" },
                       { label: "Expired", color: "var(--warn)", meaning: "past its expiry date" },
-                      { label: "Not Found", color: "var(--accent-strong)", meaning: "no such credential (likely a fake / forged ID)" },
+                      { label: "Not Found", color: "var(--accent-strong)", meaning: "no such credential — it does not exist on the ledger" },
                     ]
                   : []
               }

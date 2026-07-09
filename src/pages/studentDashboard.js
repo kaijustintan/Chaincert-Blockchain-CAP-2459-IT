@@ -29,7 +29,6 @@ import "../styles/studentDashboard.css";
 import "../styles/analytics.css";
 import { exportCredentialToPDF, exportAllCredentialsToPDF } from '../services/pdfExportService';
 import DonutChart from "../components/analytics/DonutChart";
-import TrendBars from "../components/analytics/TrendBars";
 import InterpretationBox from "../components/analytics/InterpretationBox";
 import CredentialHistory from "../components/analytics/CredentialHistory";
 import {
@@ -803,10 +802,6 @@ export default function StudentDashboard() {
                       <div className="analytics-card">
                         <h3>Outcomes</h3>
                         <DonutChart slices={vinsights.slices} centerValue={vinsights.totalChecks} centerLabel="Checks" />
-                      </div>
-                      <div className="analytics-card">
-                        <h3>Verification trend (last 6 months)</h3>
-                        <TrendBars data={vinsights.byMonth} xKey="label" yKey="count" color="#5B8DEF" />
                       </div>
                     </div>
 

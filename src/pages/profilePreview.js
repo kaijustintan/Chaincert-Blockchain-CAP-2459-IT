@@ -236,8 +236,9 @@ export default function ProfilePreview() {
       setCredLoading(true);
       try {
         const data = await apiService.Get_UserCredentials(effectiveUserId);
-        // Owner sees ALL credentials, recipient sees only public ones 
-        // Hide revoked/expired on public preview for all viewers including owner 
+        // Owner sees ALL their credentials; recipient sees only public ones.
+        // filterVisibleProfileCredentials shows all statuses (incl. revoked/expired) with a
+        // visible status pill — the holder controls exposure via each credential's visibility.
         const filtered = filterVisibleProfileCredentials(data, profileData?.role || loggedInUser?.role);
         setCredentials(filtered);
       } catch (err) {

@@ -262,9 +262,10 @@ export default function VerifierDashboard() {
   const [bulkParsing, setBulkParsing] = useState(false);
   const [bulkError, setBulkError] = useState("");
   const [bulkRunning, setBulkRunning] = useState(false);
-  const [bulkDone, setBulkDone] = useState(false);
   const [bulkProgress, setBulkProgress] = useState({ done: 0, total: 0 });
-  const [bulkResults, setBulkResults] = useState([]);
+  // 1.2: session running-list — each uploaded PDF's results are kept as its OWN batch, so a NEW
+  // upload ADDS to the history instead of wiping the previous results. Newest batch first.
+  const [bulkBatches, setBulkBatches] = useState([]);
 
   // Extract every embedded verify-link's credentialId from the uploaded PDF's link
   // annotations. Only works on the ORIGINAL digital export — scanning/printing strips links.
@@ -272,7 +273,9 @@ export default function VerifierDashboard() {
     const file = e.target.files?.[0];
     e.target.value = ""; // allow re-selecting the same file
     if (!file) return;
-    setBulkError(""); setBulkIds([]); setBulkResults([]); setBulkDone(false);
+    // 1.3: clear any stale SINGLE-verify verdict so it doesn't linger beneath the bulk results.
+    setResult(null); setError(null);
+    setBulkError(""); setBulkIds([]);
     setBulkFileName(file.name); setBulkParsing(true);
     try {
       const pdfjsLib = await loadPdfjs();
@@ -299,7 +302,7 @@ export default function VerifierDashboard() {
       }
       setBulkIds(list);
       // Auto-run straight to results — no "Verify all" button needed.
-      if (list.length > 0) runBulkVerify(list);
+      if (list.length > 0) runBulkVerify(list, file.name);
     } catch (err) {
       console.error("[BULK PDF] parse failed:", err);
       setBulkError("Could not read that PDF. Make sure it's the original ChainCert export.");
@@ -310,11 +313,14 @@ export default function VerifierDashboard() {
 
   // Sequential verify + on-chain log per extracted credential — same read + same proven-email
   // logging as a single check, so bulk results feed the same analytics.
-  const runBulkVerify = async (idsArg) => {
+  const runBulkVerify = async (idsArg, fileName) => {
     const ids = idsArg || bulkIds;
     if (ids.length === 0) return;
-    setBulkRunning(true); setBulkDone(false);
-    setBulkResults([]); setBulkProgress({ done: 0, total: ids.length });
+    setBulkRunning(true);
+    setBulkProgress({ done: 0, total: ids.length });
+    // 1.2: start a NEW batch and prepend it to the running-list so prior uploads stay on screen.
+    const batchId = `${Date.now()}-${ids.length}`;
+    setBulkBatches((prev) => [{ id: batchId, fileName: fileName || bulkFileName || "PDF", rows: [] }, ...prev]);
     const results = [];
     for (let i = 0; i < ids.length; i++) {
       const id = ids[i];
@@ -355,10 +361,12 @@ export default function VerifierDashboard() {
           results.push({ id, name: id, holder: "", outcome: "error", full: { credentialID: id } });
         }
       }
-      setBulkResults([...results]);
+      // Update THIS batch's rows live as the run progresses.
+      const snapshot = [...results];
+      setBulkBatches((prev) => prev.map((b) => (b.id === batchId ? { ...b, rows: snapshot } : b)));
       setBulkProgress({ done: i + 1, total: ids.length });
     }
-    setBulkRunning(false); setBulkDone(true);
+    setBulkRunning(false);
   };
 
   // Gate: verifier must provide name+email AND prove email ownership via OTP (V1) before
@@ -493,68 +501,89 @@ export default function VerifierDashboard() {
           </div>
         )}
 
-        {(bulkRunning || bulkDone) && bulkProgress.total > 0 && (
+        {/* Live progress bar for the batch currently being checked. */}
+        {bulkRunning && bulkProgress.total > 0 && (
           <div style={{ marginTop: 14 }}>
             <p style={{ fontSize: 13, color: "var(--text-muted)", margin: "0 0 8px" }}>
-              {bulkRunning
-                ? `Verifying ${Math.min(bulkProgress.done + 1, bulkProgress.total)} of ${bulkProgress.total}… each check reads the live blockchain.`
-                : (() => {
-                    const c = (o) => bulkResults.filter((r) => r.outcome === o).length;
-                    const parts = [];
-                    if (c("valid")) parts.push(`${c("valid")} valid`);
-                    if (c("revoked")) parts.push(`${c("revoked")} revoked`);
-                    if (c("expired")) parts.push(`${c("expired")} expired`);
-                    if (c("not_found")) parts.push(`${c("not_found")} not found`);
-                    if (c("invalid")) parts.push(`${c("invalid")} invalid`);
-                    if (c("error")) parts.push(`${c("error")} failed`);
-                    return `Done — ${bulkResults.length} checked: ${parts.join(" · ")}. Each check was logged on-chain under ${verifierEmail}.`;
-                  })()}
+              Verifying {Math.min(bulkProgress.done + 1, bulkProgress.total)} of {bulkProgress.total}… each check reads the live blockchain.
             </p>
-            <div style={{ height: 8, borderRadius: 999, background: "var(--border)", overflow: "hidden", marginBottom: 12 }}>
+            <div style={{ height: 8, borderRadius: 999, background: "var(--border)", overflow: "hidden", marginBottom: 4 }}>
               <div style={{ height: "100%", width: `${Math.round((bulkProgress.done / bulkProgress.total) * 100)}%`, background: "var(--accent-strong)", transition: "width .3s ease" }} />
             </div>
-            {/* Each result renders as a full verdict card, mirroring the single-credential result.
-                No scroll cap — the cards flow and the page scrolls, so nothing gets clipped. */}
-            <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-              {bulkResults.map((r) => {
-                const f = r.full || {};
-                const isValid = r.outcome === "valid";
-                const m = BULK_OUTCOME_META[r.outcome] || BULK_OUTCOME_META.error;
-                const explain =
-                  r.outcome === "valid" ? "This credential is authentic and currently valid."
-                  : r.outcome === "revoked" ? (f.revocationReason ? `This credential was revoked by the issuer. Reason: ${f.revocationReason}` : "This credential was revoked by the issuer.")
-                  : r.outcome === "expired" ? "This credential has passed its expiry date."
-                  : r.outcome === "not_found" ? "No matching credential exists on the blockchain."
-                  : r.outcome === "error" ? "This credential could not be checked."
-                  : "This credential is not valid.";
-                return (
-                  <div key={r.id} className={`verifier-verdict ${isValid ? "is-valid" : "is-invalid"}`}>
-                    <div className="verifier-verdict-head">
-                      {isValid ? <CheckCircle2 size={24} aria-hidden="true" /> : <AlertTriangle size={24} aria-hidden="true" />}
-                      <div>
-                        <h2 style={{ fontSize: "1.15rem" }}>{m.label}</h2>
-                        <p>{explain}</p>
-                      </div>
-                    </div>
-                    {(f.credentialName || r.name) && <h3 className="verifier-cred-name">{f.credentialName || r.name}</h3>}
-                    <div className="verifier-result-body">
-                      {f.badgeImage && (<div className="verifier-badge"><img src={f.badgeImage} alt="" /></div>)}
-                      <div className="verifier-detail-list">
-                        <div className="verifier-detail-row"><span className="verifier-detail-label">Issued to</span><span className="verifier-detail-value">{f.holderName || r.holder || "N/A"}</span></div>
-                        <div className="verifier-detail-row"><span className="verifier-detail-label">Issued by</span><span className="verifier-detail-value">{f.issuerName || "N/A"}</span></div>
-                        {f.credentialType && (<div className="verifier-detail-row"><span className="verifier-detail-label">Type</span><span className="verifier-detail-value">{f.credentialType}</span></div>)}
-                        {f.status && (<div className="verifier-detail-row"><span className="verifier-detail-label">Status</span><span className="verifier-detail-value"><StatusPill status={f.status} /></span></div>)}
-                        {f.expiryDate && (<div className="verifier-detail-row"><span className="verifier-detail-label">Expires</span><span className="verifier-detail-value">{new Date(f.expiryDate).toLocaleDateString()}</span></div>)}
-                        {Array.isArray(f.skills) && f.skills.length > 0 && (
-                          <div className="verifier-detail-block"><span className="verifier-detail-label">Skills</span><div className="verifier-skills">{f.skills.map((skill, i) => <span key={i} className="verifier-skill-chip">{skill}</span>)}</div></div>
-                        )}
-                        <div className="verifier-meta"><p>Credential ID: <span className="verifier-mono">{f.credentialID || r.id}</span></p></div>
-                      </div>
-                    </div>
-                  </div>
-                );
-              })}
+          </div>
+        )}
+
+        {/* 1.2: session running-list — every uploaded PDF keeps its results as its own batch.
+            Each result renders as a full verdict card; the cards flow and the page scrolls. */}
+        {bulkBatches.length > 0 && (
+          <div style={{ marginTop: 14 }}>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, marginBottom: 10, flexWrap: "wrap" }}>
+              <p style={{ fontSize: 13, color: "var(--text-muted)", margin: 0 }}>
+                Results are kept for this session — upload another PDF to add to the list.
+              </p>
+              {!bulkRunning && (
+                <button type="button" className="verifier-change" onClick={() => setBulkBatches([])}>Clear results</button>
+              )}
             </div>
+            {bulkBatches.map((batch) => {
+              const c = (o) => batch.rows.filter((r) => r.outcome === o).length;
+              const parts = [];
+              if (c("valid")) parts.push(`${c("valid")} valid`);
+              if (c("revoked")) parts.push(`${c("revoked")} revoked`);
+              if (c("expired")) parts.push(`${c("expired")} expired`);
+              if (c("not_found")) parts.push(`${c("not_found")} not found`);
+              if (c("invalid")) parts.push(`${c("invalid")} invalid`);
+              if (c("error")) parts.push(`${c("error")} failed`);
+              return (
+                <div key={batch.id} style={{ marginBottom: 22 }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10, fontSize: 13, color: "var(--text-muted)" }}>
+                    <FileText size={15} aria-hidden="true" />
+                    <strong style={{ color: "var(--text)" }}>{batch.fileName}</strong>
+                    <span>— {batch.rows.length} checked{parts.length ? `: ${parts.join(" · ")}` : ""}</span>
+                  </div>
+                  <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+                    {batch.rows.map((r) => {
+                      const f = r.full || {};
+                      const isValid = r.outcome === "valid";
+                      const m = BULK_OUTCOME_META[r.outcome] || BULK_OUTCOME_META.error;
+                      const explain =
+                        r.outcome === "valid" ? "This credential is authentic and currently valid."
+                        : r.outcome === "revoked" ? (f.revocationReason ? `This credential was revoked by the issuer. Reason: ${f.revocationReason}` : "This credential was revoked by the issuer.")
+                        : r.outcome === "expired" ? "This credential has passed its expiry date."
+                        : r.outcome === "not_found" ? "No matching credential exists on the blockchain."
+                        : r.outcome === "error" ? "This credential could not be checked."
+                        : "This credential is not valid.";
+                      return (
+                        <div key={r.id} className={`verifier-verdict ${isValid ? "is-valid" : "is-invalid"}`}>
+                          <div className="verifier-verdict-head">
+                            {isValid ? <CheckCircle2 size={24} aria-hidden="true" /> : <AlertTriangle size={24} aria-hidden="true" />}
+                            <div>
+                              <h2 style={{ fontSize: "1.15rem" }}>{m.label}</h2>
+                              <p>{explain}</p>
+                            </div>
+                          </div>
+                          {(f.credentialName || r.name) && <h3 className="verifier-cred-name">{f.credentialName || r.name}</h3>}
+                          <div className="verifier-result-body">
+                            {f.badgeImage && (<div className="verifier-badge"><img src={f.badgeImage} alt="" /></div>)}
+                            <div className="verifier-detail-list">
+                              <div className="verifier-detail-row"><span className="verifier-detail-label">Issued to</span><span className="verifier-detail-value">{f.holderName || r.holder || "N/A"}</span></div>
+                              <div className="verifier-detail-row"><span className="verifier-detail-label">Issued by</span><span className="verifier-detail-value">{f.issuerName || "N/A"}</span></div>
+                              {f.credentialType && (<div className="verifier-detail-row"><span className="verifier-detail-label">Type</span><span className="verifier-detail-value">{f.credentialType}</span></div>)}
+                              {f.status && (<div className="verifier-detail-row"><span className="verifier-detail-label">Status</span><span className="verifier-detail-value"><StatusPill status={f.status} /></span></div>)}
+                              {f.expiryDate && (<div className="verifier-detail-row"><span className="verifier-detail-label">Expires</span><span className="verifier-detail-value">{new Date(f.expiryDate).toLocaleDateString()}</span></div>)}
+                              {Array.isArray(f.skills) && f.skills.length > 0 && (
+                                <div className="verifier-detail-block"><span className="verifier-detail-label">Skills</span><div className="verifier-skills">{f.skills.map((skill, i) => <span key={i} className="verifier-skill-chip">{skill}</span>)}</div></div>
+                              )}
+                              <div className="verifier-meta"><p>Credential ID: <span className="verifier-mono">{f.credentialID || r.id}</span></p></div>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              );
+            })}
           </div>
         )}
       </Card>

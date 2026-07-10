@@ -181,6 +181,10 @@ export async function exportCredentialToPDF(credential, templateDetails) {
     { label: 'Date Issued',     value: credential.savedToUserWalletAt ? formatPhilippineDate(credential.savedToUserWalletAt) : 'N/A' },
     { label: 'Expiry Date',     value: credential.expiryDate ? formatPhilippineDate(credential.expiryDate) : 'No Expiry' },
   ];
+  // 3.2: surface renewal history when this credential line has been renewed (reissued) before.
+  if (Number(credential.renewalCount) > 0) {
+    details.push({ label: 'Renewals', value: `Renewed ${credential.renewalCount}× (reissued)` });
+  }
   details.forEach(({ label, value }) => {
     doc.setFontSize(9.5);
     doc.setFont('helvetica', 'bold');
@@ -381,12 +385,15 @@ async function drawCredentialRow(doc, cred, { pageW, y, studentName, badgeSize, 
   doc.text(stLabel, textX + slw, ty);
   ty += 5;
 
-  // Issued by / to / on
+  // Issued by / to / on (+ renewal history when this credential line was reissued — 3.2)
   const rows = [
     ['Issued by:', cred.issuerName || 'N/A'],
     ['Issued to:', cred.holderName || studentName || 'N/A'],
     ['Issued on:', cred.savedToUserWalletAt ? formatPhilippineDate(cred.savedToUserWalletAt) : 'N/A'],
   ];
+  if (Number(cred.renewalCount) > 0) {
+    rows.push(['Renewals:', `Renewed ${cred.renewalCount}× (reissued)`]);
+  }
   rows.forEach(([label, val]) => {
     doc.setFont('helvetica', 'bold');
     doc.setTextColor(...COLORS.label);

@@ -107,8 +107,8 @@
    UAT FEEDBACK (Group 6) — de-cramp + left-align the verdict result, and
    style the added Type / Description / Skills. Appended last to win source order.
    ===================================================== */
-/* Breathing room so the credential title isn't tight against the verdict band */
-.verifier-cred-name { padding-top: var(--s4); }
+/* Breathing room so the credential title isn't tight against the verdict band (spacing audit) */
+.verifier-cred-name { padding-top: var(--s5); }
 
 /* Left-align the detail rows (was label-left / value-right space-between) */
 .verifier-detail-row { justify-content: flex-start; }

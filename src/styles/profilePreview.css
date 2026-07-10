@@ -445,7 +445,7 @@ html {
 .badge-list {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: var(--s4); /* spacing audit: 12 → 16 for a bit more separation between cards */
 }
 
 .badge-list-item {

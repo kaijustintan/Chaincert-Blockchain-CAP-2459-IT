@@ -573,15 +573,17 @@
 .modal {
   background: linear-gradient(160deg, var(--surface-2) 0%, var(--surface-2) 60%, var(--surface-2) 100%);
   border-radius: var(--radius-modal);
-  width: 440px;
+  /* Spacing audit: was 440px wide with 7 stacked field groups — felt cramped ("masikip").
+     Wider + roomier padding gives the form room to breathe. */
+  width: 500px;
   max-width: 95vw;
   max-height: 85vh;
   overflow-y: auto;
-  box-shadow: 
+  box-shadow:
     0 24px 64px rgba(0, 0, 0, 0.65),
     0 0 50px var(--accent-weak),
     inset 0 1px 0 var(--accent-weak);
-  padding: 28px 26px 22px 26px;
+  padding: var(--s6) var(--s6) var(--s5);
   position: relative;
   color: var(--text);
   z-index: 100;
@@ -711,6 +713,9 @@
   border-radius: var(--radius-card);
   border-left: 3px solid var(--danger);
   width: 100%;
+  /* 4.9: content-box + width:100% + padding overflowed the modal's right edge (there is no
+     global border-box reset). Draw the padding INSIDE the 100% so the banner stays contained. */
+  box-sizing: border-box;
   animation: fadeIn 0.3s ease;
 }
 
@@ -1961,7 +1966,7 @@
   }
 }
 
-.modal form { display: flex; flex-direction: column; gap: 12px; }
+.modal form { display: flex; flex-direction: column; gap: var(--s4); }
 .modal .form-group { display: flex; flex-direction: column; gap: 6px; margin-bottom: 0; }
 .modal .form-group label { line-height: 1.35; margin-bottom: 0; }
 .modal input[type="text"], .modal input[type="date"], .modal select, .modal textarea, .search-select-input { min-height: 44px; line-height: 1.45; padding: 10px 14px; box-sizing: border-box; }
@@ -2041,8 +2046,10 @@
   align-items: center;
   justify-content: center;
   gap: 8px;
-  min-height: 46px;
-  padding: 0 16px;
+  /* 4.10: was min-height:46px (full text-input height) → looked oversized next to the caption.
+     Hug the padding instead so it reads as a normal button. */
+  min-height: 38px;
+  padding: 8px 16px;
   border-radius: var(--radius-modal);
   border: 1px dashed var(--border-accent);
   background: var(--accent-weaker);
@@ -2588,9 +2595,19 @@
   justify-content: flex-start;
   margin-bottom: 16px;
 }
-.issuer-dashboard .filter-group { min-width: 150px; }
+/* 4.3: the search <input> and the <select>s share the same class but a text input's intrinsic
+   width beat the narrow selects, so search looked oversized. Give every control an equal, capped
+   width so the whole filter row is uniform. */
+.issuer-dashboard .filter-group { flex: 1 1 0; min-width: 150px; max-width: 260px; }
+.issuer-dashboard .filter-group .filter-select { width: 100%; box-sizing: border-box; }
 .issuer-dashboard .filter-group label { text-align: left !important; }
 .issuer-dashboard .results-info { margin: 6px 0 14px !important; color: var(--text-muted); font-size: var(--fs-small); }
+
+/* 4.6 / 4.11: lock modal titles + descriptions left-aligned (they already are via the h-tag
+   rule above; this guarantees it for the batch-issue / create modals regardless of cascade). */
+.issuer-dashboard .modal-header,
+.issuer-dashboard .modal-header h3,
+.issuer-dashboard .modal > p { text-align: left; }
 
 /* =====================================================
    UAT FEEDBACK (Group 4) — badge-image control cleanup + in-button spinner.

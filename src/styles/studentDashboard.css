@@ -148,11 +148,14 @@
 .holder-state.is-error { color: var(--danger); }
 
 /* ── Wallet grid ── */
-.holder-wallet-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: var(--s4); }
-.holder-cred-card { display: flex; flex-direction: column; align-items: center; gap: var(--s2); text-align: center; padding: var(--s5) var(--s4); }
+.holder-wallet-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: var(--s4); align-items: stretch; }
+/* 4.12: cards had ragged heights because their rows (status pill, "Renewed N×", issuer, date) are
+   all optional and there was no height floor, so a long name or an extra row made one card taller
+   than its neighbours. A min-height + a 2-line name clamp keep the grid uniform. */
+.holder-cred-card { display: flex; flex-direction: column; align-items: center; justify-content: flex-start; gap: var(--s2); text-align: center; padding: var(--s5) var(--s4); min-height: 196px; }
 .holder-cred-badge { width: 56px; height: 56px; object-fit: cover; border-radius: var(--radius-card); }
 .holder-cred-badge-fallback { width: 56px; height: 56px; border-radius: var(--radius-card); display: grid; place-items: center; background: var(--accent-weak); color: var(--accent); }
-.holder-cred-name { font-size: var(--fs-body); font-weight: var(--fw-semibold); color: var(--text); line-height: 1.3; }
+.holder-cred-name { font-size: var(--fs-body); font-weight: var(--fw-semibold); color: var(--text); line-height: 1.3; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; min-height: calc(1.3em * 2); }
 .holder-cred-issuer { font-size: var(--fs-caption); color: var(--text-muted); font-weight: var(--fw-medium); margin: 0; }
 .holder-cred-date { font-size: var(--fs-caption); color: var(--text-subtle); margin: 0; }
 

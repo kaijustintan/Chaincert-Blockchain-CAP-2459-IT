@@ -2878,9 +2878,9 @@ const handleDownloadIssuerDocument = async (doc) => {
 
           {/* ── Credentials Table ── */}
           <div className="tab-card">
-            <h2>Credentials (All Issuers)</h2>
+            <h2>Credentials</h2>
             <p className="tab-subtitle">
-              Unified view of templates + issued credentials across ALL approved issuers.
+              Unified view of credentials across all approved issuers — filter by a specific issuer below.
             </p>
 
             {/* ADMIN3: integrity check moved to the Analytics & Reports tab. */}

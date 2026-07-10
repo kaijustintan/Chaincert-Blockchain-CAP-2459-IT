@@ -1301,7 +1301,7 @@ export default function IssuerDashboard() {
   // -------------------------------------------------------------------
   // LOADING / ERROR STATES
   // -------------------------------------------------------------------
-  if (loading) return <div className="issuer-dashboard"><SpinnerBlock label="Loading credentials…" minHeight={240} /></div>;
+  if (loading) return <div className="issuer-dashboard"><SpinnerBlock label="Loading…" minHeight={240} /></div>;
   if (error) return (
     <div className="issuer-dashboard">
       <p style={{ color: "var(--danger)" }}><strong>Error loading credentials:</strong> {error}</p>
@@ -1725,7 +1725,9 @@ export default function IssuerDashboard() {
               {batchSelected.size > 0 && (
                 <button type="button" className="action-btn btn-cancel" onClick={() => setBatchSelected(new Set())}>Clear</button>
               )}
-              <label className="action-btn" style={{ cursor: "pointer", marginLeft: "auto" }}>
+              {/* 4.4: was pushed to the far right by margin-left:auto, leaving a big gap — keep it
+                  inline with the action cluster so the row reads as one tight group. */}
+              <label className="action-btn" style={{ cursor: "pointer" }}>
                 Import .csv / .txt of IDs
                 <input type="file" accept=".csv,.txt" onChange={handleBatchCsvImport} style={{ display: "none" }} />
               </label>

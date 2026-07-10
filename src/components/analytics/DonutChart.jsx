@@ -9,7 +9,7 @@
 */
 
 import React from 'react';
-import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer, Legend } from 'recharts';
+import { PieChart, Pie, Cell, ResponsiveContainer, Legend } from 'recharts';
 
 // showBreakdown: render a static "name value" row (with color dots) under the donut and
 // hide the hover-only recharts legend — so the per-slice counts are readable without a mouse.
@@ -43,9 +43,8 @@ export default function DonutChart({ slices = [], centerLabel, centerValue, heig
                 <Cell key={i} fill={s.color} />
               ))}
             </Pie>
-            <Tooltip
-              contentStyle={{ background: '#1B1B29', border: '1px solid rgba(255,255,255,0.14)', borderRadius: 10, color: '#ECECF1' }}
-            />
+            {/* Hover tooltip removed (4.8) — the static center total + breakdown row already
+                show every slice's count, so the tooltip was redundant. */}
             {!showBreakdown && <Legend wrapperStyle={{ fontSize: 12 }} />}
           </PieChart>
         </ResponsiveContainer>

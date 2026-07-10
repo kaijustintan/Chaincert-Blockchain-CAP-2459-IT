@@ -661,7 +661,9 @@ export default function ProfilePreview() {
 
       {/* Badge Wallet — vertical list with order numbers - polo */}
       <section className="badge-wallet">
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
+        {/* 3.1: the header row had no bottom margin and the list no top margin, so the
+            "Verify all" button sat flush against the first credential card. */}
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', marginBottom: 18 }}>
           <h3 style={{ margin: 0 }}>Credentials &amp; Badges</h3>
           {/* C10: bulk verification — every credential checked live against the blockchain */}
           {vaEligible && (

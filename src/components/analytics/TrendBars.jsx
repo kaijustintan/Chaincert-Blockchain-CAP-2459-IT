@@ -9,7 +9,7 @@
 */
 
 import React from 'react';
-import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, LabelList } from 'recharts';
+import { BarChart, Bar, XAxis, YAxis, ResponsiveContainer, CartesianGrid, LabelList } from 'recharts';
 
 export default function TrendBars({ data = [], xKey = 'label', yKey = 'count', color = '#9B7BFF', height = 240 }) {
   const rows = Array.isArray(data) ? data : [];
@@ -30,10 +30,8 @@ export default function TrendBars({ data = [], xKey = 'label', yKey = 'count', c
           <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.08)" vertical={false} />
           <XAxis dataKey={xKey} tick={{ fill: '#A8A8B8', fontSize: 12 }} axisLine={false} tickLine={false} />
           <YAxis allowDecimals={false} tick={{ fill: '#A8A8B8', fontSize: 12 }} axisLine={false} tickLine={false} />
-          <Tooltip
-            cursor={{ fill: 'rgba(124,92,252,0.12)' }}
-            contentStyle={{ background: '#1B1B29', border: '1px solid rgba(255,255,255,0.14)', borderRadius: 10, color: '#ECECF1' }}
-          />
+          {/* Hover tooltip removed (4.8) — the always-on value labels above each bar already
+              show the numbers, so the tooltip was redundant. */}
           <Bar dataKey={yKey} fill={color} radius={[6, 6, 0, 0]} maxBarSize={48}>
             {/* Always-on value labels above each bar (no hover needed). Zeros hidden to reduce clutter. */}
             <LabelList

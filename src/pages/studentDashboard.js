@@ -227,6 +227,14 @@ export default function StudentDashboard() {
     return [...passthrough, ...groups.values()];
   }, [credentials]);
 
+  // D2 / 3.2: how many times a credential line (same template + same holder) has been renewed.
+  // Reused by the wallet "Renewed N×" badge AND stamped onto the PDF export.
+  const getRenewalCount = (cred) => {
+    if (!cred || !cred.templateId) return 0;
+    const key = `${cred.templateId}|${cred.holderID || cred.holderId || ''}`;
+    return credentials.filter((c) => `${c.templateId || ''}|${c.holderID || c.holderId || ''}` === key).length - 1;
+  };
+
   const filtered = useMemo(() => {
     let result = collapsedCredentials.filter((c) => {
       const searchable = [c.credentialName, c.credentialType, c.issuerName]
@@ -694,7 +702,9 @@ export default function StudentDashboard() {
                   if (!hasPublicCreds) return;
                   // D6: warn (styled modal) before exporting a bundle that includes a revoked credential.
                   const revoked = collapsedCredentials.filter((c) => c.visibility === "public" && effectiveCredentialStatus(c) === "revoked");
-                  const doExport = () => exportAllCredentialsToPDF(collapsedCredentials, displayName);
+                  // 3.2: stamp each credential's renewal count so the PDF can show it.
+                  const withRenewals = collapsedCredentials.map((c) => ({ ...c, renewalCount: getRenewalCount(c) }));
+                  const doExport = () => exportAllCredentialsToPDF(withRenewals, displayName);
                   if (revoked.length > 0) setExportWarn({ names: revoked.map((c) => c.credentialName), proceed: doExport });
                   else doExport();
                 }}>
@@ -740,9 +750,7 @@ export default function StudentDashboard() {
                     <StatusPill status={effectiveCredentialStatus(cred)} />
                     {(() => {
                       // D2: how many times this credential line (same template + same holder) was renewed.
-                      if (!cred.templateId) return null;
-                      const key = `${cred.templateId}|${cred.holderID || cred.holderId || ''}`;
-                      const n = credentials.filter((c) => `${c.templateId || ''}|${c.holderID || c.holderId || ''}` === key).length - 1;
+                      const n = getRenewalCount(cred);
                       return n > 0 ? (
                         <span style={{ display: 'inline-block', marginTop: 4, fontSize: '0.72rem', fontWeight: 700, color: 'var(--accent-strong)' }} title="This credential has been renewed — open See History for the full timeline.">↻ Renewed {n}×</span>
                       ) : null;
@@ -966,7 +974,7 @@ export default function StudentDashboard() {
               <Button variant="secondary" icon={ScrollText} onClick={() => handleSeeHistory(selectedCred)}>See history</Button>
               <Button variant="primary" icon={Download} onClick={() => {
                 // D6: warn (styled modal) before exporting a revoked credential.
-                const doExport = () => exportCredentialToPDF(selectedCred, templateDetails);
+                const doExport = () => exportCredentialToPDF({ ...selectedCred, renewalCount: getRenewalCount(selectedCred) }, templateDetails);
                 if (effectiveCredentialStatus(selectedCred) === "revoked") setExportWarn({ names: [selectedCred.credentialName], proceed: doExport });
                 else doExport();
               }}>Export PDF</Button>

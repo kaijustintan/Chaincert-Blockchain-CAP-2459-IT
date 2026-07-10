@@ -228,10 +228,15 @@ select.cc-input {
 
 .cc-sidebar {
   width: 232px; flex-shrink: 0; box-sizing: border-box;
-  align-self: stretch;
+  /* 4.2: was `align-self: stretch` + `min-height: calc(100vh - 140px)`, which stretched the
+     sidebar to the full content height on tall views (big empty gap below the last nav item).
+     Now it hugs its items and sticks in view as the content scrolls. */
+  align-self: flex-start;
+  position: sticky; top: var(--s5);
+  max-height: calc(100vh - var(--s6));
+  overflow-y: auto;
   background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-card);
   padding: var(--s3); display: flex; flex-direction: column; gap: 2px;
-  min-height: calc(100vh - 140px);
 }
 .cc-sidebar-head { padding: var(--s2) var(--s3) var(--s3); border-bottom: 1px solid var(--border); margin-bottom: var(--s2); }
 .cc-sidebar-title { font-size: var(--fs-h3); font-weight: var(--fw-semibold); color: var(--text); margin: 0; }

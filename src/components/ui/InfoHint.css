@@ -1,4 +1,7 @@
-/* InfoHint.css — styled "?" hover/focus tooltip (see InfoHint.jsx) */
+/* InfoHint.css — styled "?" hover/focus tooltip (see InfoHint.jsx).
+   The bubble is PORTALED to <body> with position:fixed (set inline in the component),
+   so it can't be clipped by an overflow ancestor. These rules style its appearance only;
+   top/left/transform come from the component. */
 .cc-infohint {
   position: relative;
   display: inline-flex;
@@ -17,10 +20,6 @@
 }
 
 .cc-infohint-bubble {
-  position: absolute;
-  bottom: calc(100% + 8px);
-  left: 50%;
-  transform: translateX(-50%) translateY(4px);
   width: max-content;
   max-width: 280px;
   background: var(--surface-1, #1B1B29);
@@ -34,24 +33,23 @@
   white-space: normal;
   text-align: left;
   box-shadow: 0 10px 28px rgba(0, 0, 0, 0.40);
-  opacity: 0;
-  visibility: hidden;
-  transition: opacity 0.14s ease, transform 0.14s ease, visibility 0.14s ease;
-  z-index: 80;
+  z-index: 9999; /* above modals (z-index 100) — it lives on <body> now */
   pointer-events: none;
 }
 .cc-infohint-bubble::after {
   content: "";
   position: absolute;
-  top: 100%;
   left: 50%;
   transform: translateX(-50%);
   border: 6px solid transparent;
+}
+/* Arrow points DOWN toward the trigger when the bubble opens above it… */
+.cc-infohint-bubble--top::after {
+  top: 100%;
   border-top-color: var(--surface-1, #1B1B29);
 }
-.cc-infohint:hover .cc-infohint-bubble,
-.cc-infohint:focus-visible .cc-infohint-bubble {
-  opacity: 1;
-  visibility: visible;
-  transform: translateX(-50%) translateY(0);
+/* …and UP when it flips below the trigger (near the top edge). */
+.cc-infohint-bubble--bottom::after {
+  bottom: 100%;
+  border-bottom-color: var(--surface-1, #1B1B29);
 }

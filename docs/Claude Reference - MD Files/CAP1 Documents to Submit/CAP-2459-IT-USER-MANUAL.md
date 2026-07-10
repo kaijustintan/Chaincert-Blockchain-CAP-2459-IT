@@ -347,7 +347,7 @@ These tools let you find, audit, and analyze everything you have issued — with
 - **Revoke a share link** — *Purpose:* immediately cut off access to a link you shared earlier. **Steps:** from the **Share Links** list, click **Revoke** next to the link — it stops working right away.
 - **PDF export** — *Purpose:* produce a portable, re-verifiable copy of a credential to attach to an application or email.
   1. From a credential, click **Export PDF** (single credential or full portfolio).
-  2. The file includes the **Credential ID** and a **verification link (with QR code)**, so anyone can re-verify it later. If the export includes a **revoked** credential, a styled in-app confirmation names it before the download proceeds.
+  2. The file includes the **Credential ID** and a **verification link (with QR code)**, so anyone can re-verify it later. If the export includes a **revoked** credential, a styled in-app confirmation names it before the download proceeds. A credential that has been **renewed** shows a "Renewed N× (reissued)" line in the PDF.
   > **Note:** on this HTTP demo site, your browser may warn that the download is "not secure" or ask you to **Keep** it. This is expected because the site runs over plain HTTP (no TLS yet) — click **Keep**. The PDF is generated **in your browser**, so it is safe.
   *[Screenshot: Credential — Export PDF]*
 - **Notifications** — *Purpose:* keep the holder informed of issue/revoke events. **Locate it:** the bell icon shows issue/revoke alerts (also sent by email).
@@ -376,6 +376,7 @@ These tools let you find, audit, and analyze everything you have issued — with
   1. On the **Verification Dashboard**, confirm your email first (see Phase 5).
   2. Under **Bulk verify from a ChainCert PDF**, choose the holder's **exported ChainCert PDF** — the original digital file. *(A scanned or printed copy won't work — the verification links only exist in the digital export.)*
   3. Verification **starts automatically** the moment the PDF is processed — no extra button to click. Every credential inside is checked live against the blockchain in one pass, each shown as a full result card, and every check is logged under your verified email, exactly like a single verification.
+  4. Results are **kept for your session** — upload a second PDF and its results are added above the first, not replaced. Use **Clear results** to start fresh.
   *[Screenshot: Verification Dashboard — Bulk verify from PDF]*
 - **Verify all on a shared profile** — *Purpose:* live-check every credential on someone's shared profile in one click, without leaving that page.
   1. Open a holder's shared profile link (see the holder's **Profile Sharing** feature above).

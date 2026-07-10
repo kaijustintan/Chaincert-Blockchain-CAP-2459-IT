@@ -37,7 +37,7 @@ Each row below has a **Manual Phase** (where to find the steps) and a **What to 
 
 ---
 
-### Form 1 — Credential Holder (24 test cases)
+### Form 1 — Credential Holder (25 test cases)
 
 *Intro line for the form: "Follow Phases 1, 3, 5, and 8 of the User Manual (attached above) as a Credential Holder. Answer each item below after doing the matching phase."*
 
@@ -67,8 +67,9 @@ Each row below has a **Manual Phase** (where to find the steps) and a **What to 
 | H-22 | Phase 1 | Were you able to use Forgot Password (OTP email → new password) successfully? |
 | H-23 | Phase 8 | On an expiring credential, were you able to click **Request renewal**, and did the button change to *Renewal requested ✓*? *(Only shown if the issuer marked that credential renewable — see the manual's Phase 8 note.)* |
 | H-24 | Phase 8 | After a renewal was approved, did the credential card show a **"↻ Renewed 1×"** badge, and did See History show the full Issued → Expired → Reissued timeline? |
+| H-25 | Phase 8 | For a credential that has been renewed, did its exported PDF (single or full portfolio) include a **"Renewed N× (reissued)"** line? |
 
-### Form 2 — Issuer (20 test cases)
+### Form 2 — Issuer (21 test cases)
 
 *Intro line for the form: "Log in with a shared issuer account (see the manual's account table). Follow Phases 2, 5, 6, and 8. A newly self-registered issuer cannot actually issue — that's expected (see the manual's demo-limit note)."*
 
@@ -94,8 +95,9 @@ Each row below has a **Manual Phase** (where to find the steps) and a **What to 
 | I-18 | Phase 8 | In the **Renewal Requests** queue, did **Approve** issue a fresh credential and notify the holder, and did **Decline** require a reason the holder could then see? |
 | I-19 | Phase 8 | Using **Batch issue from list**, after importing a .csv/.txt of recipients, did it show the correct number matched (and not-eligible, if any) before issuing? |
 | I-20 | Phase 8 | Using batch revoke (checkboxes or CSV/TXT import), did the selection count shown match what you actually selected, and did each credential get revoked individually? |
+| I-21 | Phase 2 | On the Create Credential form, did clicking the **"?"** next to "Allow holders to request renewal" show its explanation **without** changing the checkbox's state? |
 
-### Form 3 — Verifier (11 test cases)
+### Form 3 — Verifier (12 test cases)
 
 *Intro line for the form: "No login needed, but you first need a credential to check. If none is available yet, do Phases 1–3 of the manual once (as Holder + Issuer) to produce a credential ID, then follow Phases 4 and 5 as Verifier."*
 
@@ -112,6 +114,7 @@ Each row below has a **Manual Phase** (where to find the steps) and a **What to 
 | V-09 | Phase 4 | (For the admin group to confirm in Phase 7) Was your verification later visible in the admin's logs? |
 | V-10 | Phase 8 | Using **Bulk verify from a ChainCert PDF**, after uploading a holder's exported PDF, did it check every credential with a progress bar and show a per-credential result? |
 | V-11 | Phase 5 | Did verifying a credential that expires **today** return **VALID** (not EXPIRED)? |
+| V-12 | Phase 8 | After running a bulk PDF verify, did uploading a **second** PDF ADD its results above the first (instead of replacing them), and did **Clear results** remove them all? |
 
 ### Form 4 — Admin / Internal (22 test cases)
 
@@ -206,11 +209,11 @@ Below are ready-to-fill templates matching the required outline. Replace every `
 
 | Role | Total Test Cases | Passed | Failed | Pass Rate (%) |
 |---|---|---|---|---|
-| Credential Holder | [24] | [ ] | [ ] | [ ] |
-| Issuer | [20] | [ ] | [ ] | [ ] |
-| Verifier | [11] | [ ] | [ ] | [ ] |
+| Credential Holder | [25] | [ ] | [ ] | [ ] |
+| Issuer | [21] | [ ] | [ ] | [ ] |
+| Verifier | [12] | [ ] | [ ] | [ ] |
 | Admin / Internal | [22] | [ ] | [ ] | [ ] |
-| **Total** | **[77]** | **[ ]** | **[ ]** | **[ ]** |
+| **Total** | **[80]** | **[ ]** | **[ ]** | **[ ]** |
 
 **Table 6.3 — User acceptance ratings (weighted mean per criterion).** Verbal interpretation uses the scale below.
 
@@ -235,7 +238,7 @@ Below are ready-to-fill templates matching the required outline. Replace every `
 
 ### 6.1.3 Analysis
 
-> Of the **[77]** total test cases executed across the four roles, **[ ]** passed and **[ ]** failed, for an overall pass rate of **[ ]%**. [Discuss the failures: which test cases failed, the nature of each issue (e.g., minor UI/labeling vs. functional), and how they were or will be addressed.]
+> Of the **[80]** total test cases executed across the four roles, **[ ]** passed and **[ ]** failed, for an overall pass rate of **[ ]%**. [Discuss the failures: which test cases failed, the nature of each issue (e.g., minor UI/labeling vs. functional), and how they were or will be addressed.]
 >
 > On the user-acceptance survey, ChainCert obtained an overall weighted mean of **[ ]**, interpreted as **"[ ]"**. The highest-rated criterion was **[ ]** (mean **[ ]**), indicating [ ]; the lowest was **[ ]** (mean **[ ]**), suggesting [area for improvement]. [Summarize open-ended feedback themes: common praise, recurring problems, and notable suggestions.]
 >
@@ -260,7 +263,7 @@ Below are ready-to-fill templates matching the required outline. Replace every `
 
 - **The forms and the manual are now unified** — every test case's "Manual Phase" column points to a real, existing phase in the User Manual (UAT Edition). The manual was extended slightly (a few short bullets added to Phases 2, 3, 6, 7, and 8) specifically so nothing in the forms is left unexplained. If you add or remove a test case, check that its corresponding manual phase actually covers it — otherwise re-add a short manual bullet rather than duplicating steps in the form.
 - **Attach/embed the User Manual PDF at the top of each Google Form.** The forms intentionally do not repeat steps — testers are expected to open the manual, do the phase, then come back and answer.
-- Test-case counts (Holder 24, Issuer 20, Verifier 11, Admin 22 = 77 total) already match Table 6.2 — no adjustment needed unless you add/remove rows.
+- Test-case counts (Holder 25, Issuer 21, Verifier 12, Admin 22 = 80 total) already match Table 6.2 — no adjustment needed unless you add/remove rows.
 - Items marked **\[internal]** (e.g., the integrity-check tamper demo) require backend/DB access — assign these to a dev-team tester, not an external UAT participant.
 - **Assumption used for the "Manual Phase" mapping:** every tester follows the manual's full sequence (Phases 1–8, in order) using the shared demo accounts — including Verifier-only testers, who first do Phases 1–3 to produce their own credential ID. If your group instead pre-seeds credentials so role groups never leave their own screens, the Verifier form's intro line and precondition need to change (Form 3's note above already flags this).
 - Keep the disclaimers from the User Manual in mind when scripting testers (e.g., a newly registered issuer cannot actually issue; verifier needs a real email; issuer/admin demo emails route to a central inbox).

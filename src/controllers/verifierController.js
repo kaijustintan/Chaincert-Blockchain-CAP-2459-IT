@@ -29,6 +29,18 @@ const couchdbService = require('../couchDB_service'); // for future issuer/admin
 // couchDB connection where wallet_user_credentials is
 const COUCHDB_URL = 'http://admin:adminpw@localhost:5985';
 
+// End-of-day-Manila expiry (mirrors chaincode VerifyCredential + the frontend isEffectivelyExpired):
+// a bare "YYYY-MM-DD" expiryDate is valid THROUGH 23:59:59.999 of that day in Asia/Manila (+08:00).
+// The old naive `new Date(expiryDate) < now` treated a same-day-expiry credential as already expired
+// from 08:00 Manila, flipping a still-valid credential to EXPIRED on the CouchDB-fallback path.
+function isExpiredManila(expiryDate) {
+  if (!expiryDate || String(expiryDate).trim() === '') return false;
+  const datePart = String(expiryDate).slice(0, 10);
+  const endOfDayManila = Date.parse(`${datePart}T23:59:59.999+08:00`);
+  if (Number.isNaN(endOfDayManila)) return false;
+  return Date.now() > endOfDayManila;
+}
+
 // ==========================================================================================================================================================================
 // V1: VERIFIER EMAIL OTP (prove email ownership once per window before a verification is LOGGED)
 // ==========================================================================================================================================================================
@@ -193,7 +205,7 @@ const Verify_Credential = async (req, res, getContractAndGateway) => {
           }
           chainStatus = String(chainStatus).toLowerCase();
           const chainIsRevoked = chainStatus === 'revoked' || (!bcResult.valid && (bcResult.reason || '').toLowerCase().includes('revoked'));
-          const chainIsExpired = c.expiryDate ? new Date(c.expiryDate) < now : (!bcResult.valid && (bcResult.reason || '').toLowerCase().includes('expired'));
+          const chainIsExpired = c.expiryDate ? isExpiredManila(c.expiryDate) : (!bcResult.valid && (bcResult.reason || '').toLowerCase().includes('expired'));
 
           mainPayload = {
             credentialID: credentialId,
@@ -299,13 +311,13 @@ const Verify_Credential = async (req, res, getContractAndGateway) => {
         let status = credential.status || '';
         if (!status || String(status).toLowerCase() === 'unknown') {
           if (credential.isRevoked === true || credential.revoked === true) status = 'revoked';
-          else if (credential.expiryDate && new Date(credential.expiryDate) < now) status = 'expired';
+          else if (credential.expiryDate && isExpiredManila(credential.expiryDate)) status = 'expired';
           else if (credential.blockchainId || credential._id) status = 'active';
           else status = 'invalid';
         }
         status = String(status).toLowerCase();
         const isRevoked = status === 'revoked' || credential.isRevoked === true || credential.revoked === true;
-        const isExpired = credential.expiryDate ? new Date(credential.expiryDate) < now : false;
+        const isExpired = credential.expiryDate ? isExpiredManila(credential.expiryDate) : false;
         const isStatusValid = status === 'active' || status === 'issued';
         const isValid = !isRevoked && !isExpired && isStatusValid;
 
@@ -434,7 +446,7 @@ const getVerificationStats = async (req, res) => {
         (c) => c.status === 'revoked' || c.isRevoked,
       ).length,
       expired: allCredentials.filter(
-        (c) => c.expiryDate && new Date(c.expiryDate) < now,
+        (c) => c.expiryDate && isExpiredManila(c.expiryDate),
       ).length,
       pending: allCredentials.filter(
         (c) => c.status === 'pending' || c.status === 'pending_blockchain',

@@ -298,7 +298,7 @@ These tools let you find, audit, and analyze everything you have issued — with
    *What it's for: a tamper-evident audit trail — every verification and governance decision is recorded on the blockchain and cannot be edited or deleted after the fact.*
    *[Screenshot: Admin — Logs tab]*
 5. **Analytics & Reports** — verification result summary, **Issuers to Review** (issuers with an unusually high revocation rate — a prompt to take a closer look, not an automatic verdict), and integrity insight; open a credential's **Dossier** for its full trail.
-   *What it's for: turns the raw logs into plain-language insights — e.g. how many checks came back valid vs. fake, and which issuers' revocation patterns are worth a second look. Each chart has a "what this means" note.*
+   *What it's for: turns the raw logs into plain-language insights — e.g. how many checks came back valid vs. fake, and which issuers' revocation patterns are worth a second look. Each chart has a "Summary:" note, and any longer explanation is tucked behind a small **?** you hover or tap to read.*
    *[Screenshot: Admin — Analytics & Reports]*
 6. **Users** — *What it's for:* lets the admin restrict a holder's access; a disabled user cannot log in, and every change is logged on the blockchain.
    1. Open the **Users** tab.
@@ -328,7 +328,7 @@ These tools let you find, audit, and analyze everything you have issued — with
 - **Holder Insights** — *Purpose:* a plain-language read on how your credentials are doing, so you know what needs attention.
   1. On your wallet dashboard, find the **insights** panels.
   2. Review **Credential Health** (an overall status summary), **Renewal Alerts** (credentials nearing expiry, with a View button), and **Verification Insights** (how often and with what result your credentials have been checked).
-  3. Each panel includes a "what this means" note.
+  3. Each panel includes a "Summary:" note; longer explanations are hidden behind a small **?** you hover or tap.
   *[Screenshot: Wallet — Holder Insights]*
 - **Request a renewal** — *Purpose:* ask the issuer to re-issue an expiring credential, without leaving your wallet.
   1. On a **Renewal Alert** (see Holder Insights above), click **Request renewal**. *(Only shown when the issuer marked that credential renewable — a one-time credential like a diploma won't offer this; see Phase 2.)*
@@ -347,7 +347,7 @@ These tools let you find, audit, and analyze everything you have issued — with
 - **Revoke a share link** — *Purpose:* immediately cut off access to a link you shared earlier. **Steps:** from the **Share Links** list, click **Revoke** next to the link — it stops working right away.
 - **PDF export** — *Purpose:* produce a portable, re-verifiable copy of a credential to attach to an application or email.
   1. From a credential, click **Export PDF** (single credential or full portfolio).
-  2. The file includes the **Credential ID** and a **verification link (with QR code)**, so anyone can re-verify it later.
+  2. The file includes the **Credential ID** and a **verification link (with QR code)**, so anyone can re-verify it later. If the export includes a **revoked** credential, a styled in-app confirmation names it before the download proceeds.
   > **Note:** on this HTTP demo site, your browser may warn that the download is "not secure" or ask you to **Keep** it. This is expected because the site runs over plain HTTP (no TLS yet) — click **Keep**. The PDF is generated **in your browser**, so it is safe.
   *[Screenshot: Credential — Export PDF]*
 - **Notifications** — *Purpose:* keep the holder informed of issue/revoke events. **Locate it:** the bell icon shows issue/revoke alerts (also sent by email).
@@ -355,7 +355,7 @@ These tools let you find, audit, and analyze everything you have issued — with
 ### Issuer features
 
 - **Decide renewal requests** — *Purpose:* review a holder's renewal request against your own records — ChainCert routes the request, it doesn't verify requalification for you.
-  1. Go to the **Issue** view → **Renewal Requests** queue.
+  1. Go to the **Issue** view → **Renewal Requests** card (click to expand — it's collapsed by default to keep the Issue view uncluttered).
   2. **Approve** to issue a fresh credential with a new expiry on the spot, or **Decline** with a reason the holder will see.
   3. Both decisions are recorded immutably on the blockchain, whether approved or declined.
   *[Screenshot: Issuer — Renewal Requests queue]*
@@ -375,12 +375,12 @@ These tools let you find, audit, and analyze everything you have issued — with
 - **Bulk verify from a PDF** — *Purpose:* check every credential in someone's portfolio in one pass instead of one ID at a time.
   1. On the **Verification Dashboard**, confirm your email first (see Phase 5).
   2. Under **Bulk verify from a ChainCert PDF**, choose the holder's **exported ChainCert PDF** — the original digital file. *(A scanned or printed copy won't work — the verification links only exist in the digital export.)*
-  3. Click **Verify all** — each credential is checked live against the blockchain with a progress bar, and every check is logged under your verified email, exactly like a single verification.
+  3. Verification **starts automatically** the moment the PDF is processed — no extra button to click. Every credential inside is checked live against the blockchain in one pass, each shown as a full result card, and every check is logged under your verified email, exactly like a single verification.
   *[Screenshot: Verification Dashboard — Bulk verify from PDF]*
 - **Verify all on a shared profile** — *Purpose:* live-check every credential on someone's shared profile in one click, without leaving that page.
   1. Open a holder's shared profile link (see the holder's **Profile Sharing** feature above).
   2. Confirm your email if asked — a public link needs a quick one-time code; a link sent to you specifically may already know it's you.
-  3. Click **Verify all on the blockchain** — each credential's result appears in its own results panel below the credential list, and every check is logged under your verified email.
+  3. Click **Verify all on the blockchain** — results load and display in a **popup window** (not inline over the credential list), and every check is logged under your verified email.
   *[Screenshot: Shared profile — Verify all]*
 
 ### Account security *(do this last, after finishing your role's main demo)*

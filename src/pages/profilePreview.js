@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo } from "react";
 import { useParams } from "react-router-dom";
 import apiService from "../services/apiService";
 import { SpinnerBlock } from "../components/ui";
+import { effectiveCredentialStatus } from "../utils/credentialStatus";
 import '../styles/profilePreview.css';
 
 // C10: live-check verdict meta for the "Verify all" results (colors = design tokens).
@@ -688,13 +689,32 @@ export default function ProfilePreview() {
             )}
           </div>
         )}
+        {/* B2: live "Verify all" verdicts render in their OWN panel, not stacked on top of the
+            credential cards (the inline chip used to overlap/displace the cards). */}
+        {(vaRunning || vaDone) && Object.keys(vaResults).length > 0 && (
+          <div className="va-results-panel" style={{ margin: '10px 0', display: 'flex', flexDirection: 'column', gap: 6 }}>
+            {credentials.filter((c) => vaResults[c.blockchainId]).map((c) => {
+              const m = VA_OUTCOME_META[vaResults[c.blockchainId].outcome] || VA_OUTCOME_META.error;
+              return (
+                <div key={`va-${c._id}`} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, padding: '8px 12px', borderRadius: 10, border: '1px solid var(--border)' }}>
+                  <span style={{ fontSize: 13.5, fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.credentialName}</span>
+                  <span style={{ fontSize: 12.5, fontWeight: 700, color: m.color, flexShrink: 0 }}>⛓ {m.label}</span>
+                </div>
+              );
+            })}
+          </div>
+        )}
         <div className="badge-list">
           {credLoading && <SpinnerBlock label="Loading credentials…" minHeight={120} />}
           {!credLoading && credentials.length === 0 && (
             <div>No public credentials yet.</div>
           )}
-          {!credLoading && credentials.map((cred, index) => (
-            <div key={cred._id} className={`badge-list-item ${cred.status === 'revoked' ? 'revoked-card' : cred.status === 'expired' ? 'expired-card' : ''}`} onClick={() => setSelectedPreviewCred(cred)} style={{ cursor: 'pointer' }}>
+          {!credLoading && credentials.map((cred, index) => {
+            // Use effective (end-of-day-Manila) status so a cron-lagged past-expiry credential
+            // reads "Expired" here, matching what the live "Verify all" check returns.
+            const eff = effectiveCredentialStatus(cred);
+            return (
+            <div key={cred._id} className={`badge-list-item ${eff === 'revoked' ? 'revoked-card' : eff === 'expired' ? 'expired-card' : ''}`} onClick={() => setSelectedPreviewCred(cred)} style={{ cursor: 'pointer' }}>
               <div className="badge-order-num">{index + 1}</div>
               <div className="badge-img-small">
                 {cred.badgeImage ? (
@@ -710,29 +730,21 @@ export default function ProfilePreview() {
                     Issued {cred.issuanceCount} time{cred.issuanceCount !== 1 ? 's' : ''}
                   </p>
                 )}
-                {cred.status === 'revoked' && (
+                {eff === 'revoked' && (
                   <span className="status-pill revoked">Revoked</span>
                 )}
-                {cred.status === 'expired' && (
+                {eff === 'expired' && (
                   <span className="status-pill expired">Expired</span>
                 )}
-                {/* C10: live ledger verdict from "Verify all" (distinct from the stored status above) */}
-                {vaResults[cred.blockchainId] && (() => {
-                  const m = VA_OUTCOME_META[vaResults[cred.blockchainId].outcome] || VA_OUTCOME_META.error;
-                  return (
-                    <div style={{ marginTop: 4, fontSize: '0.74rem', fontWeight: 700, color: m.color }}>
-                      ⛓ Live check: {m.label}
-                    </div>
-                  );
-                })()}
-                {cred.status === 'revoked' && cred.rejectionReason && (
+                {eff === 'revoked' && cred.rejectionReason && (
                   <p style={{color: "var(--danger)", fontSize: "0.75rem", margin: "4px 0"}}>
                     Reason: {cred.rejectionReason}
                   </p>
                 )}
               </div>
             </div>
-          ))}
+            );
+          })}
         </div>
       </section>
 
@@ -843,7 +855,10 @@ export default function ProfilePreview() {
               </div>
               <div className="detail-row">
                 <span className="detail-label">Status</span>
-                <span className="detail-value">{selectedPreviewCred.status || 'N/A'}</span>
+                <span className="detail-value">{(() => {
+                  const e = effectiveCredentialStatus(selectedPreviewCred);
+                  return (e === 'issued' || e === 'active') ? 'Active' : e ? e.charAt(0).toUpperCase() + e.slice(1) : 'N/A';
+                })()}</span>
               </div>
               <div className="detail-row">
                 <span className="detail-label">Issued On</span>

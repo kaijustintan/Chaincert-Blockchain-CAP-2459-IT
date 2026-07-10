@@ -651,7 +651,13 @@ export default function StudentDashboard() {
 
             {hasCreds && (
               <span title={hasPublicCreds ? undefined : "No public credentials to export. Set at least one credential to public first."}>
-                <Button variant="secondary" size="sm" icon={Download} disabled={!hasPublicCreds} onClick={() => { if (hasPublicCreds) exportAllCredentialsToPDF(credentials, displayName); }}>
+                <Button variant="secondary" size="sm" icon={Download} disabled={!hasPublicCreds} onClick={() => {
+                  if (!hasPublicCreds) return;
+                  // D6: warn before exporting a bundle that includes a revoked credential.
+                  const revoked = credentials.filter((c) => c.visibility === "public" && effectiveCredentialStatus(c) === "revoked");
+                  if (revoked.length > 0 && !window.confirm(`This export includes a revoked credential: ${revoked.map((c) => c.credentialName).join(", ")}. Anyone who verifies it will see it's revoked. Continue?`)) return;
+                  exportAllCredentialsToPDF(credentials, displayName);
+                }}>
                   Export all
                 </Button>
               </span>
@@ -796,6 +802,11 @@ export default function StudentDashboard() {
                               <Button size="sm" variant="secondary" onClick={() => handleCardClick(a.cred)}>View</Button>
                               {/* C11: ask the issuer to renew — they decide from their own records */}
                               {(() => {
+                                // D5: only offer renewal when the credential is renewable. Default to
+                                // showing it unless the issuer explicitly marked it non-renewable, so
+                                // pre-existing credentials (no `renewable` field yet) keep working until
+                                // the chaincode field ships.
+                                if (a.cred?.renewable === false) return null;
                                 const cid = String(a.cred?.blockchainId || a.cred?.credentialId || a.cred?.id || "");
                                 const requested = renewalPending.has(cid);
                                 return (
@@ -904,7 +915,11 @@ export default function StudentDashboard() {
           selectedCred && (
             <>
               <Button variant="secondary" icon={ScrollText} onClick={() => handleSeeHistory(selectedCred)}>See history</Button>
-              <Button variant="primary" icon={Download} onClick={() => exportCredentialToPDF(selectedCred, templateDetails)}>Export PDF</Button>
+              <Button variant="primary" icon={Download} onClick={() => {
+                // D6: warn before exporting a revoked credential.
+                if (effectiveCredentialStatus(selectedCred) === "revoked" && !window.confirm(`This credential (${selectedCred.credentialName}) is revoked. Anyone who verifies it will see it's revoked. Export anyway?`)) return;
+                exportCredentialToPDF(selectedCred, templateDetails);
+              }}>Export PDF</Button>
             </>
           )
         }
@@ -950,7 +965,7 @@ export default function StudentDashboard() {
 
               {(selectedCred.status === "revoked" || selectedCred.status === "REVOKED") && selectedCred.rejectionReason && (
                 <div className="holder-detail-row">
-                  <span className="holder-detail-label">Rejection reason</span>
+                  <span className="holder-detail-label">Revocation reason</span>
                   <span className="holder-detail-value" style={{ color: "var(--danger)" }}>{selectedCred.rejectionReason}</span>
                 </div>
               )}
@@ -961,7 +976,7 @@ export default function StudentDashboard() {
               </div>
               <div className="holder-detail-row">
                 <span className="holder-detail-label">Expiry date</span>
-                <span className="holder-detail-value">{formatDate(selectedCred.expiryDate)}</span>
+                <span className="holder-detail-value">{selectedCred.expiryDate ? formatDate(selectedCred.expiryDate) : "No Expiry"}</span>
               </div>
               <div className="holder-detail-row">
                 <span className="holder-detail-label">Blockchain ID</span>

@@ -100,7 +100,7 @@ function NavBar() {
           <Link to="/directory">Issuers</Link>
         </li>
         <li className={location.pathname === '/verifier/dashboard' ? 'active' : ''}>
-          <Link to="/verifier/dashboard">Verifier Dashboard</Link>
+          <Link to="/verifier/dashboard">Verification Dashboard</Link>
         </li>
 
         {!isLoggedIn && (

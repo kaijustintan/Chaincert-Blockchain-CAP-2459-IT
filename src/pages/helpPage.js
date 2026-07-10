@@ -39,7 +39,7 @@ function HelpPage() {
     {
       cat: "employers",
       q: "How do employers verify credentials?",
-      a: "Employers use the Verifier Dashboard to enter a credential ID or scan a QR code. The system checks the credential's data against the blockchain ledger to confirm authenticity, issuer identity, and current status — all in seconds."
+      a: "Employers use the Verification Dashboard to enter a credential ID or link. The system checks the credential's data against the blockchain ledger to confirm authenticity, issuer identity, and current status — all in seconds."
     },
     {
       cat: "holders",

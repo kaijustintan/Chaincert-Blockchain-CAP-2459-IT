@@ -491,11 +491,11 @@ The ChainCert platform uses a Hyperledger Fabric smart contract implemented in `
 
 ### 10.2 Credential Template Lifecycle
 
-- **CreateCredentialTemplate** — Creates a credential template on-chain. A template represents the reusable blueprint of a credential before it is issued to any holder. The function validates uniqueness, assigns a deterministic blockchain timestamp, and stores the template with `isTemplate: true`.
+- **CreateCredentialTemplate** — Creates a credential template on-chain. A template represents the reusable blueprint of a credential before it is issued to any holder. The function validates uniqueness, assigns a deterministic blockchain timestamp, and stores the template with `isTemplate: true`. Also accepts a `renewable` flag (default `true`) set by the issuer at creation time — it governs whether holders of credentials issued from this template are offered a "Request renewal" action (e.g. an ID card is renewable; a one-time diploma is not).
 
 ### 10.3 Issued Credential Lifecycle
 
-- **IssueCredential** — Issues a credential instance to a specific holder based on an existing template. The issued credential explicitly stores `templateId`, `holderID`, issuer details, metadata, skills, issuance timestamp, and optional expiry date.
+- **IssueCredential** — Issues a credential instance to a specific holder based on an existing template. The issued credential explicitly stores `templateId`, `holderID`, issuer details, metadata, skills, issuance timestamp, and optional expiry date. Inherits the template's `renewable` flag, and accepts an optional `renewedFrom` argument — the ID of the predecessor credential when this issuance is a renewal re-issue, forming a lineage chain the wallet UI uses to show a "Renewed N×" indicator.
 - **RevokeCredential** — Marks an issued credential as revoked. Updates status to revoked, records a deterministic `revokedAt` timestamp, and stores an optional rejection reason.
 - **ExpireCredential** — Marks a credential as expired on-chain. Called by the backend expiry process when the credential's expiry date has passed.
 
@@ -556,6 +556,11 @@ The ChainCert platform uses a Hyperledger Fabric smart contract implemented in `
 
 - **LogAdminChangePassword** — Records an administrator password change event on-chain.
 - **GetAdminPasswordChangeLogs** — Returns password change logs for a specific administrator email.
+
+### 10.12 Renewal Decision Log Functions
+
+- **LogRenewalDecision** — Creates an immutable log when an issuer approves or declines a holder's renewal request. Records the requesting holder, the deciding issuer, the decision (`approved`/`declined`), the reason (required on decline), and the old→new credential ID lineage on approval. This is the ONLY on-chain record of a decline — a decline produces no other blockchain transaction, since the credential itself is not modified. On approval, the re-issue is a separate `IssueCredential` transaction; this log captures the governance decision that led to it, mirroring how `LogIssuerApproval` (10.9) separately audits an issuer approval from the issuer record it affects.
+- **GetRenewalDecisionLogs** — Returns all renewal decision logs across the system, most recent first. Mirrors `GetAllIssuerDecisionLogs` (10.9): a full-range state scan filtered by `type === "renewal_decision"`.
 
 ---
 

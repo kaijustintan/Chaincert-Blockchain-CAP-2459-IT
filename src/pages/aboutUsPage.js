@@ -56,7 +56,7 @@ function AboutUsPage() {
           </div>
           <div className="about-role-card">
             <h3>Verifiers</h3>
-            <p>Employers and agencies verify credentials instantly through the Verifier Dashboard. Scan a QR code or enter a credential ID — the blockchain confirms authenticity, issuer, and status in seconds.</p>
+            <p>Employers and agencies verify credentials instantly through the Verification Dashboard. Enter a credential ID or link — the blockchain confirms authenticity, issuer, and status in seconds.</p>
           </div>
         </div>
       </section>

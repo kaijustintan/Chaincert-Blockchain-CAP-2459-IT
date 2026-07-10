@@ -117,6 +117,7 @@ Everyone tests against the same shared environment, so you may see data created 
    - **Description:** `Awarded upon completion of the BSIT program at De La Salle University.`
    - **Skills:** `Programming`, `Database Management`, `Web Development` *(type each and press Enter)*
    - **Badge Image:** any image file, e.g. a program or school logo (PNG/JPG)
+   - **Allow holders to request renewal:** on by default — check for credentials holders should be able to ask to renew (an ID or membership); uncheck for one-time credentials like a diploma. Only renewable credentials show holders a **Request renewal** button (see Phase 8).
 
    *[Screenshot: Create Template — form filled]*
    *[Screenshot: Create Template — success message]*
@@ -148,7 +149,7 @@ These tools let you find, audit, and analyze everything you have issued — with
   3. Read **Revocation Self-Audit** — revocations broken down **by template** and by **how quickly after issuance** they were revoked, which helps you catch a template or process that keeps producing mistakes.
   *[Screenshot: Issuer — Analytics (Issuance Performance + Revocation Self-Audit)]*
 
-> **✅ Forms to answer now:** Issuer form — **I-01, I-02, I-03, I-04, I-05, I-06, I-07, I-08, I-10, I-11, I-12**.
+> **✅ Forms to answer now:** Issuer form — **I-01, I-02, I-03, I-04, I-05, I-06, I-07, I-08, I-10, I-11, I-12, I-17**.
 
 ---
 
@@ -221,6 +222,7 @@ These tools let you find, audit, and analyze everything you have issued — with
    → **EXPIRED**. *(The system checks the date at verification time, so a past-dated credential reads as expired immediately — you do not have to wait. A daily background job also flips expired credentials automatically.)*
    > **Note (UAT only):** issuing a credential with a past expiry date is enabled for this testing round. In the production build this is blocked, so this exact step is a UAT convenience for demonstrating the **EXPIRED** verdict.
    *[Screenshot: Verification result — EXPIRED]*
+   > **Boundary case:** a credential does not expire the instant its date starts — it stays valid through the **end of that day**. If you issue a credential with **today's date** as the expiry, verifying it the same day should still return **VALID**, not EXPIRED.
 
 **Not Found** — *why:* a made-up or mistyped ID must not resolve to a real credential.
 4. As the verifier, type any **made-up ID** and verify.
@@ -236,7 +238,7 @@ These tools let you find, audit, and analyze everything you have issued — with
 | EXPIRED | Past its expiry date. |
 | NOT FOUND | No such credential — likely fake or mistyped. |
 
-> **✅ Forms to answer now:** Credential Holder form — **H-21** · Issuer form — **I-09** · Verifier form — **V-06, V-07, V-08**.
+> **✅ Forms to answer now:** Credential Holder form — **H-21** · Issuer form — **I-09** · Verifier form — **V-06, V-07, V-08, V-11**.
 
 ---
 
@@ -272,43 +274,46 @@ These tools let you find, audit, and analyze everything you have issued — with
 8. Open the application, review the documents, and click **Approve**. Status becomes **Approved**.
    *[Screenshot: Admin — issuer review + approve]*
 
-→ **What to expect:** the status flows **Pending → Root Approved → Approved**. (For root-issuer applications there is no root step — the admin approves directly.) Each submission and root decision also raises an **in-app notification** for the admin. *(The matching email goes to the central demo inbox, not to you — see demo limit 3.)*
+→ **What to expect:** the status flows **Pending → Root Approved → Approved**. (For root-issuer applications there is no root step — the admin approves directly.) Each submission and root decision also raises an **in-app notification** for the admin. *(The matching email goes to the central demo inbox, not to you — see demo limit 3.)* A new application produces **exactly one** admin-notification email, regardless of how many admin accounts exist.
 
-> **✅ Forms to answer now:** Issuer form — **I-13, I-14, I-15** · Admin form — **A-07, A-08, A-09, A-10**.
+> **✅ Forms to answer now:** Issuer form — **I-13, I-14, I-15** · Admin form — **A-07, A-08, A-09, A-10, A-22**.
 
 ---
 
 ## Phase 7 — Admin Oversight (Admin)
 
-**Goal:** review the records your earlier phases created. This is the platform administrator's control room for oversight and auditing. Log in as **admin@email.com**.
+**Goal:** review the records your earlier phases created. This is the platform administrator's control room for oversight and auditing. Log in as **admin@email.com** — you land directly on **Manage Issuers → Pending**, since clearing the pending-issuer queue is the admin's most time-sensitive task, not browsing records.
 
-1. **Credentials tab** — *Purpose:* one master view of everything issued across all issuers, for spot-checks and support.
+1. **Issuers tab (default landing) — Pending queue** — *Purpose:* work the longest-waiting applications first instead of guessing at the backlog.
+   The **Pending** view opens with an **Approval Queue & Turnaround** summary (how many applications are waiting, the oldest wait in days, and your average approval time) and a **Days Waiting** column on every row — sort **Oldest First** to see who has waited longest. Approve/reject from here exactly as in Phase 6.
+   *[Screenshot: Admin — Issuers, Pending queue with Approval Queue & Turnaround + Days Waiting]*
+2. **Credentials tab** — *Purpose:* one master view of everything issued across all issuers, for spot-checks and support.
    Browse every template and issued credential across all issuers; filter by issuer/type/status and search by name or ID.
    *[Screenshot: Admin — Credentials tab]*
-2. **Integrity Check** — Analytics & Reports tab → **Run Integrity Check**.
+3. **Integrity Check** — Analytics & Reports tab → **Run Integrity Check**.
    *What it's for: lets the admin catch tampering — it checks each record in the fast-read database against the blockchain, so if any record was altered outside the app, the mismatch is flagged. (The blockchain is the source of truth.)*
    You can **run it manually** at any time from this tab. It **also runs automatically every day at 8:00 AM (Manila time)**, and emails the admins only when it finds a mismatch.
    *[Screenshot: Admin — Integrity Check results]*
-3. **Logs** — Logs tab → verification, status, issuer-decision, and root-subordinate logs. *(If you switch between `admin@email.com` and `admin2@email.com`, notice each logged action shows which admin performed it.)*
+4. **Logs** — Logs tab → verification, status, issuer-decision, and root-subordinate logs. *(If you switch between `admin@email.com` and `admin2@email.com`, notice each logged action shows which admin performed it.)*
    *What it's for: a tamper-evident audit trail — every verification and governance decision is recorded on the blockchain and cannot be edited or deleted after the fact.*
    *[Screenshot: Admin — Logs tab]*
-4. **Analytics & Reports** — verification summary, suspicious activity, demand index, and integrity insight; open a credential's **Dossier** for its full trail.
-   *What it's for: turns the raw logs into plain-language insights — e.g. how many checks came back valid vs. fake, and which credentials are most in demand. Each chart has a "what this means" note.*
+5. **Analytics & Reports** — verification result summary, **Issuers to Review** (issuers with an unusually high revocation rate — a prompt to take a closer look, not an automatic verdict), and integrity insight; open a credential's **Dossier** for its full trail.
+   *What it's for: turns the raw logs into plain-language insights — e.g. how many checks came back valid vs. fake, and which issuers' revocation patterns are worth a second look. Each chart has a "what this means" note.*
    *[Screenshot: Admin — Analytics & Reports]*
-5. **Users** — *What it's for:* lets the admin restrict a holder's access; a disabled user cannot log in, and every change is logged on the blockchain.
+6. **Users** — *What it's for:* lets the admin restrict a holder's access; a disabled user cannot log in, and every change is logged on the blockchain.
    1. Open the **Users** tab.
    2. Find the holder account you want to manage.
    3. Click **Disable** and confirm — that user can no longer log in.
    4. Click **Enable** to restore access.
    *(Do not disable the shared accounts.)*
    *[Screenshot: Admin — Users tab, enable/disable]*
-6. **Issuers** — *What it's for:* the same access control for issuers.
-   From the **Issuers** tab, **enable or disable** an approved issuer's access. *(Do not disable the shared demo issuers.)*
-   *[Screenshot: Admin — Issuers tab, enable/disable]*
+7. **Issuers tab — Approved view** — *Purpose:* the same access control, but for issuers.
+   Switch the Issuers tab's view to **Approved**, then **enable or disable** an approved issuer's access. *(Do not disable the shared demo issuers.)*
+   *[Screenshot: Admin — Issuers tab, Approved view, enable/disable]*
 
 → **What to expect:** the credential you issued, verified, and revoked in earlier phases appears across these logs and reports.
 
-> **✅ Forms to answer now:** Admin form — **A-01, A-02, A-03, A-04, A-05, A-11, A-12, A-13, A-14, A-15, A-16, A-17, A-18, A-19**. *(A-06 is marked [internal] — performed by the project team with database access.)*
+> **✅ Forms to answer now:** Admin form — **A-01, A-02, A-03, A-04, A-05, A-11, A-12, A-13, A-14, A-15, A-16, A-17, A-18, A-19, A-21**. *(A-06 is marked [internal] — performed by the project team with database access.)*
 
 ---
 
@@ -325,6 +330,11 @@ These tools let you find, audit, and analyze everything you have issued — with
   2. Review **Credential Health** (an overall status summary), **Renewal Alerts** (credentials nearing expiry, with a View button), and **Verification Insights** (how often and with what result your credentials have been checked).
   3. Each panel includes a "what this means" note.
   *[Screenshot: Wallet — Holder Insights]*
+- **Request a renewal** — *Purpose:* ask the issuer to re-issue an expiring credential, without leaving your wallet.
+  1. On a **Renewal Alert** (see Holder Insights above), click **Request renewal**. *(Only shown when the issuer marked that credential renewable — a one-time credential like a diploma won't offer this; see Phase 2.)*
+  2. The button changes to **Renewal requested ✓**. The issuer reviews it against their own records, then either issues you a fresh credential with a new expiry, or declines with a reason you can read.
+  3. If approved, your wallet shows one credential card with a **"↻ Renewed N×"** badge — open **See History** for the full Issued → Expired → Reissued timeline.
+  *[Screenshot: Wallet — Request renewal, and a Renewed badge]*
 - **Edit Profile** — *Purpose:* control the bio and picture shown on your shared public profile. **Locate it:** Profile page → update your bio and profile picture → **Save**.
 - **Preview Public Profile** — *Purpose:* see exactly what a viewer sees before you share, so nothing private is exposed by accident. **Locate it:** Profile page → **Preview Public Profile**.
 - **Reorder credentials** — *Purpose:* choose the order your credentials appear on your shared profile. **Locate it:** Profile page → drag-and-drop your credentials.
@@ -342,12 +352,43 @@ These tools let you find, audit, and analyze everything you have issued — with
   *[Screenshot: Credential — Export PDF]*
 - **Notifications** — *Purpose:* keep the holder informed of issue/revoke events. **Locate it:** the bell icon shows issue/revoke alerts (also sent by email).
 
+### Issuer features
+
+- **Decide renewal requests** — *Purpose:* review a holder's renewal request against your own records — ChainCert routes the request, it doesn't verify requalification for you.
+  1. Go to the **Issue** view → **Renewal Requests** queue.
+  2. **Approve** to issue a fresh credential with a new expiry on the spot, or **Decline** with a reason the holder will see.
+  3. Both decisions are recorded immutably on the blockchain, whether approved or declined.
+  *[Screenshot: Issuer — Renewal Requests queue]*
+- **Batch issuance** — *Purpose:* issue one credential to many holders in a single pass instead of one at a time.
+  1. Go to the **Issue** view → **Batch issue from list**.
+  2. Pick the credential, then import a **.csv or .txt** file of recipient **emails or holder IDs** (one per line, or comma-separated).
+  3. Confirm — each recipient is issued individually on the blockchain, with a live progress bar and a per-recipient success/failure result.
+  *[Screenshot: Issuer — Batch issue from list]*
+- **Batch revocation** — *Purpose:* revoke many credentials at once with one shared reason (e.g. a membership year lapsing for hundreds of holders).
+  1. Go to the **Revoke** view.
+  2. Select credentials via the checkboxes, or click **Import .csv / .txt of IDs** to select by a file of credential IDs (one per line, or comma-separated).
+  3. Enter one reason, confirm, and watch the progress bar — each credential is revoked individually on the blockchain, with a per-credential result at the end.
+  *[Screenshot: Issuer — Batch revoke]*
+
+### Verifier features
+
+- **Bulk verify from a PDF** — *Purpose:* check every credential in someone's portfolio in one pass instead of one ID at a time.
+  1. On the **Verification Dashboard**, confirm your email first (see Phase 5).
+  2. Under **Bulk verify from a ChainCert PDF**, choose the holder's **exported ChainCert PDF** — the original digital file. *(A scanned or printed copy won't work — the verification links only exist in the digital export.)*
+  3. Click **Verify all** — each credential is checked live against the blockchain with a progress bar, and every check is logged under your verified email, exactly like a single verification.
+  *[Screenshot: Verification Dashboard — Bulk verify from PDF]*
+- **Verify all on a shared profile** — *Purpose:* live-check every credential on someone's shared profile in one click, without leaving that page.
+  1. Open a holder's shared profile link (see the holder's **Profile Sharing** feature above).
+  2. Confirm your email if asked — a public link needs a quick one-time code; a link sent to you specifically may already know it's you.
+  3. Click **Verify all on the blockchain** — each credential's result appears in its own results panel below the credential list, and every check is logged under your verified email.
+  *[Screenshot: Shared profile — Verify all]*
+
 ### Account security *(do this last, after finishing your role's main demo)*
 
 - **Issuer — change your password** — *Purpose:* let an issuer rotate its own password. **Locate it:** log in as an issuer → account/settings → **Change Password** (minimum 10 characters).
 - **Admin — change your password** — *Purpose:* let an admin rotate its own password; the change is logged on the blockchain. **Locate it:** log in as **admin@email.com** → account/settings → **Change Password** (minimum 10 characters).
 
-> **✅ Forms to answer now:** Credential Holder form — **H-08, H-09, H-13, H-14, H-15, H-16, H-17, H-18, H-19, H-20** · Issuer form — **I-16** · Admin form — **A-20**.
+> **✅ Forms to answer now:** Credential Holder form — **H-08, H-09, H-13, H-14, H-15, H-16, H-17, H-18, H-19, H-20, H-23, H-24** · Issuer form — **I-16, I-18, I-19, I-20** · Verifier form — **V-10** · Admin form — **A-20**.
 
 ---
 

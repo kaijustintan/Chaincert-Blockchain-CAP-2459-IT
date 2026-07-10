@@ -117,7 +117,10 @@ router.get('/my-verifications', (req, res) => {
 // C11: renewal requests — this issuer's queue + the decision endpoint (self-auth in controller).
 // Approve marks the request AFTER the frontend re-issues via the existing issue flow.
 router.get('/renewal-requests', issuerCredentialController.getRenewalRequests);
-router.patch('/renewal-requests/:requestId/decision', issuerCredentialController.decideRenewalRequest);
+// D3: inject the gateway so the decision (approve/decline) is logged on-chain via LogRenewalDecision.
+router.patch('/renewal-requests/:requestId/decision', (req, res) =>
+  issuerCredentialController.decideRenewalRequest(req, res, req.app.locals.getContractAndGateway)
+);
 
 // POST /api/issuer/credentials/create
 // Create credential template on blockchain

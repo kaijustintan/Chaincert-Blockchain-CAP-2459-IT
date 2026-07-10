@@ -1040,6 +1040,7 @@ Enable_User: async (userId, reason) => {
         credentialName: credentialData.credentialName,
         description: credentialData.description,
         metadata: credentialData.metadata,
+        renewable: credentialData.renewable !== false,  // D5: can holders request renewal? (default true)
         skills: credentialData.skills || [],          // - polo
         badgeImage: credentialData.badgeImage || ''   // - polo
       });
@@ -1274,7 +1275,7 @@ Check_IssuerHasTemplates: async () => {
       1) magsulat sa blockchain (IssueCredential)
       2) mag-save sa CouchDB (issued_credentials + wallet_user_credentials).
   */
-  Issue_Credential: async (credentialId, holderID, expiryDate) => {
+  Issue_Credential: async (credentialId, holderID, expiryDate, renewedFrom) => {
     try {
       /* Step 1: POST issuance request to backend
          Technical:
@@ -1287,7 +1288,8 @@ Check_IssuerHasTemplates: async () => {
         `/credentials/${credentialId}/issue`,
         {
           holderID: holderID,
-          expiryDate: expiryDate || null
+          expiryDate: expiryDate || null,
+          renewedFrom: renewedFrom || ''   // D2: renewal lineage (predecessor credential id)
         }
       );
 

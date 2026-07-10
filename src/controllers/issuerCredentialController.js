@@ -67,7 +67,7 @@ exports.Create_CredentialTemplate = async (req, res, getContractAndGateway) => {
       Tropang Ex: Kukunin natin yung fields na galing sa form/UI.
     */
     // ✅ Extract from request body
-    const { credentialType, credentialName, description, metadata, skills, badgeImage } = req.body; // - polo
+    const { credentialType, credentialName, description, metadata, skills, badgeImage, renewable } = req.body; // - polo (renewable: D5)
 
     /* Step 2: Validate required fields
 
@@ -208,7 +208,8 @@ exports.Create_CredentialTemplate = async (req, res, getContractAndGateway) => {
         credentialName,
         description || '',
         metadata ? JSON.stringify(metadata) : '',
-        skills && skills.length > 0 ? JSON.stringify(skills) : '[]'  // - polo
+        skills && skills.length > 0 ? JSON.stringify(skills) : '[]',  // - polo
+        renewable === false ? 'false' : 'true'  // D5: pass as string; default renewable unless explicitly false
       );
 
       blockchainCredential = JSON.parse(result.toString());
@@ -400,7 +401,7 @@ exports.Issue_Credential = async (req, res, getContractAndGateway) => {
       Kinukuha kung anong template ang i-iissue at kanino mapupunta.
     */
     const { credentialId } = req.params;
-    const { holderID, expiryDate } = req.body;
+    const { holderID, expiryDate, renewedFrom } = req.body; // renewedFrom: D2 renewal lineage
 
     /* Step 2: Validate required field: holderID
 
@@ -521,7 +522,8 @@ exports.Issue_Credential = async (req, res, getContractAndGateway) => {
       'IssueCredential',
       credentialId,
       holderID,
-      expiryDate || ''
+      expiryDate || '',
+      renewedFrom || ''  // D2: predecessor credential id when this issuance is a renewal re-issue
     );
 
     /* Step 7: Parse blockchain response into JSON object
@@ -1834,7 +1836,7 @@ exports.getRenewalRequests = async (req, res) => {
 
   RETURNS: 200 { success, request } | 400 | 401 | 403 | 404 | 409 already decided.
 */
-exports.decideRenewalRequest = async (req, res) => {
+exports.decideRenewalRequest = async (req, res, getContractAndGateway) => {
   try {
     const user = req.user;
     if (!user || !user.id) {
@@ -1867,6 +1869,31 @@ exports.decideRenewalRequest = async (req, res) => {
       ? { status: 'approved', decidedAt: new Date().toISOString(), newCredentialId: newCredentialId || '', newExpiryDate: newExpiryDate || '' }
       : { status: 'declined', decidedAt: new Date().toISOString(), declineReason: String(declineReason).trim() };
     const updated = await couchdbService.updateRenewalRequest(requestId, patch);
+
+    // D3: immutable on-chain audit of the renewal decision (approve AND decline). Best-effort —
+    // a logging failure must NOT fail the decision (the CouchDB record drives the workflow, and on
+    // approve the re-issued credential is already on-chain). Mirrors adminIssuerController.Approve_Issuer.
+    let gateway = null;
+    try {
+      if (typeof getContractAndGateway === 'function') {
+        const conn = await getContractAndGateway('chaincert-admin', 'Org1');
+        gateway = conn.gateway;
+        await conn.contract.submitTransaction(
+          'LogRenewalDecision',
+          String(requestId),
+          String(request.holderId || ''),
+          String(request.issuerId || ''),
+          action === 'approve' ? 'approved' : 'declined',
+          action === 'approve' ? '' : String(patch.declineReason || ''),
+          String(request.credentialId || ''),
+          action === 'approve' ? String(newCredentialId || '') : ''
+        );
+      }
+    } catch (bcErr) {
+      console.warn('[RENEWAL] on-chain LogRenewalDecision failed (non-fatal):', bcErr?.message || bcErr);
+    } finally {
+      try { if (gateway) await gateway.disconnect(); } catch (_) {}
+    }
 
     // Best-effort holder in-app notification. (On approve, the issuance itself already
     // notified + emailed the holder about the NEW credential — this closes the request loop.)

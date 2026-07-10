@@ -93,7 +93,7 @@ class ChainCertContract extends Contract {
     Tropang Ex:
     issuer makes template and is added to its list of credentials na pwede iisue sa mga users/holders
   */
-  async CreateCredentialTemplate(ctx, id, issuerID, credentialType, credentialName, description, metadata, skillsJson) {
+  async CreateCredentialTemplate(ctx, id, issuerID, credentialType, credentialName, description, metadata, skillsJson, renewable) {
     
     /* Step 1: Check if a credential template with the same ID already exists
 
@@ -163,6 +163,9 @@ class ChainCertContract extends Contract {
       status: 'active',
       metadata: metadata,
       skills: skills,      // - polo
+      // D5: can a holder request renewal of this credential? (ID/membership yes, one-time cert no).
+      // Args arrive as strings; default to renewable unless explicitly 'false'.
+      renewable: (renewable === 'false' || renewable === false) ? false : true,
       version: 1,
       isTemplate: true
     };
@@ -210,7 +213,7 @@ class ChainCertContract extends Contract {
   Para madaling malaman kung anong template pinanggalingan ng issued credential,
   may explicit templateId na siya now.
 */
-async IssueCredential(ctx, templateId, holderID, expiryDate) {
+async IssueCredential(ctx, templateId, holderID, expiryDate, renewedFrom) {
 
   /* Step 1: Load the template from the ledger */
   const templateJSON = await ctx.stub.getState(templateId);
@@ -248,6 +251,10 @@ async IssueCredential(ctx, templateId, holderID, expiryDate) {
 
     metadata: template.metadata,
     skills: template.skills || [],
+    // D5: inherit the template's renewable flag (undefined on old templates → treated renewable).
+    renewable: template.renewable !== false,
+    // D2: predecessor credential id when this issuance is a renewal re-issue (lineage). '' otherwise.
+    renewedFrom: renewedFrom || '',
     version: template.version,
     isTemplate: false,
     txId: txId
@@ -1668,6 +1675,78 @@ async GetAllVerificationLogs(ctx) {
       await ctx.stub.setEvent("IssuerApproved", Buffer.from(JSON.stringify(log)));
 
       return JSON.stringify(log);
+    }
+
+    // =========================================================================================================
+    // AUDIT: RENEWAL DECISION (D3)
+    // =========================================================================================================
+    /*
+      LogRenewalDecision — immutable audit of a renewal APPROVE or DECLINE (D3).
+      On approve, the re-issue itself is a separate IssueCredential tx; this records WHO decided,
+      WHY, and the old→new credential lineage. A decline leaves no other on-chain trace, so this
+      is its ONLY immutable record of that decision. Modeled on LogIssuerApproval.
+    */
+    async LogRenewalDecision(ctx, requestId, holderID, issuerID, decision, reason, oldCredentialId, newCredentialId) {
+      if (!requestId) throw new Error("requestId is required");
+      if (!decision) throw new Error("decision is required");
+      if (decision === "declined" && (!reason || reason.trim() === "")) {
+        throw new Error("Reason is required for a declined renewal");
+      }
+
+      const txTimestamp = ctx.stub.getTxTimestamp();
+      const timestamp = new Date(
+        txTimestamp.seconds * 1000 +
+        Math.floor(txTimestamp.nanos / 1000000)
+      ).toISOString();
+
+      const txId = ctx.stub.getTxID();
+      const logId = `renewal_decision_${txId}`;
+
+      const log = {
+        id: logId,
+        type: "renewal_decision",
+        entity: "renewal",
+        requestId,
+        holderID: holderID || '',
+        issuerID: issuerID || '',
+        decision,                          // 'approved' | 'declined'
+        reason: reason || '',
+        oldCredentialId: oldCredentialId || '',
+        newCredentialId: newCredentialId || '',
+        performedBy: ctx.clientIdentity.getID(),
+        performedByMSP: ctx.clientIdentity.getMSPID(),
+        txId,
+        timestamp,
+        version: 1
+      };
+
+      await ctx.stub.putState(logId, Buffer.from(JSON.stringify(log)));
+      await ctx.stub.setEvent("RenewalDecided", Buffer.from(JSON.stringify(log)));
+
+      return JSON.stringify(log);
+    }
+
+    // Read side for the renewal audit (D3) — mirrors GetAllIssuerDecisionLogs, filtered to renewal_decision.
+    async GetRenewalDecisionLogs(ctx) {
+      const iterator = await ctx.stub.getStateByRange('', '');
+      const results = [];
+      let res = await iterator.next();
+      while (!res.done) {
+        if (res.value && res.value.value) {
+          try {
+            const parsed = JSON.parse(res.value.value.toString('utf8'));
+            if (parsed.type === "renewal_decision") {
+              results.push(parsed);
+            }
+          } catch (err) {
+            console.warn("GetRenewalDecisionLogs: failed to parse record, skipping.", err.message);
+          }
+        }
+        res = await iterator.next();
+      }
+      await iterator.close();
+      results.sort((a, b) => new Date(b.timestamp || 0) - new Date(a.timestamp || 0));
+      return JSON.stringify(results);
     }
 
     // =========================================================================================================

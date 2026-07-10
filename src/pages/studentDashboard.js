@@ -698,6 +698,15 @@ export default function StudentDashboard() {
                     )}
                     <div className="holder-cred-name">{cred.credentialName}</div>
                     <StatusPill status={effectiveCredentialStatus(cred)} />
+                    {(() => {
+                      // D2: how many times this credential line (same template + same holder) was renewed.
+                      if (!cred.templateId) return null;
+                      const key = `${cred.templateId}|${cred.holderID || cred.holderId || ''}`;
+                      const n = credentials.filter((c) => `${c.templateId || ''}|${c.holderID || c.holderId || ''}` === key).length - 1;
+                      return n > 0 ? (
+                        <span style={{ display: 'inline-block', marginTop: 4, fontSize: '0.72rem', fontWeight: 700, color: 'var(--accent-strong)' }} title="This credential has been renewed — open See History for the full timeline.">↻ Renewed {n}×</span>
+                      ) : null;
+                    })()}
                     {cred.issuerName && <p className="holder-cred-issuer">{cred.issuerName}</p>}
                     {cred.savedToUserWalletAt && (
                       <p className="holder-cred-date">Issued {formatDate(cred.savedToUserWalletAt)}</p>

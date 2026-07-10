@@ -96,6 +96,7 @@ export default function IssuerDashboard() {
     credentialName: "",
     description: "",
     metadata: "",
+    renewable: true, // D5: can holders request renewal? (default yes)
   });
   const [createError, setCreateError] = useState("");
   const [createLoading, setCreateLoading] = useState(false);
@@ -307,7 +308,8 @@ export default function IssuerDashboard() {
     try {
       let newCredentialId = "";
       if (action === "approve") {
-        const issueRes = await apiService.Issue_Credential(request.templateId, request.holderId, renewalExpiry || null);
+        // D2: stamp the new credential with the OLD credential id (renewal lineage).
+        const issueRes = await apiService.Issue_Credential(request.templateId, request.holderId, renewalExpiry || null, request.credentialId);
         newCredentialId = issueRes?.credential?.id || issueRes?.credential?.credentialId || "";
       }
       await apiService.decideRenewalRequest(
@@ -1102,7 +1104,7 @@ export default function IssuerDashboard() {
   // Badge image handler - polo
   const handleBadgeImageChange = (e) => { const file = e.target.files?.[0]; if (!file) return; setBadgeImageName(file.name); const reader = new FileReader(); reader.onloadend = () => { setBadgeImageBase64(reader.result); setBadgeImagePreview(reader.result); }; reader.readAsDataURL(file); };
 
-  const openCreateModal = () => { setShowCreateModal(true); setCreateError(""); setCreateConfirmStep(false); setTypeIsOther(false); setCreateForm({ credentialType: "", credentialName: "", description: "", metadata: "" }); setSkillsList([]); setSkillInput(""); setBadgeImageBase64(""); setBadgeImagePreview(""); setBadgeImageName(""); };
+  const openCreateModal = () => { setShowCreateModal(true); setCreateError(""); setCreateConfirmStep(false); setTypeIsOther(false); setCreateForm({ credentialType: "", credentialName: "", description: "", metadata: "", renewable: true }); setSkillsList([]); setSkillInput(""); setBadgeImageBase64(""); setBadgeImagePreview(""); setBadgeImageName(""); };
   const closeCreateModal = () => { setShowCreateModal(false); setCreateError(""); setCreateLoading(false); setCreateConfirmStep(false); setTypeIsOther(false); setSkillsList([]); setSkillInput(""); setBadgeImageBase64(""); setBadgeImagePreview(""); setBadgeImageName(""); };
   const handleCreateFormChange = (e) => { const { name, value } = e.target; setCreateForm((prev) => ({ ...prev, [name]: value })); };
   // Group 4.2b: type dropdown change. Picking "Other…" flips to custom-text mode and clears the
@@ -1133,7 +1135,7 @@ export default function IssuerDashboard() {
     setCreateLoading(true); setCreateError("");
     try {
       const credentialId = `cred_${Date.now()}_${Math.random().toString(36).substring(2, 17)}`;
-      await apiService.Create_CredentialTemplate({ id: credentialId, credentialType: createForm.credentialType.trim(), credentialName: createForm.credentialName.trim(), description: createForm.description, metadata: createForm.metadata, skills: skillsList, badgeImage: badgeImageBase64, visibility: 'private' });
+      await apiService.Create_CredentialTemplate({ id: credentialId, credentialType: createForm.credentialType.trim(), credentialName: createForm.credentialName.trim(), description: createForm.description, metadata: createForm.metadata, renewable: createForm.renewable !== false, skills: skillsList, badgeImage: badgeImageBase64, visibility: 'private' });
       showToast("Credential created successfully!"); closeCreateModal(); fetchCredentials(); fetchTemplateOptions();
     } catch (err) {
       // Keep the confirm modal open and surface the server message (e.g. duplicate-name 409).
@@ -2349,6 +2351,16 @@ export default function IssuerDashboard() {
               </div>
               <div className="form-group"><label>Description</label><textarea name="description" value={createForm.description} onChange={handleCreateFormChange} rows={2} placeholder="Describe the credential's purpose..." /></div>
               <div className="form-group"><label>Metadata <span className="form-label-hint">(optional)</span></label><input type="text" name="metadata" value={createForm.metadata} onChange={handleCreateFormChange} placeholder="e.g. Level: Manager" /></div>
+              {/* D5: renewable flag — controls whether holders see a "Request renewal" button */}
+              <div className="form-group">
+                <label style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer" }}>
+                  <input type="checkbox" checked={createForm.renewable !== false} onChange={(e) => setCreateForm((prev) => ({ ...prev, renewable: e.target.checked }))} style={{ width: "auto" }} />
+                  Allow holders to request renewal
+                </label>
+                <span className="form-label-hint" style={{ display: "block", marginTop: 4 }}>
+                  Leave on for credentials that expire and can be renewed (IDs, memberships). Turn off for one-time credentials (diplomas, certificates).
+                </span>
+              </div>
               <div className="form-group">
                 <label>Skills <span className="form-label-hint">(optional — recipients will earn these)</span></label>
                 <div className="skills-input-row"><input type="text" value={skillInput} onChange={(e) => setSkillInput(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleAddSkill(); }}} placeholder="e.g. Python, Project Management" /><button type="button" className="add-skill-btn" onClick={handleAddSkill}>+ Add Skill</button></div>

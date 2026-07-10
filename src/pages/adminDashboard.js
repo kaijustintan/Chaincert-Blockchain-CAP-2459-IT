@@ -30,7 +30,6 @@ import apiService from "../services/apiService";
 import AppToast from "../components/appToast";
 import DonutChart from "../components/analytics/DonutChart";
 import InterpretationBox from "../components/analytics/InterpretationBox";
-import TrendBars from "../components/analytics/TrendBars";
 import {
   computeVerificationOutcomes,
   computeSuspiciousIssuers,
@@ -38,7 +37,6 @@ import {
   computeProvenance,
   computeProofTrail,
   computeIssuerApprovalTurnaround,
-  computeVerificationVolume,
 } from "../components/analytics/analytics";
 import { AppShell, Sidebar, Spinner, SpinnerBlock } from "../components/ui";
 import NotesCard from "../components/ui/NotesCard";
@@ -47,14 +45,14 @@ import { effectiveCredentialStatus } from "../utils/credentialStatus"; // F01: c
 import { Bell, Layers, Building2, Users, ClipboardList, BarChart3, ShieldCheck, Flag } from "lucide-react";
 
 export default function AdminDashboard() {
-  const [tab, setTab] = useState("credentials");
+  // Admin lands on Manage Issuers → Pending: clearing the pending-issuer queue is the
+  // admin's most time-sensitive job (issuers wait to onboard), not browsing credentials.
+  const [tab, setTab] = useState("issuers");
   const [pendingIssuers, setPendingIssuers] = useState([]);
   const [approvedIssuers, setApprovedIssuers] = useState([]);
-  const [verifications, setVerifications] = useState([]);
   const [loading, setLoading] = useState(false);
   const [issuerStatsLoaded, setIssuerStatsLoaded] = useState(false);
   const [logsLoaded, setLogsLoaded] = useState(false);
-  const [verificationsLoading, setVerificationsLoading] = useState(false);
   const [logsLoading, setLogsLoading] = useState(false);
   const [message, setMessage] = useState("");
   const [messageType, setMessageType] = useState("success");
@@ -87,7 +85,7 @@ export default function AdminDashboard() {
     [adminNotifications]
   );
 
-  const [issuerFilter, setIssuerFilter] = useState("approved");
+  const [issuerFilter, setIssuerFilter] = useState("pending");
 
   // ✅ NEW: secondary filter for pending issuers only
   const [pendingIssuerFilter, setPendingIssuerFilter] = useState("all_pending");
@@ -481,7 +479,6 @@ const handleDownloadIssuerDocument = async (doc) => {
 
   const sortedVisibleUsers = useMemo(() => sortByDateThenName(filteredVisibleUsers, userSortBy, { dateFields: ["createdAt"], nameFields: ["username", "fullName", "email"], statusField: "email" }), [filteredVisibleUsers, userSortBy]);
 
-  const sortedVerifications = useMemo(() => sortByDateThenName(verifications, verificationSortBy, { dateFields: ["createdAt", "timestamp", "updatedAt"], nameFields: ["credentialName", "holderName", "issuerName"], statusField: "status" }), [verifications, verificationSortBy]);
 
   const sortedStatusLogs = useMemo(() => sortByDateThenName(statusLogs, statusLogSortBy, { dateFields: ["timestamp", "createdAt"], nameFields: ["email", "adminEmail"], statusField: "newStatus" }), [statusLogs, statusLogSortBy]);
 
@@ -554,7 +551,6 @@ const handleDownloadIssuerDocument = async (doc) => {
   /* C6: issuer approval queue (aging) + turnaround — what an admin actually acts on (per Sir Danny) */
   const approvalQueue = useMemo(() => computeIssuerApprovalTurnaround(pendingIssuers, approvedIssuers), [pendingIssuers, approvedIssuers]);
   /* C12: verification volume per month — honest usage/load signal (peak seasons like graduation) */
-  const verifVolume = useMemo(() => computeVerificationVolume(verificationLogs), [verificationLogs]);
   /* Phase 4 GOOD: per-credential dossier (processed lifecycle timeline + immutable verification trail) */
   const provenance = useMemo(() => computeProvenance(credentialHistory), [credentialHistory]);
   const proofTrail = useMemo(
@@ -564,7 +560,7 @@ const handleDownloadIssuerDocument = async (doc) => {
 
   const issuerColumnConfig = {
     approved: ["orgName", "issuerId", "email", "issuerType", "rootAuthority", "status", "approvedAt", "approvedBy", "actions"],
-    pending: ["orgName", "issuerId", "email", "issuerType", "rootAuthority", "rootApproval", "status", "createdAt", "actions"],
+    pending: ["orgName", "issuerId", "email", "issuerType", "rootAuthority", "rootApproval", "status", "createdAt", "daysWaiting", "actions"],
     rejected: ["orgName", "issuerId", "email", "issuerType", "rejectedBy", "rejectedAt"],
     disabled: ["orgName", "issuerId", "email", "issuerType", "disabledBy", "disabledAt", "actions"],
   };
@@ -586,6 +582,7 @@ const handleDownloadIssuerDocument = async (doc) => {
     disabledAt: "Disabled At",
     enabledBy: "Enabled By",
     createdAt: "Created At",
+    daysWaiting: "Days Waiting",
     actions: "Actions",
   };
 
@@ -1066,33 +1063,7 @@ const handleDownloadIssuerDocument = async (doc) => {
   };
 
   // -------------------------------------------------------------------
-  // CREDENTIALS / VERIFICATIONS (OLD, PER-CREDENTIAL LIST)
-  // -------------------------------------------------------------------
-  const fetchVerifications = async () => {
-    try {
-      setVerificationsLoading(true);
-      const allCredentials = await apiService.getAllCredentials();
-      const credentialsList = Array.isArray(allCredentials) ? allCredentials : [];
-
-      const verificationData = credentialsList.map((cred) => ({
-        id: cred.id,
-        requester: cred.holderID || "Unknown",
-        credential: cred.credentialType || "N/A",
-        status: cred.verified ? "Approved" : "Pending",
-        submitted: cred.issueDate || cred.timestamp || "N/A",
-      }));
-
-      setVerifications(verificationData);
-    } catch (error) {
-      console.error("Error fetching verifications:", error);
-      setVerifications([]);
-    } finally {
-      setVerificationsLoading(false);
-    }
-  };
-
-  // -------------------------------------------------------------------
-  // NEW: ADMIN GLOBAL CREDENTIALS VIEW (across all issuers)
+  // ADMIN GLOBAL CREDENTIALS VIEW (across all issuers)
   // -------------------------------------------------------------------
   // ADMIN2: open a styled in-app confirm instead of the native browser confirm.
   const handleIntegrityCheck = () => setIntegrityConfirmOpen(true);
@@ -1113,19 +1084,23 @@ const handleDownloadIssuerDocument = async (doc) => {
     }
   };
 
-  const fetchAdminCredentials = async () => {
+  const fetchAdminCredentials = async (opts = {}) => {
     try {
       setAdminCredentialsLoading(true);
       setAdminCredentialsError(null);
 
+      // Analytics passes { unfiltered: true } so whole-system aggregates (Suspicious Activity /
+      // "Issuers to Review", KPIs) don't silently inherit the Credentials-tab issuer/type filter.
       const params = {};
-      if (adminCredIssuerFilter !== "all") {
-        params.issuerId = adminCredIssuerFilter;
-      }
-      if (adminCredTypeFilter === "issued") {
-        params.type = "issued";
-      } else if (adminCredTypeFilter === "templates") {
-        params.type = "templates";
+      if (!opts.unfiltered) {
+        if (adminCredIssuerFilter !== "all") {
+          params.issuerId = adminCredIssuerFilter;
+        }
+        if (adminCredTypeFilter === "issued") {
+          params.type = "issued";
+        } else if (adminCredTypeFilter === "templates") {
+          params.type = "templates";
+        }
       }
 
       const resp = await apiService.Get_AllAdminCredentials(params);
@@ -1569,7 +1544,7 @@ const handleDownloadIssuerDocument = async (doc) => {
   // -------------------------------------------------------------------
   useEffect(() => {
     if (tab === "issuers" && !issuerStatsLoaded) {
-      setIssuerFilter("approved");
+      setIssuerFilter("pending");
       setPendingIssuerFilter("all_pending");
       refreshIssuerCollections();
     } else if (tab === "credentials") {
@@ -1587,9 +1562,10 @@ const handleDownloadIssuerDocument = async (doc) => {
       fetchUsers();
       setUserFilter("active");
     } else if (tab === "analytics") {
-      // Phase 4: needs verification logs (Verification Summary) + cross-issuer credentials (Suspicious Activity)
+      // Phase 4: needs verification logs (Verification Summary) + cross-issuer credentials (Suspicious
+      // Activity / KPIs). Fetch UNFILTERED so these whole-system numbers ignore the Credentials-tab filter.
       fetchVerificationLogs();
-      fetchAdminCredentials();
+      fetchAdminCredentials({ unfiltered: true });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tab, issuerStatsLoaded, logsLoaded, issuerDecisionFilter, refreshIssuerCollections, rootSubordinateDecisionFilter, statusLogEmailSearch, statusLogFilter]);
@@ -2103,101 +2079,9 @@ const handleDownloadIssuerDocument = async (doc) => {
                   ❌ {credentialHistoryError}
                 </div>
               ) : credentialHistory.length > 0 ? (
-                <div style={{ display: "none" }}>
-                  {/* ADMIN7: raw "Full audit records" removed — dossier is insight-first
-                      (Provenance Timeline + Verification Proof Trail above). */}
-                  {false && (
-                  <div className="table-wrapper">
-                    <table className="admin-table history-modal-table">
-                      <thead>
-                        <tr>
-                          <th>Timestamp</th>
-                          <th>Status</th>
-                          <th>Tx ID</th>
-                          <th>Snapshot</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {credentialHistory.map((entry, idx) => {
-                          const status =
-                            entry?.value?.status ||
-                            (entry.isDelete ? "deleted" : "N/A");
-
-                          const statusLower = String(status || "").toLowerCase();
-                          const isRevoked = statusLower === "revoked";
-
-                          const rejectionReason =
-                            entry?.value?.rejectionReason ||
-                            entry?.rejectionReason ||
-                            "";
-
-                          return (
-                            <tr key={entry.txId || idx}>
-                              <td style={{ padding: "12px 16px" }}>{formatTimestamp(entry.timestamp)}</td>
-
-                              <td style={{ padding: "12px 16px" }}>
-                                <span
-                                  className="status-value"
-                                  style={{ color: getStatusColor(status), fontWeight: 700 }}
-                                >
-                                  {String(status)}
-                                </span>
-
-                                {isRevoked && rejectionReason ? (
-                                  <div
-                                    style={{
-                                      marginTop: "6px",
-                                      color: "var(--danger)",
-                                      fontSize: "12px",
-                                    }}
-                                  >
-                                    Rejection Reason:{" "}
-                                    <strong>{rejectionReason}</strong>
-                                  </div>
-                                ) : null}
-                              </td>
-
-                              <td
-                                style={{
-                                  padding: "12px 16px",
-                                  fontFamily: "monospace",
-                                  fontSize: "12px",
-                                }}
-                              >
-                                {String(entry.txId || "N/A").slice(0, 18)}...
-                              </td>
-
-                              <td style={{ padding: "12px 16px", fontSize: "12px", opacity: 0.95 }}>
-                                {entry.isDelete ? (
-                                  <span>Record deleted</span>
-                                ) : (
-                                  <span>
-                                    {entry.value?.credentialName ||
-                                      entry.value?.credentialType ||
-                                      "—"}
-                                    {" | "}
-                                    Holder:{" "}
-                                    <span>
-                                      {entry.value?.holderName || entry.holderName || "—"}
-                                    </span>
-                                    {entry.value?.revokedAt ? (
-                                      <>
-                                        {" | "}
-                                        RevokedAt:{" "}
-                                        {formatTimestamp(entry.value.revokedAt)}
-                                      </>
-                                    ) : null}
-                                  </span>
-                                )}
-                              </td>
-                            </tr>
-                          );
-                        })}
-                      </tbody>
-                    </table>
-                  </div>
-                  )}
-                </div>
+                // ADMIN7: raw "Full audit records" table removed — the dossier is insight-first
+                // (Provenance Timeline + Verification Proof Trail render above this block).
+                null
               ) : (
                 <div style={{ padding: "16px", opacity: 0.9 }}>
                   No history found for this credential.
@@ -3308,6 +3192,22 @@ const handleDownloadIssuerDocument = async (doc) => {
             </div>
           )}
 
+          {/* D1: Approval Queue & Turnaround lives here (with the approve buttons), not in Analytics —
+              so the count is never stale. Every pending row also shows its own "Days Waiting" column;
+              sort by "Oldest First" to work the longest-waiting applications first. */}
+          {issuerFilter === "pending" && (
+            <div className="analytics-card" style={{ marginTop: 12 }}>
+              <h3 style={{ marginTop: 0 }}>Approval Queue &amp; Turnaround</h3>
+              <p className="analytics-card-sub">Applications waiting, how long they've waited, and your average time to decide. Work the longest-waiting first (sort by "Oldest First").</p>
+              <div style={{ display: "flex", gap: 18, flexWrap: "wrap", margin: "6px 0 4px" }}>
+                <div><div style={{ fontSize: 22, fontWeight: 700 }}>{approvalQueue.pendingCount}</div><div className="analytics-card-sub">Pending</div></div>
+                <div><div style={{ fontSize: 22, fontWeight: 700, color: approvalQueue.oldestDays > 14 ? "var(--danger)" : "var(--text)" }}>{approvalQueue.oldestDays}d</div><div className="analytics-card-sub">Oldest waiting</div></div>
+                <div><div style={{ fontSize: 22, fontWeight: 700 }}>{approvalQueue.avgDays != null ? `${approvalQueue.avgDays}d` : "—"}</div><div className="analytics-card-sub">Avg approval</div></div>
+              </div>
+              <InterpretationBox>{approvalQueue.summary}</InterpretationBox>
+            </div>
+          )}
+
           {loading ? (
             <SpinnerBlock label="Loading issuers…" />
           ) : sortedVisibleIssuers.length > 0 ? (
@@ -3528,6 +3428,12 @@ const handleDownloadIssuerDocument = async (doc) => {
                       disabledAt: formatTimestamp(issuer.disabledAt || issuer.updatedAt),
                       enabledBy: <span style={{ fontFamily: "monospace", fontSize: "12px" }}>{adminMeta.enabledBy}</span>,
                       createdAt: formatTimestamp(issuer.createdAt),
+                      daysWaiting: (() => {
+                        const t = issuer.createdAt ? new Date(issuer.createdAt).getTime() : NaN;
+                        if (Number.isNaN(t)) return "—";
+                        const d = Math.max(0, Math.floor((Date.now() - t) / 86400000));
+                        return <span style={{ fontWeight: 700, color: d > 14 ? "var(--danger)" : "var(--text)" }}>{d}d</span>;
+                      })(),
                       actions: <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>{actionsCell}</div>,
                     };
 
@@ -3699,56 +3605,6 @@ const handleDownloadIssuerDocument = async (doc) => {
             </div>
           ) : (
             <div className="tab-placeholder">No users found for selected view.</div>
-          )}
-        </div>
-      )}
-
-      {/* VERIFICATIONS TAB */}
-      {tab === "verifications" && (
-        <div className="tab-card">
-          <h2>Verification Oversight</h2>
-          <p className="tab-subtitle">
-            Monitor credential verification requests and track their resolution status.
-          </p>
-          <div className="issuer-filter-row" style={{ gap: 12, flexWrap: "wrap" }}>
-            <label htmlFor="verificationSortBy">Sort by:</label>
-            <select id="verificationSortBy" value={verificationSortBy} onChange={(e) => setVerificationSortBy(e.target.value)}>
-              <option value="newest">Most Recent</option>
-              <option value="oldest">Oldest First</option>
-              <option value="name-asc">Credential Name A-Z</option>
-              <option value="name-desc">Credential Name Z-A</option>
-              <option value="status-asc">Status A-Z</option>
-            </select>
-          </div>
-          {verificationsLoading ? (
-            <SpinnerBlock label="Loading verifications…" />
-          ) : sortedVerifications.length > 0 ? (
-            <div className="table-wrapper">
-              <table className="admin-table">
-                <thead>
-                  <tr>
-                    <th>Verification ID</th>
-                    <th>Requester</th>
-                    <th>Credential</th>
-                    <th>Status</th>
-                    <th>Submitted</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {sortedVerifications.map((v) => (
-                    <tr key={v.id}>
-                      <td>{v.id}</td>
-                      <td>{v.requester}</td>
-                      <td>{v.credential}</td>
-                      <td>{v.status}</td>
-                      <td>{formatTimestamp(v.submitted)}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          ) : (
-            <div className="tab-placeholder">No verification records found.</div>
           )}
         </div>
       )}
@@ -4093,7 +3949,7 @@ const handleDownloadIssuerDocument = async (doc) => {
                               let color = "var(--text-muted)";
                               if (status === "not_found" || reason.includes("not found")) {
                                 label = "Not Found"; color = "var(--accent-strong)";
-                              } else if (r.valid === true || reason.includes("valid")) {
+                              } else if (r.valid === true || (reason.includes("valid") && !reason.includes("invalid"))) {
                                 label = "Valid"; color = "var(--ok)";
                               } else if (reason.includes("revoked")) {
                                 label = "Revoked"; color = "var(--danger)";
@@ -4169,7 +4025,7 @@ const handleDownloadIssuerDocument = async (doc) => {
           <div className="analytics-kpis">
             {[
               { label: "Total Verifications", value: verificationOutcomes.total, Icon: ShieldCheck },
-              { label: "Active Issuers", value: suspicious.issuers.length, Icon: Building2 },
+              { label: "Issuers w/ Credentials", value: suspicious.issuers.length, Icon: Building2 },
               { label: "Credentials Issued", value: adminCredentials.filter((r) => (r.type || "").toLowerCase() === "issued").length, Icon: Layers },
               { label: "Revocations", value: adminCredentials.filter((r) => (r.status || "").toLowerCase() === "revoked").length, Icon: Flag },
             ].map(({ label, value, Icon }) => (
@@ -4187,7 +4043,7 @@ const handleDownloadIssuerDocument = async (doc) => {
             {/* Verification Result Summary (Verifier report, hosted in admin) */}
             <div className="analytics-card">
               <h3>1. Verification Result Summary</h3>
-              <p className="analytics-card-sub">Outcome breakdown for all verification attempts.</p>
+              <p className="analytics-card-sub">Outcome breakdown for all verification attempts — a capability/awareness view; no admin action is implied.</p>
               <DonutChart
                 slices={verificationOutcomes.slices}
                 centerValue={verificationOutcomes.total}
@@ -4199,8 +4055,8 @@ const handleDownloadIssuerDocument = async (doc) => {
 
             {/* Suspicious Activity Insight (rule-based, transparent thresholds) */}
             <div className="analytics-card">
-              <h3>2. Suspicious Activity Insight</h3>
-              <p className="analytics-card-sub">Issuers with an abnormally high revocation rate.</p>
+              <h3>2. Issuers to Review</h3>
+              <p className="analytics-card-sub">Issuers with an unusually high revocation rate — a prompt to take a closer look, not a verdict.</p>
               <div className="analytics-rule-pill">Rule: revocation rate &gt; {suspicious.thresholdPct}% in the last {suspicious.windowDays} days</div>
               <div className="analytics-flag-list">
                 {suspicious.issuers.length === 0 && (
@@ -4295,35 +4151,6 @@ const handleDownloadIssuerDocument = async (doc) => {
               )}
             </div>
 
-            {/* 5. Approval Queue & Turnaround — what an admin actually needs (per Sir Danny) */}
-            <div className="analytics-card">
-              <h3>4. Approval Queue &amp; Turnaround</h3>
-              <p className="analytics-card-sub">Issuer applications waiting, how long they've waited, and your average time to decide.</p>
-              <div style={{ display: "flex", gap: 18, flexWrap: "wrap", margin: "6px 0 10px" }}>
-                <div><div style={{ fontSize: 22, fontWeight: 700 }}>{approvalQueue.pendingCount}</div><div className="analytics-card-sub">Pending</div></div>
-                <div><div style={{ fontSize: 22, fontWeight: 700, color: approvalQueue.oldestDays > 14 ? "var(--danger)" : "var(--text)" }}>{approvalQueue.oldestDays}d</div><div className="analytics-card-sub">Oldest waiting</div></div>
-                <div><div style={{ fontSize: 22, fontWeight: 700 }}>{approvalQueue.avgDays != null ? `${approvalQueue.avgDays}d` : "—"}</div><div className="analytics-card-sub">Avg approval</div></div>
-              </div>
-              {approvalQueue.queue.length > 0 && (
-                <div className="analytics-flag-list">
-                  {approvalQueue.queue.slice(0, 5).map((q, i) => (
-                    <div className="analytics-flag-row" key={`aq-${i}`}>
-                      <div><div className="analytics-flag-issuer">{q.name}</div></div>
-                      <span className="analytics-flag-rate">{q.daysWaiting != null ? `${q.daysWaiting}d waiting` : "—"}</span>
-                    </div>
-                  ))}
-                </div>
-              )}
-              <InterpretationBox>{approvalQueue.summary}</InterpretationBox>
-            </div>
-
-            {/* 5. Verification Volume (C12) — platform usage over time; the honest "peak season" signal */}
-            <div className="analytics-card">
-              <h3>5. Verification Volume</h3>
-              <p className="analytics-card-sub">How many verifications the platform handles per month (last 6 months).</p>
-              <TrendBars data={verifVolume.byMonth} xKey="label" yKey="count" color="#5B8DEF" />
-              <InterpretationBox>{verifVolume.summary}</InterpretationBox>
-            </div>
           </div>
           <p className="analytics-footer-note">
             All insights are derived from on-chain audit trails and system checks. Data updates in near real-time.
@@ -4331,23 +4158,6 @@ const handleDownloadIssuerDocument = async (doc) => {
         </div>
       )}
 
-      {/* SETTINGS TAB */}
-      {tab === "settings" && (
-        <div className="tab-card">
-          <h2>System Settings</h2>
-          <p className="tab-subtitle">
-            Configure administrative controls for institutions, infrastructure,
-            and integrations.
-          </p>
-          <div className="settings-grid">
-            <button>+ Add Institution</button>
-            <button>Configure Blockchain</button>
-            <button>Manage API Keys</button>
-            <button>Security Policies</button>
-            <button>User Roles</button>
-          </div>
-        </div>
-      )}
       </AppShell>
     </div>
   );

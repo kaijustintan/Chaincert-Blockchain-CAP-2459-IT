@@ -231,6 +231,21 @@ export default function IssuerDashboard() {
   const [batchProgress, setBatchProgress] = useState({ done: 0, total: 0 });
   const [batchResults, setBatchResults] = useState([]);
   const [batchError, setBatchError] = useState("");
+
+  // D4: batch issuance state (mirrors batch revocation) — issue ONE credential to many holders
+  const [showBatchIssueModal, setShowBatchIssueModal] = useState(false);
+  const [batchIssueTemplateId, setBatchIssueTemplateId] = useState("");
+  const [batchIssueExpiry, setBatchIssueExpiry] = useState("");
+  const [batchIssueEligible, setBatchIssueEligible] = useState([]);
+  const [batchIssueRecipients, setBatchIssueRecipients] = useState([]);
+  const [batchIssueUnknown, setBatchIssueUnknown] = useState([]);
+  const [batchIssueFileName, setBatchIssueFileName] = useState("");
+  const [batchIssueConfirmStep, setBatchIssueConfirmStep] = useState(false);
+  const [batchIssueRunning, setBatchIssueRunning] = useState(false);
+  const [batchIssueDone, setBatchIssueDone] = useState(false);
+  const [batchIssueProgress, setBatchIssueProgress] = useState({ done: 0, total: 0 });
+  const [batchIssueResults, setBatchIssueResults] = useState([]);
+  const [batchIssueError, setBatchIssueError] = useState("");
   // C11: renewal requests queue (holder-initiated; the issuer decides from their OWN records)
   const [renewalRequests, setRenewalRequests] = useState([]);
   const [renewalLoading, setRenewalLoading] = useState(false);
@@ -379,7 +394,9 @@ export default function IssuerDashboard() {
     if (filterType !== "all") result = result.filter((cred) => String(cred.credentialType || "").toLowerCase() === String(filterType).toLowerCase());
     if (filterStatus !== "all") {
       result = result.filter((cred) => {
-        const normalizedStatus = String(cred.status || "").toLowerCase();
+        // Use effective (end-of-day-Manila) status so the filter matches the row badges —
+        // filtering "Expired" now catches effectively-expired-but-not-cron-flipped credentials.
+        const normalizedStatus = effectiveCredentialStatus(cred);
         if (filterStatus === "issued") return normalizedStatus === "issued" || normalizedStatus === "active";
         return normalizedStatus === filterStatus;
       });
@@ -751,7 +768,12 @@ export default function IssuerDashboard() {
   }, [allCredentialRows, filterRecordKind, viewAllTypeFilter, viewAllSearch, viewAllSortBy]);
 
   const revokableCount = useMemo(
-    () => credentials.filter((c) => c.status === "issued" || c.status === "active").length,
+    // Effective status so the "(N revokable)" header matches the rows that actually show a
+    // Revoke button — effectively-expired-but-not-cron-flipped credentials are excluded.
+    () => credentials.filter((c) => {
+      const eff = effectiveCredentialStatus(c);
+      return eff === "issued" || eff === "active";
+    }).length,
     [credentials]
   );
 
@@ -898,24 +920,28 @@ export default function IssuerDashboard() {
         [c.blockchainId, c.id, c._id].filter(Boolean).forEach((k) => byId.set(String(k), c));
       });
 
+      // Count SYNCHRONOUSLY (outside the setState updater) so the toast reports the real numbers —
+      // the old code read the counters before React ran the updater, so it always said "0 selected".
       let matched = 0, notRevocable = 0, unknown = 0;
+      const toAdd = [];
+      tokens.forEach((t) => {
+        const cred = byId.get(t);
+        if (!cred) { unknown++; return; }
+        const eff = effectiveCredentialStatus(cred);
+        if (eff !== "issued" && eff !== "active") { notRevocable++; return; }
+        toAdd.push(cred.blockchainId || cred.id);
+        matched++;
+      });
       setBatchSelected((prev) => {
         const next = new Set(prev);
-        tokens.forEach((t) => {
-          const cred = byId.get(t);
-          if (!cred) { unknown++; return; }
-          const eff = effectiveCredentialStatus(cred);
-          if (eff !== "issued" && eff !== "active") { notRevocable++; return; }
-          next.add(cred.blockchainId || cred.id);
-          matched++;
-        });
+        toAdd.forEach((id) => next.add(id));
         return next;
       });
 
       const parts = [`${matched} selected`];
       if (notRevocable) parts.push(`${notRevocable} skipped (already revoked/expired)`);
       if (unknown) parts.push(`${unknown} not found in your issued credentials`);
-      showToast(`CSV import: ${parts.join(", ")}.`, matched > 0 ? "success" : "danger");
+      showToast(`Import: ${parts.join(", ")}.`, matched > 0 ? "success" : "danger");
     };
     reader.readAsText(file);
   };
@@ -965,6 +991,108 @@ export default function IssuerDashboard() {
     }
     setBatchRunning(false); setBatchDone(true);
     fetchCredentials(); // refresh statuses (table + circulation + self-audit all recompute)
+  };
+
+  // ── D4: batch issuance — issue ONE credential to many holders in one pass ──────
+  const openBatchIssueModal = async () => {
+    try {
+      const result = await apiService.Check_IssuerHasTemplates();
+      if (!result?.hasTemplates) { setNoTemplateError("No credentials yet to issue. Please create a credential first."); return; }
+    } catch (_) { /* non-fatal — the credential dropdown will just be empty */ }
+    setBatchIssueTemplateId(""); setBatchIssueExpiry(""); setBatchIssueEligible([]);
+    setBatchIssueRecipients([]); setBatchIssueUnknown([]); setBatchIssueFileName("");
+    setBatchIssueConfirmStep(false); setBatchIssueDone(false); setBatchIssueResults([]);
+    setBatchIssueProgress({ done: 0, total: 0 }); setBatchIssueError("");
+    setShowBatchIssueModal(true);
+  };
+
+  const closeBatchIssueModal = () => {
+    if (batchIssueRunning) return; // never close mid-run — issuances are in flight
+    setShowBatchIssueModal(false); setBatchIssueConfirmStep(false); setBatchIssueError("");
+    if (batchIssueDone) { setBatchIssueDone(false); setBatchIssueResults([]); setBatchIssueRecipients([]); }
+  };
+
+  // Pick the credential → load the holders eligible to receive it (same source as single issue).
+  const handleBatchIssueTemplateChange = async (e) => {
+    const value = e.target.value;
+    setBatchIssueTemplateId(value);
+    setBatchIssueRecipients([]); setBatchIssueUnknown([]); setBatchIssueFileName(""); setBatchIssueError("");
+    if (!value) { setBatchIssueEligible([]); return; }
+    try {
+      const result = await apiService.Get_EligibleUsersForTemplate(value);
+      const list = result?.eligibleUsers || [];
+      setBatchIssueEligible(Array.isArray(list) ? list : []);
+    } catch (err) { setBatchIssueEligible([]); setBatchIssueError("Failed to load eligible recipients for this credential."); }
+  };
+
+  // Import a CSV/TXT of holder emails or IDs → match against the eligible list.
+  const handleBatchIssueCsv = (e) => {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file) return;
+    if (!batchIssueTemplateId) { showToast("Pick a credential first, then import recipients.", "danger"); return; }
+    setBatchIssueFileName(file.name); setBatchIssueError("");
+    const reader = new FileReader();
+    reader.onload = () => {
+      const tokens = String(reader.result || "")
+        .split(/[\r\n,;]+/)
+        .map((t) => t.trim().replace(/^"|"$/g, ""))
+        .filter((t) => t && !["email", "holder", "holderid", "id", "recipient"].includes(t.toLowerCase()));
+      if (tokens.length === 0) { setBatchIssueError("No recipient emails or IDs found in that file."); return; }
+
+      const byKey = new Map();
+      batchIssueEligible.forEach((u) => {
+        [u._id, u.id, u.email, u.username].filter(Boolean).forEach((k) => byKey.set(String(k).toLowerCase(), u));
+      });
+      const recipients = [];
+      const unknown = [];
+      const seen = new Set();
+      tokens.forEach((t) => {
+        const u = byKey.get(t.toLowerCase());
+        if (!u) { unknown.push(t); return; }
+        const rid = u._id || u.id;
+        if (!rid || seen.has(rid)) return;
+        seen.add(rid);
+        recipients.push({ id: rid, label: u.name || u.fullName || u.username || u.email || String(rid) });
+      });
+      setBatchIssueRecipients(recipients);
+      setBatchIssueUnknown(unknown);
+      const parts = [`${recipients.length} recipient(s) matched`];
+      if (unknown.length) parts.push(`${unknown.length} not eligible / not found`);
+      showToast(`Import: ${parts.join(", ")}.`, recipients.length > 0 ? "success" : "danger");
+    };
+    reader.readAsText(file);
+  };
+
+  const handleBatchIssueSubmit = () => {
+    setBatchIssueError("");
+    if (!batchIssueTemplateId) { setBatchIssueError("Select a credential to issue."); return; }
+    if (batchIssueRecipients.length === 0) { setBatchIssueError("Import a .csv / .txt of recipient emails or IDs first."); return; }
+    setBatchIssueConfirmStep(true);
+  };
+
+  const runBatchIssue = async () => {
+    const templateId = batchIssueTemplateId;
+    const expiry = batchIssueExpiry || "";
+    const recipients = [...batchIssueRecipients];
+    setBatchIssueRunning(true); setBatchIssueDone(false); setBatchIssueError("");
+    setBatchIssueResults([]); setBatchIssueProgress({ done: 0, total: recipients.length });
+    const results = [];
+    for (let i = 0; i < recipients.length; i++) {
+      const r = recipients[i];
+      try {
+        // Sequential on purpose: each issuance is its own chaincode invoke (same as single issue).
+        // eslint-disable-next-line no-await-in-loop
+        await apiService.Issue_Credential(templateId, r.id, expiry);
+        results.push({ id: r.id, label: r.label, success: true });
+      } catch (err) {
+        results.push({ id: r.id, label: r.label, success: false, error: err?.response?.data?.error || err?.response?.data?.message || err?.message || "Failed" });
+      }
+      setBatchIssueResults([...results]);
+      setBatchIssueProgress({ done: i + 1, total: recipients.length });
+    }
+    setBatchIssueRunning(false); setBatchIssueDone(true);
+    fetchCredentials();
   };
 
   // Skills handlers - polo
@@ -1146,6 +1274,15 @@ export default function IssuerDashboard() {
   const reachStale = useMemo(() => (reach.alerts || []).filter((a) => a.outcome === "revoked" || a.outcome === "expired"), [reach]);
   // C13: circulation health — active/expiring/expired/revoked share of everything this issuer issued
   const circulation = useMemo(() => computeCirculationHealth(credentials), [credentials]);
+  // C14: resolve the OWNER of a credential still being checked — the issuer's own issued-credential
+  // list already carries holderName, so this is a pure frontend join (no backend change needed).
+  const credOwnerById = useMemo(() => {
+    const m = new Map();
+    credentials.forEach((c) => {
+      [c.blockchainId, c.id, c._id].filter(Boolean).forEach((k) => m.set(String(k), c));
+    });
+    return m;
+  }, [credentials]);
 
   // -------------------------------------------------------------------
   // LOADING / ERROR STATES
@@ -1244,7 +1381,7 @@ export default function IssuerDashboard() {
           <div className="issuer-stats-row">
             {[
               { num: templateOptions.length, label: "Credentials", view: "create" },
-              { num: credentials.length, label: "Issued", view: "issue" },
+              { num: credentials.length, label: "Total issued", view: "issue" },
               { num: credentials.filter(c => c.status === "revoked").length, label: "Revoked", view: "revoke" },
               ...(!isSubordinate
                 ? [{ num: totalSubordinateCount, label: "Subordinates", view: "subordinates" }]
@@ -1338,7 +1475,12 @@ export default function IssuerDashboard() {
           <h2>Issue Credentials</h2>
 
           <div style={{ margin: "20px 0" }}>
-            <button onClick={openIssueModal} className="action-btn issue-btn">+ Issue Credential</button>
+            <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center" }}>
+              <button onClick={openIssueModal} className="action-btn issue-btn">+ Issue Credential</button>
+              <span style={{ opacity: 0.45, alignSelf: "center" }}>— or batch —</span>
+              {/* D4: issue ONE credential to many holders from a CSV/TXT of emails or IDs */}
+              <button onClick={openBatchIssueModal} className="action-btn issue-btn">Batch issue from list</button>
+            </div>
             {noTemplateError && <div className="no-template-warning">{noTemplateError}</div>}
           </div>
 
@@ -1537,24 +1679,33 @@ export default function IssuerDashboard() {
             ]}
           />
 
-          <div style={{ margin: "20px 0", display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center" }}>
-            <button onClick={openRevokeModal} className="action-btn revoke-btn">Revoke a credential</button>
-            {/* C17: batch revocation — selection comes from the checkboxes below or a CSV of IDs */}
-            <button
-              onClick={openBatchRevokeModal}
-              className="action-btn revoke-btn"
-              disabled={batchSelected.size === 0}
-              style={batchSelected.size === 0 ? { opacity: 0.45, cursor: "not-allowed" } : undefined}
-            >
-              Revoke selected ({batchSelected.size})
-            </button>
-            <label className="action-btn" style={{ cursor: "pointer" }} title="One credential ID per line (or comma-separated)">
-              Import CSV of IDs
-              <input type="file" accept=".csv,.txt" onChange={handleBatchCsvImport} style={{ display: "none" }} />
-            </label>
-            {batchSelected.size > 0 && (
-              <button type="button" className="action-btn btn-cancel" onClick={() => setBatchSelected(new Set())}>Clear selection</button>
-            )}
+          {/* B3: clear hierarchy — single revoke, then the batch group (select rows / import IDs),
+              with the ID-format hint visible up front instead of discovered by trial and error. */}
+          <div style={{ margin: "20px 0" }}>
+            <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center" }}>
+              <button onClick={openRevokeModal} className="action-btn revoke-btn">Revoke a credential</button>
+              <span style={{ opacity: 0.45, alignSelf: "center" }}>— or batch —</span>
+              <button
+                onClick={openBatchRevokeModal}
+                className="action-btn revoke-btn"
+                disabled={batchSelected.size === 0}
+                style={batchSelected.size === 0 ? { opacity: 0.45, cursor: "not-allowed" } : undefined}
+              >
+                Revoke selected ({batchSelected.size})
+              </button>
+              {batchSelected.size > 0 && (
+                <button type="button" className="action-btn btn-cancel" onClick={() => setBatchSelected(new Set())}>Clear</button>
+              )}
+              <label className="action-btn" style={{ cursor: "pointer", marginLeft: "auto" }}>
+                Import .csv / .txt of IDs
+                <input type="file" accept=".csv,.txt" onChange={handleBatchCsvImport} style={{ display: "none" }} />
+              </label>
+            </div>
+            <p style={{ fontSize: 12.5, color: "var(--text-muted)", margin: "8px 0 0", lineHeight: 1.5 }}>
+              <strong>Batch revoke:</strong> tick the credentials in the table below, or import a{" "}
+              <strong>.csv / .txt</strong> of credential IDs (one per line, or comma-separated). Only
+              issued/active credentials can be selected.
+            </p>
           </div>
 
           {/* Revokable credentials list */}
@@ -1737,8 +1888,13 @@ export default function IssuerDashboard() {
           ============================================================ */}
       {activeView === "analytics" && (
         <>
-          {/* C5: Verification Reach — third-party proof that your issued credentials are actively verified */}
+          {/* C5: Verification Reach — reframed as a usage/trust signal (not a decision tool);
+              lead with the actionable C14 signal (outdated copies circulating + the owner to contact). */}
           <h2>Verification Reach</h2>
+          <p className="analytics-card-sub" style={{ marginTop: 4 }}>
+            How often outside parties check the credentials you've issued — proof that what you issue is
+            relied upon. A usage &amp; trust signal, not a decision tool.
+          </p>
           {reachLoading ? (
             <SpinnerBlock label="Loading verification activity…" minHeight={100} />
           ) : reach.totalChecks === 0 ? (
@@ -1750,10 +1906,7 @@ export default function IssuerDashboard() {
           ) : (
             <>
               <div className="issuer-stats-row" style={{ marginTop: 16 }}>
-                <div className="issuer-stat-card">
-                  <span className="issuer-stat-num">{reach.totalChecks}</span>
-                  <span className="issuer-stat-label">Verifications</span>
-                </div>
+                {/* Lead with trust (distinct verifiers + valid rate); the raw total is demoted to last. */}
                 <div className="issuer-stat-card">
                   <span className="issuer-stat-num">{reach.distinctVerifiers}</span>
                   <span className="issuer-stat-label">Distinct verifiers</span>
@@ -1762,10 +1915,37 @@ export default function IssuerDashboard() {
                   <span className="issuer-stat-num" style={{ color: reach.allValid ? "var(--ok)" : "var(--warn)" }}>{reach.validCount}/{reach.totalChecks}</span>
                   <span className="issuer-stat-label">Returned valid</span>
                 </div>
+                <div className="issuer-stat-card">
+                  <span className="issuer-stat-num">{reach.totalChecks}</span>
+                  <span className="issuer-stat-label">Total checks</span>
+                </div>
               </div>
 
-              {reach.mostChecked.length > 0 && (
+              {/* C14 FIRST — the one actionable signal: an outdated copy is circulating; show the owner to contact. */}
+              {reachStale.length > 0 && (
                 <div className="analytics-card" style={{ marginTop: 18 }}>
+                  <h3>Revoked / expired credentials still being checked</h3>
+                  <p className="analytics-card-sub">{reachStale.length} check(s) hit a revoked or expired credential — an outdated copy may still be circulating. Contact the owner to confirm.</p>
+                  <div className="analytics-flag-list">
+                    {reachStale.slice(0, 6).map((a, i) => {
+                      const owner = credOwnerById.get(String(a.credentialId));
+                      const ownerLabel = owner ? (owner.holderName || owner.holderID || "Unknown owner") : "Unknown owner";
+                      return (
+                        <div className="analytics-flag-row flagged" key={`c14-${i}`}>
+                          <div>
+                            <div className="analytics-flag-issuer">{a.credentialName}</div>
+                            <div className="analytics-flag-reason">Owner: {ownerLabel}</div>
+                          </div>
+                          <span className="analytics-flag-rate flagged">{a.outcome}</span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {reach.mostChecked.length > 0 && (
+                <div className="analytics-card" style={{ marginTop: 14 }}>
                   <h3>Most-verified credentials</h3>
                   <div className="analytics-flag-list">
                     {reach.mostChecked.map((m, i) => (
@@ -1775,22 +1955,6 @@ export default function IssuerDashboard() {
                           <div className="analytics-flag-reason">{m.count}× verified{m.invalidCount > 0 ? ` • ⚠ ${m.invalidCount} returned revoked/expired` : ""}</div>
                         </div>
                         <span className="analytics-flag-rate">{m.count}×</span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {/* C14: revoked/expired credentials still being checked — outdated copies circulating */}
-              {reachStale.length > 0 && (
-                <div className="analytics-card" style={{ marginTop: 14 }}>
-                  <h3>Revoked / expired credentials still being checked</h3>
-                  <p className="analytics-card-sub">{reachStale.length} check(s) hit a revoked or expired credential — outdated copies may still be circulating.</p>
-                  <div className="analytics-flag-list">
-                    {reachStale.slice(0, 6).map((a, i) => (
-                      <div className="analytics-flag-row flagged" key={`c14-${i}`}>
-                        <div><div className="analytics-flag-issuer">{a.credentialName}</div></div>
-                        <span className="analytics-flag-rate flagged">{a.outcome}</span>
                       </div>
                     ))}
                   </div>
@@ -1836,15 +2000,16 @@ export default function IssuerDashboard() {
 
           <InterpretationBox>{issuance.summary}</InterpretationBox>
 
-          {/* C13: Credentials in Circulation — how much of what you've issued is still alive */}
+          {/* C13: Credentials in Circulation — lead with the interpretation/nudge (validity-period
+              review), then the status-breakdown donut. */}
           <h2 style={{ marginTop: 32 }}>Credentials in Circulation</h2>
-          <div className="analytics-grid" style={{ marginTop: 18 }}>
+          <InterpretationBox>{circulation.summary}</InterpretationBox>
+          <div className="analytics-grid" style={{ marginTop: 12 }}>
             <div className="analytics-card">
               <h3>Status of issued credentials</h3>
               <DonutChart slices={circulation.slices} centerValue={circulation.total} centerLabel="Issued" showBreakdown />
             </div>
           </div>
-          <InterpretationBox>{circulation.summary}</InterpretationBox>
 
           {/* Phase 4 GOOD: Revocation Self-Audit — where is our issuance process breaking? */}
           <h2 style={{ marginTop: 32 }}>Revocation Self-Audit</h2>
@@ -2024,6 +2189,119 @@ export default function IssuerDashboard() {
             )}
           </div>
           {!batchRunning && <div className="modal-backdrop" onClick={closeBatchRevokeModal}></div>}
+        </div>
+      )}
+
+      {/* D4: batch issuance modal — pick credential + import recipients → confirm → sequential run */}
+      {showBatchIssueModal && (
+        <div className="modal-overlay">
+          <div className="modal" style={{ maxWidth: 560 }}>
+            <div className="modal-header">
+              <h3>
+                {batchIssueDone ? "Batch issuance results"
+                  : batchIssueRunning ? "Issuing…"
+                  : batchIssueConfirmStep ? "Confirm batch issuance"
+                  : "Batch issue a credential"}
+              </h3>
+              {!batchIssueRunning && <button type="button" className="modal-close" onClick={closeBatchIssueModal}>✕</button>}
+            </div>
+
+            {!batchIssueRunning && !batchIssueDone && !batchIssueConfirmStep && (
+              <>
+                <p style={{ margin: "8px 0 12px", fontSize: 13, color: "var(--text-muted)", lineHeight: 1.5 }}>
+                  Issue ONE credential to many holders at once. Pick the credential, then import a{" "}
+                  <strong>.csv / .txt</strong> of recipient <strong>emails or holder IDs</strong> (one per line, or
+                  comma-separated). Only holders eligible for that credential are matched.
+                </p>
+                <div className="form-group">
+                  <label>Credential <span className="required-star">*</span></label>
+                  <select value={batchIssueTemplateId} onChange={handleBatchIssueTemplateChange}>
+                    <option value="">Select a credential…</option>
+                    {templateOptions.map((t) => (
+                      <option key={t.id || t._id} value={t.id || t._id}>{t.credentialName} ({t.credentialType})</option>
+                    ))}
+                  </select>
+                </div>
+                <div className="form-group">
+                  <label>Expiry date (optional — blank = no expiry)</label>
+                  <input type="date" min={minIssueExpiryDate()} value={batchIssueExpiry} onChange={(e) => setBatchIssueExpiry(e.target.value)} />
+                </div>
+                <div className="form-group">
+                  <label>Recipients <span className="required-star">*</span></label>
+                  <label className="action-btn" style={{ cursor: batchIssueTemplateId ? "pointer" : "not-allowed", opacity: batchIssueTemplateId ? 1 : 0.5, display: "inline-block" }}>
+                    Import .csv / .txt of recipients
+                    <input type="file" accept=".csv,.txt" onChange={handleBatchIssueCsv} disabled={!batchIssueTemplateId} style={{ display: "none" }} />
+                  </label>
+                  {batchIssueFileName && (
+                    <div style={{ fontSize: 12.5, color: "var(--text-muted)", marginTop: 6 }}>
+                      {batchIssueFileName} — <strong>{batchIssueRecipients.length}</strong> matched
+                      {batchIssueUnknown.length > 0 ? `, ${batchIssueUnknown.length} not eligible / not found` : ""}
+                    </div>
+                  )}
+                </div>
+                {batchIssueRecipients.length > 0 && (
+                  <div className="analytics-flag-list" style={{ maxHeight: 160, overflowY: "auto", marginBottom: 12 }}>
+                    {batchIssueRecipients.slice(0, 8).map((r) => (
+                      <div className="analytics-flag-row" key={`bi-${r.id}`}>
+                        <div><div className="analytics-flag-issuer">{r.label}</div></div>
+                      </div>
+                    ))}
+                    {batchIssueRecipients.length > 8 && (
+                      <div className="analytics-flag-reason" style={{ padding: "6px 0" }}>…and {batchIssueRecipients.length - 8} more</div>
+                    )}
+                  </div>
+                )}
+                {batchIssueError && <div className="form-error">{batchIssueError}</div>}
+                <div className="form-actions">
+                  <button type="button" className="action-btn issue-btn" onClick={handleBatchIssueSubmit}>Continue</button>
+                  <button type="button" className="action-btn btn-cancel" onClick={closeBatchIssueModal}>Cancel</button>
+                </div>
+              </>
+            )}
+
+            {!batchIssueRunning && !batchIssueDone && batchIssueConfirmStep && (
+              <>
+                <p style={{ margin: "12px 0 4px", fontSize: 14, lineHeight: 1.6, color: "var(--text)" }}>
+                  You're about to issue this credential to <strong>{batchIssueRecipients.length}</strong> holder(s)
+                  {batchIssueExpiry ? <> with expiry <strong>{batchIssueExpiry}</strong></> : <> with <strong>no expiry</strong></>}.
+                  Each issuance is written to the blockchain individually.
+                </p>
+                <div className="form-actions">
+                  <button type="button" className="action-btn issue-btn" onClick={runBatchIssue}>Confirm — issue {batchIssueRecipients.length}</button>
+                  <button type="button" className="action-btn btn-cancel" onClick={() => setBatchIssueConfirmStep(false)}>Go back</button>
+                </div>
+              </>
+            )}
+
+            {(batchIssueRunning || batchIssueDone) && (
+              <>
+                <p style={{ margin: "8px 0 10px", fontSize: 13, color: "var(--text-muted)" }}>
+                  {batchIssueRunning
+                    ? `Issuing ${Math.min(batchIssueProgress.done + 1, batchIssueProgress.total)} of ${batchIssueProgress.total}… each issuance is its own blockchain transaction, so this takes a moment.`
+                    : `Done — ${batchIssueResults.filter((r) => r.success).length} issued, ${batchIssueResults.filter((r) => !r.success).length} failed.`}
+                </p>
+                <div style={{ height: 8, borderRadius: 999, background: "var(--border)", overflow: "hidden", marginBottom: 12 }}>
+                  <div style={{ height: "100%", width: `${batchIssueProgress.total ? Math.round((batchIssueProgress.done / batchIssueProgress.total) * 100) : 0}%`, background: "var(--ok)", transition: "width .3s ease" }} />
+                </div>
+                <div className="analytics-flag-list" style={{ maxHeight: 220, overflowY: "auto" }}>
+                  {batchIssueResults.map((r) => (
+                    <div className={`analytics-flag-row${r.success ? "" : " flagged"}`} key={`bires-${r.id}`}>
+                      <div>
+                        <div className="analytics-flag-issuer">{r.success ? "✓" : "✗"} {r.label}</div>
+                        <div className="analytics-flag-reason">{r.success ? "Issued" : (r.error || "Failed")}</div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                {batchIssueDone && (
+                  <div className="form-actions" style={{ marginTop: 12 }}>
+                    <button type="button" className="action-btn" onClick={closeBatchIssueModal}>Close</button>
+                  </div>
+                )}
+              </>
+            )}
+          </div>
+          {!batchIssueRunning && <div className="modal-backdrop" onClick={closeBatchIssueModal}></div>}
         </div>
       )}
 

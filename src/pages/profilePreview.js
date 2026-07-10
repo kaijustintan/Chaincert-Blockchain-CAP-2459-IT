@@ -98,6 +98,7 @@ export default function ProfilePreview() {
   const [vaToken, setVaToken] = useState("");
   const [vaEmail, setVaEmail] = useState("");
   const [vaGate, setVaGate] = useState("hidden"); // 'hidden' | 'email' | 'code'
+  const [vaModalOpen, setVaModalOpen] = useState(false); // B2: results shown in a popup card
   const [vaOtpEmail, setVaOtpEmail] = useState("");
   const [vaOtpCode, setVaOtpCode] = useState("");
   const [vaOtpError, setVaOtpError] = useState("");
@@ -390,7 +391,7 @@ export default function ProfilePreview() {
   const runVerifyAll = async (tok, em) => {
     const list = credentials.filter((c) => c.blockchainId);
     if (list.length === 0) return;
-    setVaRunning(true); setVaDone(false);
+    setVaRunning(true); setVaDone(false); setVaModalOpen(true);
     setVaResults({}); setVaProgress({ done: 0, total: list.length });
     const results = {};
     for (let i = 0; i < list.length; i++) {
@@ -676,34 +677,6 @@ export default function ProfilePreview() {
             </button>
           )}
         </div>
-        {(vaRunning || vaDone) && (
-          <div style={{ margin: '10px 0 4px' }}>
-            <div style={{ height: 6, borderRadius: 999, background: 'var(--border)', overflow: 'hidden' }}>
-              <div style={{ height: '100%', width: `${vaProgress.total ? Math.round((vaProgress.done / vaProgress.total) * 100) : 0}%`, background: 'var(--accent-strong)', transition: 'width .3s ease' }} />
-            </div>
-            {vaSummary && (
-              <p style={{ margin: '6px 0 0', fontSize: '0.82rem', color: 'var(--text-muted)' }}>
-                {vaDone ? `Live blockchain check: ${vaSummary}` : vaSummary}
-                {vaDone && vaEmail ? ` · logged under ${vaEmail}` : ''}
-              </p>
-            )}
-          </div>
-        )}
-        {/* B2: live "Verify all" verdicts render in their OWN panel, not stacked on top of the
-            credential cards (the inline chip used to overlap/displace the cards). */}
-        {(vaRunning || vaDone) && Object.keys(vaResults).length > 0 && (
-          <div className="va-results-panel" style={{ margin: '10px 0', display: 'flex', flexDirection: 'column', gap: 6 }}>
-            {credentials.filter((c) => vaResults[c.blockchainId]).map((c) => {
-              const m = VA_OUTCOME_META[vaResults[c.blockchainId].outcome] || VA_OUTCOME_META.error;
-              return (
-                <div key={`va-${c._id}`} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, padding: '8px 12px', borderRadius: 10, border: '1px solid var(--border)' }}>
-                  <span style={{ fontSize: 13.5, fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.credentialName}</span>
-                  <span style={{ fontSize: 12.5, fontWeight: 700, color: m.color, flexShrink: 0 }}>⛓ {m.label}</span>
-                </div>
-              );
-            })}
-          </div>
-        )}
         <div className="badge-list">
           {credLoading && <SpinnerBlock label="Loading credentials…" minHeight={120} />}
           {!credLoading && credentials.length === 0 && (
@@ -828,6 +801,42 @@ export default function ProfilePreview() {
             >
               Cancel
             </button>
+          </div>
+        </div>
+      )}
+
+      {/* B2: verify-all progress + results in a popup card (portrait), not inline over the cards */}
+      {vaModalOpen && (
+        <div style={overlayStyle}>
+          <div style={{ ...gateBoxStyle, maxWidth: 440, width: '92%', maxHeight: '82vh', display: 'flex', flexDirection: 'column', gap: 10 }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
+              <h2 style={{ color: 'var(--accent-strong)', margin: 0, fontSize: '1.15rem' }}>⛓ Live blockchain check</h2>
+              {!vaRunning && (
+                <button onClick={() => setVaModalOpen(false)} aria-label="Close" style={{ background: 'none', border: 'none', color: 'var(--text-muted)', fontSize: 20, cursor: 'pointer', lineHeight: 1 }}>✕</button>
+              )}
+            </div>
+            <div style={{ height: 6, borderRadius: 999, background: 'var(--border)', overflow: 'hidden' }}>
+              <div style={{ height: '100%', width: `${vaProgress.total ? Math.round((vaProgress.done / vaProgress.total) * 100) : 0}%`, background: 'var(--accent-strong)', transition: 'width .3s ease' }} />
+            </div>
+            <p style={{ margin: 0, fontSize: '0.82rem', color: 'var(--text-muted)' }}>
+              {vaRunning
+                ? `Verifying ${Math.min(vaProgress.done + 1, vaProgress.total)} of ${vaProgress.total}… each check reads the live blockchain.`
+                : vaSummary ? `${vaSummary}${vaEmail ? ` · logged under ${vaEmail}` : ''}` : ''}
+            </p>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8, overflowY: 'auto', paddingRight: 2 }}>
+              {credentials.filter((c) => vaResults[c.blockchainId]).map((c) => {
+                const m = VA_OUTCOME_META[vaResults[c.blockchainId].outcome] || VA_OUTCOME_META.error;
+                return (
+                  <div key={`vam-${c._id}`} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, padding: '10px 12px', borderRadius: 10, border: '1px solid var(--border)' }}>
+                    <span style={{ fontSize: 13.5, fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.credentialName}</span>
+                    <span style={{ fontSize: 12.5, fontWeight: 700, color: m.color, flexShrink: 0 }}>{m.label}</span>
+                  </div>
+                );
+              })}
+            </div>
+            {vaDone && (
+              <button onClick={() => setVaModalOpen(false)} style={gateBtnStyle}>Done</button>
+            )}
           </div>
         </div>
       )}

@@ -208,8 +208,27 @@ export default function StudentDashboard() {
 
   // ── Filter logic ───────────────────────────────────────────────────────────
 
+  // C11/D2: collapse a renewal lineage (same template + same holder) to ONE card — the newest
+  // instance — so a renewed credential shows a single "Renewed N×" card instead of the old (now
+  // expired) copy plus the new one. Credentials without a templateId pass through unchanged.
+  // The renewal system prevents re-issuing the same template to the same holder unless the prior
+  // copy expired/was revoked, so a group here is always a genuine renewal chain.
+  const collapsedCredentials = useMemo(() => {
+    const dt = (x) => new Date(x.assignedDate || x.savedToUserWalletAt || x.createdAt || 0).getTime();
+    const groups = new Map();
+    const passthrough = [];
+    for (const c of credentials) {
+      const tid = c.templateId;
+      if (!tid) { passthrough.push(c); continue; }
+      const key = `${tid}|${c.holderID || c.holderId || ""}`;
+      const existing = groups.get(key);
+      if (!existing || dt(c) >= dt(existing)) groups.set(key, c);
+    }
+    return [...passthrough, ...groups.values()];
+  }, [credentials]);
+
   const filtered = useMemo(() => {
-    let result = credentials.filter((c) => {
+    let result = collapsedCredentials.filter((c) => {
       const searchable = [c.credentialName, c.credentialType, c.issuerName]
         .join(" ")
         .toLowerCase();
@@ -242,23 +261,24 @@ export default function StudentDashboard() {
     }
 
     return result;
-  }, [credentials, query, statusFilter, sortBy]);
+  }, [collapsedCredentials, query, statusFilter, sortBy]);
 
-  /* Compute stats from credentials for the stats bar */
+  /* Compute stats from the collapsed set so the chip counts match the cards shown */
   const stats = useMemo(() => {
     // F01: count by effective (end-of-day-Manila) status so the chips match the badges.
     const eff = (c) => effectiveCredentialStatus(c);
-    const active = credentials.filter((c) => { const s = eff(c); return s === "issued" || s === "active"; }).length;
-    const revoked = credentials.filter((c) => eff(c) === "revoked").length;
-    const expired = credentials.filter((c) => eff(c) === "expired").length;
+    const active = collapsedCredentials.filter((c) => { const s = eff(c); return s === "issued" || s === "active"; }).length;
+    const revoked = collapsedCredentials.filter((c) => eff(c) === "revoked").length;
+    const expired = collapsedCredentials.filter((c) => eff(c) === "expired").length;
 
-    return { total: credentials.length, active, revoked, expired };
-  }, [credentials]);
+    return { total: collapsedCredentials.length, active, revoked, expired };
+  }, [collapsedCredentials]);
 
   /* Phase 4: Personal Credential Health report (non-overlapping buckets + interpretation) */
-  const health = useMemo(() => computeHealth(credentials), [credentials]);
+  const health = useMemo(() => computeHealth(collapsedCredentials), [collapsedCredentials]);
   /* Phase 4 NICE: actionable renewal list (which credentials, soonest-first) */
-  const renewal = useMemo(() => computeExpirationAlerts(credentials), [credentials]);
+  const [exportWarn, setExportWarn] = useState(null); // D6: styled revoked-in-export warning
+  const renewal = useMemo(() => computeExpirationAlerts(collapsedCredentials), [collapsedCredentials]);
 
   // C11: renewal requests — blockchainIds of this holder's credentials with a PENDING request,
   // so the "Request renewal" button shows "Requested" across reloads. Identity derived server-side.
@@ -475,7 +495,7 @@ export default function StudentDashboard() {
   const hasCreds = !loading && !error && credentials.length > 0;
   // Group 9: Export-all only produces PUBLIC credentials. If none are public the button was a
   // silent no-op ("dead button"), so disable it with an explanatory tooltip instead.
-  const hasPublicCreds = hasCreds && credentials.some((c) => c.visibility === 'public');
+  const hasPublicCreds = hasCreds && collapsedCredentials.some((c) => c.visibility === 'public');
 
   return (
     <div className="holder-page">
@@ -653,10 +673,11 @@ export default function StudentDashboard() {
               <span title={hasPublicCreds ? undefined : "No public credentials to export. Set at least one credential to public first."}>
                 <Button variant="secondary" size="sm" icon={Download} disabled={!hasPublicCreds} onClick={() => {
                   if (!hasPublicCreds) return;
-                  // D6: warn before exporting a bundle that includes a revoked credential.
-                  const revoked = credentials.filter((c) => c.visibility === "public" && effectiveCredentialStatus(c) === "revoked");
-                  if (revoked.length > 0 && !window.confirm(`This export includes a revoked credential: ${revoked.map((c) => c.credentialName).join(", ")}. Anyone who verifies it will see it's revoked. Continue?`)) return;
-                  exportAllCredentialsToPDF(credentials, displayName);
+                  // D6: warn (styled modal) before exporting a bundle that includes a revoked credential.
+                  const revoked = collapsedCredentials.filter((c) => c.visibility === "public" && effectiveCredentialStatus(c) === "revoked");
+                  const doExport = () => exportAllCredentialsToPDF(collapsedCredentials, displayName);
+                  if (revoked.length > 0) setExportWarn({ names: revoked.map((c) => c.credentialName), proceed: doExport });
+                  else doExport();
                 }}>
                   Export all
                 </Button>
@@ -925,9 +946,10 @@ export default function StudentDashboard() {
             <>
               <Button variant="secondary" icon={ScrollText} onClick={() => handleSeeHistory(selectedCred)}>See history</Button>
               <Button variant="primary" icon={Download} onClick={() => {
-                // D6: warn before exporting a revoked credential.
-                if (effectiveCredentialStatus(selectedCred) === "revoked" && !window.confirm(`This credential (${selectedCred.credentialName}) is revoked. Anyone who verifies it will see it's revoked. Export anyway?`)) return;
-                exportCredentialToPDF(selectedCred, templateDetails);
+                // D6: warn (styled modal) before exporting a revoked credential.
+                const doExport = () => exportCredentialToPDF(selectedCred, templateDetails);
+                if (effectiveCredentialStatus(selectedCred) === "revoked") setExportWarn({ names: [selectedCred.credentialName], proceed: doExport });
+                else doExport();
               }}>Export PDF</Button>
             </>
           )
@@ -1024,6 +1046,36 @@ export default function StudentDashboard() {
               </div>
             )}
           </>
+        )}
+      </Modal>
+
+      {/* D6: styled revoked-in-export warning (replaces the raw browser confirm) */}
+      <Modal
+        open={!!exportWarn}
+        onClose={() => setExportWarn(null)}
+        title="Heads up — this includes a revoked credential"
+        size="sm"
+        footer={
+          <>
+            <Button variant="secondary" onClick={() => setExportWarn(null)}>Cancel</Button>
+            <Button variant="primary" onClick={() => { const w = exportWarn; setExportWarn(null); w?.proceed?.(); }}>Export anyway</Button>
+          </>
+        }
+      >
+        {exportWarn && (
+          <div style={{ fontSize: 14, lineHeight: 1.6, color: "var(--text)" }}>
+            <p style={{ margin: "0 0 10px" }}>
+              This export includes a <strong>revoked</strong> credential:
+            </p>
+            <ul style={{ margin: "0 0 12px", paddingLeft: 20 }}>
+              {exportWarn.names.map((n, i) => (
+                <li key={i} style={{ color: "var(--danger)", fontWeight: 600 }}>{n}</li>
+              ))}
+            </ul>
+            <p style={{ margin: 0, color: "var(--text-muted)", fontSize: 13 }}>
+              Anyone who verifies it on the blockchain will see it's revoked. You can still export it — just make sure that's intended.
+            </p>
+          </div>
         )}
       </Modal>
     </div>

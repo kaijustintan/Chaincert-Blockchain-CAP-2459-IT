@@ -20,3 +20,4 @@ export { default as EmptyState } from './EmptyState';
 export { default as Spinner, SpinnerBlock, Skeleton, SkeletonCardGrid, SkeletonRows } from './Feedback';
 export { default as DataTable } from './DataTable';
 export { default as AppShell, Sidebar } from './AppShell';
+export { default as InfoHint } from './InfoHint';

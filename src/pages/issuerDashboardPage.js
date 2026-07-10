@@ -36,7 +36,7 @@ import TrendBars from "../components/analytics/TrendBars";
 import Sparkline from "../components/analytics/Sparkline";
 import InterpretationBox from "../components/analytics/InterpretationBox";
 import { computeIssuance, computeRevocationAudit, computeHolderVerificationInsights, computeCirculationHealth, COLORS as ANALYTICS_COLORS } from "../components/analytics/analytics";
-import { AppShell, Sidebar, Button, StatusPill, SpinnerBlock, Spinner } from "../components/ui";
+import { AppShell, Sidebar, Button, StatusPill, SpinnerBlock, Spinner, InfoHint } from "../components/ui";
 import StatusLegend from "../components/ui/StatusLegend";
 import CredentialHistory from "../components/analytics/CredentialHistory";
 import { effectiveCredentialStatus, minIssueExpiryDate } from "../utils/credentialStatus"; // F01
@@ -247,6 +247,7 @@ export default function IssuerDashboard() {
   const [batchIssueProgress, setBatchIssueProgress] = useState({ done: 0, total: 0 });
   const [batchIssueResults, setBatchIssueResults] = useState([]);
   const [batchIssueError, setBatchIssueError] = useState("");
+  const [renewalOpen, setRenewalOpen] = useState(false); // C11: collapse the renewal queue into a card
   // C11: renewal requests queue (holder-initiated; the issuer decides from their OWN records)
   const [renewalRequests, setRenewalRequests] = useState([]);
   const [renewalLoading, setRenewalLoading] = useState(false);
@@ -1486,48 +1487,63 @@ export default function IssuerDashboard() {
             {noTemplateError && <div className="no-template-warning">{noTemplateError}</div>}
           </div>
 
-          {/* C11: Renewal Requests — holders asking for a re-issue; YOUR records justify the decision */}
-          <div className="table-container" style={{ marginBottom: 20 }}>
-            <h3 style={{ marginBottom: 4 }}>
-              Renewal Requests
-              {renewalRequests.filter((r) => r.status === "pending").length > 0
-                ? ` (${renewalRequests.filter((r) => r.status === "pending").length} pending)`
-                : ""}
-            </h3>
-            <p style={{ fontSize: 12.5, color: "var(--text-muted)", margin: "0 0 10px" }}>
-              Approving re-issues the same credential with a new expiry. Check your own records first —
-              ChainCert routes the request; it doesn't verify requalification.
-            </p>
-            {renewalLoading ? (
-              <SpinnerBlock label="Loading renewal requests…" minHeight={60} />
-            ) : renewalRequests.length === 0 ? (
-              <div className="no-results"><p>No renewal requests yet. When a holder taps "Request renewal," it appears here.</p></div>
-            ) : (
-              <div className="analytics-flag-list">
-                {renewalRequests.map((r) => (
-                  <div className="analytics-flag-row" key={r._id}>
-                    <div>
-                      <div className="analytics-flag-issuer">{r.credentialName || r.credentialId}</div>
-                      <div className="analytics-flag-reason">
-                        {r.holderName || r.holderId}
-                        {r.requestedAt ? ` • requested ${new Date(r.requestedAt).toLocaleDateString()}` : ""}
-                        {r.status === "declined" && r.declineReason ? ` • declined: ${r.declineReason}` : ""}
-                        {r.status === "approved" ? ` • renewed${r.newExpiryDate ? ` until ${new Date(r.newExpiryDate).toLocaleDateString()}` : ""}` : ""}
-                      </div>
-                    </div>
-                    {r.status === "pending" ? (
-                      <div style={{ display: "flex", gap: 8 }}>
-                        <button type="button" className="action-btn" onClick={() => openRenewalDecision(r, "approve")}>Approve</button>
-                        <button type="button" className="action-btn btn-cancel" onClick={() => openRenewalDecision(r, "decline")}>Decline</button>
-                      </div>
+          {/* C11: Renewal Requests — collapsed into a card; click the header to expand the queue
+              (keeps the Issue view clean instead of a long list pinned at the top). */}
+          {(() => {
+            const pendingCount = renewalRequests.filter((r) => r.status === "pending").length;
+            return (
+              <div className="analytics-card" style={{ marginBottom: 20, padding: 0, overflow: "hidden" }}>
+                <button
+                  type="button"
+                  onClick={() => setRenewalOpen((o) => !o)}
+                  aria-expanded={renewalOpen}
+                  style={{ width: "100%", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, padding: "14px 18px", background: "none", border: "none", cursor: "pointer", textAlign: "left", color: "var(--text)" }}
+                >
+                  <span style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+                    <span style={{ fontSize: "1.02rem", fontWeight: 700 }}>Renewal Requests</span>
+                    {pendingCount > 0 && (
+                      <span style={{ fontSize: 12, fontWeight: 700, color: "var(--accent-strong)", background: "rgba(124,92,252,0.14)", borderRadius: 999, padding: "2px 10px" }}>{pendingCount} pending</span>
+                    )}
+                    <InfoHint text="Holders asking to re-issue an expiring credential. Approving re-issues the same credential with a new expiry — check your own records first; ChainCert routes the request, it doesn't verify requalification." />
+                  </span>
+                  <span style={{ fontSize: 16, color: "var(--text-muted)", transform: renewalOpen ? "rotate(180deg)" : "none", transition: "transform .2s ease", flexShrink: 0 }} aria-hidden="true">▾</span>
+                </button>
+                {renewalOpen && (
+                  <div style={{ padding: "0 18px 16px" }}>
+                    {renewalLoading ? (
+                      <SpinnerBlock label="Loading renewal requests…" minHeight={60} />
+                    ) : renewalRequests.length === 0 ? (
+                      <div className="no-results"><p>No renewal requests yet. When a holder taps "Request renewal," it appears here.</p></div>
                     ) : (
-                      <span className={`status-badge status-${r.status === "approved" ? "issued" : "revoked"}`}>{r.status}</span>
+                      <div className="analytics-flag-list">
+                        {renewalRequests.map((r) => (
+                          <div className="analytics-flag-row" key={r._id}>
+                            <div>
+                              <div className="analytics-flag-issuer">{r.credentialName || r.credentialId}</div>
+                              <div className="analytics-flag-reason">
+                                {r.holderName || r.holderId}
+                                {r.requestedAt ? ` • requested ${new Date(r.requestedAt).toLocaleDateString()}` : ""}
+                                {r.status === "declined" && r.declineReason ? ` • declined: ${r.declineReason}` : ""}
+                                {r.status === "approved" ? ` • renewed${r.newExpiryDate ? ` until ${new Date(r.newExpiryDate).toLocaleDateString()}` : ""}` : ""}
+                              </div>
+                            </div>
+                            {r.status === "pending" ? (
+                              <div style={{ display: "flex", gap: 8 }}>
+                                <button type="button" className="action-btn" onClick={() => openRenewalDecision(r, "approve")}>Approve</button>
+                                <button type="button" className="action-btn btn-cancel" onClick={() => openRenewalDecision(r, "decline")}>Decline</button>
+                              </div>
+                            ) : (
+                              <span className={`status-badge status-${r.status === "approved" ? "issued" : "revoked"}`}>{r.status}</span>
+                            )}
+                          </div>
+                        ))}
+                      </div>
                     )}
                   </div>
-                ))}
+                )}
               </div>
-            )}
-          </div>
+            );
+          })()}
 
           {/* Filter Section */}
           <div className="filter-section">
@@ -1892,11 +1908,7 @@ export default function IssuerDashboard() {
         <>
           {/* C5: Verification Reach — reframed as a usage/trust signal (not a decision tool);
               lead with the actionable C14 signal (outdated copies circulating + the owner to contact). */}
-          <h2>Verification Reach</h2>
-          <p className="analytics-card-sub" style={{ marginTop: 4 }}>
-            How often outside parties check the credentials you've issued — proof that what you issue is
-            relied upon. A usage &amp; trust signal, not a decision tool.
-          </p>
+          <h2 style={{ display: "flex", alignItems: "center" }}>Verification Reach<InfoHint text="How often outside parties check the credentials you've issued — proof that what you issue is relied upon. A usage & trust signal, not a decision tool." /></h2>
           {reachLoading ? (
             <SpinnerBlock label="Loading verification activity…" minHeight={100} />
           ) : reach.totalChecks === 0 ? (
@@ -2203,16 +2215,15 @@ export default function IssuerDashboard() {
                 {batchIssueDone ? "Batch issuance results"
                   : batchIssueRunning ? "Issuing…"
                   : batchIssueConfirmStep ? "Confirm batch issuance"
-                  : "Batch issue a credential"}
+                  : "Issuance (Batch)"}
               </h3>
               {!batchIssueRunning && <button type="button" className="modal-close" onClick={closeBatchIssueModal}>✕</button>}
             </div>
 
             {!batchIssueRunning && !batchIssueDone && !batchIssueConfirmStep && (
               <>
-                <p style={{ margin: "8px 0 12px", fontSize: 13, color: "var(--text-muted)", lineHeight: 1.5 }}>
-                  Issue ONE credential to many holders at once. Pick the credential, then import a{" "}
-                  <strong>.csv / .txt</strong> of recipient <strong>emails or holder IDs</strong> (one per line, or
+                <p style={{ margin: "8px 0 14px", fontSize: 13, color: "var(--text-muted)", lineHeight: 1.5 }}>
+                  Import a <strong>.csv / .txt</strong> of recipient emails or holder IDs (one per line, or
                   comma-separated). Only holders eligible for that credential are matched.
                 </p>
                 <div className="form-group">
@@ -2229,28 +2240,32 @@ export default function IssuerDashboard() {
                   <input type="date" min={minIssueExpiryDate()} value={batchIssueExpiry} onChange={(e) => setBatchIssueExpiry(e.target.value)} />
                 </div>
                 <div className="form-group">
-                  <label>Recipients <span className="required-star">*</span></label>
-                  <label className="action-btn" style={{ cursor: batchIssueTemplateId ? "pointer" : "not-allowed", opacity: batchIssueTemplateId ? 1 : 0.5, display: "inline-block" }}>
+                  <label style={{ display: "block", marginBottom: 8 }}>Recipients <span className="required-star">*</span></label>
+                  <label className="action-btn issue-btn" style={{ display: "inline-flex", alignItems: "center", width: "auto", margin: 0, cursor: batchIssueTemplateId ? "pointer" : "not-allowed", opacity: batchIssueTemplateId ? 1 : 0.5 }}>
                     Import .csv / .txt of recipients
                     <input type="file" accept=".csv,.txt" onChange={handleBatchIssueCsv} disabled={!batchIssueTemplateId} style={{ display: "none" }} />
                   </label>
                   {batchIssueFileName && (
-                    <div style={{ fontSize: 12.5, color: "var(--text-muted)", marginTop: 6 }}>
-                      {batchIssueFileName} — <strong>{batchIssueRecipients.length}</strong> matched
+                    <div style={{ fontSize: 12.5, color: "var(--text-muted)", marginTop: 8 }}>
+                      {batchIssueFileName} — <strong>{batchIssueRecipients.length}</strong> eligible
                       {batchIssueUnknown.length > 0 ? `, ${batchIssueUnknown.length} not eligible / not found` : ""}
                     </div>
                   )}
                 </div>
-                {batchIssueRecipients.length > 0 && (
-                  <div className="analytics-flag-list" style={{ maxHeight: 160, overflowY: "auto", marginBottom: 12 }}>
-                    {batchIssueRecipients.slice(0, 8).map((r) => (
-                      <div className="analytics-flag-row" key={`bi-${r.id}`}>
-                        <div><div className="analytics-flag-issuer">{r.label}</div></div>
+                {(batchIssueRecipients.length > 0 || batchIssueUnknown.length > 0) && (
+                  <div className="analytics-flag-list" style={{ maxHeight: 200, overflowY: "auto", marginBottom: 12 }}>
+                    {batchIssueRecipients.map((r) => (
+                      <div className="analytics-flag-row" key={`bi-${r.id}`} style={{ alignItems: "center" }}>
+                        <div style={{ minWidth: 0 }}><div className="analytics-flag-issuer" style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{r.label}</div></div>
+                        <span style={{ fontSize: 12, fontWeight: 700, color: "var(--ok)", flexShrink: 0, whiteSpace: "nowrap" }}>✓ Eligible</span>
                       </div>
                     ))}
-                    {batchIssueRecipients.length > 8 && (
-                      <div className="analytics-flag-reason" style={{ padding: "6px 0" }}>…and {batchIssueRecipients.length - 8} more</div>
-                    )}
+                    {batchIssueUnknown.map((t, i) => (
+                      <div className="analytics-flag-row" key={`biu-${i}`} style={{ alignItems: "center" }}>
+                        <div style={{ minWidth: 0 }}><div className="analytics-flag-issuer" style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", opacity: 0.7 }}>{t}</div></div>
+                        <span style={{ fontSize: 12, fontWeight: 700, color: "var(--danger)", flexShrink: 0, whiteSpace: "nowrap" }}>✗ Not eligible</span>
+                      </div>
+                    ))}
                   </div>
                 )}
                 {batchIssueError && <div className="form-error">{batchIssueError}</div>}
@@ -2356,10 +2371,8 @@ export default function IssuerDashboard() {
                 <label style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer" }}>
                   <input type="checkbox" checked={createForm.renewable !== false} onChange={(e) => setCreateForm((prev) => ({ ...prev, renewable: e.target.checked }))} style={{ width: "auto" }} />
                   Allow holders to request renewal
+                  <InfoHint text="Leave on for credentials that expire and can be renewed (IDs, memberships). Turn off for one-time credentials (diplomas, certificates)." />
                 </label>
-                <span className="form-label-hint" style={{ display: "block", marginTop: 4 }}>
-                  Leave on for credentials that expire and can be renewed (IDs, memberships). Turn off for one-time credentials (diplomas, certificates).
-                </span>
               </div>
               <div className="form-group">
                 <label>Skills <span className="form-label-hint">(optional — recipients will earn these)</span></label>
@@ -2368,14 +2381,14 @@ export default function IssuerDashboard() {
               </div>
               <div className="form-group">
                 <label>Badge Image <span className="form-label-hint">(optional)</span></label>
-                <div className="badge-file-row">
-                  <label className="file-input-label">
-                    <span>Choose File</span>
-                    <input type="file" accept="image/png, image/jpeg, image/gif" onChange={handleBadgeImageChange} className="file-input" />
+                <div className="badge-file-row" style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
+                  <label className="file-input-label" style={{ display: "inline-flex", alignItems: "center", padding: "9px 16px", borderRadius: 10, border: "1px solid var(--border-strong)", cursor: "pointer", fontSize: 14, fontWeight: 600, whiteSpace: "nowrap", margin: 0 }}>
+                    <span>Choose file</span>
+                    <input type="file" accept="image/png, image/jpeg, image/gif" onChange={handleBadgeImageChange} className="file-input" style={{ display: "none" }} />
                   </label>
-                  <span className="badge-file-name" title={badgeImageName}>{badgeImageName || "No file chosen"}</span>
+                  <span className="badge-file-name" title={badgeImageName} style={{ fontSize: 13, color: "var(--text-muted)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", minWidth: 0 }}>{badgeImageName || "No file chosen"}</span>
                 </div>
-                {badgeImagePreview && <div className="badge-preview"><img src={badgeImagePreview} alt="Badge preview" /><button type="button" className="badge-remove-btn" onClick={() => { setBadgeImageBase64(""); setBadgeImagePreview(""); setBadgeImageName(""); }}>✕ Remove</button></div>}
+                {badgeImagePreview && <div className="badge-preview" style={{ display: "flex", alignItems: "center", gap: 12, marginTop: 10 }}><img src={badgeImagePreview} alt="Badge preview" style={{ width: 48, height: 48, objectFit: "cover", borderRadius: 8, border: "1px solid var(--border)" }} /><button type="button" className="badge-remove-btn" onClick={() => { setBadgeImageBase64(""); setBadgeImagePreview(""); setBadgeImageName(""); }}>✕ Remove</button></div>}
               </div>
               {createError && <div className="form-error">{createError}</div>}
               <div className="form-actions"><button type="submit" className="action-btn">Create Credential</button><button type="button" onClick={closeCreateModal} className="action-btn btn-cancel">Cancel</button></div>

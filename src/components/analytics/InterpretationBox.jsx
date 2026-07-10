@@ -11,7 +11,7 @@
 import React from 'react';
 import { Lightbulb } from 'lucide-react';
 
-export default function InterpretationBox({ children, title = 'What this means' }) {
+export default function InterpretationBox({ children, title = 'Summary:' }) {
   return (
     <div className="analytics-interpretation" role="note">
       <strong className="analytics-interpretation-title"><Lightbulb size={13} aria-hidden="true" /> {title}</strong>

@@ -38,11 +38,11 @@ import {
   computeProofTrail,
   computeIssuerApprovalTurnaround,
 } from "../components/analytics/analytics";
-import { AppShell, Sidebar, Spinner, SpinnerBlock } from "../components/ui";
+import { AppShell, Sidebar, Spinner, SpinnerBlock, InfoHint } from "../components/ui";
 import NotesCard from "../components/ui/NotesCard";
 import StatusLegend from "../components/ui/StatusLegend";
 import { effectiveCredentialStatus } from "../utils/credentialStatus"; // F01: compute-on-read expiry
-import { Bell, Layers, Building2, Users, ClipboardList, BarChart3, ShieldCheck, Flag } from "lucide-react";
+import { Bell, Layers, Building2, Users, ClipboardList, BarChart3, ShieldCheck, Flag, Clock, Timer } from "lucide-react";
 
 export default function AdminDashboard() {
   // Admin lands on Manage Issuers → Pending: clearing the pending-issuer queue is the
@@ -3197,12 +3197,23 @@ const handleDownloadIssuerDocument = async (doc) => {
               sort by "Oldest First" to work the longest-waiting applications first. */}
           {issuerFilter === "pending" && (
             <div className="analytics-card" style={{ marginTop: 12 }}>
-              <h3 style={{ marginTop: 0 }}>Approval Queue &amp; Turnaround</h3>
-              <p className="analytics-card-sub">Applications waiting, how long they've waited, and your average time to decide. Work the longest-waiting first (sort by "Oldest First").</p>
-              <div style={{ display: "flex", gap: 18, flexWrap: "wrap", margin: "6px 0 4px" }}>
-                <div><div style={{ fontSize: 22, fontWeight: 700 }}>{approvalQueue.pendingCount}</div><div className="analytics-card-sub">Pending</div></div>
-                <div><div style={{ fontSize: 22, fontWeight: 700, color: approvalQueue.oldestDays > 14 ? "var(--danger)" : "var(--text)" }}>{approvalQueue.oldestDays}d</div><div className="analytics-card-sub">Oldest waiting</div></div>
-                <div><div style={{ fontSize: 22, fontWeight: 700 }}>{approvalQueue.avgDays != null ? `${approvalQueue.avgDays}d` : "—"}</div><div className="analytics-card-sub">Avg approval</div></div>
+              <div style={{ display: "flex", alignItems: "center", marginBottom: 2 }}>
+                <h3 style={{ margin: 0 }}>Approval Queue &amp; Turnaround</h3>
+                <InfoHint text='Applications waiting, how long they have waited, and your average time to decide. Work the longest-waiting first — sort the table by "Oldest First".' />
+              </div>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))", gap: 12, margin: "14px 0 4px" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "14px 16px", borderRadius: 14, background: "rgba(124,92,252,0.06)", border: "1px solid var(--border)" }}>
+                  <div style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 40, height: 40, borderRadius: 12, background: "rgba(124,92,252,0.14)", color: "var(--accent-strong)", flexShrink: 0 }}><ClipboardList size={20} aria-hidden="true" /></div>
+                  <div><div style={{ fontSize: 26, fontWeight: 800, lineHeight: 1 }}>{approvalQueue.pendingCount}</div><div className="analytics-card-sub" style={{ marginTop: 5 }}>Pending</div></div>
+                </div>
+                <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "14px 16px", borderRadius: 14, background: approvalQueue.oldestDays > 14 ? "rgba(229,100,90,0.08)" : "rgba(255,255,255,0.03)", border: `1px solid ${approvalQueue.oldestDays > 14 ? "rgba(229,100,90,0.4)" : "var(--border)"}` }}>
+                  <div style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 40, height: 40, borderRadius: 12, background: approvalQueue.oldestDays > 14 ? "rgba(229,100,90,0.16)" : "rgba(255,255,255,0.06)", color: approvalQueue.oldestDays > 14 ? "var(--danger)" : "var(--text-muted)", flexShrink: 0 }}><Clock size={20} aria-hidden="true" /></div>
+                  <div><div style={{ fontSize: 26, fontWeight: 800, lineHeight: 1, color: approvalQueue.oldestDays > 14 ? "var(--danger)" : "var(--text)" }}>{approvalQueue.oldestDays}<span style={{ fontSize: 15, fontWeight: 700 }}>d</span></div><div className="analytics-card-sub" style={{ marginTop: 5 }}>Oldest waiting</div></div>
+                </div>
+                <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "14px 16px", borderRadius: 14, background: "rgba(52,178,123,0.06)", border: "1px solid var(--border)" }}>
+                  <div style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 40, height: 40, borderRadius: 12, background: "rgba(52,178,123,0.14)", color: "var(--ok)", flexShrink: 0 }}><Timer size={20} aria-hidden="true" /></div>
+                  <div><div style={{ fontSize: 26, fontWeight: 800, lineHeight: 1 }}>{approvalQueue.avgDays != null ? <>{approvalQueue.avgDays}<span style={{ fontSize: 15, fontWeight: 700 }}>d</span></> : "—"}</div><div className="analytics-card-sub" style={{ marginTop: 5 }}>Avg approval</div></div>
+                </div>
               </div>
               <InterpretationBox>{approvalQueue.summary}</InterpretationBox>
             </div>
@@ -4042,8 +4053,7 @@ const handleDownloadIssuerDocument = async (doc) => {
           <div className="analytics-grid" style={{ marginTop: 8 }}>
             {/* Verification Result Summary (Verifier report, hosted in admin) */}
             <div className="analytics-card">
-              <h3>1. Verification Result Summary</h3>
-              <p className="analytics-card-sub">Outcome breakdown for all verification attempts — a capability/awareness view; no admin action is implied.</p>
+              <h3 style={{ display: "flex", alignItems: "center" }}>1. Verification Result Summary<InfoHint text="Outcome breakdown for all verification attempts — a capability/awareness view; no admin action is implied." /></h3>
               <DonutChart
                 slices={verificationOutcomes.slices}
                 centerValue={verificationOutcomes.total}
@@ -4055,8 +4065,7 @@ const handleDownloadIssuerDocument = async (doc) => {
 
             {/* Suspicious Activity Insight (rule-based, transparent thresholds) */}
             <div className="analytics-card">
-              <h3>2. Issuers to Review</h3>
-              <p className="analytics-card-sub">Issuers with an unusually high revocation rate — a prompt to take a closer look, not a verdict.</p>
+              <h3 style={{ display: "flex", alignItems: "center" }}>2. Issuers to Review<InfoHint text="Issuers with an unusually high revocation rate — a prompt to take a closer look, not a verdict." /></h3>
               <div className="analytics-rule-pill">Rule: revocation rate &gt; {suspicious.thresholdPct}% in the last {suspicious.windowDays} days</div>
               <div className="analytics-flag-list">
                 {suspicious.issuers.length === 0 && (
@@ -4099,8 +4108,7 @@ const handleDownloadIssuerDocument = async (doc) => {
 
             {/* Integrity-Check Insight — surfaces the last CouchDB-vs-ledger check (no auto-run) */}
             <div className="analytics-card">
-              <h3>3. Integrity-Check Insight</h3>
-              <p className="analytics-card-sub">CouchDB vs blockchain data-integrity check.</p>
+              <h3 style={{ display: "flex", alignItems: "center" }}>3. Integrity-Check Insight<InfoHint text="Checks each record in the fast-read database against the blockchain, so tampering outside the app is flagged (the blockchain is the source of truth)." /></h3>
               {integrity.available ? (
                 <>
                   <DonutChart

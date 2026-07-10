@@ -1,0 +1,57 @@
+/* InfoHint.css — styled "?" hover/focus tooltip (see InfoHint.jsx) */
+.cc-infohint {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-muted);
+  cursor: help;
+  vertical-align: middle;
+  margin-left: 6px;
+  outline: none;
+  line-height: 0;
+}
+.cc-infohint:hover,
+.cc-infohint:focus-visible {
+  color: var(--accent-strong);
+}
+
+.cc-infohint-bubble {
+  position: absolute;
+  bottom: calc(100% + 8px);
+  left: 50%;
+  transform: translateX(-50%) translateY(4px);
+  width: max-content;
+  max-width: 280px;
+  background: var(--surface-1, #1B1B29);
+  color: var(--text, #ECECF1);
+  border: 1px solid var(--border-strong, rgba(255, 255, 255, 0.16));
+  border-radius: 10px;
+  padding: 9px 12px;
+  font-size: 12.5px;
+  font-weight: 400;
+  line-height: 1.5;
+  white-space: normal;
+  text-align: left;
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.40);
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.14s ease, transform 0.14s ease, visibility 0.14s ease;
+  z-index: 80;
+  pointer-events: none;
+}
+.cc-infohint-bubble::after {
+  content: "";
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  border: 6px solid transparent;
+  border-top-color: var(--surface-1, #1B1B29);
+}
+.cc-infohint:hover .cc-infohint-bubble,
+.cc-infohint:focus-visible .cc-infohint-bubble {
+  opacity: 1;
+  visibility: visible;
+  transform: translateX(-50%) translateY(0);
+}

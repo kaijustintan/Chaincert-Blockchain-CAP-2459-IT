@@ -294,14 +294,13 @@ const issuerOnboardingController = {
       try {
         const adminEmails = await couchDB.getAdminEmails();
         const typeLabel = issuerData.issuerType === 'subordinate' ? 'subordinate issuer' : 'root authority issuer';
-        // A1: ONE fire-and-forget send addressed to all admins (deduped, comma-separated), instead of
-        // one send per admin. The old per-admin loop mailed N times — which read as duplicate emails
-        // because the demo funnels every admin address into one inbox (SMTP_OVERRIDE_TO). getAdminEmails()
-        // above is a DB read that can throw, so the try/catch stays.
-        const adminRecipients = [...new Set((adminEmails || []).filter(Boolean))];
-        if (adminRecipients.length > 0) {
+        // Notify EVERY admin account of a pending application — one email each (intended:
+        // each admin gets their own copy). getAdminEmails() above is a DB read that can throw,
+        // so the try/catch stays. (In the demo, SMTP_OVERRIDE_TO funnels the fake admin
+        // addresses into one inbox, so several land together — that's the override, not a bug.)
+        for (const adminEmail of adminEmails) {
           mailerService.sendMailFireAndForget({
-            to: adminRecipients.join(', '),
+            to: adminEmail,
             subject: 'New ChainCert Issuer Registration Pending Approval',
             html: mailerService.renderEmail({
               heading: 'New Issuer Registration',

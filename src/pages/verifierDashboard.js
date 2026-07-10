@@ -324,6 +324,7 @@ export default function VerifierDashboard() {
           name: resp.credentialName || id,
           holder: resp.holderName || "",
           outcome: resp.isValid ? "valid" : (BULK_OUTCOME_META[status] ? status : "invalid"),
+          full: resp, // keep the whole verify response so each result renders as a full card
         });
         try {
           // eslint-disable-next-line no-await-in-loop
@@ -338,7 +339,7 @@ export default function VerifierDashboard() {
         }
       } catch (err) {
         if (err?.response?.status === 404) {
-          results.push({ id, name: id, holder: "", outcome: "not_found" });
+          results.push({ id, name: id, holder: "", outcome: "not_found", full: { credentialID: id, status: "not_found" } });
           try {
             // eslint-disable-next-line no-await-in-loop
             await apiService.logVerificationOnChain(
@@ -348,7 +349,7 @@ export default function VerifierDashboard() {
             );
           } catch (logErr) { console.warn("[BULK VERIFY] not-found log failed (non-fatal):", logErr.message); }
         } else {
-          results.push({ id, name: id, holder: "", outcome: "error" });
+          results.push({ id, name: id, holder: "", outcome: "error", full: { credentialID: id } });
         }
       }
       setBulkResults([...results]);
@@ -513,18 +514,43 @@ export default function VerifierDashboard() {
             <div style={{ height: 8, borderRadius: 999, background: "var(--border)", overflow: "hidden", marginBottom: 12 }}>
               <div style={{ height: "100%", width: `${Math.round((bulkProgress.done / bulkProgress.total) * 100)}%`, background: "var(--accent-strong)", transition: "width .3s ease" }} />
             </div>
-            <div style={{ display: "flex", flexDirection: "column", gap: 8, maxHeight: 280, overflowY: "auto" }}>
+            {/* Each result renders as a full verdict card, mirroring the single-credential result. */}
+            <div style={{ display: "flex", flexDirection: "column", gap: 14, maxHeight: 640, overflowY: "auto", paddingRight: 2 }}>
               {bulkResults.map((r) => {
+                const f = r.full || {};
+                const isValid = r.outcome === "valid";
                 const m = BULK_OUTCOME_META[r.outcome] || BULK_OUTCOME_META.error;
+                const explain =
+                  r.outcome === "valid" ? "This credential is authentic and currently valid."
+                  : r.outcome === "revoked" ? (f.revocationReason ? `This credential was revoked by the issuer. Reason: ${f.revocationReason}` : "This credential was revoked by the issuer.")
+                  : r.outcome === "expired" ? "This credential has passed its expiry date."
+                  : r.outcome === "not_found" ? "No matching credential exists on the blockchain."
+                  : r.outcome === "error" ? "This credential could not be checked."
+                  : "This credential is not valid.";
                 return (
-                  <div key={r.id} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, padding: "8px 12px", borderRadius: 10, border: "1px solid var(--border)", background: "var(--surface-2, transparent)" }}>
-                    <div style={{ minWidth: 0 }}>
-                      <div style={{ fontSize: 13.5, fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{r.name}</div>
-                      <div style={{ fontSize: 12, color: "var(--text-muted)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                        {r.holder ? `${r.holder} · ` : ""}<span className="verifier-mono">{r.id}</span>
+                  <div key={r.id} className={`verifier-verdict ${isValid ? "is-valid" : "is-invalid"}`}>
+                    <div className="verifier-verdict-head">
+                      {isValid ? <CheckCircle2 size={24} aria-hidden="true" /> : <AlertTriangle size={24} aria-hidden="true" />}
+                      <div>
+                        <h2 style={{ fontSize: "1.15rem" }}>{m.label}</h2>
+                        <p>{explain}</p>
                       </div>
                     </div>
-                    <span style={{ fontSize: 12.5, fontWeight: 700, color: m.color, flexShrink: 0 }}>{m.label}</span>
+                    {(f.credentialName || r.name) && <h3 className="verifier-cred-name">{f.credentialName || r.name}</h3>}
+                    <div className="verifier-result-body">
+                      {f.badgeImage && (<div className="verifier-badge"><img src={f.badgeImage} alt="" /></div>)}
+                      <div className="verifier-detail-list">
+                        <div className="verifier-detail-row"><span className="verifier-detail-label">Issued to</span><span className="verifier-detail-value">{f.holderName || r.holder || "N/A"}</span></div>
+                        <div className="verifier-detail-row"><span className="verifier-detail-label">Issued by</span><span className="verifier-detail-value">{f.issuerName || "N/A"}</span></div>
+                        {f.credentialType && (<div className="verifier-detail-row"><span className="verifier-detail-label">Type</span><span className="verifier-detail-value">{f.credentialType}</span></div>)}
+                        {f.status && (<div className="verifier-detail-row"><span className="verifier-detail-label">Status</span><span className="verifier-detail-value"><StatusPill status={f.status} /></span></div>)}
+                        {f.expiryDate && (<div className="verifier-detail-row"><span className="verifier-detail-label">Expires</span><span className="verifier-detail-value">{new Date(f.expiryDate).toLocaleDateString()}</span></div>)}
+                        {Array.isArray(f.skills) && f.skills.length > 0 && (
+                          <div className="verifier-detail-block"><span className="verifier-detail-label">Skills</span><div className="verifier-skills">{f.skills.map((skill, i) => <span key={i} className="verifier-skill-chip">{skill}</span>)}</div></div>
+                        )}
+                        <div className="verifier-meta"><p>Credential ID: <span className="verifier-mono">{f.credentialID || r.id}</span></p></div>
+                      </div>
+                    </div>
                   </div>
                 );
               })}

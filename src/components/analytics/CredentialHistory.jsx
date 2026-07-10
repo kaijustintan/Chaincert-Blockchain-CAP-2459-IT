@@ -81,9 +81,12 @@ export default function CredentialHistory({
                   : e.outcome === 'not_found' ? 'Not found'
                   : e.outcome === 'revoked' ? 'Revoked'
                   : e.outcome === 'expired' ? 'Expired' : 'Checked';
+                // Glyph must match the outcome: a green ✓ only for a valid check;
+                // failed/negative checks (revoked/expired/not-found) show ✗, not a check mark.
+                const glyph = e.outcome === 'valid' ? '✓' : '✗';
                 return (
                   <div className="analytics-timeline-item" key={`pt-${i}`}>
-                    <span className="analytics-timeline-dot" style={{ background: color }}>✓</span>
+                    <span className="analytics-timeline-dot" style={{ background: color }}>{glyph}</span>
                     <div>
                       <div className="analytics-timeline-label">{label}</div>
                       <div className="analytics-timeline-when">{fmt(e.when)}</div>

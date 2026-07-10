@@ -27,10 +27,16 @@ import NotesCard from "../components/ui/NotesCard";
 import { ShieldCheck, CheckCircle2, XCircle, AlertTriangle, Search, FileText } from "lucide-react";
 // C10: pdfjs-dist reads the LINK ANNOTATIONS out of a ChainCert portfolio PDF (each credential
 // row embeds its own verify URL). Loaded LAZILY (dynamic import → its own chunk) so the ~100 kB
-// library never weighs down the main bundle; worker resolved as a webpack-5 asset.
+// library never weighs down the main bundle.
 const loadPdfjs = async () => {
   const pdfjsLib = await import("pdfjs-dist");
-  pdfjsLib.GlobalWorkerOptions.workerSrc = new URL("pdfjs-dist/build/pdf.worker.min.js", import.meta.url).toString();
+  // Let webpack COMPILE the worker via `new Worker(new URL(...))` and hand it to pdf.js as a
+  // workerPort. Setting workerSrc to the raw `.min.js` URL (the old code) shipped the UMD worker
+  // uncompiled → pdf.js fell back to the main-thread "fake worker" which runs bare require()
+  // calls → "require is not defined". Classic worker (no {type:'module'}): v3.11.174 ships no ESM worker.
+  pdfjsLib.GlobalWorkerOptions.workerPort = new Worker(
+    new URL("pdfjs-dist/build/pdf.worker.min.js", import.meta.url)
+  );
   return pdfjsLib;
 };
 
@@ -161,7 +167,9 @@ export default function VerifierDashboard() {
         err.response?.data?.reason ||
         err.message ||
         "Verification failed";
-      // Log not-found attempts on-chain so fraud/forgery attempts appear in analytics (Report 6)
+      // A 404 means the credential does not exist on the ledger. Render the styled NOT FOUND
+      // verdict (matching the legend + bulk chips), not the generic "Could not verify" banner,
+      // and log the attempt on-chain so forgery attempts still appear in analytics (Report 6).
       if (err.response?.status === 404) {
         try {
           await apiService.logVerificationOnChain(
@@ -178,9 +186,11 @@ export default function VerifierDashboard() {
           }
           console.warn('[VERIFY] Not-found log failed (non-fatal):', logErr.message);
         }
+        setResult({ isValid: false, status: 'not_found', credentialID: query });
+      } else {
+        setResult({ error: errorMsg });
+        setError(errorMsg);
       }
-      setResult({ error: errorMsg });
-      setError(errorMsg);
     } finally {
       setLoading(false);
     }
@@ -418,7 +428,7 @@ export default function VerifierDashboard() {
 
       {/* Who is verifying */}
       <div className="verifier-summary">
-        <span>Verifying as <strong>{verifierName}</strong> · {verifierEmail} <span style={{ color: "var(--ok, var(--ok))", fontSize: 12 }}>✓ email verified</span></span>
+        <span>Verifying as <strong>{verifierName}</strong> · {verifierEmail} <span style={{ color: "var(--ok)", fontSize: 12 }}>✓ email verified · name self-reported</span></span>
         <button className="verifier-change" onClick={resetVerifierEmail}>Change</button>
       </div>
 

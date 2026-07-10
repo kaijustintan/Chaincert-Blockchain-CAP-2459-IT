@@ -23,7 +23,6 @@
       - computeVerificationOutcomes(logs)       valid/revoked/expired/not-found counts
     ADMIN
       - computeSuspiciousIssuers(rows, opts)    rule-based revocation-rate flags
-      - computeDemand(logs, adminRows)          verifications per type (UNUSED — superseded by issuer Verification Reach)
       - computeIntegritySummary(integrityResult) last CouchDB-vs-ledger check, processed [NICE]
       - computeIssuerApprovalTurnaround(pending, approved) pending-queue aging + avg approval days [C6]
       - computeVerificationVolume(logs)         verifications per month (peak-season/load signal) [C12]
@@ -112,8 +111,11 @@ export function computeHealth(credentials) {
   const total = list.length;
   const slices = [
     { name: 'Healthy', value: healthy, color: COLORS.green },
-    { name: 'Expiring Soon', value: expiringSoon, color: COLORS.amber },
-    { name: 'Expired', value: expired, color: COLORS.gray },
+    // Expired = amber to match the wallet StatusPill/chips (was gray = "neutral", which
+    // read as inactive/draft). Expiring Soon moved to blue so the donut doesn't show two
+    // amber slices side by side.
+    { name: 'Expiring Soon', value: expiringSoon, color: COLORS.blue },
+    { name: 'Expired', value: expired, color: COLORS.amber },
     { name: 'Revoked', value: revoked, color: COLORS.red },
   ].filter((s) => s.value > 0);
 
@@ -182,7 +184,10 @@ export function computeIssuance(credentials) {
   const monthIndex = new Map(months.map((m, i) => [m.key, i]));
 
   for (const c of issued) {
-    const t = toTime(c.createdAt || c.issuedDate || c.savedToCouchDBAt || c.savedToUserWalletAt || c.issueDate);
+    // Bucket by ACTUAL issuance (assignedDate is set at IssueCredential), NOT issuedDate —
+    // issuedDate is the TEMPLATE's creation date, so it made the trend disagree with the
+    // per-row issued-date columns. Fall back to wallet/DB save times, then createdAt.
+    const t = toTime(c.assignedDate || c.savedToCouchDBAt || c.savedToUserWalletAt || c.createdAt);
     if (t === null) continue;
     const d = new Date(t);
     const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
@@ -309,30 +314,32 @@ export function computeSuspiciousIssuers(rows, opts = {}) {
     }
   }
 
+  const thresholdPct = Math.round(threshold * 100);
   const issuers = [...map.values()].map((a) => {
     const rate = a.issued > 0 ? a.revokedInWindow / a.issued : 0;
-    const flagged = a.issued >= minSample && rate >= threshold;
+    // Flag on the ROUNDED percentage we actually display, so a row shown as "25%" can
+    // never read "within normal range" against a "≥ 25%" rule (round-vs-raw bug).
     const ratePct = Math.round(rate * 100);
+    const flagged = a.issued >= minSample && ratePct >= thresholdPct;
     return {
       ...a,
       ratePct,
       flagged,
       reason: flagged
-        ? `Revoked ${a.revokedInWindow} of ${a.issued} credential(s) (${ratePct}%) in the last ${windowDays} days — above the ${Math.round(threshold * 100)}% threshold.`
+        ? `Revoked ${a.revokedInWindow} of ${a.issued} credential(s) (${ratePct}%) in the last ${windowDays} days — above the ${thresholdPct}% threshold.`
         : `Revoked ${a.revokedInWindow} of ${a.issued} (${ratePct}%) in the last ${windowDays} days — within normal range.`,
     };
   }).sort((a, b) => b.ratePct - a.ratePct || b.issued - a.issued);
 
   const flaggedCount = issuers.filter((i) => i.flagged).length;
-  const thresholdPct = Math.round(threshold * 100);
 
   let summary;
   if (issuers.length === 0) {
     summary = 'No issued-credential activity to analyze yet.';
   } else if (flaggedCount === 0) {
-    summary = `No issuers flagged. All ${issuers.length} active issuer(s) have a ${windowDays}-day revocation rate below the ${thresholdPct}% threshold.`;
+    summary = `No issuers to review. All ${issuers.length} active issuer(s) have a ${windowDays}-day revocation rate below the ${thresholdPct}% threshold.`;
   } else {
-    summary = `${flaggedCount} issuer(s) flagged for an unusually high revocation rate (≥ ${thresholdPct}% in the last ${windowDays} days). Review the highlighted rows below.`;
+    summary = `${flaggedCount} issuer(s) to review — an unusually high revocation rate (≥ ${thresholdPct}% in the last ${windowDays} days) in the highlighted rows. A high rate isn't proof of wrongdoing; it's a prompt to take a closer look.`;
   }
 
   return { issuers, flaggedCount, windowDays, thresholdPct, summary };
@@ -349,8 +356,10 @@ export function computeSuspiciousIssuers(rows, opts = {}) {
 
   TECHNICAL:
   Pure derive from the holder's already-loaded credentials. Skips revoked and
-  never-expiring (no expiryDate) credentials. Urgency tiers: expired (daysLeft < 0) >
-  critical (<= 14) > soon (<= EXPIRING_SOON_DAYS). Sorted ascending by daysLeft, so
+  never-expiring (no expiryDate) credentials. Urgency tiers: expired (effective
+  end-of-day-Manila status via effectiveCredentialStatus) > critical (<= 14) >
+  soon (<= EXPIRING_SOON_DAYS), with daysLeft measured against the same end-of-day-Manila
+  boundary the Health donut/badges use. Sorted ascending by daysLeft, so
   overdue (negative) sit at the top, then soonest upcoming. Anything beyond
   EXPIRING_SOON_DAYS is NOT an alert.
 
@@ -374,13 +383,20 @@ export function computeExpirationAlerts(credentials) {
 
   const alerts = [];
   for (const c of list) {
-    if (lc(c.status) === 'revoked') continue;     // revoked is not a renewal concern
+    const eff = effectiveCredentialStatus(c);
+    if (eff === 'revoked') continue;               // revoked is not a renewal concern
     const exp = toTime(c.expiryDate);
     if (exp === null) continue;                    // never-expires → not an alert
 
-    const daysLeft = Math.ceil((exp - now) / DAY);
+    // Measure days-left against END-of-day Manila (the same clock effectiveCredentialStatus /
+    // the Health donut use), not raw UTC-midnight — otherwise a credential still valid "today"
+    // read as "0d left / critical" here while the donut already showed it Expired.
+    const endOfDayManila = Date.parse(`${String(c.expiryDate).slice(0, 10)}T23:59:59.999+08:00`);
+    const boundary = Number.isNaN(endOfDayManila) ? exp : endOfDayManila;
+    const daysLeft = Math.ceil((boundary - now) / DAY);
+
     let urgency;
-    if (daysLeft < 0) urgency = 'expired';
+    if (eff === 'expired') urgency = 'expired';    // authoritative end-of-day-Manila expiry
     else if (daysLeft <= 14) urgency = 'critical';
     else if (daysLeft <= EXPIRING_SOON_DAYS) urgency = 'soon';
     else continue;                                 // beyond the window → not an alert
@@ -411,78 +427,6 @@ export function computeExpirationAlerts(credentials) {
   }
 
   return { alerts, expiringSoonCount, expiredCount, summary };
-}
-
-/*
-  Function Name: computeDemand
-
-  LAYMAN (Tropang Ex):
-  "Aling klase ng credential ang talagang tinitingnan ng employers?" Binibilang kung ilang
-  beses na-verify kada credential type, tapos kinukumpara sa kung ilan ang na-issue. Ito yung
-  proof na natatangi sa blockchain — alam natin kung aling credential ang aktwal na gamit at
-  pinagkakatiwalaan sa labas, hindi lang kung ilan ang ginawa.
-
-  TECHNICAL:
-  Joins verification logs (admin-only, already loaded) to admin credential rows to resolve
-  each verification's credential TYPE. Builds credentialId -> type map and an issued-count
-  per type from rows where type === 'issued'. Verifications whose credentialId can't be
-  resolved fall into "Other". ratio = verifications / max(issued, 1). Ranked by verifications
-  desc. Verifier identity is never read — counts only.
-
-  PARAMS:
-  - verificationLogs — array of verification log objects (credentialId). [] tolerated.
-  - adminCredentials — admin credential rows (credentialId/blockchainId, credentialType, type). [] tolerated.
-
-  RETURNS:
-  { byType:[{type, verifications, issued, ratio}], totalVerifications, topType, summary }
-*/
-export function computeDemand(verificationLogs, adminCredentials) {
-  const logs = Array.isArray(verificationLogs) ? verificationLogs : [];
-  const rows = Array.isArray(adminCredentials) ? adminCredentials : [];
-
-  // credentialId -> type, and issued count per type
-  const idToType = new Map();
-  const issuedByType = new Map();
-  for (const r of rows) {
-    if (lc(r.type) !== 'issued') continue;
-    const type = r.credentialType || 'Uncategorized';
-    const ids = [r.credentialId, r.blockchainId].filter(Boolean);
-    for (const id of ids) idToType.set(String(id), type);
-    issuedByType.set(type, (issuedByType.get(type) || 0) + 1);
-  }
-
-  // verifications grouped by resolved type
-  const verifByType = new Map();
-  for (const log of logs) {
-    const id = log && (log.credentialId || log.blockchainId);
-    const type = (id && idToType.get(String(id))) || 'Other';
-    verifByType.set(type, (verifByType.get(type) || 0) + 1);
-  }
-
-  const types = new Set([...verifByType.keys(), ...issuedByType.keys()]);
-  const byType = [...types].map((type) => {
-    const verifications = verifByType.get(type) || 0;
-    const issued = issuedByType.get(type) || 0;
-    const ratio = Math.round((verifications / Math.max(issued, 1)) * 10) / 10;
-    return { type, verifications, issued, ratio };
-  }).sort((a, b) => b.verifications - a.verifications || b.ratio - a.ratio);
-
-  const totalVerifications = logs.length;
-  const withVerifs = byType.filter((t) => t.verifications > 0);
-  const topType = withVerifs.length ? withVerifs[0].type : null;
-
-  let summary;
-  if (totalVerifications === 0) {
-    summary = 'No verifications recorded yet. Once verifiers start checking credentials, this shows which credential types are most in demand.';
-  } else if (withVerifs.length === 1) {
-    summary = `All ${totalVerifications} verification(s) so far are for "${topType}" credentials.`;
-  } else {
-    const lowest = withVerifs[withVerifs.length - 1];
-    summary = `"${topType}" credentials are checked most often (${withVerifs[0].ratio}× per issued credential) — the highest real-world demand. ` +
-      `"${lowest.type}" is the least verified (${lowest.ratio}×).`;
-  }
-
-  return { byType, totalVerifications, topType, summary };
 }
 
 /*
@@ -887,7 +831,9 @@ export function computeRevocationAudit(credentials) {
   const DAY = 24 * 60 * 60 * 1000;
   for (const c of revoked) {
     const rt = toTime(c.revokedAt || c.rejectedAt);
-    const it = toTime(c.issuedDate || c.createdAt || c.savedToCouchDBAt || c.savedToUserWalletAt);
+    // Measure from ACTUAL issuance (assignedDate), not issuedDate (= template creation date),
+    // so "% revoked within 14 days of issuing" is honest.
+    const it = toTime(c.assignedDate || c.savedToCouchDBAt || c.savedToUserWalletAt || c.createdAt);
     if (rt === null || it === null) continue;
     determinable++;
     const days = Math.max(0, Math.round((rt - it) / DAY));

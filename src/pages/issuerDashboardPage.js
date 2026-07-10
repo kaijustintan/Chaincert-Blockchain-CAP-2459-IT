@@ -263,12 +263,23 @@ export default function IssuerDashboard() {
   useEffect(() => {
     fetchCredentials();
     fetchTemplateOptions();
-    fetchSubordinateDirectory("all");
+    // fetchSubordinateDirectory("all") is already fired by the [subordinateDirectoryFilter] effect
+    // below (default filter = "all") — don't double-fetch it here.
+    // fetchIssuerVerifications is DEFERRED to the Performance view (it runs a full-ledger verification-
+    // log scan that grows with every logged verification and must not block the initial credential render).
     fetchRootSubordinateLogs("all");
     fetchIssuerNotifications();
-    fetchIssuerVerifications();
     fetchRenewalRequests();
   }, []);
+
+  // Perf: load Verification Reach only when the Performance (analytics) view is first opened.
+  const [reachFetched, setReachFetched] = useState(false);
+  useEffect(() => {
+    if (activeView !== "analytics" || reachFetched) return;
+    setReachFetched(true);
+    fetchIssuerVerifications();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeView, reachFetched]);
 
   // C11: load this issuer's renewal-request queue (scope derived server-side from the JWT).
   const fetchRenewalRequests = async () => {

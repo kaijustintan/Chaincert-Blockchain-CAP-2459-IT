@@ -298,6 +298,8 @@ export default function VerifierDashboard() {
         setBulkError("No ChainCert verification links found in this PDF. Bulk verify needs the original digital export — a scanned or printed copy loses the embedded links.");
       }
       setBulkIds(list);
+      // Auto-run straight to results — no "Verify all" button needed.
+      if (list.length > 0) runBulkVerify(list);
     } catch (err) {
       console.error("[BULK PDF] parse failed:", err);
       setBulkError("Could not read that PDF. Make sure it's the original ChainCert export.");
@@ -308,13 +310,14 @@ export default function VerifierDashboard() {
 
   // Sequential verify + on-chain log per extracted credential — same read + same proven-email
   // logging as a single check, so bulk results feed the same analytics.
-  const runBulkVerify = async () => {
-    if (bulkIds.length === 0) return;
+  const runBulkVerify = async (idsArg) => {
+    const ids = idsArg || bulkIds;
+    if (ids.length === 0) return;
     setBulkRunning(true); setBulkDone(false);
-    setBulkResults([]); setBulkProgress({ done: 0, total: bulkIds.length });
+    setBulkResults([]); setBulkProgress({ done: 0, total: ids.length });
     const results = [];
-    for (let i = 0; i < bulkIds.length; i++) {
-      const id = bulkIds[i];
+    for (let i = 0; i < ids.length; i++) {
+      const id = ids[i];
       try {
         // eslint-disable-next-line no-await-in-loop
         const resp = await apiService.Verify_Credential(id);
@@ -353,7 +356,7 @@ export default function VerifierDashboard() {
         }
       }
       setBulkResults([...results]);
-      setBulkProgress({ done: i + 1, total: bulkIds.length });
+      setBulkProgress({ done: i + 1, total: ids.length });
     }
     setBulkRunning(false); setBulkDone(true);
   };
@@ -467,9 +470,8 @@ export default function VerifierDashboard() {
           <h3 style={{ margin: 0, fontSize: "1.05rem" }}>Bulk verify from a ChainCert PDF</h3>
         </div>
         <p style={{ fontSize: 13, color: "var(--text-muted)", margin: "4px 0 12px", lineHeight: 1.5 }}>
-          Upload a holder's ChainCert credential portfolio — every embedded verification link is
-          checked against the blockchain in one pass and logged under your verified email.
-          Works with the <strong>original digital export</strong>; scanned or printed copies lose the embedded links.
+          Upload a holder's ChainCert credential portfolio PDF. Every credential is verified against
+          the blockchain in one pass. <span style={{ opacity: 0.85 }}>Works with the <strong>original digital export</strong>; scanned or printed copies lose the embedded links.</span>
         </p>
 
         <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center" }}>
@@ -483,9 +485,6 @@ export default function VerifierDashboard() {
             </span>
           )}
           {bulkParsing && <span style={{ fontSize: 13, color: "var(--text-muted)" }}>Reading PDF…</span>}
-          {bulkIds.length > 0 && !bulkRunning && (
-            <Button onClick={runBulkVerify}>{bulkDone ? "Verify all again" : `Verify all ${bulkIds.length}`}</Button>
-          )}
         </div>
 
         {bulkError && (
@@ -514,8 +513,9 @@ export default function VerifierDashboard() {
             <div style={{ height: 8, borderRadius: 999, background: "var(--border)", overflow: "hidden", marginBottom: 12 }}>
               <div style={{ height: "100%", width: `${Math.round((bulkProgress.done / bulkProgress.total) * 100)}%`, background: "var(--accent-strong)", transition: "width .3s ease" }} />
             </div>
-            {/* Each result renders as a full verdict card, mirroring the single-credential result. */}
-            <div style={{ display: "flex", flexDirection: "column", gap: 14, maxHeight: 640, overflowY: "auto", paddingRight: 2 }}>
+            {/* Each result renders as a full verdict card, mirroring the single-credential result.
+                No scroll cap — the cards flow and the page scrolls, so nothing gets clipped. */}
+            <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
               {bulkResults.map((r) => {
                 const f = r.full || {};
                 const isValid = r.outcome === "valid";

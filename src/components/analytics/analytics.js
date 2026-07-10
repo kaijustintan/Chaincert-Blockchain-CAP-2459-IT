@@ -517,7 +517,9 @@ export function computeProvenance(history) {
     const status = lc(v.status);
     if (status === 'revoked' || v.revokedAt) return 'revoked';
     if (status === 'expired') return 'expired';
-    if (v.assignedDate && v.holderID) return 'issued';
+    // A renewal re-issue carries renewedFrom → label it "Reissued" so a merged lineage timeline
+    // reads Issued → Expired → Reissued instead of two identical "Issued" events.
+    if (v.assignedDate && v.holderID) return v.renewedFrom ? 'reissued' : 'issued';
     if (v.isTemplate === true || !v.holderID) return 'created';
     return 'updated';
   };
@@ -525,6 +527,7 @@ export function computeProvenance(history) {
   const META = {
     created:  { label: 'Credential created', icon: '📄', color: COLORS.blue },
     issued:   { label: 'Issued to holder', icon: '🎓', color: COLORS.green },
+    reissued: { label: 'Reissued (renewal)', icon: '🔄', color: COLORS.blue },
     updated:  { label: 'Updated',          icon: '✏️', color: COLORS.gray },
     expired:  { label: 'Expired',          icon: '⏳', color: COLORS.amber },
     revoked:  { label: 'Revoked',          icon: '🚫', color: COLORS.red },
@@ -550,6 +553,7 @@ export function computeProvenance(history) {
   const has = (a) => events.some((e) => e.label === META[a].label);
   const created = has('created');
   const issued = has('issued');
+  const reissued = has('reissued');
   const revoked = has('revoked');
   const expired = has('expired');
 
@@ -560,13 +564,14 @@ export function computeProvenance(history) {
     const parts = [];
     if (created) parts.push('created');
     if (issued) parts.push('issued to the holder');
+    if (expired) parts.push('expired');
+    if (reissued) parts.push('renewed (reissued)');
     if (revoked) parts.push('later revoked');
-    else if (expired) parts.push('expired');
-    const tail = revoked || expired ? '' : ' and remains valid';
+    const tail = (revoked || (expired && !reissued)) ? '' : ' and the current credential is valid';
     summary = `This credential was ${parts.join(', ')}${tail}. Every step is permanently recorded on the blockchain and cannot be altered.`;
   }
 
-  return { events, created, issued, revoked, expired, summary };
+  return { events, created, issued, reissued, revoked, expired, summary };
 }
 
 /*

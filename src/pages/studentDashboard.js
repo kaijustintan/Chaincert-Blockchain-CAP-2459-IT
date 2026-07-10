@@ -321,9 +321,16 @@ export default function StudentDashboard() {
   /* Phase 4: Verification Insights — the holder's OWN verification logs (server-side filtered) */
   const [myVerifications, setMyVerifications] = useState([]);
   const [viLoading, setViLoading] = useState(false);
+  const [viFetched, setViFetched] = useState(false);
   const vinsights = useMemo(() => computeHolderVerificationInsights(myVerifications), [myVerifications]);
 
+  // Perf: the verification-logs endpoint does a full-ledger scan whose cost grows with every logged
+  // verification (bulk-verify testing inflates it a lot). Fetch it only AFTER credentials have loaded
+  // (loading === false) so the heavy scan never competes with the credential fetch that the
+  // "Loading credentials…" spinner actually waits on.
   useEffect(() => {
+    if (loading || viFetched) return;
+    setViFetched(true);
     let active = true;
     setViLoading(true);
     apiService
@@ -332,7 +339,7 @@ export default function StudentDashboard() {
       .catch(() => { if (active) setMyVerifications([]); })
       .finally(() => { if (active) setViLoading(false); });
     return () => { active = false; };
-  }, []);
+  }, [loading, viFetched]);
 
   // ── See History handler ────────────────────────────────────────────────────
 
@@ -355,8 +362,20 @@ export default function StudentDashboard() {
         return;
       }
 
-      const result = await apiService.Get_CredentialHistory(blockchainId);
-      const cleanHistory = (Array.isArray(result?.history) ? result.history : []).filter((entry) => {
+      // Merge the FULL renewal lineage (same template + same holder) so the timeline shows the
+      // whole story — original Issued → Expired → Reissued — not just the newest credential's history.
+      const tid = cred.templateId;
+      const hid = cred.holderID || cred.holderId || "";
+      const lineage = tid
+        ? credentials.filter((c) => c.templateId === tid && (c.holderID || c.holderId || "") === hid && c.blockchainId)
+        : [cred];
+      const ids = [...new Set(lineage.map((c) => c.blockchainId).filter(Boolean))];
+      const histories = await Promise.all(
+        ids.map((id) => apiService.Get_CredentialHistory(id).then((r) => (Array.isArray(r?.history) ? r.history : [])).catch(() => []))
+      );
+      const merged = histories.flat();
+
+      const cleanHistory = merged.filter((entry) => {
         const id = entry?.credentialId || entry?.id || entry?.key || entry?.value?.credentialId || "";
         const action = String(entry?.action || "").toLowerCase();
         const status = String(entry?.status || entry?.value?.status || "").toLowerCase();
@@ -365,7 +384,7 @@ export default function StudentDashboard() {
         if (!action && status === "status unknown") return false;
         return true;
       });
-      setHistoryData({ ...result, history: cleanHistory });
+      setHistoryData({ history: cleanHistory });
     } catch (err) {
       console.error("[STUDENT DASHBOARD] History fetch error:", err);
       setHistoryError("Failed to load credential history.");

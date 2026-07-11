@@ -1711,7 +1711,7 @@ export default function IssuerDashboard() {
           {/* B3: clear hierarchy — single revoke, then the batch group (select rows / import IDs),
               with the ID-format hint visible up front instead of discovered by trial and error. */}
           <div style={{ margin: "20px 0" }}>
-            <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center" }}>
+            <div className="revoke-action-row" style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center" }}>
               <button onClick={openRevokeModal} className="action-btn revoke-btn">Revoke a credential</button>
               <span style={{ opacity: 0.45, alignSelf: "center" }}>— or batch —</span>
               <button
@@ -2379,13 +2379,17 @@ export default function IssuerDashboard() {
               </div>
               <div className="form-group"><label>Description</label><textarea name="description" value={createForm.description} onChange={handleCreateFormChange} rows={2} placeholder="Describe the credential's purpose..." /></div>
               <div className="form-group"><label>Metadata <span className="form-label-hint">(optional)</span></label><input type="text" name="metadata" value={createForm.metadata} onChange={handleCreateFormChange} placeholder="e.g. Level: Manager" /></div>
-              {/* D5: renewable flag — controls whether holders see a "Request renewal" button */}
+              {/* D5: renewable flag — controls whether holders see a "Request renewal" button.
+                  N1: the "?" is a SIBLING of the label (not inside it) so clicking it can never
+                  forward a toggle to the checkbox via native label behavior. */}
               <div className="form-group">
-                <label style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer" }}>
-                  <input type="checkbox" checked={createForm.renewable !== false} onChange={(e) => setCreateForm((prev) => ({ ...prev, renewable: e.target.checked }))} style={{ width: "auto" }} />
-                  Allow holders to request renewal
+                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                  <label style={{ display: "inline-flex", alignItems: "center", gap: 8, cursor: "pointer" }}>
+                    <input type="checkbox" checked={createForm.renewable !== false} onChange={(e) => setCreateForm((prev) => ({ ...prev, renewable: e.target.checked }))} style={{ width: "auto" }} />
+                    Allow holders to request renewal
+                  </label>
                   <InfoHint text="Leave on for credentials that expire and can be renewed (IDs, memberships). Turn off for one-time credentials (diplomas, certificates)." />
-                </label>
+                </div>
               </div>
               <div className="form-group">
                 <label>Skills <span className="form-label-hint">(optional — recipients will earn these)</span></label>

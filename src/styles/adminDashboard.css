@@ -319,7 +319,11 @@
   width: 100%; overflow-x: auto; border-radius: 14px; margin-top: 12px;
   max-width: 100%; box-sizing: border-box;
 }
-.table-wrapper .admin-table { min-width: 0; } /* ADMIN4/GEN2: let the table fit its container instead of forcing horizontal scroll */
+/* N4/Phase A: previously `min-width:0` forced wide tables (7 cols: User Mgmt etc.) to shrink-to-fit,
+   squashing the Active badge + action buttons at 100% zoom. Use the natural column width instead —
+   the table keeps its columns un-squashed and the wrapper's overflow-x:auto scrolls when the
+   container is too narrow (zoom / small screens). */
+.table-wrapper .admin-table { min-width: max-content; }
 .table-wrapper::-webkit-scrollbar { height: 6px; }
 .table-wrapper::-webkit-scrollbar-track { background: var(--accent-weaker); border-radius: 3px; }
 .table-wrapper::-webkit-scrollbar-thumb { background: var(--accent-weak); border-radius: 3px; }
@@ -593,6 +597,18 @@
 .issuer-filter-row select:focus { border-color: var(--border-accent) !important; box-shadow: var(--focus-ring) !important; }
 .filter-item label, .issuer-filter-row label { color: var(--text-muted); }
 .filter-select option, .filter-item select option, .issuer-filter-row select option { background: var(--surface-2); color: var(--text); }
+
+/* N3: normalize the admin filter rows (Issuer Mgmt, User Mgmt, Credentials, Pending, logs — all
+   share `.issuer-filter-row`). Keep every control on one centered baseline and stop the bare
+   search input from ballooning to fill the row (its `flex:1 1 220px` grabbed all leftover width
+   and stretched full-width when it wrapped — the "awkward whitespace").
+   Scoped to >=769px so the mobile stack (flex-direction:column; align-items:flex-start at 768px)
+   still wins below that. */
+@media (min-width: 769px) {
+  .issuer-filter-row { align-items: center; row-gap: 10px; }
+  .issuer-filter-row .filter-input { flex: 0 1 260px; min-width: 200px; max-width: 100%; }
+  .issuer-filter-row > div { display: flex; align-items: center; gap: 8px; }
+}
 
 /* Tab-card buttons (generic) */
 .tab-card button {

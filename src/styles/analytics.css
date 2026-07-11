@@ -52,6 +52,20 @@
   border: 1px dashed var(--border-strong); border-radius: var(--radius-control);
 }
 
+/* N2: the charts are display-only (tooltips were removed). recharts renders focusable SVG
+   sectors/bars, so clicking one left a stray focus outline that only cleared on the next click.
+   Neutralize it everywhere a recharts chart renders. */
+.recharts-wrapper,
+.recharts-surface,
+.recharts-wrapper :focus,
+.recharts-surface :focus,
+.recharts-sector,
+.recharts-sector:focus,
+.recharts-rectangle:focus,
+.recharts-bar-rectangle:focus {
+  outline: none !important;
+}
+
 /* Interpretation box — "what this means" callout (self-contained). */
 .analytics-interpretation {
   margin-top: var(--s3);

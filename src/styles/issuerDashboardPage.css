@@ -362,6 +362,9 @@
 
 .template-table {
   width: 100%;
+  /* N4/Phase B: keep the 7-column table at its natural width so columns don't squash at 100%
+     zoom; the `.table-container` overflow-x:auto scrolls when the viewport is too narrow. */
+  min-width: max-content;
   border-collapse: separate;
   border-spacing: 0;
   background: var(--border);
@@ -2584,6 +2587,20 @@
 }
 .issuer-dashboard .create-btn::after,
 .issuer-dashboard .revoke-btn::after { display: none !important; }
+
+/* 4.4 (real fix): base `.action-btn` is `display:block; width:100%`, so the Import label and
+   Clear button in the revoke action row ballooned to full width, leaving stranded whitespace.
+   Size every button in this row to its content so the row reads as one tight left cluster. */
+.issuer-dashboard .revoke-action-row { justify-content: flex-start; }
+.issuer-dashboard .revoke-action-row .action-btn {
+  display: inline-flex !important;
+  width: fit-content !important;
+  margin: 0 !important;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 10px 18px !important;
+}
 
 /* Filters: tight, left-aligned group (was a spread full-width grid) */
 .issuer-dashboard .filter-row {

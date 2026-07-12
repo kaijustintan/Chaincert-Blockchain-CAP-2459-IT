@@ -16,6 +16,12 @@ router.post('/register', authController.register);
 // registration wizard's Step 1 -> 2 gate. Returns { available }.
 router.post('/check-email', authController.checkEmail);
 
+// POST /api/auth/signup/request-otp - Email an OTP to verify a new account's email (public, no auth).
+router.post('/signup/request-otp', authController.requestSignupOtp);
+
+// POST /api/auth/signup/confirm-otp - Confirm the OTP -> return a signup_email_proof token (public).
+router.post('/signup/confirm-otp', authController.confirmSignupOtp);
+
 // POST /api/auth/login - Unified login: resolves user-vs-issuer server-side in ONE request
 // (Bonus, Phase 5 Tier 2). The legacy user-only handler stays available via authController.login,
 // and /api/issuer/login remains as a backward-compatible alias.

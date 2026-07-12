@@ -2810,14 +2810,18 @@ async function getIssuerTemplatesByIssuerId(issuerId) {
     const issuerCouch = require('nano')(issuer.couchDBUrl);
     const db = issuerCouch.use('wallet_issuer_credentials');
 
-    // Based on your screenshot: templates are marked with isTemplate: true
+    // PERF (UAT): templates are marked isTemplate:true. The old $or (with a never-used
+    // 'credential_template' fallback) made Mango scan the whole DB — the ~13s /templates load.
+    // A single-field equality on an INDEXED field lets CouchDB use the index instead. createIndex
+    // is idempotent (returns 'exists' after the first call) and best-effort: a failure just logs
+    // and the find still runs (unindexed, i.e. the old behavior), so this can never break reads.
+    try {
+      await db.createIndex({ index: { fields: ['isTemplate'] }, ddoc: 'idx-isTemplate', name: 'idx-isTemplate' });
+    } catch (idxErr) {
+      console.warn('[COUCHDB] wallet_issuer_credentials isTemplate index ensure failed (non-fatal):', idxErr.message);
+    }
     const result = await db.find({
-      selector: {
-        $or: [
-          { isTemplate: true },
-          { type: 'credential_template' } // optional fallback if you ever use this later
-        ]
-      }
+      selector: { isTemplate: true }
     });
 
     console.log(`[COUCHDB] Found ${result.docs.length} TEMPLATE(s) for issuer ${issuerId}`);

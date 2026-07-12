@@ -1467,6 +1467,27 @@ Check_IssuerHasTemplates: async () => {
     }
   },
 
+  // Signup email-verification OTP (UAT): prove email ownership before the account is created.
+  requestSignupOtp: async (email) => {
+    try {
+      const response = await axios.post('/auth/signup/request-otp', { email });
+      return response.data;
+    } catch (error) {
+      console.error('Error requesting signup OTP:', error.response?.data?.message || error.message);
+      throw error;
+    }
+  },
+
+  confirmSignupOtp: async (email, otp) => {
+    try {
+      const response = await axios.post('/auth/signup/confirm-otp', { email, otp });
+      return response.data;
+    } catch (error) {
+      console.error('Error confirming signup OTP:', error.response?.data?.message || error.message);
+      throw error;
+    }
+  },
+
   Log_VerificationEvent: async (credentialId, verifierName, verifierEmail, verifyResult) => {
     try {
       const response = await axios.post(

@@ -10,6 +10,22 @@ const mailerService = require('../mailerService'); // F28: password-change recei
 // bcrypt.compare so both paths take roughly the same time. Computed once at module load.
 const DUMMY_BCRYPT_HASH = bcrypt.hashSync('chaincert-timing-equalizer', 10);
 
+// ===========================================================================================
+// SIGNUP EMAIL OTP (UAT): verify email ownership before a USER account goes live.
+// Mirrors the verifier OTP engine (verifierController): in-memory transient store keyed by
+// lowercased email, a short-lived 6-digit code, and on confirm a short-lived
+// 'signup_email_proof' JWT that register() REQUIRES — so a new account's email is server-PROVEN,
+// not just typed. Single-instance capstone scope (no DB schema change); a restart just forces a
+// re-request. Issuer applications are NOT gated here (they already pass admin review before going
+// live). TESTING TOGGLE: DISABLE_SIGNUP_OTP=true bypasses the gate in register().
+// ===========================================================================================
+const signupOtpStore = new Map(); // email -> { otp, expiresAt, attempts, windowStart }
+const SIGNUP_OTP_TTL_MS = 10 * 60 * 1000;      // code valid 10 min
+const SIGNUP_OTP_MAX = 3;                       // max sends per rate-limit window
+const SIGNUP_OTP_WINDOW_MS = 10 * 60 * 1000;    // rate-limit window
+const SIGNUP_TOKEN_TTL = '20m';                 // proof-token lifetime (must register soon after)
+const SIGNUP_EMAIL_RE = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
+
 const authController = {
   register: async (req, res) => {
     try {
@@ -39,6 +55,22 @@ const authController = {
         });
       }
 
+      // Signup email proof (UAT): require a valid 'signup_email_proof' token whose email matches
+      // this registration, issued by confirmSignupOtp after the user enters the emailed code.
+      // TESTING TOGGLE: DISABLE_SIGNUP_OTP=true skips this (parity with DISABLE_PASSWORD_POLICY).
+      if (process.env.DISABLE_SIGNUP_OTP !== 'true') {
+        const signupToken = req.body?.signupToken || String(req.headers.authorization || '').replace(/^Bearer\s+/i, '');
+        let proofOk = false;
+        try {
+          const decoded = jwt.verify(signupToken, process.env.JWT_SECRET);
+          proofOk = decoded?.purpose === 'signup_email_proof'
+            && String(decoded.signupEmail || '').toLowerCase() === normalizedEmail;
+        } catch (_) { proofOk = false; }
+        if (!proofOk) {
+          return res.status(401).json({ success: false, message: 'Please verify your email with the code we sent before creating your account.' });
+        }
+      }
+
       const hashedPassword = await bcrypt.hash(password, 10);
 
       const userData = {
@@ -61,6 +93,80 @@ const authController = {
       });
     } catch (error) {
       return sendServerError(res, error, 'REGISTER'); // M9
+    }
+  },
+
+  // Signup step 1: email an OTP to prove ownership before the account is created (public route).
+  requestSignupOtp: async (req, res) => {
+    try {
+      const email = String(req.body?.email || '').trim().toLowerCase();
+      if (!email || !SIGNUP_EMAIL_RE.test(email)) {
+        return res.status(400).json({ success: false, message: 'A valid email is required.' });
+      }
+      const dupCheck = await couchDB.isEmailAlreadyUsed(email);
+      if (dupCheck?.exists) {
+        return res.status(409).json({ success: false, message: 'Email is already registered in the system.' });
+      }
+      const now = Date.now();
+      const existing = signupOtpStore.get(email);
+      let attempts = 1, windowStart = now;
+      if (existing && now - existing.windowStart < SIGNUP_OTP_WINDOW_MS) {
+        if (existing.attempts >= SIGNUP_OTP_MAX) {
+          return res.status(429).json({ success: false, message: 'Too many code requests. Please wait a few minutes and try again.' });
+        }
+        attempts = existing.attempts + 1;
+        windowStart = existing.windowStart;
+      }
+      const otp = String(Math.floor(100000 + Math.random() * 900000));
+      signupOtpStore.set(email, { otp, expiresAt: now + SIGNUP_OTP_TTL_MS, attempts, windowStart });
+      try {
+        await mailerService.sendMail({
+          to: email,
+          realRecipient: true, // a new user is a real person — deliver to their inbox
+          subject: 'CHAINCERT - Verify your email to create your account',
+          html: mailerService.renderOtpEmail({
+            heading: 'Confirm your email',
+            intro: 'Enter this code in ChainCert to verify your email and finish creating your account.',
+            otp,
+            note: 'This code expires in 10 minutes. If you did not request it, you can ignore this email.'
+          }),
+          text: `Your ChainCert sign-up code is: ${otp}\nIt expires in 10 minutes.`
+        });
+      } catch (mailErr) {
+        console.error('[SIGNUP OTP] send failed:', mailErr.message);
+        return res.status(502).json({ success: false, message: 'Could not send the code. Check your email and try again.' });
+      }
+      return res.status(200).json({ success: true, message: 'Verification code sent.' });
+    } catch (error) {
+      return sendServerError(res, error, 'SIGNUP_OTP_REQUEST');
+    }
+  },
+
+  // Signup step 2: confirm the OTP → issue the short-lived 'signup_email_proof' token (public route).
+  confirmSignupOtp: async (req, res) => {
+    try {
+      const email = String(req.body?.email || '').trim().toLowerCase();
+      const otp = String(req.body?.otp || '').trim();
+      if (!email || !otp) {
+        return res.status(400).json({ success: false, message: 'Email and code are required.' });
+      }
+      const entry = signupOtpStore.get(email);
+      if (!entry || entry.otp !== otp) {
+        return res.status(400).json({ success: false, message: 'Invalid verification code.' });
+      }
+      if (Date.now() > entry.expiresAt) {
+        signupOtpStore.delete(email);
+        return res.status(400).json({ success: false, message: 'Code has expired. Please request a new one.' });
+      }
+      signupOtpStore.delete(email); // single-use
+      const signupToken = jwt.sign(
+        { signupEmail: email, purpose: 'signup_email_proof' },
+        process.env.JWT_SECRET,
+        { expiresIn: SIGNUP_TOKEN_TTL }
+      );
+      return res.status(200).json({ success: true, signupToken, email });
+    } catch (error) {
+      return sendServerError(res, error, 'SIGNUP_OTP_CONFIRM');
     }
   },
 

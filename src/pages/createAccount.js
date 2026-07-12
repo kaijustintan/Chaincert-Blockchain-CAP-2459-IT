@@ -116,6 +116,10 @@ export default function CreateAccount() {
     setWizardStep(1);
   };
 
+  // UAT: signup email-OTP gate state (verify email ownership BEFORE the account is created).
+  const [userOtpStep, setUserOtpStep] = useState(false);
+  const [userOtp, setUserOtp] = useState("");
+
   // ========== USER FORM HANDLERS ==========
   const handleUserChange = (e) => {
     setUser({ ...user, [e.target.name]: e.target.value });
@@ -142,14 +146,43 @@ export default function CreateAccount() {
       return;
     }
 
+    // UAT: email-verify before creating the account — send a 6-digit code, then confirm it below.
     setUserLoading(true);
     try {
+      await apiService.requestSignupOtp(String(user.email).trim().toLowerCase());
+      setUserOtp("");
+      setUserOtpStep(true);
+      showToast("We sent a 6-digit code to your email.");
+    } catch (err) {
+      setUserError(err.response?.data?.message || "Could not send the verification code. Please try again.");
+    } finally {
+      setUserLoading(false);
+    }
+  };
+
+  // UAT: step 2 — confirm the emailed code, then create the account with the proof token.
+  const confirmUserSignup = async () => {
+    setUserError("");
+    if (!/^\d{6}$/.test(userOtp)) {
+      setUserError("Enter the 6-digit code we emailed you.");
+      return;
+    }
+    setUserLoading(true);
+    try {
+      const otpRes = await apiService.confirmSignupOtp(String(user.email).trim().toLowerCase(), userOtp);
+      const signupToken = otpRes?.signupToken;
+      if (!signupToken) {
+        setUserError("Verification failed. Please try again.");
+        setUserLoading(false);
+        return;
+      }
       const response = await apiService.registerUser({
         username: user.fullName,
         email: user.email,
         password: user.password,
         role: "user",
         org: "org1",
+        signupToken,
       });
 
       if (response.success) {
@@ -157,14 +190,26 @@ export default function CreateAccount() {
         setTimeout(
           () => navigate("/login", { state: { successMessage: "Account created successfully! Please log in." } }),
           900
-        ); /* CSS-CHANGE: redirect to login after success - polo */
-      } else {
-        setUserError(
-          response.message || response.error || "Registration failed."
         );
+      } else {
+        setUserError(response.message || response.error || "Registration failed.");
       }
     } catch (err) {
       setUserError(err.response?.data?.message || "Registration failed.");
+    } finally {
+      setUserLoading(false);
+    }
+  };
+
+  // UAT: resend the signup code (same rate-limit window applies server-side).
+  const handleResendSignupOtp = async () => {
+    setUserError("");
+    setUserLoading(true);
+    try {
+      await apiService.requestSignupOtp(String(user.email).trim().toLowerCase());
+      showToast("A new code has been sent to your email.");
+    } catch (err) {
+      setUserError(err.response?.data?.message || "Could not resend the code.");
     } finally {
       setUserLoading(false);
     }
@@ -721,9 +766,34 @@ const getDocumentDescription = (docKey) => {
               </div>
             )}
 
-            <button type="submit" className="btn-primary" disabled={userLoading}>
-              {userLoading ? "Creating Account..." : "Create User Account"}
-            </button>
+            {!userOtpStep ? (
+              <button type="submit" className="btn-primary" disabled={userLoading}>
+                {userLoading ? "Sending code..." : "Create User Account"}
+              </button>
+            ) : (
+              <div className="signup-otp-gate" style={{ display: "flex", flexDirection: "column", gap: 10, marginTop: 4 }}>
+                <label style={{ fontSize: 13, color: "var(--text-muted)" }}>
+                  Enter the 6-digit code we emailed to <strong style={{ color: "var(--text)" }}>{user.email}</strong>
+                </label>
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  maxLength={6}
+                  placeholder="123456"
+                  value={userOtp}
+                  onChange={(e) => setUserOtp(e.target.value.replace(/\D/g, "").slice(0, 6))}
+                  onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); confirmUserSignup(); } }}
+                  autoFocus
+                />
+                <button type="button" className="btn-primary" onClick={confirmUserSignup} disabled={userLoading}>
+                  {userLoading ? "Verifying..." : "Verify & Create Account"}
+                </button>
+                <div style={{ display: "flex", gap: 12, justifyContent: "center" }}>
+                  <button type="button" className="btn-link" onClick={handleResendSignupOtp} disabled={userLoading}>Resend code</button>
+                  <button type="button" className="btn-link" onClick={() => { setUserOtpStep(false); setUserOtp(""); }}>Use a different email</button>
+                </div>
+              </div>
+            )}
           </form>
 
           {/* CSS-CHANGE: bottom links row - polo */}

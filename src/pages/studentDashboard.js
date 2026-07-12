@@ -1106,6 +1106,7 @@ export default function StudentDashboard() {
                   history={historyData?.history || []}
                   verificationLogs={myVerifications}
                   credentialId={selectedCred?.blockchainId || selectedCred?._id}
+                  credential={selectedCred}
                   showProofTrail
                   loading={historyLoading}
                   error={historyError}

@@ -147,6 +147,8 @@ export default function AdminDashboard() {
   const [issuerSearch, setIssuerSearch] = useState("");
   const [userSortBy, setUserSortBy] = useState("newest");
   const [verificationSortBy, setVerificationSortBy] = useState("newest");
+  const [verificationResultFilter, setVerificationResultFilter] = useState("all"); // final review: filter verification logs by outcome
+  const [verificationLogSearch, setVerificationLogSearch] = useState(""); // final review: search verification logs
   const [statusLogSortBy, setStatusLogSortBy] = useState("newest");
   const [issuerDecisionLogSortBy, setIssuerDecisionLogSortBy] = useState("newest");
   const [rootSubordinateLogSortBy, setRootSubordinateLogSortBy] = useState("newest");
@@ -545,7 +547,27 @@ const handleDownloadIssuerDocument = async (doc) => {
     return merged;
   }, [sortedStatusLogs, sortedIssuerDecisionLogs, auditTypeFilter, auditSearch, statusLogSortBy]);
 
-  const sortedVerificationLogs = useMemo(() => sortByDateThenName(verificationLogs, verificationSortBy, { dateFields: ["timestamp", "verifiedAt", "createdAt"], nameFields: ["verifierName", "holderName", "credentialId"], statusField: "resultMessage" }), [verificationLogs, verificationSortBy]);
+  // Final review: derive a normalized outcome for a verification log (mirrors the badge logic in the table).
+  const verifLogOutcome = (log) => {
+    const r = (log && log.result) || {};
+    const reason = String(r.reason || log?.resultMessage || "").toLowerCase();
+    const status = String(r.status || "").toLowerCase();
+    if (status === "not_found" || reason.includes("not found")) return "not_found";
+    if (r.valid === true || (reason.includes("valid") && !reason.includes("invalid"))) return "valid";
+    if (reason.includes("revoked")) return "revoked";
+    if (reason.includes("expired")) return "expired";
+    if (r.valid === false) return "invalid";
+    return "other";
+  };
+  // Final review: verification logs gained a Result filter + Search (had a Result column but no way to filter it).
+  const filteredVerificationLogs = useMemo(() => {
+    let rows = verificationLogs;
+    if (verificationResultFilter !== "all") rows = rows.filter((log) => verifLogOutcome(log) === verificationResultFilter);
+    const q = verificationLogSearch.trim().toLowerCase();
+    if (q) rows = rows.filter((log) => [log.verifierName, log.verifierEmail, log.credentialId, log.holderID, log.holderName, log.logId].filter(Boolean).join(" ").toLowerCase().includes(q));
+    return rows;
+  }, [verificationLogs, verificationResultFilter, verificationLogSearch]);
+  const sortedVerificationLogs = useMemo(() => sortByDateThenName(filteredVerificationLogs, verificationSortBy, { dateFields: ["timestamp", "verifiedAt", "createdAt"], nameFields: ["verifierName", "holderName", "credentialId"], statusField: "resultMessage" }), [filteredVerificationLogs, verificationSortBy]);
   // UAT: pagination (10/page) for the admin tables — client-side over the filtered/sorted sets.
   const issuersPg = usePagination(sortedVisibleIssuers, 10);
   const usersPg = usePagination(sortedVisibleUsers, 10);
@@ -1981,6 +2003,7 @@ const handleDownloadIssuerDocument = async (doc) => {
                 history={credentialHistory}
                 verificationLogs={verificationLogs}
                 credentialId={selectedCredentialRow?.credentialId || selectedCredentialRow?.blockchainId || selectedCredentialRow?.id}
+                credential={selectedCredentialRow}
                 showProofTrail
                 loading={credentialHistoryLoading}
                 error={credentialHistoryError}
@@ -3566,53 +3589,36 @@ const handleDownloadIssuerDocument = async (doc) => {
               <option value="status-asc">Status A-Z</option>
             </select>
 
-            {logCategory === "status" && (
+            {logCategory === "verification" && (
               <>
-                <label htmlFor="statusLogFilter">Filter:</label>
+                <label htmlFor="verifResultFilter">Result:</label>
                 <select
-                  id="statusLogFilter"
-                  value={statusLogFilter}
-                  onChange={(e) => {
-                    setStatusLogFilter(e.target.value)
-                  }}
+                  id="verifResultFilter"
+                  value={verificationResultFilter}
+                  onChange={(e) => setVerificationResultFilter(e.target.value)}
                 >
-                  <option value="all">All</option>
-                  <option value="issuers">Issuers</option>
-                  <option value="users">Users</option>
+                  <option value="all">All Results</option>
+                  <option value="valid">Valid</option>
+                  <option value="revoked">Revoked</option>
+                  <option value="expired">Expired</option>
+                  <option value="not_found">Not Found</option>
+                  <option value="invalid">Invalid</option>
                 </select>
-
                 <input
                   type="text"
-                  value={statusLogEmailSearch}
-                  onChange={(e) => setStatusLogEmailSearch(e.target.value)}
-                  onKeyDown={(e) => { if (e.key === "Enter") fetchStatusLogs(statusLogFilter, e.target.value); }}
-                  placeholder="Search by email..."
-                  style={{
-                    padding: "8px 10px",
-                    borderRadius: 10,
-                    border: "1px solid rgba(255,255,255,0.18)",
-                    background: "var(--border)",
-                    color: "var(--text)",
-                    outline: "none",
-                    minWidth: 220,
-                  }}
+                  value={verificationLogSearch}
+                  onChange={(e) => setVerificationLogSearch(e.target.value)}
+                  placeholder="Search verifier / holder / credential ID…"
+                  aria-label="Search verification logs"
+                  className="filter-input"
+                  style={{ flex: "0 1 260px" }}
                 />
-                <button
-                  onClick={() => fetchStatusLogs(statusLogFilter, statusLogEmailSearch)}
-                  style={{
-                    padding: "8px 14px",
-                    borderRadius: 10,
-                    border: "1px solid rgba(255,255,255,0.18)",
-                    background: "var(--accent-weak)",
-                    color: "var(--accent-strong)",
-                    cursor: "pointer",
-                    fontWeight: 700,
-                  }}
-                >
-                  Search
-                </button>
               </>
             )}
+
+            {/* Final review: removed the dead `logCategory === "status"` filter block —
+                "status" is not a selectable category (options are verification / audit /
+                root_subordinate_decision), so it never rendered. */}
 
             {logCategory === "root_subordinate_decision" && (
               <>

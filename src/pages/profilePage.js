@@ -425,6 +425,10 @@ const [showAll, setShowAll] = useState(false);
   const [linkSortBy, setLinkSortBy] = useState('newest');
   const [linkStatusFilter, setLinkStatusFilter] = useState('all');
   const [linkSourceFilter, setLinkSourceFilter] = useState('all');
+  const [linkSearch, setLinkSearch] = useState(''); // final review: search share links (was missing)
+  const [issuerTplSearch, setIssuerTplSearch] = useState(''); // final review: issuer "My Credentials" grid controls (were missing)
+  const [issuerTplVisibility, setIssuerTplVisibility] = useState('all');
+  const [issuerTplSort, setIssuerTplSort] = useState('name-asc');
 
   // Fetch all share links for current user
   const fetchMyShareLinks = async () => {
@@ -519,6 +523,14 @@ const [showAll, setShowAll] = useState(false);
       }
     }
 
+    const q = linkSearch.trim().toLowerCase();
+    if (q) {
+      result = result.filter((link) =>
+        [link.recipientName, link.recipientEmail, link.description, link.credentialName, link.token, link.shareToken]
+          .filter(Boolean).join(' ').toLowerCase().includes(q)
+      );
+    }
+
     result.sort((a, b) => {
       const left = new Date(a.createdAt || 0).getTime() || 0;
       const right = new Date(b.createdAt || 0).getTime() || 0;
@@ -526,8 +538,23 @@ const [showAll, setShowAll] = useState(false);
     });
 
     return result;
-  }, [myShareLinks, linkSortBy, linkStatusFilter, linkSourceFilter]);
+  }, [myShareLinks, linkSortBy, linkStatusFilter, linkSourceFilter, linkSearch]);
   const linksPg = usePagination(filteredLinks, 10); // UAT: paginate the Share Links table
+
+  // Final review: the issuer "My Credentials" grid had no controls — add search / visibility / sort / pagination.
+  const filteredIssuerTemplates = useMemo(() => {
+    let rows = [...(issuerTemplates || [])];
+    if (issuerTplVisibility !== 'all') rows = rows.filter((t) => (t.visibility === 'public' ? 'public' : 'private') === issuerTplVisibility);
+    const q = issuerTplSearch.trim().toLowerCase();
+    if (q) rows = rows.filter((t) => [t.credentialName, t.credentialType].filter(Boolean).join(' ').toLowerCase().includes(q));
+    rows.sort((a, b) => {
+      const an = String(a.credentialName || a.credentialType || '');
+      const bn = String(b.credentialName || b.credentialType || '');
+      return issuerTplSort === 'name-desc' ? bn.localeCompare(an) : an.localeCompare(bn);
+    });
+    return rows;
+  }, [issuerTemplates, issuerTplVisibility, issuerTplSearch, issuerTplSort]);
+  const issuerTplPg = usePagination(filteredIssuerTemplates, 12);
 
   const handleRevokeShareLink = async (token) => {
     setRevokingToken(token);
@@ -840,8 +867,38 @@ const [showAll, setShowAll] = useState(false);
             <div className="empty-card">No credentials yet. Create one from your dashboard.</div>
           )}
           {!issuerTemplatesLoading && issuerTemplates.length > 0 && (
+            <>
+            <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', marginBottom: '16px', alignItems: 'center' }}>
+              <input
+                type="text"
+                value={issuerTplSearch}
+                onChange={(e) => setIssuerTplSearch(e.target.value)}
+                placeholder="Search credentials…"
+                aria-label="Search my credentials"
+                className="filter-select"
+                style={{ minWidth: '200px' }}
+              />
+              <div>
+                <label style={{ fontSize: '12px', marginRight: '6px' }}>Visibility:</label>
+                <select className="filter-select" value={issuerTplVisibility} onChange={(e) => setIssuerTplVisibility(e.target.value)}>
+                  <option value="all">All</option>
+                  <option value="public">Public</option>
+                  <option value="private">Private</option>
+                </select>
+              </div>
+              <div>
+                <label style={{ fontSize: '12px', marginRight: '6px' }}>Sort:</label>
+                <select className="filter-select" value={issuerTplSort} onChange={(e) => setIssuerTplSort(e.target.value)}>
+                  <option value="name-asc">Name A-Z</option>
+                  <option value="name-desc">Name Z-A</option>
+                </select>
+              </div>
+            </div>
+            {filteredIssuerTemplates.length === 0 ? (
+              <div className="empty-card">No credentials match your filter.</div>
+            ) : (
             <div className="badges-grid">
-              {issuerTemplates.map((template) => {
+              {issuerTplPg.pageItems.map((template) => {
                 const tid = template.id || template._id;
                 const isPublic = template.visibility === 'public';
                 return (
@@ -866,6 +923,9 @@ const [showAll, setShowAll] = useState(false);
                 );
               })}
             </div>
+            )}
+            <Pagination {...issuerTplPg} />
+            </>
           )}
         </section>
       )}
@@ -1053,6 +1113,17 @@ const [showAll, setShowAll] = useState(false);
           {!shareLinksLoading && myShareLinks.length > 0 && (
             <>
               <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', marginBottom: '16px', alignItems: 'center' }}>
+                <div>
+                  <input
+                    type="text"
+                    value={linkSearch}
+                    onChange={(e) => setLinkSearch(e.target.value)}
+                    placeholder="Search recipient / description…"
+                    aria-label="Search share links"
+                    className="filter-select"
+                    style={{ minWidth: '200px' }}
+                  />
+                </div>
                 <div>
                   <label style={{ fontSize: '12px', marginRight: '6px' }}>Sort:</label>
                   <select className="filter-select" value={linkSortBy} onChange={(e) => setLinkSortBy(e.target.value)}>

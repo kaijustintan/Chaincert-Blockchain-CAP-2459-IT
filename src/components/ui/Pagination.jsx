@@ -72,10 +72,13 @@ export default function Pagination({ page, pageCount, setPage, total, pageSize }
     fontSize: 13, fontWeight: 600, cursor: disabled ? 'not-allowed' : 'pointer',
     opacity: disabled ? 0.5 : 1, fontFamily: 'inherit',
   });
+  // UAT (final review): CENTER the control cluster so it's obvious more pages exist — the old
+  // right-aligned `space-between` layout buried the Prev/Next in the corner. The "Showing X–Y of N"
+  // count is now a centered caption BELOW the controls (a column), so the bar reads top-to-bottom
+  // and stays balanced/responsive on narrow screens instead of the count fighting the buttons.
   return (
-    <div className="cc-pagination" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginTop: 14, flexWrap: 'wrap' }}>
-      <span style={{ fontSize: 13, color: 'var(--text-muted)' }}>Showing {start}–{end} of {total}</span>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+    <nav className="cc-pagination" aria-label="Pagination" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6, marginTop: 14 }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, flexWrap: 'wrap' }}>
         <button type="button" onClick={() => setPage(Math.max(1, page - 1))} disabled={page <= 1} style={btnStyle(page <= 1)} aria-label="Previous page">
           <ChevronLeft size={16} aria-hidden="true" /> Prev
         </button>
@@ -84,6 +87,7 @@ export default function Pagination({ page, pageCount, setPage, total, pageSize }
           Next <ChevronRight size={16} aria-hidden="true" />
         </button>
       </div>
-    </div>
+      <span style={{ fontSize: 12.5, color: 'var(--text-muted)' }}>Showing {start}–{end} of {total}</span>
+    </nav>
   );
 }

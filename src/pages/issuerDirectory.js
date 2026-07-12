@@ -23,6 +23,8 @@ export default function IssuerDirectory() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [query, setQuery] = useState("");
+  const [catFilter, setCatFilter] = useState("all"); // final review: category filter (was missing)
+  const [sortBy, setSortBy] = useState("name-asc");
 
   useEffect(() => {
     let active = true;
@@ -34,14 +36,31 @@ export default function IssuerDirectory() {
     return () => { active = false; };
   }, []);
 
+  const categories = useMemo(
+    () => Array.from(new Set(issuers.map((i) => i.category).filter(Boolean))).sort(),
+    [issuers]
+  );
+
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
-    if (!q) return issuers;
-    return issuers.filter((iss) =>
-      String(iss.orgName || "").toLowerCase().includes(q) ||
-      (Array.isArray(iss.types) && iss.types.some((t) => String(t).toLowerCase().includes(q)))
-    );
-  }, [issuers, query]);
+    let rows = issuers.filter((iss) => {
+      if (catFilter !== "all" && iss.category !== catFilter) return false;
+      if (!q) return true;
+      return (
+        String(iss.orgName || "").toLowerCase().includes(q) ||
+        (Array.isArray(iss.types) && iss.types.some((t) => String(t).toLowerCase().includes(q)))
+      );
+    });
+    return [...rows].sort((a, b) => {
+      switch (sortBy) {
+        case "name-desc": return String(b.orgName || "").localeCompare(String(a.orgName || ""));
+        case "issued-desc": return (b.issuedCount || 0) - (a.issuedCount || 0);
+        case "templates-desc": return (b.publicTemplateCount || 0) - (a.publicTemplateCount || 0);
+        case "name-asc":
+        default: return String(a.orgName || "").localeCompare(String(b.orgName || ""));
+      }
+    });
+  }, [issuers, query, catFilter, sortBy]);
   const dirPg = usePagination(filtered, 12); // UAT: paginate the issuer directory grid
 
   return (
@@ -57,6 +76,18 @@ export default function IssuerDirectory() {
           placeholder="Search by organization or credential type…"
           aria-label="Search issuers"
         />
+        <div className="directory-controls" style={{ display: "flex", gap: 12, flexWrap: "wrap", justifyContent: "center", marginTop: 12 }}>
+          <select className="filter-select" value={catFilter} onChange={(e) => setCatFilter(e.target.value)} aria-label="Filter by category">
+            <option value="all">All Categories</option>
+            {categories.map((c) => <option key={c} value={c}>{c}</option>)}
+          </select>
+          <select className="filter-select" value={sortBy} onChange={(e) => setSortBy(e.target.value)} aria-label="Sort issuers">
+            <option value="name-asc">Name A-Z</option>
+            <option value="name-desc">Name Z-A</option>
+            <option value="issued-desc">Most Issued</option>
+            <option value="templates-desc">Most Public Credentials</option>
+          </select>
+        </div>
       </header>
 
       {loading && <SkeletonCardGrid count={6} />}
@@ -85,7 +116,7 @@ export default function IssuerDirectory() {
                 <h3>{iss.orgName}</h3>
                 {iss.category && <span className="directory-card-cat">{iss.category}</span>}
                 <div className="directory-card-stats">
-                  <span><strong>{iss.publicTemplateCount}</strong> public template{iss.publicTemplateCount !== 1 ? "s" : ""}</span>
+                  <span><strong>{iss.publicTemplateCount}</strong> public credential{iss.publicTemplateCount !== 1 ? "s" : ""}</span>
                   <span><strong>{iss.issuedCount}</strong> issued</span>
                 </div>
                 {Array.isArray(iss.types) && iss.types.length > 0 && (

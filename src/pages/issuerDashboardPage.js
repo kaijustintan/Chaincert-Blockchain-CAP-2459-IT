@@ -173,6 +173,7 @@ export default function IssuerDashboard() {
   const [revokeSortBy, setRevokeSortBy] = useState("newest");
   const [filterRecordKind, setFilterRecordKind] = useState("all");
   const [viewAllTypeFilter, setViewAllTypeFilter] = useState("all");
+  const [viewAllStatusFilter, setViewAllStatusFilter] = useState("all"); // final review: View-Credentials status filter (was missing)
   const [viewAllSearch, setViewAllSearch] = useState("");
   const [viewAllSortBy, setViewAllSortBy] = useState("newest");
 
@@ -181,6 +182,9 @@ export default function IssuerDashboard() {
   const [subordinateDirectoryLoading, setSubordinateDirectoryLoading] = useState(false);
   const [subordinateDirectoryError, setSubordinateDirectoryError] = useState("");
   const [subordinateDirectoryFilter, setSubordinateDirectoryFilter] = useState("all");
+  const [subordinateSearch, setSubordinateSearch] = useState(""); // final review: search subordinates (was missing)
+  const [renewalStatusFilter, setRenewalStatusFilter] = useState("all"); // final review: renewal queue controls (were missing)
+  const [renewalSearch, setRenewalSearch] = useState("");
   const [totalSubordinateCount, setTotalSubordinateCount] = useState(0);
 
   const [rootSubordinateLogs, setRootSubordinateLogs] = useState([]);
@@ -782,6 +786,16 @@ export default function IssuerDashboard() {
     if (filterRecordKind !== "all") {
       result = result.filter((row) => filterRecordKind === "templates" ? row.rowType === "template" : row.rowType !== "template");
     }
+    // Final review: status filter (was missing on View Credentials). Uses EFFECTIVE status so it
+    // matches the badges — an effectively-expired-but-not-cron-flipped credential filters as expired.
+    if (viewAllStatusFilter !== "all") {
+      result = result.filter((row) => {
+        if (row.rowType === "template") return viewAllStatusFilter === "draft";
+        const eff = effectiveCredentialStatus(row.source);
+        if (viewAllStatusFilter === "issued") return eff === "issued" || eff === "active";
+        return eff === viewAllStatusFilter;
+      });
+    }
     if (viewAllTypeFilter !== "all") result = result.filter((row) => String(row.type || "").toLowerCase() === viewAllTypeFilter.toLowerCase());
     const query = viewAllSearch.trim().toLowerCase();
     if (query) result = result.filter((row) => [row.name, row.type, row.status, row.holderName, row.source?.blockchainId, row.source?.id].filter(Boolean).join(" ").toLowerCase().includes(query));
@@ -793,11 +807,28 @@ export default function IssuerDashboard() {
       default: result.sort((a, b) => new Date(b.createdDate || 0) - new Date(a.createdDate || 0)); break;
     }
     return result;
-  }, [allCredentialRows, filterRecordKind, viewAllTypeFilter, viewAllSearch, viewAllSortBy]);
+  }, [allCredentialRows, filterRecordKind, viewAllStatusFilter, viewAllTypeFilter, viewAllSearch, viewAllSortBy]);
 
   // UAT: pagination (10/page) for the view-all + subordinates tables.
   const allCredsPg = usePagination(filteredAllCredentialRows, 10);
-  const subsPg = usePagination(subordinateDirectory, 10);
+  // Final review: client-side search over the (already status-filtered) subordinate directory.
+  const filteredSubordinates = useMemo(() => {
+    const q = subordinateSearch.trim().toLowerCase();
+    if (!q) return subordinateDirectory;
+    return subordinateDirectory.filter((s) =>
+      [s._id, s.id, s.organizationName, s.orgName, s.email, s.category].filter(Boolean).join(" ").toLowerCase().includes(q)
+    );
+  }, [subordinateDirectory, subordinateSearch]);
+  const subsPg = usePagination(filteredSubordinates, 10);
+  // Final review: renewal queue gained status filter + search + pagination.
+  const filteredRenewalRequests = useMemo(() => {
+    let rows = renewalRequests || [];
+    if (renewalStatusFilter !== "all") rows = rows.filter((r) => (r.status || "pending") === renewalStatusFilter);
+    const q = renewalSearch.trim().toLowerCase();
+    if (q) rows = rows.filter((r) => [r.credentialName, r.credentialId, r.holderName, r.holderId].filter(Boolean).join(" ").toLowerCase().includes(q));
+    return rows;
+  }, [renewalRequests, renewalStatusFilter, renewalSearch]);
+  const renewalPg = usePagination(filteredRenewalRequests, 10);
 
   const revokableCount = useMemo(
     // Effective status so the "(N revokable)" header matches the rows that actually show a
@@ -1562,8 +1593,27 @@ export default function IssuerDashboard() {
                     ) : renewalRequests.length === 0 ? (
                       <div className="no-results"><p>No renewal requests yet. When a holder taps "Request renewal," it appears here.</p></div>
                     ) : (
+                      <>
+                      <div className="filter-row" style={{ marginBottom: 12 }}>
+                        <div className="filter-group">
+                          <label htmlFor="renewalStatusFilter">Status:</label>
+                          <select id="renewalStatusFilter" value={renewalStatusFilter} onChange={(e) => setRenewalStatusFilter(e.target.value)} className="filter-select">
+                            <option value="all">All</option>
+                            <option value="pending">Pending</option>
+                            <option value="approved">Approved</option>
+                            <option value="declined">Declined</option>
+                          </select>
+                        </div>
+                        <div className="filter-group">
+                          <label htmlFor="renewalSearch">Search:</label>
+                          <input id="renewalSearch" type="text" value={renewalSearch} onChange={(e) => setRenewalSearch(e.target.value)} placeholder="Credential / holder…" className="filter-select" />
+                        </div>
+                      </div>
+                      {filteredRenewalRequests.length === 0 ? (
+                        <div className="no-results"><p>No renewal requests match your filter.</p></div>
+                      ) : (
                       <div className="analytics-flag-list">
-                        {renewalRequests.map((r) => (
+                        {renewalPg.pageItems.map((r) => (
                           <div className="analytics-flag-row" key={r._id}>
                             <div>
                               <div className="analytics-flag-issuer">{r.credentialName || r.credentialId}</div>
@@ -1585,6 +1635,9 @@ export default function IssuerDashboard() {
                           </div>
                         ))}
                       </div>
+                      )}
+                      <Pagination {...renewalPg} />
+                      </>
                     )}
                   </div>
                 )}
@@ -1699,7 +1752,7 @@ export default function IssuerDashboard() {
           />
           <div className="table-container">
             <div className="filter-row">
-              <div className="filter-group"><label>Record Kind:</label><select value={filterRecordKind} onChange={(e) => setFilterRecordKind(e.target.value)} className="filter-select"><option value="all">All</option><option value="templates">Credentials</option><option value="issued">Issued Credentials</option></select></div><div className="filter-group"><label>Type:</label><select value={viewAllTypeFilter} onChange={(e) => setViewAllTypeFilter(e.target.value)} className="filter-select"><option value="all">All Types</option>{getUniqueCredentialTypes().map((type) => <option key={type} value={type}>{type}</option>)}</select></div>
+              <div className="filter-group"><label>Record Kind:</label><select value={filterRecordKind} onChange={(e) => setFilterRecordKind(e.target.value)} className="filter-select"><option value="all">All</option><option value="templates">Credentials</option><option value="issued">Issued Credentials</option></select></div><div className="filter-group"><label>Status:</label><select value={viewAllStatusFilter} onChange={(e) => setViewAllStatusFilter(e.target.value)} className="filter-select"><option value="all">All Statuses</option><option value="issued">Issued / Active</option><option value="expired">Expired</option><option value="revoked">Revoked</option><option value="draft">Draft</option></select></div><div className="filter-group"><label>Type:</label><select value={viewAllTypeFilter} onChange={(e) => setViewAllTypeFilter(e.target.value)} className="filter-select"><option value="all">All Types</option>{getUniqueCredentialTypes().map((type) => <option key={type} value={type}>{type}</option>)}</select></div>
               <div className="filter-group"><label>Search:</label><input value={viewAllSearch} onChange={(e) => setViewAllSearch(e.target.value)} placeholder="Search credentials..." className="filter-select" /></div>
               <div className="filter-group"><label>Sort by:</label><select value={viewAllSortBy} onChange={(e) => setViewAllSortBy(e.target.value)} className="filter-select"><option value="newest">Most Recent</option><option value="oldest">Oldest First</option><option value="name-asc">Name A-Z</option><option value="name-desc">Name Z-A</option></select></div>
             </div>
@@ -1874,7 +1927,16 @@ export default function IssuerDashboard() {
           <div className="table-container" style={{ marginTop: 24 }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12, gap: 12, flexWrap: "wrap" }}>
               <h3 style={{ margin: 0 }}>My Subordinates</h3>
-              <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+              <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+                <input
+                  type="text"
+                  value={subordinateSearch}
+                  onChange={(e) => setSubordinateSearch(e.target.value)}
+                  placeholder="Search org / email / ID…"
+                  aria-label="Search subordinates"
+                  className="filter-select"
+                  style={{ flex: "0 1 220px" }}
+                />
                 <label htmlFor="subordinateDirectoryFilter">View:</label>
                 <select id="subordinateDirectoryFilter" value={subordinateDirectoryFilter} onChange={(e) => setSubordinateDirectoryFilter(e.target.value)} className="filter-select">
                   <option value="all">All Subordinates</option>
@@ -1901,7 +1963,7 @@ export default function IssuerDashboard() {
 
             {subordinateDirectoryLoading ? <SpinnerBlock label="Loading subordinate directory…" />
             : subordinateDirectoryError ? <div className="no-results"><p style={{ color: "var(--danger)" }}>{subordinateDirectoryError}</p></div>
-            : subordinateDirectory.length === 0 ? <div className="no-results"><p>No subordinate issuers found for this filter.</p></div>
+            : filteredSubordinates.length === 0 ? <div className="no-results"><p>No subordinate issuers found for this filter.</p></div>
             : (
               <table className="template-table subordinate-table">
                 <thead><tr><th>Issuer ID</th><th>Org Name</th><th>Email</th><th>Category</th><th>Root Approval</th><th>Admin Approval</th><th>Overall Status</th><th>Created</th><th>Actions</th></tr></thead>
@@ -2872,6 +2934,7 @@ export default function IssuerDashboard() {
             {historyData && (
               <CredentialHistory
                 history={filterHistoryEntries(historyData.history)}
+                credential={historyCredential}
                 showProofTrail={false}
               />
             )}

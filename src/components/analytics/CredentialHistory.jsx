@@ -23,6 +23,7 @@ import React, { useMemo } from 'react';
 import { computeProvenance, computeProofTrail } from './analytics';
 import InterpretationBox from './InterpretationBox';
 import { SpinnerBlock } from '../ui';
+import { isEffectivelyExpired } from '../../utils/credentialStatus';
 import { FileText, GraduationCap, RefreshCw, Pencil, Clock, Ban, Check, X } from 'lucide-react';
 
 // Provenance action → lucide icon (de-emojified UAT). Falls back to Pencil for unknown actions.
@@ -32,6 +33,7 @@ export default function CredentialHistory({
   history = [],
   verificationLogs = [],
   credentialId,
+  credential = null,
   showProofTrail = false,
   loading = false,
   error = null,
@@ -42,6 +44,30 @@ export default function CredentialHistory({
     [showProofTrail, verificationLogs, credentialId]
   );
 
+  // FINAL-REVIEW #3 fix: a credential can read "Expired" on the badge purely from a compute-on-read
+  // date check (effectiveCredentialStatus) BEFORE the daily cron submits the real ExpireCredential tx.
+  // In that window the ledger genuinely has no Expired event, so the timeline showed only "Issued" and
+  // looked broken vs. the badge. Inject a clearly-DERIVED (dashed, no tx hash) marker so the two agree,
+  // without ever faking an on-chain transaction. Suppressed once a real expired/revoked event exists.
+  const derivedExpired = useMemo(() => {
+    if (!credential) return false;
+    if (provenance.expired || provenance.revoked) return false;
+    return isEffectivelyExpired(credential.expiryDate);
+  }, [credential, provenance.expired, provenance.revoked]);
+
+  // Newest-first: the derived expiry is the most recent thing that "happened", so it goes on top.
+  const timelineEvents = useMemo(() => {
+    if (!derivedExpired) return provenance.events;
+    const marker = {
+      label: 'Expired (reached expiry date)',
+      action: 'expired',
+      color: 'var(--warn, #d9a441)',
+      when: credential.expiryDate ? `${String(credential.expiryDate).slice(0, 10)}T23:59:59+08:00` : null,
+      derived: true,
+    };
+    return [marker, ...provenance.events];
+  }, [derivedExpired, provenance.events, credential]);
+
   if (loading) return <SpinnerBlock label="Loading history…" minHeight={100} />;
   if (error) return <div className="analytics-chart-empty" style={{ height: 80 }}>{error}</div>;
 
@@ -51,18 +77,30 @@ export default function CredentialHistory({
     <div className="credential-history">
       <div className="analytics-card">
         <h4>Blockchain History — Provenance Timeline</h4>
-        {provenance.events.length === 0 ? (
+        {timelineEvents.length === 0 ? (
           <div className="analytics-chart-empty" style={{ height: 80 }}>No on-chain history yet.</div>
         ) : (
           <div className="analytics-timeline">
-            {provenance.events.map((e, i) => (
-              <div className="analytics-timeline-item" key={i}>
-                <span className="analytics-timeline-dot" style={{ background: e.color, display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}>
-                  {(() => { const I = ACTION_ICON[e.action] || Pencil; return <I size={13} color="#fff" aria-hidden="true" />; })()}
+            {timelineEvents.map((e, i) => (
+              <div className="analytics-timeline-item" key={i} style={e.derived ? { opacity: 0.9 } : undefined}>
+                <span
+                  className="analytics-timeline-dot"
+                  style={{
+                    background: e.derived ? 'transparent' : e.color,
+                    border: e.derived ? `2px dashed ${e.color}` : undefined,
+                    display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                  }}
+                >
+                  {(() => { const I = ACTION_ICON[e.action] || Pencil; return <I size={13} color={e.derived ? e.color : '#fff'} aria-hidden="true" />; })()}
                 </span>
                 <div>
                   <div className="analytics-timeline-label">{e.label}</div>
                   <div className="analytics-timeline-when">{fmt(e.when)}</div>
+                  {e.derived ? (
+                    <div className="ch-reason" style={{ fontStyle: 'italic' }}>
+                      Not yet finalized on-chain — the permanent “Expired” record is written automatically by the daily maintenance job.
+                    </div>
+                  ) : null}
                   {e.txId ? <div className="ch-tx" title="Transaction ID">{e.txId}</div> : null}
                   {e.reason ? <div className="ch-reason">Reason: {e.reason}</div> : null}
                 </div>
@@ -70,7 +108,11 @@ export default function CredentialHistory({
             ))}
           </div>
         )}
-        <InterpretationBox>{provenance.summary}</InterpretationBox>
+        <InterpretationBox>
+          {derivedExpired
+            ? `${provenance.summary} This credential has passed its expiry date; it already verifies as Expired, and the permanent on-chain expiry record is finalized by the daily maintenance job.`
+            : provenance.summary}
+        </InterpretationBox>
       </div>
 
       {showProofTrail && proofTrail && (

@@ -183,9 +183,10 @@ export async function exportCredentialToPDF(credential, templateDetails) {
   ];
   // 3.2: surface renewal history when this credential line has been renewed (reissued) before.
   if (Number(credential.renewalCount) > 0) {
-    details.push({ label: 'Renewals', value: `Renewed ${credential.renewalCount}× (reissued)` });
-    if (credential.originalIssuedDate) details.push({ label: 'Originally Issued', value: formatPhilippineDate(credential.originalIssuedDate) });
-    if (credential.currentSinceDate) details.push({ label: 'Current Since', value: formatPhilippineDate(credential.currentSinceDate) });
+    // UAT: one clear line. The current copy's date is already the "Date Issued" row above, so we
+    // don't repeat it (that was the confusing duplicate) — just the count + the original date.
+    const orig = credential.originalIssuedDate ? ` — first issued ${formatPhilippineDate(credential.originalIssuedDate)}` : '';
+    details.push({ label: 'Renewed', value: `${credential.renewalCount}×${orig}` });
   }
   details.forEach(({ label, value }) => {
     doc.setFontSize(9.5);
@@ -394,9 +395,9 @@ async function drawCredentialRow(doc, cred, { pageW, y, studentName, badgeSize, 
     ['Issued on:', cred.savedToUserWalletAt ? formatPhilippineDate(cred.savedToUserWalletAt) : 'N/A'],
   ];
   if (Number(cred.renewalCount) > 0) {
-    rows.push(['Renewals:', `Renewed ${cred.renewalCount}× (reissued)`]);
-    if (cred.originalIssuedDate) rows.push(['Originally Issued:', formatPhilippineDate(cred.originalIssuedDate)]);
-    if (cred.currentSinceDate) rows.push(['Current Since:', formatPhilippineDate(cred.currentSinceDate)]);
+    // UAT: one clear line — don't repeat the current copy's date (already the "Issued on" row).
+    const orig = cred.originalIssuedDate ? ` — first issued ${formatPhilippineDate(cred.originalIssuedDate)}` : '';
+    rows.push(['Renewed:', `${cred.renewalCount}×${orig}`]);
   }
   rows.forEach(([label, val]) => {
     doc.setFont('helvetica', 'bold');

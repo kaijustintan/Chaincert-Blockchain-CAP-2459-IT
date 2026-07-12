@@ -212,7 +212,7 @@ export default function CredentialHistoryPage() {
 
   // ✅ 2) Template creation
   if (value.isTemplate === true || (value.holderID === "" || !value.holderID)) {
-    return "Created Template";
+    return "Created Credential";
   }
 
   // ✅ 3) Issued

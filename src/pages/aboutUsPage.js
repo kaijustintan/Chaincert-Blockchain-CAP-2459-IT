@@ -48,7 +48,7 @@ function AboutUsPage() {
         <div className="about-roles-grid">
           <div className="about-role-card">
             <h3>Issuers</h3>
-            <p>Schools, universities, and certifying organizations register on ChainCert, create credential templates, and issue verifiable digital certificates to recipients through the Issuer Dashboard.</p>
+            <p>Schools, universities, and certifying organizations register on ChainCert, create credentials, and issue verifiable digital certificates to recipients through the Issuer Dashboard.</p>
           </div>
           <div className="about-role-card">
             <h3>Holders</h3>

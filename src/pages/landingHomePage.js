@@ -98,7 +98,7 @@ function LandingHomePage() {
         <div className="features-grid">
           <div className="feature-card">
             <h3>Issuers</h3>
-            <p>Universities and organizations create credential templates, issue verifiable digital certificates, and manage their credential lifecycle through a dedicated dashboard.</p>
+            <p>Universities and organizations create credentials, issue verifiable digital certificates, and manage their credential lifecycle through a dedicated dashboard.</p>
           </div>
 
           <div className="feature-card">

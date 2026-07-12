@@ -2691,7 +2691,7 @@ const handleDownloadIssuerDocument = async (doc) => {
             {/* Bar Chart — Credentials by Issuer */}
             <div className="admin-chart-card">
               <h3>Credentials by Issuer</h3>
-              <p className="tab-subtitle" style={{ marginTop: -4 }}>Total records (templates + issued) per issuer, top 6.</p>
+              <p className="tab-subtitle" style={{ marginTop: -4 }}>Total records (drafts + issued) per issuer, top 6.</p>
               <div className="chart-bars" style={{ marginBottom: 28 }}>
                 {(() => {
                   const issuerCounts = {};

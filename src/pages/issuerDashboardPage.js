@@ -407,23 +407,8 @@ export default function IssuerDashboard() {
     } catch (e) { console.error("[ISSUER NOTIFICATIONS] mark-all failed:", e?.message || e); }
   };
 
-  // UAT: derive synchronously so there's no one-render lag (the old effect-set state showed an
-  // empty "no credentials" flash before the rows appeared). useMemo recomputes in the same render
-  // that `credentials` updates in.
-  const filteredCredentials = useMemo(() => {
-    let result = [...credentials];
-    if (filterType !== "all") result = result.filter((cred) => String(cred.credentialType || "").toLowerCase() === String(filterType).toLowerCase());
-    if (filterStatus !== "all") {
-      result = result.filter((cred) => {
-        // Use effective (end-of-day-Manila) status so the filter matches the row badges —
-        // filtering "Expired" now catches effectively-expired-but-not-cron-flipped credentials.
-        const normalizedStatus = effectiveCredentialStatus(cred);
-        if (filterStatus === "issued") return normalizedStatus === "issued" || normalizedStatus === "active";
-        return normalizedStatus === filterStatus;
-      });
-    }
-    return applySorting(result, sortBy);
-  }, [credentials, sortBy, filterType, filterStatus]);
+  // NOTE: filteredCredentials is declared BELOW, right after applySorting — it calls applySorting
+  // during render, so applySorting must be initialized first (else TDZ "cannot access before init").
   useEffect(() => { fetchSubordinateDirectory(subordinateDirectoryFilter); }, [subordinateDirectoryFilter]);
 
   // -------------------------------------------------------------------
@@ -629,6 +614,23 @@ export default function IssuerDashboard() {
     }
     return sorted;
   };
+
+  // UAT: derive synchronously so there's no one-render lag (the old effect-set state flashed an
+  // empty "no credentials" before the rows appeared). Declared AFTER applySorting because the
+  // memo factory runs during render and calls applySorting.
+  const filteredCredentials = useMemo(() => {
+    let result = [...credentials];
+    if (filterType !== "all") result = result.filter((cred) => String(cred.credentialType || "").toLowerCase() === String(filterType).toLowerCase());
+    if (filterStatus !== "all") {
+      result = result.filter((cred) => {
+        // Use effective (end-of-day-Manila) status so the filter matches the row badges.
+        const normalizedStatus = effectiveCredentialStatus(cred);
+        if (filterStatus === "issued") return normalizedStatus === "issued" || normalizedStatus === "active";
+        return normalizedStatus === filterStatus;
+      });
+    }
+    return applySorting(result, sortBy);
+  }, [credentials, sortBy, filterType, filterStatus]);
 
   const getUniqueCredentialTypes = () => dedupeTypesCI(credentials.map((cred) => cred.credentialType));
 

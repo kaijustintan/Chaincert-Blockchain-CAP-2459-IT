@@ -184,6 +184,8 @@ export async function exportCredentialToPDF(credential, templateDetails) {
   // 3.2: surface renewal history when this credential line has been renewed (reissued) before.
   if (Number(credential.renewalCount) > 0) {
     details.push({ label: 'Renewals', value: `Renewed ${credential.renewalCount}× (reissued)` });
+    if (credential.originalIssuedDate) details.push({ label: 'Originally Issued', value: formatPhilippineDate(credential.originalIssuedDate) });
+    if (credential.currentSinceDate) details.push({ label: 'Current Since', value: formatPhilippineDate(credential.currentSinceDate) });
   }
   details.forEach(({ label, value }) => {
     doc.setFontSize(9.5);
@@ -393,6 +395,8 @@ async function drawCredentialRow(doc, cred, { pageW, y, studentName, badgeSize, 
   ];
   if (Number(cred.renewalCount) > 0) {
     rows.push(['Renewals:', `Renewed ${cred.renewalCount}× (reissued)`]);
+    if (cred.originalIssuedDate) rows.push(['Originally Issued:', formatPhilippineDate(cred.originalIssuedDate)]);
+    if (cred.currentSinceDate) rows.push(['Current Since:', formatPhilippineDate(cred.currentSinceDate)]);
   }
   rows.forEach(([label, val]) => {
     doc.setFont('helvetica', 'bold');

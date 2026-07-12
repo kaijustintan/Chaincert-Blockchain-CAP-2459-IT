@@ -4,6 +4,7 @@ import React, { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import "../styles/landingHomePage.css";
 import landingVideo from "../assets/landinghomepage.webm";
+import { GraduationCap, ShieldCheck, Building2, ArrowRight } from "lucide-react";
 
 function LandingHomePage() {
   const navigate = useNavigate();
@@ -52,26 +53,19 @@ function LandingHomePage() {
           </button>
         </div>
 
-        {/* H: role quick-select — guide first-time visitors straight to the right entry point */}
-        <div className="hero-roles" style={{ display: "flex", flexWrap: "wrap", gap: 12, justifyContent: "center", marginTop: 22 }}>
+        {/* H: role quick-select — icon + title + benefit + "Get started" affordance; hover lifts (CSS) */}
+        <div className="hero-roles">
           {[
-            { title: "I'm a Student", sub: "Receive & share my credentials", to: "/register" },
-            { title: "I'm an Employer", sub: "Verify a credential — no account", to: "/verifier/dashboard" },
-            { title: "I'm an Institution", sub: "Issue credentials to holders", to: "/register" },
+            { Icon: GraduationCap, title: "I am a Student", sub: "Receive & share your credentials", to: "/register" },
+            { Icon: ShieldCheck, title: "I am an Employer", sub: "Verify a credential — no account needed", to: "/verifier/dashboard", badge: "No sign-up" },
+            { Icon: Building2, title: "I am an Institution", sub: "Issue credentials to your holders", to: "/register" },
           ].map((r) => (
-            <button
-              key={r.title}
-              type="button"
-              onClick={() => navigate(r.to)}
-              style={{
-                display: "flex", flexDirection: "column", gap: 4, alignItems: "flex-start", textAlign: "left",
-                background: "var(--surface-2, rgba(255,255,255,0.06))", border: "1px solid var(--border-strong, rgba(255,255,255,0.16))",
-                color: "var(--text, #e5e7eb)", borderRadius: 12, padding: "12px 16px", cursor: "pointer",
-                minWidth: 190, flex: "1 1 190px", maxWidth: 240,
-              }}
-            >
-              <span style={{ fontWeight: 700, fontSize: 15 }}>{r.title}</span>
-              <span style={{ fontSize: 12.5, color: "var(--text-muted, #9aa0aa)" }}>{r.sub}</span>
+            <button key={r.title} type="button" className="hero-role-card" onClick={() => navigate(r.to)}>
+              {r.badge && <span className="hero-role-badge">{r.badge}</span>}
+              <span className="hero-role-icon"><r.Icon size={26} aria-hidden="true" /></span>
+              <span className="hero-role-title">{r.title}</span>
+              <span className="hero-role-sub">{r.sub}</span>
+              <span className="hero-role-cta">Get started <ArrowRight size={15} aria-hidden="true" /></span>
             </button>
           ))}
         </div>

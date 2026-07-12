@@ -533,8 +533,8 @@ export function computeProvenance(history) {
     revoked:  { label: 'Revoked',          icon: '🚫', color: COLORS.red },
   };
 
-  // oldest → newest
-  const ordered = [...list].sort((a, b) => (toTime(a.timestamp) || 0) - (toTime(b.timestamp) || 0));
+  // newest → oldest (latest first) — UAT: history timelines read top-down, most recent at the top
+  const ordered = [...list].sort((a, b) => (toTime(b.timestamp) || 0) - (toTime(a.timestamp) || 0));
   const events = ordered.map((entry) => {
     const action = deriveAction(entry);
     const m = META[action] || META.updated;
@@ -627,7 +627,7 @@ export function computeProofTrail(verificationLogs, credentialId) {
       verifierName: log.verifierName || 'Anonymous',
       verifierEmail: log.verifierEmail || '',
     };
-  }).sort((a, b) => (toTime(a.when) || 0) - (toTime(b.when) || 0));
+  }).sort((a, b) => (toTime(b.when) || 0) - (toTime(a.when) || 0)); // UAT: newest verification first
 
   const count = events.length;
   const validCount = events.filter((e) => e.valid).length;

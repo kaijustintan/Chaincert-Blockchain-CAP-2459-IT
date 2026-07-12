@@ -771,20 +771,20 @@ const getDocumentDescription = (docKey) => {
                 {userLoading ? "Sending code..." : "Create User Account"}
               </button>
             ) : (
-              <div className="signup-otp-gate" style={{ display: "flex", flexDirection: "column", gap: 10, marginTop: 4 }}>
-                <label style={{ fontSize: 13, color: "var(--text-muted)" }}>
-                  Enter the 6-digit code we emailed to <strong style={{ color: "var(--text)" }}>{user.email}</strong>
-                </label>
-                <input
-                  type="text"
-                  inputMode="numeric"
-                  maxLength={6}
-                  placeholder="123456"
-                  value={userOtp}
-                  onChange={(e) => setUserOtp(e.target.value.replace(/\D/g, "").slice(0, 6))}
-                  onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); confirmUserSignup(); } }}
-                  autoFocus
-                />
+              <div className="signup-otp-gate" style={{ display: "flex", flexDirection: "column", gap: 12, marginTop: 4 }}>
+                <div className="input-group">
+                  <label>Enter the 6-digit code we emailed to <strong style={{ color: "var(--text)" }}>{user.email}</strong></label>
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    maxLength={6}
+                    placeholder="123456"
+                    value={userOtp}
+                    onChange={(e) => setUserOtp(e.target.value.replace(/\D/g, "").slice(0, 6))}
+                    onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); confirmUserSignup(); } }}
+                    autoFocus
+                  />
+                </div>
                 <button type="button" className="btn-primary" onClick={confirmUserSignup} disabled={userLoading}>
                   {userLoading ? "Verifying..." : "Verify & Create Account"}
                 </button>

@@ -238,6 +238,22 @@ export default function StudentDashboard() {
     return credentials.filter((c) => `${c.templateId || ''}|${c.holderID || c.holderId || ''}` === key).length - 1;
   };
 
+  // PDF (UAT): for a renewed credential line, the ORIGINAL issuance date + the CURRENT instance's
+  // date, so the export shows "Originally issued X · Current since Y" (not a full history).
+  const getRenewalDates = (cred) => {
+    if (!cred || !cred.templateId) return {};
+    const key = `${cred.templateId}|${cred.holderID || cred.holderId || ''}`;
+    const line = credentials.filter((c) => `${c.templateId || ''}|${c.holderID || c.holderId || ''}` === key);
+    if (line.length < 2) return {};
+    const t = (c) => new Date(c.assignedDate || c.savedToUserWalletAt || c.createdAt || 0).getTime();
+    const sorted = [...line].sort((a, b) => t(a) - t(b));
+    const first = sorted[0], last = sorted[sorted.length - 1];
+    return {
+      originalIssuedDate: first.assignedDate || first.savedToUserWalletAt || first.createdAt || null,
+      currentSinceDate: last.assignedDate || last.savedToUserWalletAt || last.createdAt || null,
+    };
+  };
+
   const filtered = useMemo(() => {
     let result = collapsedCredentials.filter((c) => {
       const searchable = [c.credentialName, c.credentialType, c.issuerName]
@@ -710,7 +726,7 @@ export default function StudentDashboard() {
                   // D6: warn (styled modal) before exporting a bundle that includes a revoked credential.
                   const revoked = collapsedCredentials.filter((c) => c.visibility === "public" && effectiveCredentialStatus(c) === "revoked");
                   // 3.2: stamp each credential's renewal count so the PDF can show it.
-                  const withRenewals = collapsedCredentials.map((c) => ({ ...c, renewalCount: getRenewalCount(c) }));
+                  const withRenewals = collapsedCredentials.map((c) => ({ ...c, renewalCount: getRenewalCount(c), ...getRenewalDates(c) }));
                   const doExport = () => exportAllCredentialsToPDF(withRenewals, displayName);
                   if (revoked.length > 0) setExportWarn({ names: revoked.map((c) => c.credentialName), proceed: doExport });
                   else doExport();
@@ -985,7 +1001,7 @@ export default function StudentDashboard() {
               <Button variant="secondary" icon={ScrollText} onClick={() => handleSeeHistory(selectedCred)}>See history</Button>
               <Button variant="primary" icon={Download} onClick={() => {
                 // D6: warn (styled modal) before exporting a revoked credential.
-                const doExport = () => exportCredentialToPDF({ ...selectedCred, renewalCount: getRenewalCount(selectedCred) }, templateDetails);
+                const doExport = () => exportCredentialToPDF({ ...selectedCred, renewalCount: getRenewalCount(selectedCred), ...getRenewalDates(selectedCred) }, templateDetails);
                 if (effectiveCredentialStatus(selectedCred) === "revoked") setExportWarn({ names: [selectedCred.credentialName], proceed: doExport });
                 else doExport();
               }}>Export PDF</Button>

@@ -47,9 +47,9 @@ export default function WelcomeModal() {
   if (!open) return null;
 
   const roles = [
-    { Icon: GraduationCap, title: 'Holders', body: 'Students & professionals receive credentials in a secure wallet and share them.' },
-    { Icon: ShieldCheck, title: 'Verifiers', body: 'Employers check a credential on the blockchain — no account needed.' },
     { Icon: Building2, title: 'Issuers', body: 'Institutions create and issue verifiable credentials to holders.' },
+    { Icon: GraduationCap, title: 'Holders', body: 'Students & professionals receive credentials in a secure wallet and share them.' },
+    { Icon: ShieldCheck, title: 'Verifiers', body: 'Employers verify a credential on the blockchain — no account needed.' },
   ];
 
   return (
@@ -62,7 +62,7 @@ export default function WelcomeModal() {
     >
       <div
         onClick={(e) => e.stopPropagation()}
-        style={{ background: 'var(--surface, #12141a)', border: '1px solid var(--border-strong, rgba(255,255,255,0.16))', borderRadius: 16, maxWidth: 520, width: '100%', padding: 24, boxShadow: 'var(--shadow-lg, 0 20px 60px rgba(0,0,0,0.5))', color: 'var(--text, #e5e7eb)' }}
+        style={{ background: 'var(--surface, #12141a)', border: '1px solid var(--border-strong, rgba(255,255,255,0.16))', borderRadius: 16, maxWidth: 520, width: '100%', padding: 24, boxShadow: 'var(--shadow-lg, 0 20px 60px rgba(0,0,0,0.5))', color: 'var(--text, #e5e7eb)', textAlign: 'left' }}
       >
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12 }}>
           <h2 style={{ margin: 0, fontSize: 20 }}>Welcome to ChainCert</h2>

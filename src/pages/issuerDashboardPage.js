@@ -87,7 +87,8 @@ export default function IssuerDashboard() {
   const [activeView, setActiveView] = useState("home");
 
   const [credentials, setCredentials] = useState([]);
-  const [filteredCredentials, setFilteredCredentials] = useState([]);
+  // filteredCredentials is a useMemo (declared below) — was effect-set state, which lagged one
+  // render and flashed a "no credentials" message before the rows populated on load.
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
@@ -155,6 +156,7 @@ export default function IssuerDashboard() {
 
   // separate state for TEMPLATE options (for dropdown)
   const [templateOptions, setTemplateOptions] = useState([]);
+  const [templatesLoading, setTemplatesLoading] = useState(true); // UAT: gate the templates empty-state so it can't flash before the fetch resolves
 
   // Filter state
   const [sortBy, setSortBy] = useState("issuedDate-desc");
@@ -404,7 +406,10 @@ export default function IssuerDashboard() {
     } catch (e) { console.error("[ISSUER NOTIFICATIONS] mark-all failed:", e?.message || e); }
   };
 
-  const applyFilters = useCallback(() => {
+  // UAT: derive synchronously so there's no one-render lag (the old effect-set state showed an
+  // empty "no credentials" flash before the rows appeared). useMemo recomputes in the same render
+  // that `credentials` updates in.
+  const filteredCredentials = useMemo(() => {
     let result = [...credentials];
     if (filterType !== "all") result = result.filter((cred) => String(cred.credentialType || "").toLowerCase() === String(filterType).toLowerCase());
     if (filterStatus !== "all") {
@@ -416,11 +421,8 @@ export default function IssuerDashboard() {
         return normalizedStatus === filterStatus;
       });
     }
-    result = applySorting(result, sortBy);
-    setFilteredCredentials(result);
+    return applySorting(result, sortBy);
   }, [credentials, sortBy, filterType, filterStatus]);
-
-  useEffect(() => { applyFilters(); }, [applyFilters]);
   useEffect(() => { fetchSubordinateDirectory(subordinateDirectoryFilter); }, [subordinateDirectoryFilter]);
 
   // -------------------------------------------------------------------
@@ -439,10 +441,12 @@ export default function IssuerDashboard() {
   };
 
   const fetchTemplateOptions = async () => {
+    setTemplatesLoading(true);
     try {
       const data = await apiService.Get_CredentialTemplates();
       setTemplateOptions(Array.isArray(data) ? data : []);
     } catch (err) { console.error("Error fetching credential templates:", err); }
+    finally { setTemplatesLoading(false); }
   };
 
   const fetchSubordinateDirectory = async (mode = subordinateDirectoryFilter) => {
@@ -1471,7 +1475,9 @@ export default function IssuerDashboard() {
               <div className="filter-group"><label>Type:</label><select value={templateTypeFilter} onChange={(e) => setTemplateTypeFilter(e.target.value)} className="filter-select"><option value="all">All Types</option>{uniqueTemplateTypes.map((type) => <option key={type} value={type}>{type}</option>)}</select></div>
               <div className="filter-group"><label>Sort by:</label><select value={templateSortBy} onChange={(e) => setTemplateSortBy(e.target.value)} className="filter-select"><option value="newest">Most Recent</option><option value="oldest">Oldest First</option><option value="name-asc">Name A-Z</option><option value="name-desc">Name Z-A</option></select></div>
             </div>
-            {filteredTemplates.length === 0 ? (
+            {templatesLoading ? (
+              <SpinnerBlock label="Loading credentials…" minHeight={160} />
+            ) : filteredTemplates.length === 0 ? (
               <div className="no-results"><p>{templateOptions.length === 0 ? "No credentials found. Create your first credential." : "No credentials match your filters."}</p></div>
             ) : (
               <table className="template-table">

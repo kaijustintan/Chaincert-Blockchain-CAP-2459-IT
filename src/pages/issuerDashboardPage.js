@@ -37,6 +37,7 @@ import Sparkline from "../components/analytics/Sparkline";
 import InterpretationBox from "../components/analytics/InterpretationBox";
 import { computeIssuance, computeRevocationAudit, computeHolderVerificationInsights, computeCirculationHealth, COLORS as ANALYTICS_COLORS } from "../components/analytics/analytics";
 import { AppShell, Sidebar, Button, StatusPill, SpinnerBlock, Spinner, InfoHint } from "../components/ui";
+import Pagination, { usePagination } from "../components/ui/Pagination";
 import StatusLegend from "../components/ui/StatusLegend";
 import CredentialHistory from "../components/analytics/CredentialHistory";
 import { effectiveCredentialStatus, minIssueExpiryDate, maxIssueExpiryDate } from "../utils/credentialStatus"; // F01
@@ -719,6 +720,12 @@ export default function IssuerDashboard() {
     }
     return result;
   }, [credentials, revokeStatusFilter, revokeTypeFilter, revokeSectionSearch, revokeSortBy]);
+
+  // UX pagination (10/page) over the already-filtered/sorted lists — keeps pages short without
+  // breaking the client-side search/filter/sort that spans the whole list.
+  const templatesPg = usePagination(filteredTemplates, 10);
+  const issuedPg = usePagination(issueTableCredentials, 10);
+  const revokePg = usePagination(revokeTableCredentials, 10);
 
   const allCredentialRows = useMemo(() => {
     const templateRows = (templateOptions || []).map((template) => ({
@@ -1470,7 +1477,7 @@ export default function IssuerDashboard() {
               <table className="template-table">
                 <thead><tr><th>Name</th><th>Type</th><th>Credential ID</th><th>Description</th><th>Skills</th><th>Visibility</th><th>Created Date</th></tr></thead>
                 <tbody>
-                  {filteredTemplates.map((template) => {
+                  {templatesPg.pageItems.map((template) => {
                     const id = template.id || template._id;
                     return (
                       <tr key={id}>
@@ -1493,6 +1500,7 @@ export default function IssuerDashboard() {
               </table>
             )}
           </div>
+          <Pagination {...templatesPg} />
         </>
       )}
 
@@ -1625,7 +1633,7 @@ export default function IssuerDashboard() {
               <table className="template-table">
                 <thead><tr><th>Credential ID</th><th>Holder Name</th><th>Credential Name</th><th>Type</th><th>Created Date</th><th>Status</th><th>Visibility</th><th>Revoked Date</th><th>Expiry Date</th><th>Actions</th></tr></thead>
                 <tbody>
-                  {issueTableCredentials.map((credential) => {
+                  {issuedPg.pageItems.map((credential) => {
                     const blockchainId = credential.blockchainId || credential.id;
                     return (
                       <tr key={blockchainId}>
@@ -1656,6 +1664,7 @@ export default function IssuerDashboard() {
               </table>
             </div>
           )}
+          <Pagination {...issuedPg} />
         </>
       )}
 
@@ -1769,7 +1778,7 @@ export default function IssuerDashboard() {
               <table className="template-table">
                 <thead><tr><th style={{ width: 34 }}><input type="checkbox" aria-label="Select all revocable credentials" checked={revocableVisibleIds.length > 0 && revocableVisibleIds.every((id) => batchSelected.has(id))} disabled={revocableVisibleIds.length === 0} onChange={toggleBatchSelectAll} /></th><th>Credential ID</th><th>Name</th><th>Holder</th><th>Type</th><th>Status</th><th>Issued Date</th><th>Revoked Date</th><th>Actions</th></tr></thead>
                 <tbody>
-                  {revokeTableCredentials.map((credential) => {
+                  {revokePg.pageItems.map((credential) => {
                     const blockchainId = credential.blockchainId || credential.id;
                     return (
                       <tr key={blockchainId}>
@@ -1825,6 +1834,7 @@ export default function IssuerDashboard() {
               </table>
             )}
           </div>
+          <Pagination {...revokePg} />
         </>
       )}
 

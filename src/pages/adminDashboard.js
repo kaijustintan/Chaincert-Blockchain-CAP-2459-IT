@@ -39,6 +39,7 @@ import {
   computeIssuerApprovalTurnaround,
 } from "../components/analytics/analytics";
 import { AppShell, Sidebar, Spinner, SpinnerBlock, InfoHint } from "../components/ui";
+import Pagination, { usePagination } from "../components/ui/Pagination";
 import NotesCard from "../components/ui/NotesCard";
 import StatusLegend from "../components/ui/StatusLegend";
 import { effectiveCredentialStatus } from "../utils/credentialStatus"; // F01: compute-on-read expiry
@@ -474,6 +475,8 @@ const handleDownloadIssuerDocument = async (doc) => {
   };
 
   const sortedAdminCredentials = useMemo(() => sortByDateThenName(filteredAdminCredentials, adminCredentialSortBy, { dateFields: ["createdAt", "issuedDate"], nameFields: ["credentialName", "credentialType"], statusField: "status" }), [filteredAdminCredentials, adminCredentialSortBy]);
+  // UX pagination (10/page) for the admin Credentials table — client-side over the filtered/sorted set.
+  const adminCredsPg = usePagination(sortedAdminCredentials, 10);
 
   const sortedVisibleIssuers = useMemo(() => sortByDateThenName(filteredVisibleIssuers, issuerSortBy, { dateFields: ["createdAt"], nameFields: ["orgName", "name", "email"], statusField: "status" }), [filteredVisibleIssuers, issuerSortBy]);
 
@@ -3007,7 +3010,7 @@ const handleDownloadIssuerDocument = async (doc) => {
                     </tr>
                   </thead>
                   <tbody>
-                    {sortedAdminCredentials.map((row, idx) => {
+                    {adminCredsPg.pageItems.map((row, idx) => {
                       const typeLower = String(row.type || "").toLowerCase();
                       const isIssued = typeLower === "issued";
                       const historyCellMap = {
@@ -3062,6 +3065,7 @@ const handleDownloadIssuerDocument = async (doc) => {
             ) : (
               <div className="tab-placeholder">No credentials found for selected filters.</div>
             )}
+            <Pagination {...adminCredsPg} />
             </div>
             </div>
           </div>

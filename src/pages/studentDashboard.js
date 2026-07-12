@@ -37,6 +37,7 @@ import {
   computeHolderVerificationInsights,
 } from "../components/analytics/analytics";
 import { Card, Button, Modal, StatusPill, EmptyState, Spinner, SpinnerBlock, SkeletonCardGrid } from "../components/ui";
+import Pagination, { usePagination } from "../components/ui/Pagination";
 import NotesCard from "../components/ui/NotesCard";
 import { effectiveCredentialStatus } from "../utils/credentialStatus"; // F01: compute-on-read expiry
 import { copyToClipboard } from "../utils/clipboard";
@@ -272,6 +273,10 @@ export default function StudentDashboard() {
 
     return result;
   }, [collapsedCredentials, query, statusFilter, sortBy]);
+
+  // UX pagination: page the wallet (10/page) so a large wallet doesn't make an endless page.
+  // Client-side over the already-filtered/sorted list, so search/filter/sort still span everything.
+  const walletPg = usePagination(filtered, 10);
 
   /* Compute stats from the collapsed set so the chip counts match the cards shown */
   const stats = useMemo(() => {
@@ -741,7 +746,7 @@ export default function StudentDashboard() {
 
             {!loading && !error && filtered.length > 0 && view === "cards" && (
               <div className="holder-wallet-grid">
-                {filtered.map((cred) => (
+                {walletPg.pageItems.map((cred) => (
                   <Card key={cred._id} interactive className="holder-cred-card" onClick={() => handleCardClick(cred)}>
                     {cred.badgeImage ? (
                       <img src={cred.badgeImage} alt="" className="holder-cred-badge" />
@@ -778,7 +783,7 @@ export default function StudentDashboard() {
                     </tr>
                   </thead>
                   <tbody>
-                    {filtered.map((cred) => (
+                    {walletPg.pageItems.map((cred) => (
                       <tr key={cred._id} className="holder-row-clickable" onClick={() => handleCardClick(cred)}>
                         <td>{cred.credentialName}</td>
                         <td>{cred.issuerName || "N/A"}</td>
@@ -789,6 +794,10 @@ export default function StudentDashboard() {
                   </tbody>
                 </table>
               </div>
+            )}
+
+            {!loading && !error && filtered.length > 0 && (
+              <Pagination {...walletPg} />
             )}
           </div>
             </div>

@@ -856,10 +856,17 @@ exports.get_IssuerIssuedCredentials = async (req, res) => {
     /* Step 4: Fetch all docs (include_docs) */
     const result = await issuedDb.list({ include_docs: true });
 
-    /* Step 5: Extract + safety filter */
+    /* Step 5: Extract + safety filter + PERF strip */
     const credentials = (result.rows || [])
       .map(r => r.doc)
-      .filter(doc => doc && doc.type === 'credential_instance');
+      .filter(doc => doc && doc.type === 'credential_instance')
+      // PERF (UAT): the issuer's issued view NEVER renders badgeImage, yet each issued doc carries
+      // the template's base64 badge (copied at issuance, couchDB_service.Issue_Credential_DB). On an
+      // issuer with many issued credentials that made the /issued response tens of MB — the ~20s load
+      // (dominated by the Node→browser download). Dropping it here shrinks each row to a few KB with
+      // zero UX impact. The HOLDER keeps its own copy in wallet_user_credentials, so badges still show
+      // in the wallet/profile/PDF. (Row COUNT is not the bottleneck, so no pagination is needed.)
+      .map(({ badgeImage, ...rest }) => rest);
 
     /* Step 6: Return */
     return res.status(200).json({

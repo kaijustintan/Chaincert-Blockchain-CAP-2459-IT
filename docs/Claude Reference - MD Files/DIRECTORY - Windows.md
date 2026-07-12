@@ -118,14 +118,18 @@ CAP-2459-IT-AFTER-RESET/
 │   │   │   ├── InterpretationBox.jsx
 │   │   │   ├── Sparkline.jsx
 │   │   │   └── TrendBars.jsx
+│   │   ├── ui/                               ← design-system primitives (Button, Card, Modal, StatusPill, InfoHint, StatusLegend, NotesCard, etc.)
+│   │   │   └── Pagination.jsx                ← NEW (UAT): reusable <Pagination> + usePagination hook — client-side 10/page slicing for tables/lists
 │   │   ├── navBar_Guest/
 │   │   ├── adminProtectedRoutes.js
 │   │   ├── appToast.js
 │   │   ├── credentialCard.js
 │   │   ├── footer.js
 │   │   ├── navBar_User.js
-│   │   ├── passwordCriteria.jsx              ← always-visible password-rule checklist (Group 3)
-│   │   └── protectedRoutes.js
+│   │   ├── passwordCriteria.jsx              ← password-rule checklist (Group 3) + live confirm-match (UAT)
+│   │   ├── passwordInput.jsx                 ← password field with a show/hide reveal toggle (UAT)
+│   │   ├── protectedRoutes.js
+│   │   └── welcomeModal.jsx                  ← one-time first-visit role/navigation primer (UAT)
 │   │
 │   ├── controllers/                          ← Express controllers (deploy → ~/chaincert-api/controllers/)
 │   │   ├── accountController.js

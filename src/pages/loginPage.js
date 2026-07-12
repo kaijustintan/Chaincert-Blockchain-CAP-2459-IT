@@ -3,6 +3,8 @@ import React, { useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import apiService from '../services/apiService';
 import { login } from '../services/authenticationService';
+import PasswordInput from '../components/passwordInput';
+import { AlertTriangle, CheckCircle2 } from 'lucide-react';
 import { syncStoredUser } from '../utils/userDisplay';
 import "../styles/loginPage.css";
 
@@ -105,12 +107,12 @@ function LoginPage() {
           <form className="login-form" onSubmit={handleLogin}>
             {successMessage && !error && (
               <div className="success-banner" style={{ marginBottom: '16px', padding: '12px 14px', borderRadius: '10px', background: 'rgba(74, 222, 128, 0.12)', border: '1px solid rgba(74, 222, 128, 0.24)', color: '#86efac', fontWeight: 600 }}>
-                ✅ {successMessage}
+                <CheckCircle2 size={14} aria-hidden="true" /> {successMessage}
               </div>
             )}
             {error && (
               <div className="error-banner">
-                <span>⚠️</span> {error}
+                <AlertTriangle size={14} aria-hidden="true" /> {error}
               </div>
             )}
 
@@ -130,8 +132,7 @@ function LoginPage() {
             </div>
             <div className="input-group">
               <label htmlFor="password">Password</label>
-              <input
-                type="password"
+              <PasswordInput
                 id="password"
                 name="password"
                 placeholder="Enter your password"

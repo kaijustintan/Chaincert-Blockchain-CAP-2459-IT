@@ -4,11 +4,13 @@ import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { logout } from '../services/authenticationService'; // ✅ Import logout function
 import apiService from '../services/apiService';
 import { USER_SYNC_EVENT, buildAvatarUrl, getDisplayName, getRoleLabel, syncStoredUser } from '../utils/userDisplay';
+import { Menu, X } from 'lucide-react';
 
 function NavBar() {
   const location = useLocation();
   const navigate = useNavigate();
   const [dropdownOpen, setDropdownOpen] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false); // E: mobile hamburger open/closed
   const [storedUser, setStoredUser] = useState(() => JSON.parse(localStorage.getItem('user') || '{}'));
   const profileFetchedRef = useRef(false);
   const dropdownRef = useRef(null);
@@ -45,6 +47,7 @@ function NavBar() {
   // Collapse the dropdown automatically whenever the user navigates to a new page.
   useEffect(() => {
     setDropdownOpen(false);
+    setMenuOpen(false); // E: also collapse the mobile hamburger menu on navigation
   }, [location.pathname]);
 
   useEffect(() => {
@@ -86,7 +89,18 @@ function NavBar() {
         <Link to="/" className="logo-link">ChainCert</Link>
       </h2>
 
-      <ul className="nav-links">
+      {/* E: mobile hamburger — hidden on desktop via CSS; toggles the .nav-links panel on small screens */}
+      <button
+        type="button"
+        className="nav-toggle"
+        aria-label={menuOpen ? 'Close menu' : 'Open menu'}
+        aria-expanded={menuOpen}
+        onClick={() => setMenuOpen((o) => !o)}
+      >
+        {menuOpen ? <X size={22} aria-hidden="true" /> : <Menu size={22} aria-hidden="true" />}
+      </button>
+
+      <ul className={`nav-links ${menuOpen ? 'open' : ''}`}>
         <li className={location.pathname === '/' ? 'active' : ''}>
           <Link to="/">Home</Link>
         </li>
@@ -100,16 +114,16 @@ function NavBar() {
           <Link to="/directory">Issuers</Link>
         </li>
         <li className={location.pathname === '/verifier/dashboard' ? 'active' : ''}>
-          <Link to="/verifier/dashboard">Verification Dashboard</Link>
+          <Link to="/verifier/dashboard" title="Check if a credential is genuine — no account needed">Verification Dashboard</Link>
         </li>
 
         {!isLoggedIn && (
           <>
             <li className={location.pathname === '/login' ? 'active' : ''}>
-              <Link to="/login" className="login-link">Login</Link>
+              <Link to="/login" className="login-link" title="Already have an account? Sign in">Login</Link>
             </li>
             <li className={location.pathname === '/register' ? 'active' : ''}>
-              <Link to="/register" className="create-account-link">Create Account</Link>
+              <Link to="/register" className="create-account-link" title="New here? Register as a holder or issuer">Create Account</Link>
             </li>
           </>
         )}

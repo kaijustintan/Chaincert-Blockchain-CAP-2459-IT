@@ -2,6 +2,8 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import PasswordCriteria from "../components/passwordCriteria";
+import PasswordInput from "../components/passwordInput";
+import { AlertTriangle, CheckCircle2 } from "lucide-react";
 import "../styles/loginPage.css";
 
 function ForgotPassword() {
@@ -90,7 +92,7 @@ function ForgotPassword() {
           <p className="tagline">Password Reset</p>
           {error && (
             <div className="error-banner">
-              <span>⚠️</span> {error}
+              <AlertTriangle size={14} aria-hidden="true" /> {error}
             </div>
           )}
           {content}
@@ -143,9 +145,10 @@ function ForgotPassword() {
             <input
               type="text"
               id="otp"
+              inputMode="numeric"
               placeholder="Enter 6-digit code"
               value={otp}
-              onChange={(e) => setOtp(e.target.value)}
+              onChange={(e) => setOtp(e.target.value.replace(/\D/g, '').slice(0, 6))}
               maxLength={6}
               required
               disabled={loading}
@@ -153,8 +156,7 @@ function ForgotPassword() {
           </div>
           <div className="input-group">
             <label htmlFor="newPassword">New Password</label>
-            <input
-              type="password"
+            <PasswordInput
               id="newPassword"
               placeholder="Enter new password"
               value={newPassword}
@@ -162,12 +164,11 @@ function ForgotPassword() {
               required
               disabled={loading}
             />
-            <PasswordCriteria password={newPassword} tone="dark" />
+            <PasswordCriteria password={newPassword} confirmPassword={confirmPassword} tone="dark" />
           </div>
           <div className="input-group">
             <label htmlFor="confirmPassword">Confirm New Password</label>
-            <input
-              type="password"
+            <PasswordInput
               id="confirmPassword"
               placeholder="Confirm new password"
               value={confirmPassword}
@@ -196,7 +197,7 @@ function ForgotPassword() {
   if (step === "success") {
     return renderCard(
       <div style={{ textAlign: "center", padding: "16px 0" }}>
-        <div style={{ fontSize: "48px", marginBottom: "16px" }}>✅</div>
+        <div style={{ marginBottom: "16px" }}><CheckCircle2 size={48} aria-hidden="true" style={{ color: "var(--ok)" }} /></div>
         <h3 style={{ color: "#fff", fontSize: "18px", marginBottom: "12px" }}>Password Reset Successful</h3>
         <p style={{ color: "#94a3b8", fontSize: "13px", marginBottom: "24px", lineHeight: "1.6" }}>
           Your password has been updated successfully. You may now log in with your new password.

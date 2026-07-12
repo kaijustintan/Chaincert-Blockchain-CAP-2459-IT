@@ -409,7 +409,7 @@ export default function VerifierDashboard() {
                 <div className="verifier-banner"><CheckCircle2 size={16} aria-hidden="true" /><span>{otpInfo}</span></div>
               )}
               <Field label="6-digit code" htmlFor="vOtp">
-                <Input id="vOtp" type="text" inputMode="numeric" maxLength={6} placeholder="123456" value={otpCode} onChange={(e) => setOtpCode(e.target.value)} />
+                <Input id="vOtp" type="text" inputMode="numeric" maxLength={6} placeholder="123456" value={otpCode} onChange={(e) => setOtpCode(e.target.value.replace(/\D/g, '').slice(0, 6))} />
               </Field>
 
               {otpError && (
@@ -440,7 +440,7 @@ export default function VerifierDashboard() {
 
       {/* Who is verifying */}
       <div className="verifier-summary">
-        <span>Verifying as <strong>{verifierName}</strong> · {verifierEmail} <span style={{ color: "var(--ok)", fontSize: 12 }}>✓ email verified · name self-reported</span></span>
+        <span>Verifying as <strong>{verifierName}</strong> · {verifierEmail} <span style={{ color: "var(--ok)", fontSize: 12 }}>email verified · name self-reported</span></span>
         <button className="verifier-change" onClick={resetVerifierEmail}>Change</button>
       </div>
 

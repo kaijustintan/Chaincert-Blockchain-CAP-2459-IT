@@ -41,19 +41,22 @@ samp {
 /* Token-driven scrollbars so dense tables/panels match the dark theme. */
 * {
   scrollbar-width: thin;
-  scrollbar-color: var(--border-strong) transparent;
+  scrollbar-color: var(--text-subtle) var(--surface-2);
 }
 *::-webkit-scrollbar {
   width: 10px;
   height: 10px;
 }
+*::-webkit-scrollbar-track {
+  background: var(--surface-2);
+}
 *::-webkit-scrollbar-thumb {
-  background: var(--border-strong);
+  background: var(--text-subtle);
   border-radius: var(--radius-pill);
   border: 2px solid transparent;
   background-clip: padding-box;
 }
 *::-webkit-scrollbar-thumb:hover {
-  background: var(--text-subtle);
+  background: var(--text-muted);
   background-clip: padding-box;
 }

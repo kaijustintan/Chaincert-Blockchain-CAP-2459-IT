@@ -86,11 +86,11 @@
   --fs-display: 28px;  /* landing hero only */
   --fs-h1: 22px;       /* page title */
   --fs-h2: 18px;       /* section header */
-  --fs-h3: 15px;       /* sub-section */
-  --fs-body: 14px;     /* default */
-  --fs-small: 13px;    /* table cells, meta */
-  --fs-label: 12px;    /* uppercase labels, KPI captions */
-  --fs-caption: 11px;  /* finest meta */
+  --fs-h3: 16px;       /* sub-section (UAT: 15→16 for readability) */
+  --fs-body: 15px;     /* default (UAT: 14→15 for readability) */
+  --fs-small: 14px;    /* table cells, meta (UAT: 13→14) */
+  --fs-label: 12.5px;  /* uppercase labels, KPI captions (UAT: 12→12.5) */
+  --fs-caption: 11.5px; /* finest meta (UAT: 11→11.5) */
 
   --fw-regular: 400;
   --fw-medium: 500;

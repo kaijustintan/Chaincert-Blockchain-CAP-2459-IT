@@ -1,52 +1,61 @@
 // passwordCriteria.jsx
 /*
   FILE: passwordCriteria.jsx
-  LAYMAN (Tropang Ex): Maliit na checklist na nakalagay SA TABI ng password box — para
-    alam agad ng user yung mga rules BAGO pa siya mag-submit (hindi na yung "mali pala"
-    na lang after niya i-click). Yung "at least 10 characters" nagcha-check kapag sapat na
-    ang haba. Dati kasi hindi malinaw — sabi 6, tapos server naman 10 pala, magulo.
-  TECHNICAL: Presentational, controlled hint. Takes the current password string and live-
-    ticks the length rule; the "avoid common passwords" line is advisory (the authoritative
-    blocklist stays server-side in securityHelpers.validatePasswordStrength — we do NOT
-    duplicate the 27-item list here to avoid drift). Theme-aware via `tone` so it reads on
-    both the dark reset card (loginPage.css) and the light register form (createAccount.css).
-    Inline-styled (no new stylesheet) so it drops into any form.
+  LAYMAN (Tropang Ex): Maliit na checklist SA TABI ng password box — para alam agad ng user yung
+    mga rules BAGO pa siya mag-submit. Yung "at least 10 characters" nagcha-check kapag sapat na
+    ang haba. Kapag binigay yung confirm-password, may extra line na nagsasabi kung TUGMA ba sila
+    (green) o hindi pa (red) — para di na kailangan i-submit muna bago malaman. Yung "avoid common
+    passwords" ay PAALALA lang (hindi tsine-check box) — kaya may Info icon + italic "Tip:", para
+    hindi ito mamali-mali bilang isang tsi-check na kahon.
+  TECHNICAL: Presentational, controlled hint. Live-ticks the length rule; optionally live-ticks a
+    password-match rule when the parent passes `confirmPassword`. The "avoid common passwords" line
+    is advisory (the authoritative blocklist stays server-side in
+    securityHelpers.validatePasswordStrength — we do NOT duplicate the 27-item list here). Rendered
+    with an Info glyph + italic "Tip:" so it no longer reads as a tickable checkbox (UAT feedback).
+    Theme-aware via `tone`. Inline-styled (no new stylesheet).
   OUTLINE:
     HINT
-      - PasswordCriteria({ password, tone })   always-visible password-rule checklist
+      - PasswordCriteria({ password, confirmPassword, tone })   password-rule checklist
 */
 
 import React from 'react';
-import { Check, Circle } from 'lucide-react';
+import { Check, Circle, Info, X } from 'lucide-react';
 
 /*
   Function Name: PasswordCriteria
 
   LAYMAN (Tropang Ex):
-  Ilagay mo lang sa ilalim ng password input, tapos ibigay yung kasalukuyang password value.
-  Magpapakita ng listahan ng rules; yung haba (10+) may check mark kapag pasado na.
+  Ilagay mo lang sa ilalim ng password input, tapos ibigay yung kasalukuyang password value (at
+  optional na confirm value). Magpapakita ng rules; may check mark kapag pasado, may match line
+  kapag may confirm.
 
   TECHNICAL:
-  Pure/controlled component. Derives `lenMet = password.length >= 10` on each render and
-  swaps a Check/Circle icon + color. `tone='dark'` uses light-on-dark colors for the reset
-  card; default 'light' uses design tokens with hex fallbacks.
+  Pure/controlled component. Derives `lenMet = password.length >= 10` and (when `confirmPassword`
+  is provided AND non-empty) a `matchMet` boolean, swapping Check/X/Circle icons + colors.
 
   PARAMS:
-  - password  — the current password string (controlled by the parent form).
-  - tone      — 'light' (default) or 'dark' — palette for the surrounding card.
-  - className — optional extra class on the <ul>.
-  - style     — optional style overrides merged onto the <ul>.
+  - password        — the current password string (controlled by the parent form).
+  - confirmPassword — optional confirm-password string; when passed and non-empty, a live
+                      "Passwords match / don't match" row is shown.
+  - tone            — 'light' (default) or 'dark' — palette for the surrounding card.
+  - className       — optional extra class on the <ul>.
+  - style           — optional style overrides merged onto the <ul>.
 
   RETURNS:
   JSX <ul> checklist. Never null.
 */
-export default function PasswordCriteria({ password = '', tone = 'light', className = '', style }) {
+export default function PasswordCriteria({ password = '', confirmPassword, tone = 'light', className = '', style }) {
   const value = String(password || '');
   const lenMet = value.length >= 10;
 
+  // Only nag about matching once the parent opts in (passes confirmPassword) AND the user has
+  // actually started typing the confirmation — otherwise the row would show red on an empty field.
+  const showMatch = confirmPassword !== undefined && String(confirmPassword).length > 0;
+  const matchMet = showMatch && value.length > 0 && value === String(confirmPassword);
+
   const palette = tone === 'dark'
-    ? { met: '#4ade80', pending: '#94a3b8', text: '#cbd5e1' }
-    : { met: 'var(--ok, #16a34a)', pending: 'var(--border-strong, #9aa0aa)', text: 'var(--text-muted, #6b7280)' };
+    ? { met: '#4ade80', pending: '#94a3b8', text: '#cbd5e1', danger: '#f87171' }
+    : { met: 'var(--ok, #16a34a)', pending: 'var(--border-strong, #9aa0aa)', text: 'var(--text-muted, #6b7280)', danger: 'var(--danger, #dc2626)' };
 
   const rowStyle = (met) => ({
     display: 'flex',
@@ -69,9 +78,17 @@ export default function PasswordCriteria({ password = '', tone = 'light', classN
           : <Circle size={13} style={{ color: palette.pending, flexShrink: 0 }} aria-hidden="true" />}
         <span>At least 10 characters</span>
       </li>
-      <li style={{ ...rowStyle(false), color: palette.text }}>
-        <Circle size={13} style={{ color: palette.pending, flexShrink: 0 }} aria-hidden="true" />
-        <span>Avoid common or easily-guessed passwords</span>
+      {showMatch && (
+        <li style={{ ...rowStyle(matchMet), color: matchMet ? palette.met : palette.danger }}>
+          {matchMet
+            ? <Check size={13} strokeWidth={3} style={{ color: palette.met, flexShrink: 0 }} aria-hidden="true" />
+            : <X size={13} strokeWidth={3} style={{ color: palette.danger, flexShrink: 0 }} aria-hidden="true" />}
+          <span>{matchMet ? 'Passwords match' : "Passwords don't match yet"}</span>
+        </li>
+      )}
+      <li style={{ ...rowStyle(false), color: palette.text, fontStyle: 'italic' }}>
+        <Info size={13} style={{ color: palette.pending, flexShrink: 0 }} aria-hidden="true" />
+        <span>Tip: avoid common or easily-guessed passwords</span>
       </li>
     </ul>
   );

@@ -260,7 +260,7 @@ export default function CredentialHistoryPage() {
 
   return (
     <div className="issuer-dashboard">
-      <h2>🔍 Credential History (Blockchain Audit Trail)</h2>
+      <h2>Credential History (Blockchain Audit Trail)</h2>
 
       {/* CSS-CHANGE: Return to Dashboard button - polo */}
         <button className="btn-return-dashboard" onClick={() => navigate("/issuer/dashboard")}>
@@ -308,7 +308,7 @@ export default function CredentialHistoryPage() {
             className="history-search-btn history-search-btn--primary"
             disabled={loading}
           >
-            {loading ? "🔄 Loading..." : "🔍 Search"}
+            {loading ? "Loading..." : "Search"}
           </button>
           {/* CSS-CHANGE: replaced inline style background with themed class */}
           <button
@@ -322,7 +322,7 @@ export default function CredentialHistoryPage() {
         </form>
         {/* CSS-CHANGE: replaced inline style with className */}
         <p className="history-search-hint">
-          💡{" "}
+          {" "}
           {isFiltered && searchId.trim()
             ? `Showing filtered history for ${searchField}: ${searchId}`
             : "Showing complete blockchain history for all credentials sorted by most recent activity"}
@@ -386,8 +386,8 @@ export default function CredentialHistoryPage() {
                 onChange={(e) => setSortBy(e.target.value)}
                 className="history-filter-select"
               >
-                <option value="timestamp-desc">📅 Most Recent</option>
-                <option value="timestamp-asc">📅 Oldest First</option>
+                <option value="timestamp-desc">Most Recent</option>
+                <option value="timestamp-asc">Oldest First</option>
                 <option value="credentialId-asc">
                   🔤 Credential ID (A-Z)
                 </option>
@@ -403,14 +403,14 @@ export default function CredentialHistoryPage() {
       {/* CSS-CHANGE: replaced inline style with className */}
       {error && (
         <div className="history-error-box">
-          ❌ {error}
+          {error}
         </div>
       )}
 
       {/* CSS-CHANGE: replaced inline style with className */}
       {loading && (
         <div className="history-loading">
-          <h3>⏳ Fetching blockchain history...</h3>
+          <h3>Fetching blockchain history...</h3>
         </div>
       )}
 
@@ -419,7 +419,7 @@ export default function CredentialHistoryPage() {
           {/* CSS-CHANGE: replaced inline style with className */}
           <div className="history-stats-box">
             <strong>
-              📊 Showing {filteredHistory.length} of {totalCount} transaction(s)
+              Showing {filteredHistory.length} of {totalCount} transaction(s)
             </strong>
             <br />
             <small>Filtered and sorted by selected criteria</small>

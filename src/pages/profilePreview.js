@@ -3,6 +3,7 @@ import { useParams } from "react-router-dom";
 import apiService from "../services/apiService";
 import { SpinnerBlock } from "../components/ui";
 import { effectiveCredentialStatus } from "../utils/credentialStatus";
+import { Ban, Lock } from "lucide-react";
 import '../styles/profilePreview.css';
 
 // C10: live-check verdict meta for the "Verify all" results (colors = design tokens).
@@ -495,7 +496,7 @@ export default function ProfilePreview() {
         <div style={overlayStyle}>
           <div style={gateBoxStyle}>
             <div style={{ textAlign: 'center' }}>
-              <div style={{ fontSize: 36, marginBottom: 8 }}>🚫</div>
+              <div style={{ marginBottom: 8 }}><Ban size={36} aria-hidden="true" /></div>
               <h2 style={{ color: 'var(--danger)', margin: 0, fontSize: '1.3rem' }}>Link Unavailable</h2>
               <p style={{ color: 'var(--text-muted)', fontSize: '0.88rem', marginTop: 12, lineHeight: 1.6 }}>
                 {gateError || 'This share link is no longer available.'}
@@ -520,7 +521,7 @@ export default function ProfilePreview() {
         <div style={overlayStyle}>
           <div style={gateBoxStyle}>
             <div style={{ textAlign: 'center' }}>
-              <div style={{ fontSize: 36, marginBottom: 8 }}>🔒</div>
+              <div style={{ marginBottom: 8 }}><Lock size={36} aria-hidden="true" /></div>
               <h2 style={{ color: 'var(--accent-strong)', margin: 0, fontSize: '1.3rem' }}>Verify Your Identity</h2>
               <p style={{ color: 'var(--text-muted)', fontSize: '0.88rem', marginTop: 8 }}>
                 Enter your email to access this profile

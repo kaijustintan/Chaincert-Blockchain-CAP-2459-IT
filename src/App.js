@@ -24,13 +24,14 @@ import IssuerDirectory from './pages/issuerDirectory';
 import BadgeDetailsProfilePreviewPage from './pages/BadgeDetailsProfilePreviewPage';
 import ShareCredentialPage from './pages/shareCredentialPage';
 import CredentialHistoryPage from './pages/credentialHistoryPage';
+import WelcomeModal from './components/welcomeModal';
 
 import './styles/App.css';
 
 // ✅ Define component BEFORE App function
 const UnauthorizedPage = () => (
   <div style={{ textAlign: 'center', padding: '50px' }}>
-    <h1>❌ Access Denied</h1>
+    <h1>Access Denied</h1>
     <p>You don't have permission to access this page.</p>
     <a href="/">Go back to Home</a>
   </div>
@@ -99,6 +100,7 @@ function App() {
         <Navbar />
         <AnimatedRoutes />
         <Footer />
+        <WelcomeModal />
       </div>
     </Router>
   );

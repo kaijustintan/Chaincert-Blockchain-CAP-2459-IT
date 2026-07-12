@@ -5,8 +5,8 @@ import "../styles/helpPage.css";
 
 // HELP1/HELP2: FAQs are tagged by audience category; the tabs filter the list.
 const CATEGORIES = [
-  { key: "holders", label: "🎓 For Holders" },
-  { key: "employers", label: "✅ For Employers" },
+  { key: "holders", label: "For Holders" },
+  { key: "employers", label: "For Employers" },
   { key: "issuers", label: "🏛️ For Issuers" },
   { key: "general", label: "⛓️ General" },
 ];

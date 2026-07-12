@@ -483,7 +483,7 @@ export function computeIntegritySummary(integrityResult) {
     if (mismatched > 0) issues.push(`${mismatched} mismatched`);
     if (missing > 0) issues.push(`${missing} missing`);
     if (errors > 0) issues.push(`${errors} error(s)`);
-    summary = `⚠️ Last check: ${issues.join(', ')} out of ${totalChecked} record(s) — review the flagged records in the integrity report.`;
+    summary = `Last check: ${issues.join(', ')} out of ${totalChecked} record(s) — review the flagged records in the integrity report.`;
   }
 
   return { available: true, totalChecked, matched, mismatched, missing, errors, slices, healthy, checkedAt, summary };
@@ -541,6 +541,7 @@ export function computeProvenance(history) {
     return {
       label: m.label,
       icon: m.icon,
+      action,
       color: m.color,
       when: entry.timestamp || null,
       status: (entry.value && entry.value.status) || action,
@@ -782,7 +783,7 @@ export function computeHolderVerificationInsights(logs) {
   } else if (allValid) {
     summary = `Your credentials have been independently verified ${totalChecks} time(s) by ${distinctVerifiers} verifier(s) — every check returned VALID. This is third-party-confirmed, tamper-proof evidence your credentials hold up to scrutiny, stronger than any PDF.`;
   } else {
-    summary = `Your credentials were checked ${totalChecks} time(s) by ${distinctVerifiers} verifier(s); ${validCount} returned valid. ⚠️ ${invalidCount} check(s) returned a non-valid result — see the alerts below; an employer saw that outcome.`;
+    summary = `Your credentials were checked ${totalChecks} time(s) by ${distinctVerifiers} verifier(s); ${validCount} returned valid. ${invalidCount} check(s) returned a non-valid result — see the alerts below; an employer saw that outcome.`;
   }
 
   return {

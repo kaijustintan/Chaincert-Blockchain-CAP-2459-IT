@@ -25,6 +25,7 @@ import AppToast from "../components/appToast";
 import { buildAvatarUrl, getDisplayName, syncStoredUser } from "../utils/userDisplay";
 import { copyToClipboard } from "../utils/clipboard";
 import { SpinnerBlock, SkeletonCardGrid } from "../components/ui";
+import { Globe, Pencil } from "lucide-react";
 import "../styles/profilePage.css";
 
 export default function ProfilePage() {
@@ -665,7 +666,7 @@ const [showAll, setShowAll] = useState(false);
             title="Change profile picture"
             style={{ opacity: 1, transform: "scale(1)" }}
           >
-            ✏️
+            <Pencil size={16} aria-hidden="true" />
           </button>
         )}
           <input
@@ -843,7 +844,7 @@ const [showAll, setShowAll] = useState(false);
                 const isPublic = template.visibility === 'public';
                 return (
                   <div key={tid} className="badge-card">
-                    {isPublic && <div className="public-indicator" title="Visible on your public profile">🌐</div>}
+                    {isPublic && <div className="public-indicator" title="Visible on your public profile"><Globe size={13} aria-hidden="true" /></div>}
                     <div className="badge-image">
                       {template.badgeImage ? (
                         <img src={template.badgeImage} alt="badge" style={{ width: 60, height: 60, objectFit: 'cover', borderRadius: 8 }} />
@@ -921,7 +922,7 @@ const [showAll, setShowAll] = useState(false);
                   {canReorder && <div className="drag-handle" title="Drag to reorder">⠿</div>}
                   {/* Public indicator — shows which credentials appear on public profile - polo */}
                   {cred.visibility === 'public' && (
-                    <div className="public-indicator" title="Visible on your public profile">🌐</div>
+                    <div className="public-indicator" title="Visible on your public profile"><Globe size={13} aria-hidden="true" /></div>
                   )}
                   <div className="badge-image">
                     {cred.badgeImage ? (
@@ -1268,7 +1269,7 @@ const [showAll, setShowAll] = useState(false);
                 </>
               ) : (
                 <p style={{ color: 'var(--ok)', fontSize: '0.85rem', marginBottom: 10, lineHeight: 1.5 }}>
-                  ✅ Link generated — an email with it was sent to <strong style={{ color: 'var(--text)' }}>{shareRecipientEmail}</strong>. You can also copy it below.
+                  Link generated — an email with it was sent to <strong style={{ color: 'var(--text)' }}>{shareRecipientEmail}</strong>. You can also copy it below.
                 </p>
               )}
 
@@ -1287,7 +1288,7 @@ const [showAll, setShowAll] = useState(false);
                     onClick={handleCopyShareUrl}
                     style={{ background: shareCopied ? 'var(--ok-weak)' : 'linear-gradient(135deg, var(--accent), var(--accent-strong))', border: 'none', borderRadius: 8, color: 'var(--text)', padding: '8px 18px', cursor: 'pointer', fontSize: '0.9rem', width: '100%' }}
                   >
-                    {shareCopied ? '✅ Copied!' : '📋 Copy Link'}
+                    {shareCopied ? 'Copied!' : 'Copy Link'}
                   </button>
                 </>
               )}
@@ -1300,7 +1301,7 @@ const [showAll, setShowAll] = useState(false);
                   onClick={() => handleGenerateShareLink('specific')}
                   disabled={shareLoading}
                 >
-                  {shareLoading ? 'Generating...' : '🔗 Generate & Send Link'}
+                  {shareLoading ? 'Generating...' : 'Generate & Send Link'}
                 </button>
               </div>
             )}
@@ -1354,7 +1355,7 @@ const [showAll, setShowAll] = useState(false);
                       color: selectedCred.visibility === 'public' ? 'var(--ok)' : 'var(--warn)',
                     }}
                   >
-                    {selectedCred.visibility === 'public' ? '🌐 Public' : '🔒 Private'} — Click to toggle
+                    {selectedCred.visibility === 'public' ? 'Public' : 'Private'} — Click to toggle
                   </button>
                 </span>
               </div>

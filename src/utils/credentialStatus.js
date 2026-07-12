@@ -43,3 +43,11 @@ export function minIssueExpiryDate() {
   if (process.env.REACT_APP_ALLOW_PAST_EXPIRY === 'true') return undefined;
   return new Date(Date.now() + 32 * 60 * 60 * 1000).toISOString().slice(0, 10);
 }
+
+// Latest selectable expiry date (YYYY-MM-DD) for the issue/renewal/batch forms: a far-future
+// cap so fat-finger years (e.g. 9999, 20260) can't be entered. 20 years out covers any realistic
+// credential lifetime. ALWAYS ON — unlike minIssueExpiryDate, the REACT_APP_ALLOW_PAST_EXPIRY UAT
+// flag does NOT relax the upper bound (past-expiry testing only needs the lower bound dropped).
+export function maxIssueExpiryDate() {
+  return new Date(Date.now() + 20 * 365 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+}

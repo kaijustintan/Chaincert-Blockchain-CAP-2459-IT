@@ -132,7 +132,39 @@
 .signout-btn { background: none; border: none; color: var(--danger); cursor: pointer; width: 100%; text-align: left; padding: 0; font-weight: var(--fw-semibold); font-family: inherit; font-size: var(--fs-body); transition: filter var(--motion-fast) var(--ease); }
 .signout-btn:hover { filter: brightness(1.12); }
 
+/* E: mobile hamburger toggle — hidden on desktop, revealed at the mobile breakpoint below */
+.nav-toggle { display: none; }
+
 @media (max-width: 720px) {
-  .navbar { padding: 0 var(--s4); gap: var(--s3); }
-  .navbar .nav-links { gap: var(--s3); }
+  .navbar { padding: 0 var(--s4); gap: var(--s3); position: relative; }
+
+  .nav-toggle {
+    display: inline-flex; align-items: center; justify-content: center;
+    margin-left: auto; padding: 6px;
+    background: none; border: none; color: var(--text);
+    cursor: pointer; border-radius: var(--radius-control);
+  }
+  .nav-toggle:hover { background: var(--surface-2); }
+
+  /* Collapse the horizontal links into a dropdown panel below the bar; visible only when .open */
+  .navbar .nav-links {
+    display: none;
+    position: absolute; top: 56px; left: 0; right: 0;
+    flex-direction: column; align-items: stretch; gap: var(--s1);
+    margin: 0; padding: var(--s3) var(--s4);
+    background: var(--surface); border-bottom: 1px solid var(--border);
+    box-shadow: var(--shadow-lg); z-index: var(--z-dropdown);
+  }
+  .navbar .nav-links.open { display: flex; }
+  .navbar .nav-links li { width: 100%; padding: 8px 4px; }
+  /* No stray active underline in the vertical panel */
+  .navbar .nav-links li.active::after { content: none; }
+
+  /* CTA links go full-width in the stacked panel */
+  .nav-links .login-link,
+  .nav-links .create-account-link { display: block; text-align: center; }
+
+  /* Profile menu flows inline inside the panel instead of floating */
+  .profile-dropdown-container { width: 100%; }
+  .profile-dropdown { position: static; box-shadow: none; border: 1px solid var(--border); margin-top: var(--s1); min-width: 0; }
 }

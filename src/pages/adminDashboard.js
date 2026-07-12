@@ -42,7 +42,7 @@ import { AppShell, Sidebar, Spinner, SpinnerBlock, InfoHint } from "../component
 import NotesCard from "../components/ui/NotesCard";
 import StatusLegend from "../components/ui/StatusLegend";
 import { effectiveCredentialStatus } from "../utils/credentialStatus"; // F01: compute-on-read expiry
-import { Bell, Layers, Building2, Users, ClipboardList, BarChart3, ShieldCheck, Flag, Clock, Timer } from "lucide-react";
+import { Bell, Layers, Building2, Users, ClipboardList, BarChart3, ShieldCheck, Flag, Clock, Timer, Check } from "lucide-react";
 
 export default function AdminDashboard() {
   // Admin lands on Manage Issuers → Pending: clearing the pending-issuer queue is the
@@ -1848,7 +1848,7 @@ const handleDownloadIssuerDocument = async (doc) => {
                               <span style={{ color: "var(--text-muted)", fontSize: "11px" }}> (database) </span>
                               <span style={{ color: "var(--text-muted)" }}>→ </span>
                               <span style={{ color: "var(--ok)", fontWeight: 700 }}>{String(m.blockchainValue || "—")}</span>
-                              <span style={{ color: "var(--text-muted)", fontSize: "11px" }}> (blockchain ✓)</span>
+                              <span style={{ color: "var(--text-muted)", fontSize: "11px" }}> (on blockchain)</span>
                             </div>
                           ))}
 
@@ -1999,7 +1999,7 @@ const handleDownloadIssuerDocument = async (doc) => {
 
                   <div className="analytics-card" style={{ marginBottom: 14 }}>
                     <h4 style={{ margin: "0 0 12px", color: "var(--text)", fontSize: 14 }}>
-                      🔗 Verification Proof Trail
+                      Verification Proof Trail
                     </h4>
                     {proofTrail.count === 0 ? (
                       <div className="analytics-chart-empty" style={{ height: 90 }}>
@@ -2035,7 +2035,7 @@ const handleDownloadIssuerDocument = async (doc) => {
                                 className="analytics-timeline-dot"
                                 style={{ background: color }}
                               >
-                                ✓
+                                <Check size={13} aria-hidden="true" color="#fff" />
                               </span>
                               <div>
                                 <div className="analytics-timeline-label">{label}</div>
@@ -2076,7 +2076,7 @@ const handleDownloadIssuerDocument = async (doc) => {
                     color: "var(--danger)",
                   }}
                 >
-                  ❌ {credentialHistoryError}
+                  {credentialHistoryError}
                 </div>
               ) : credentialHistory.length > 0 ? (
                 // ADMIN7: raw "Full audit records" table removed — the dossier is insight-first
@@ -2159,7 +2159,7 @@ const handleDownloadIssuerDocument = async (doc) => {
                 You are about to approve <strong>{approveIssuerName}</strong>. This grants them issuer access on ChainCert and is permanently recorded on the blockchain.
               </p>
               {approveIssuerError && (
-                <div style={{ color:"var(--danger)",marginTop:"10px" }}>❌ {approveIssuerError}</div>
+                <div style={{ color:"var(--danger)",marginTop:"10px" }}>{approveIssuerError}</div>
               )}
               <div style={{ display:"flex",gap:"10px",justifyContent:"flex-end",marginTop:"20px" }}>
                 <button
@@ -2238,7 +2238,7 @@ const handleDownloadIssuerDocument = async (doc) => {
 
                 {Reject_IssuerError ? (
                   <div style={{ color: "var(--danger)", marginTop: "10px" }}>
-                    ❌ {Reject_IssuerError}
+                    {Reject_IssuerError}
                   </div>
                 ) : null}
 
@@ -2346,7 +2346,7 @@ const handleDownloadIssuerDocument = async (doc) => {
 
                 {issuerStatusError ? (
                   <div style={{ color: "var(--danger)", marginTop: "10px" }}>
-                    ❌ {issuerStatusError}
+                    {issuerStatusError}
                   </div>
                 ) : null}
 
@@ -2462,7 +2462,7 @@ const handleDownloadIssuerDocument = async (doc) => {
 
                 {userStatusError ? (
                   <div style={{ color: "var(--danger)", marginTop: "10px" }}>
-                    ❌ {userStatusError}
+                    {userStatusError}
                   </div>
                 ) : null}
 
@@ -2580,7 +2580,7 @@ const handleDownloadIssuerDocument = async (doc) => {
                 <SpinnerBlock label="Loading history…" minHeight={100} />
               ) : historyStatusError ? (
                 <div style={{ padding: "12px", background: "var(--danger-weak)", border: "1px solid var(--danger-weak)", borderRadius: "10px", color: "var(--danger)" }}>
-                  ❌ {historyStatusError}
+                  {historyStatusError}
                 </div>
               ) : historyStatusLogs.length > 0 ? (
                 <div className="table-wrapper">
@@ -2706,7 +2706,7 @@ const handleDownloadIssuerDocument = async (doc) => {
                       color: "var(--danger)",
                     }}
                   >
-                    ❌ {issuerDocumentsError}
+                    {issuerDocumentsError}
                   </div>
                 ) : issuerDocuments.length > 0 ? (
                   <div className="table-wrapper">
@@ -2993,7 +2993,7 @@ const handleDownloadIssuerDocument = async (doc) => {
             {adminCredentialsLoading ? (
               <SpinnerBlock label="Loading credentials…" />
             ) : adminCredentialsError ? (
-              <div className="tab-placeholder">❌ {adminCredentialsError}</div>
+              <div className="tab-placeholder">{adminCredentialsError}</div>
             ) : sortedAdminCredentials.length > 0 ? (
               <div className="table-wrapper">
                 <table className="admin-table">
@@ -3780,7 +3780,7 @@ const handleDownloadIssuerDocument = async (doc) => {
               </div>
 
               {(statusLogsError || issuerDecisionLogsError) ? (
-                <div className="tab-placeholder">❌ {statusLogsError || issuerDecisionLogsError}</div>
+                <div className="tab-placeholder">{statusLogsError || issuerDecisionLogsError}</div>
               ) : auditLogs.length > 0 ? (
                 <div className="table-wrapper">
                   <table className="admin-table">
@@ -3852,7 +3852,7 @@ const handleDownloadIssuerDocument = async (doc) => {
           ) : logCategory === "root_subordinate_decision" ? (
             <>
               {rootSubordinateLogsError ? (
-                <div className="tab-placeholder">❌ {rootSubordinateLogsError}</div>
+                <div className="tab-placeholder">{rootSubordinateLogsError}</div>
               ) : (() => {
                 const query = rootSubordinateSearchQuery.trim().toLowerCase();
                 const filtered = query
@@ -4080,7 +4080,7 @@ const handleDownloadIssuerDocument = async (doc) => {
                   >
                     <div>
                       <div className="analytics-flag-issuer">
-                        {iss.flagged ? "⚠️ " : ""}{iss.issuerName}
+                        {iss.flagged ? <Flag size={13} aria-hidden="true" style={{ verticalAlign: "-2px", marginRight: 4 }} /> : ""}{iss.issuerName}
                       </div>
                       <div className="analytics-flag-reason">{iss.reason}</div>
                       {iss.flagged && (

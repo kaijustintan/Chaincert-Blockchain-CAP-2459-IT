@@ -52,6 +52,30 @@ function LandingHomePage() {
           </button>
         </div>
 
+        {/* H: role quick-select — guide first-time visitors straight to the right entry point */}
+        <div className="hero-roles" style={{ display: "flex", flexWrap: "wrap", gap: 12, justifyContent: "center", marginTop: 22 }}>
+          {[
+            { title: "I'm a Student", sub: "Receive & share my credentials", to: "/register" },
+            { title: "I'm an Employer", sub: "Verify a credential — no account", to: "/verifier/dashboard" },
+            { title: "I'm an Institution", sub: "Issue credentials to holders", to: "/register" },
+          ].map((r) => (
+            <button
+              key={r.title}
+              type="button"
+              onClick={() => navigate(r.to)}
+              style={{
+                display: "flex", flexDirection: "column", gap: 4, alignItems: "flex-start", textAlign: "left",
+                background: "var(--surface-2, rgba(255,255,255,0.06))", border: "1px solid var(--border-strong, rgba(255,255,255,0.16))",
+                color: "var(--text, #e5e7eb)", borderRadius: 12, padding: "12px 16px", cursor: "pointer",
+                minWidth: 190, flex: "1 1 190px", maxWidth: 240,
+              }}
+            >
+              <span style={{ fontWeight: 700, fontSize: 15 }}>{r.title}</span>
+              <span style={{ fontSize: 12.5, color: "var(--text-muted, #9aa0aa)" }}>{r.sub}</span>
+            </button>
+          ))}
+        </div>
+
         {/* Trust metrics */}
         <div className="hero-metrics">
           <div className="metric">

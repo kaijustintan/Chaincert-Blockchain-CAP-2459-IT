@@ -39,9 +39,10 @@ import {
 import { Card, Button, Modal, StatusPill, EmptyState, Spinner, SpinnerBlock, SkeletonCardGrid } from "../components/ui";
 import NotesCard from "../components/ui/NotesCard";
 import { effectiveCredentialStatus } from "../utils/credentialStatus"; // F01: compute-on-read expiry
+import { copyToClipboard } from "../utils/clipboard";
 import {
   Bell, CheckCircle2, XCircle, Clock, Wallet, Activity, ShieldCheck,
-  Download, ScrollText, Globe, Lock, Award, Search, Inbox, AlertTriangle, GitBranch,
+  Download, ScrollText, Globe, Lock, Award, Search, Inbox, AlertTriangle, GitBranch, Copy, Check,
 } from "lucide-react";
 
 // ==========================================================================================================================================================================
@@ -82,6 +83,7 @@ export default function StudentDashboard() {
      // - polo
   */
   const [credentials, setCredentials] = useState([]);
+  const [copiedId, setCopiedId] = useState(false); // D5: copy-Credential-ID feedback (local; studentDashboard has no toast infra)
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
@@ -752,7 +754,7 @@ export default function StudentDashboard() {
                       // D2: how many times this credential line (same template + same holder) was renewed.
                       const n = getRenewalCount(cred);
                       return n > 0 ? (
-                        <span style={{ display: 'inline-block', marginTop: 4, fontSize: '0.72rem', fontWeight: 700, color: 'var(--accent-strong)' }} title="This credential has been renewed — open See History for the full timeline.">↻ Renewed {n}×</span>
+                        <span style={{ display: 'inline-block', marginTop: 4, fontSize: '0.72rem', fontWeight: 700, color: 'var(--accent-strong)' }} title="This credential has been renewed — open See History for the full timeline.">Renewed {n}×</span>
                       ) : null;
                     })()}
                     {cred.issuerName && <p className="holder-cred-issuer">{cred.issuerName}</p>}
@@ -868,7 +870,7 @@ export default function StudentDashboard() {
                                 const requested = renewalPending.has(cid);
                                 return (
                                   <Button size="sm" variant="secondary" disabled={requested} onClick={() => handleRequestRenewal(a.cred)}>
-                                    {requested ? "Renewal requested ✓" : "Request renewal"}
+                                    {requested ? "Renewal requested" : "Request renewal"}
                                   </Button>
                                 );
                               })()}
@@ -940,7 +942,7 @@ export default function StudentDashboard() {
                                 <div className="analytics-flag-reason">
                                   {m.count}× checked
                                   {m.invalidCount > 0
-                                    ? ` • ⚠ ${m.invalidCount} flagged result${m.invalidCount > 1 ? "s" : ""}`
+                                    ? ` • ${m.invalidCount} flagged result${m.invalidCount > 1 ? "s" : ""}`
                                     : " • all valid"}
                                 </div>
                               </div>
@@ -1038,7 +1040,20 @@ export default function StudentDashboard() {
               </div>
               <div className="holder-detail-row">
                 <span className="holder-detail-label">Blockchain ID</span>
-                <span className="holder-detail-value holder-mono">{selectedCred.blockchainId || "N/A"}</span>
+                <span className="holder-detail-value holder-mono" style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
+                  <span>{selectedCred.blockchainId || "N/A"}</span>
+                  {selectedCred.blockchainId && (
+                    <button
+                      type="button"
+                      onClick={async () => { const ok = await copyToClipboard(selectedCred.blockchainId); if (ok) { setCopiedId(true); setTimeout(() => setCopiedId(false), 1500); } }}
+                      title="Copy credential ID"
+                      aria-label="Copy credential ID"
+                      style={{ background: "none", border: "1px solid var(--border-strong)", color: copiedId ? "var(--ok)" : "var(--text-muted)", borderRadius: 6, padding: "3px 6px", cursor: "pointer", display: "inline-flex", alignItems: "center" }}
+                    >
+                      {copiedId ? <Check size={13} aria-hidden="true" /> : <Copy size={13} aria-hidden="true" />}
+                    </button>
+                  )}
+                </span>
               </div>
 
               {!templateLoading && templateDetails?.skills && templateDetails.skills.length > 0 && (

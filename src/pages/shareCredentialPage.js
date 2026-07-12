@@ -55,7 +55,7 @@ export default function ShareCredentialPage() {
           <h4>Promote</h4>
           <p>Share your achievement on social media.</p>
           <ul>
-            <li>🔗 LinkedIn</li>
+            <li>LinkedIn</li>
             <li>🐦 X (Twitter)</li>
             <li>📘 Facebook</li>
           </ul>
@@ -66,9 +66,9 @@ export default function ShareCredentialPage() {
           <p>Send your badge or take it offline.</p>
           <ul>
             <li>📧 Email</li>
-            <li>🔗 Public Link</li>
+            <li>Public Link</li>
             <li>⬇️ Download Badge</li>
-            <li>📄 Download Certificate</li>
+            <li>Download Certificate</li>
             <li>&lt;/&gt; Embed Code</li>
           </ul>
         </div>

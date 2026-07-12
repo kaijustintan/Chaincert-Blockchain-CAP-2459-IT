@@ -4,7 +4,8 @@ import apiService from "../services/apiService";
 import "../styles/createAccount.css";
 import AppToast from "../components/appToast";
 import PasswordCriteria from "../components/passwordCriteria";
-import { User, Building2 } from "lucide-react";
+import PasswordInput from "../components/passwordInput";
+import { User, Building2, AlertTriangle, Check } from "lucide-react";
 
 const VALID_EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
 
@@ -693,22 +694,20 @@ const getDocumentDescription = (docKey) => {
 
             <div className="input-group">
               <label>Password</label>
-              <input
+              <PasswordInput
                 name="password"
-                type="password"
                 value={user.password}
                 onChange={handleUserChange}
                 placeholder="Choose a strong password"
                 required
               />
-              <PasswordCriteria password={user.password} />
+              <PasswordCriteria password={user.password} confirmPassword={user.confirmPassword} />
             </div>
 
             <div className="input-group">
               <label>Confirm Password</label>
-              <input
+              <PasswordInput
                 name="confirmPassword"
-                type="password"
                 value={user.confirmPassword}
                 onChange={handleUserChange}
                 placeholder="Confirm password"
@@ -718,7 +717,7 @@ const getDocumentDescription = (docKey) => {
 
             {userError && (
               <div className="form-error">
-                <span>⚠️</span> {userError}
+                <AlertTriangle size={14} aria-hidden="true" /> {userError}
               </div>
             )}
 
@@ -761,7 +760,7 @@ const getDocumentDescription = (docKey) => {
                     <div
                       className={`wizard-step${wizardStep === s.n ? " active" : ""}${wizardStep > s.n ? " done" : ""}`}
                     >
-                      <span className="wizard-step-circle">{wizardStep > s.n ? "✓" : s.n}</span>
+                      <span className="wizard-step-circle">{wizardStep > s.n ? <Check size={13} aria-hidden="true" /> : s.n}</span>
                       <span className="wizard-step-label">{s.label}</span>
                     </div>
                     {i < ISSUER_STEPS.length - 1 && (
@@ -815,9 +814,8 @@ const getDocumentDescription = (docKey) => {
               <div className="form-grid">
                 <div className="input-group">
                   <label>Password</label>
-                  <input
+                  <PasswordInput
                     name="password"
-                    type="password"
                     value={issuer.password}
                     onChange={handleIssuerChange}
                     placeholder="Choose a strong password"
@@ -827,9 +825,8 @@ const getDocumentDescription = (docKey) => {
 
                 <div className="input-group">
                   <label>Confirm Password</label>
-                  <input
+                  <PasswordInput
                     name="confirmPassword"
-                    type="password"
                     value={issuer.confirmPassword}
                     onChange={handleIssuerChange}
                     placeholder="Confirm password"
@@ -837,7 +834,7 @@ const getDocumentDescription = (docKey) => {
                   />
                 </div>
               </div>
-              <PasswordCriteria password={issuer.password} />
+              <PasswordCriteria password={issuer.password} confirmPassword={issuer.confirmPassword} />
 
               </>
               )}
@@ -1021,7 +1018,7 @@ const getDocumentDescription = (docKey) => {
 
               {issuerError && (
                 <div className="form-error">
-                  <span>⚠️</span> {issuerError}
+                  <AlertTriangle size={14} aria-hidden="true" /> {issuerError}
                 </div>
               )}
 
@@ -1059,7 +1056,7 @@ const getDocumentDescription = (docKey) => {
           ) : (
             <div className="issuer-message"> 
               <div className="success-icon-wrapper">
-                <div className="success-icon-circle">✓</div>
+                <div className="success-icon-circle"><Check size={24} aria-hidden="true" /></div>
               </div>
               <h3>Application Received</h3>
 

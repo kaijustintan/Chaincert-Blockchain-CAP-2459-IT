@@ -39,9 +39,9 @@ import { computeIssuance, computeRevocationAudit, computeHolderVerificationInsig
 import { AppShell, Sidebar, Button, StatusPill, SpinnerBlock, Spinner, InfoHint } from "../components/ui";
 import StatusLegend from "../components/ui/StatusLegend";
 import CredentialHistory from "../components/analytics/CredentialHistory";
-import { effectiveCredentialStatus, minIssueExpiryDate } from "../utils/credentialStatus"; // F01
+import { effectiveCredentialStatus, minIssueExpiryDate, maxIssueExpiryDate } from "../utils/credentialStatus"; // F01
 import { getCredentialLineage, isSameInstance } from "../utils/credentialLineage"; // Q1
-import { LayoutDashboard, FilePlus, Award, Ban, List, BarChart3, Receipt, Building2, Bell } from "lucide-react";
+import { LayoutDashboard, FilePlus, Award, Ban, List, BarChart3, Receipt, Building2, Bell, Check, X } from "lucide-react";
 
 // Group 4.2: collapse credential-type strings case-insensitively (trim + first-seen casing
 // wins) so "Academic" / "academic" / "Academic " become ONE dropdown option. The create form
@@ -931,7 +931,7 @@ export default function IssuerDashboard() {
 
       const byId = new Map();
       credentials.forEach((c) => {
-        [c.blockchainId, c.id, c._id].filter(Boolean).forEach((k) => byId.set(String(k), c));
+        [c.blockchainId, c.id, c._id].filter(Boolean).forEach((k) => byId.set(String(k).toLowerCase(), c));
       });
 
       // Count SYNCHRONOUSLY (outside the setState updater) so the toast reports the real numbers —
@@ -939,7 +939,7 @@ export default function IssuerDashboard() {
       let matched = 0, notRevocable = 0, unknown = 0;
       const toAdd = [];
       tokens.forEach((t) => {
-        const cred = byId.get(t);
+        const cred = byId.get(t.toLowerCase());
         if (!cred) { unknown++; return; }
         const eff = effectiveCredentialStatus(cred);
         if (eff !== "issued" && eff !== "active") { notRevocable++; return; }
@@ -1132,6 +1132,20 @@ export default function IssuerDashboard() {
     }
   };
 
+  // Batch A (I-04): live "name already taken" warning. Compares the typed name against the
+  // issuer's own ACTIVE templates already in memory (templateOptions), mirroring the backend's
+  // trimmed + lowercased exact-match on active templates. No new fetch/endpoint; advisory only
+  // (the backend 409 remains the hard guard).
+  const nameClash = useMemo(() => {
+    const wanted = String(createForm.credentialName || "").trim().toLowerCase();
+    if (!wanted) return false;
+    return (Array.isArray(templateOptions) ? templateOptions : []).some((t) => {
+      const s = String(t?.status || "").toLowerCase();
+      const isActive = s !== "revoked" && s !== "disabled" && s !== "inactive" && s !== "archived";
+      return isActive && String(t?.credentialName || "").trim().toLowerCase() === wanted;
+    });
+  }, [templateOptions, createForm.credentialName]);
+
   // Group 4.5: validate + normalize the type, then open the confirmation step (no write yet).
   const handleCreateCredential = (e) => {
     e.preventDefault();
@@ -1139,6 +1153,7 @@ export default function IssuerDashboard() {
     const type = createForm.credentialType.trim();
     const name = createForm.credentialName.trim();
     if (!type || !name) { setCreateError("Please fill in Credential Type and Name"); return; }
+    if (nameClash) { setCreateError("You already have an active credential with this name. Please choose a different name."); return; }
     setCreateConfirmStep(true);
   };
 
@@ -1979,7 +1994,7 @@ export default function IssuerDashboard() {
                       <div className={`analytics-flag-row${m.invalidCount > 0 ? " flagged" : ""}`} key={`reach-${m.credentialId || i}`}>
                         <div>
                           <div className="analytics-flag-issuer">{m.credentialName}</div>
-                          <div className="analytics-flag-reason">{m.count}× verified{m.invalidCount > 0 ? ` • ⚠ ${m.invalidCount} returned revoked/expired` : ""}</div>
+                          <div className="analytics-flag-reason">{m.count}× verified{m.invalidCount > 0 ? ` • ${m.invalidCount} returned revoked/expired` : ""}</div>
                         </div>
                         <span className="analytics-flag-rate">{m.count}×</span>
                       </div>
@@ -2104,7 +2119,7 @@ export default function IssuerDashboard() {
             {renewalDecide.action === "approve" ? (
               <div className="form-group compact-form-group">
                 <label>New expiry date <span className="form-label-hint">(optional — blank = no expiry)</span></label>
-                <input type="date" value={renewalExpiry} onChange={(e) => setRenewalExpiry(e.target.value)} min={minIssueExpiryDate()} />
+                <input type="date" value={renewalExpiry} onChange={(e) => setRenewalExpiry(e.target.value)} min={minIssueExpiryDate()} max={maxIssueExpiryDate()} />
               </div>
             ) : (
               <div className="form-group">
@@ -2201,7 +2216,7 @@ export default function IssuerDashboard() {
                   {batchResults.map((r) => (
                     <div className={`analytics-flag-row${r.success ? "" : " flagged"}`} key={`bres-${r.id}`}>
                       <div>
-                        <div className="analytics-flag-issuer">{r.success ? "✓" : "✗"} {r.name}</div>
+                        <div className="analytics-flag-issuer">{r.success ? <Check size={13} aria-hidden="true" /> : <X size={13} aria-hidden="true" />} {r.name}</div>
                         <div className="analytics-flag-reason">{r.success ? (r.holder || "Revoked") : (r.error || "Failed")}</div>
                       </div>
                     </div>
@@ -2250,7 +2265,7 @@ export default function IssuerDashboard() {
                 </div>
                 <div className="form-group">
                   <label>Expiry date (optional — blank = no expiry)</label>
-                  <input type="date" min={minIssueExpiryDate()} value={batchIssueExpiry} onChange={(e) => setBatchIssueExpiry(e.target.value)} />
+                  <input type="date" min={minIssueExpiryDate()} max={maxIssueExpiryDate()} value={batchIssueExpiry} onChange={(e) => setBatchIssueExpiry(e.target.value)} />
                 </div>
                 <div className="form-group">
                   <label style={{ display: "block", marginBottom: 8 }}>Recipients <span className="required-star">*</span></label>
@@ -2270,13 +2285,13 @@ export default function IssuerDashboard() {
                     {batchIssueRecipients.map((r) => (
                       <div className="analytics-flag-row" key={`bi-${r.id}`} style={{ alignItems: "center" }}>
                         <div style={{ minWidth: 0 }}><div className="analytics-flag-issuer" style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{r.label}</div></div>
-                        <span style={{ fontSize: 12, fontWeight: 700, color: "var(--ok)", flexShrink: 0, whiteSpace: "nowrap" }}>✓ Eligible</span>
+                        <span style={{ fontSize: 12, fontWeight: 700, color: "var(--ok)", flexShrink: 0, whiteSpace: "nowrap" }}>Eligible</span>
                       </div>
                     ))}
                     {batchIssueUnknown.map((t, i) => (
                       <div className="analytics-flag-row" key={`biu-${i}`} style={{ alignItems: "center" }}>
                         <div style={{ minWidth: 0 }}><div className="analytics-flag-issuer" style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", opacity: 0.7 }}>{t}</div></div>
-                        <span style={{ fontSize: 12, fontWeight: 700, color: "var(--danger)", flexShrink: 0, whiteSpace: "nowrap" }}>✗ Not eligible</span>
+                        <span style={{ fontSize: 12, fontWeight: 700, color: "var(--danger)", flexShrink: 0, whiteSpace: "nowrap" }}>Not eligible</span>
                       </div>
                     ))}
                   </div>
@@ -2317,7 +2332,7 @@ export default function IssuerDashboard() {
                   {batchIssueResults.map((r) => (
                     <div className={`analytics-flag-row${r.success ? "" : " flagged"}`} key={`bires-${r.id}`}>
                       <div>
-                        <div className="analytics-flag-issuer">{r.success ? "✓" : "✗"} {r.label}</div>
+                        <div className="analytics-flag-issuer">{r.success ? <Check size={13} aria-hidden="true" /> : <X size={13} aria-hidden="true" />} {r.label}</div>
                         <div className="analytics-flag-reason">{r.success ? "Issued" : (r.error || "Failed")}</div>
                       </div>
                     </div>
@@ -2375,7 +2390,7 @@ export default function IssuerDashboard() {
                     <input type="text" name="credentialType" value={createForm.credentialType} onChange={handleCreateFormChange} placeholder="Enter a custom credential type" maxLength={60} required style={{ marginTop: "8px" }} />
                   )}
                 </div>
-                <div className="form-group"><label>Credential Name <span className="required-star">*</span></label><input type="text" name="credentialName" value={createForm.credentialName} onChange={handleCreateFormChange} placeholder="e.g. Company Staff Card" required /></div>
+                <div className="form-group"><label>Credential Name <span className="required-star">*</span></label><input type="text" name="credentialName" value={createForm.credentialName} onChange={handleCreateFormChange} placeholder="e.g. Company Staff Card" required />{nameClash && <span className="form-label-hint" style={{ color: "var(--warn)", display: "block", marginTop: 6 }}>You already have an active credential with this name — names should be unique.</span>}</div>
               </div>
               <div className="form-group"><label>Description</label><textarea name="description" value={createForm.description} onChange={handleCreateFormChange} rows={2} placeholder="Describe the credential's purpose..." /></div>
               <div className="form-group"><label>Metadata <span className="form-label-hint">(optional)</span></label><input type="text" name="metadata" value={createForm.metadata} onChange={handleCreateFormChange} placeholder="e.g. Level: Manager" /></div>
@@ -2535,7 +2550,7 @@ export default function IssuerDashboard() {
                   )}
                 </div>
               </div>
-              <div className="form-group compact-form-group"><label>Expiry Date <span className="form-label-hint">(optional)</span></label><input type="date" name="expiryDate" value={issueForm.expiryDate} onChange={handleIssueFormChange} min={minIssueExpiryDate()} /></div>
+              <div className="form-group compact-form-group"><label>Expiry Date <span className="form-label-hint">(optional)</span></label><input type="date" name="expiryDate" value={issueForm.expiryDate} onChange={handleIssueFormChange} min={minIssueExpiryDate()} max={maxIssueExpiryDate()} /></div>
               {!issueConfirmStep && issueError && <div className="form-error">{issueError}</div>}
               <div className="form-actions">
                 <button type="submit" className="action-btn issue-btn">Issue Credential</button>

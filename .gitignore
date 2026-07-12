@@ -41,3 +41,6 @@ chaincode/*.tar.gz
 
 # Local-only consultation notes (July 7) — for local use, not for GitHub
 docs/July 7, Consultation/
+
+# Local-only UAT results + outdated chapter 5–7 drafts — local use, not for GitHub
+docs/UAT Results/

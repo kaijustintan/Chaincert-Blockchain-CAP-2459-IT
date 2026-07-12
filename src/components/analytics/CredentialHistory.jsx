@@ -23,6 +23,10 @@ import React, { useMemo } from 'react';
 import { computeProvenance, computeProofTrail } from './analytics';
 import InterpretationBox from './InterpretationBox';
 import { SpinnerBlock } from '../ui';
+import { FileText, GraduationCap, RefreshCw, Pencil, Clock, Ban, Check, X } from 'lucide-react';
+
+// Provenance action → lucide icon (de-emojified UAT). Falls back to Pencil for unknown actions.
+const ACTION_ICON = { created: FileText, issued: GraduationCap, reissued: RefreshCw, updated: Pencil, expired: Clock, revoked: Ban };
 
 export default function CredentialHistory({
   history = [],
@@ -53,7 +57,9 @@ export default function CredentialHistory({
           <div className="analytics-timeline">
             {provenance.events.map((e, i) => (
               <div className="analytics-timeline-item" key={i}>
-                <span className="analytics-timeline-dot" style={{ background: e.color }}>{e.icon}</span>
+                <span className="analytics-timeline-dot" style={{ background: e.color, display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}>
+                  {(() => { const I = ACTION_ICON[e.action] || Pencil; return <I size={13} color="#fff" aria-hidden="true" />; })()}
+                </span>
                 <div>
                   <div className="analytics-timeline-label">{e.label}</div>
                   <div className="analytics-timeline-when">{fmt(e.when)}</div>
@@ -81,12 +87,12 @@ export default function CredentialHistory({
                   : e.outcome === 'not_found' ? 'Not found'
                   : e.outcome === 'revoked' ? 'Revoked'
                   : e.outcome === 'expired' ? 'Expired' : 'Checked';
-                // Glyph must match the outcome: a green ✓ only for a valid check;
-                // failed/negative checks (revoked/expired/not-found) show ✗, not a check mark.
-                const glyph = e.outcome === 'valid' ? '✓' : '✗';
+                // Glyph must match the outcome: a check only for a valid check; failed/negative
+                // checks (revoked/expired/not-found) show an X, not a check mark. (De-emojified UAT.)
+                const Glyph = e.outcome === 'valid' ? Check : X;
                 return (
                   <div className="analytics-timeline-item" key={`pt-${i}`}>
-                    <span className="analytics-timeline-dot" style={{ background: color }}>{glyph}</span>
+                    <span className="analytics-timeline-dot" style={{ background: color, display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}><Glyph size={13} color="#fff" aria-hidden="true" /></span>
                     <div>
                       <div className="analytics-timeline-label">{label}</div>
                       <div className="analytics-timeline-when">{fmt(e.when)}</div>

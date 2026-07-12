@@ -2,11 +2,13 @@ import React, { useState, useEffect } from "react";
 import apiService from "../services/apiService";
 import { useNavigate } from "react-router-dom";
 import "../styles/issuerDashboardPage.css";
+import Pagination, { usePagination } from "../components/ui/Pagination";
 
 export default function CredentialHistoryPage() {
   const [searchId, setSearchId] = useState("");
   const [allHistory, setAllHistory] = useState([]);
   const [filteredHistory, setFilteredHistory] = useState([]);
+  const historyPg = usePagination(filteredHistory, 10); // UAT: paginate the history results table
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
@@ -442,7 +444,7 @@ export default function CredentialHistoryPage() {
   </thead>
 
   <tbody>
-    {filteredHistory.map((record, index) => {
+    {historyPg.pageItems.map((record, index) => {
       const statusInfo = getStatusInfo(record);
 
       return (
@@ -483,6 +485,7 @@ export default function CredentialHistoryPage() {
   </tbody>
 </table>
 </div>
+        <Pagination {...historyPg} />
         </>
       )}
 

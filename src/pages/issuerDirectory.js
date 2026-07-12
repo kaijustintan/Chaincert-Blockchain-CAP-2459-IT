@@ -14,6 +14,7 @@ import React, { useState, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import apiService from "../services/apiService";
 import { SkeletonCardGrid } from "../components/ui";
+import Pagination, { usePagination } from "../components/ui/Pagination";
 import "../styles/issuerDirectory.css";
 
 export default function IssuerDirectory() {
@@ -41,6 +42,7 @@ export default function IssuerDirectory() {
       (Array.isArray(iss.types) && iss.types.some((t) => String(t).toLowerCase().includes(q)))
     );
   }, [issuers, query]);
+  const dirPg = usePagination(filtered, 12); // UAT: paginate the issuer directory grid
 
   return (
     <div className="directory-page">
@@ -67,7 +69,7 @@ export default function IssuerDirectory() {
 
       {!loading && !error && filtered.length > 0 && (
         <div className="directory-grid">
-          {filtered.map((iss) => (
+          {dirPg.pageItems.map((iss) => (
             <button
               key={iss.id}
               type="button"
@@ -94,6 +96,7 @@ export default function IssuerDirectory() {
           ))}
         </div>
       )}
+      <Pagination {...dirPg} />
     </div>
   );
 }

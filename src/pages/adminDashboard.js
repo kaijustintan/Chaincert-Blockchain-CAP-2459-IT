@@ -40,6 +40,7 @@ import {
 } from "../components/analytics/analytics";
 import { AppShell, Sidebar, Spinner, SpinnerBlock, InfoHint } from "../components/ui";
 import Pagination, { usePagination } from "../components/ui/Pagination";
+import CredentialHistory from "../components/analytics/CredentialHistory";
 import NotesCard from "../components/ui/NotesCard";
 import StatusLegend from "../components/ui/StatusLegend";
 import { effectiveCredentialStatus } from "../utils/credentialStatus"; // F01: compute-on-read expiry
@@ -545,6 +546,11 @@ const handleDownloadIssuerDocument = async (doc) => {
   }, [sortedStatusLogs, sortedIssuerDecisionLogs, auditTypeFilter, auditSearch, statusLogSortBy]);
 
   const sortedVerificationLogs = useMemo(() => sortByDateThenName(verificationLogs, verificationSortBy, { dateFields: ["timestamp", "verifiedAt", "createdAt"], nameFields: ["verifierName", "holderName", "credentialId"], statusField: "resultMessage" }), [verificationLogs, verificationSortBy]);
+  // UAT: pagination (10/page) for the admin tables — client-side over the filtered/sorted sets.
+  const issuersPg = usePagination(sortedVisibleIssuers, 10);
+  const usersPg = usePagination(sortedVisibleUsers, 10);
+  const auditPg = usePagination(auditLogs, 10);
+  const verifyPg = usePagination(sortedVerificationLogs, 10);
 
   // Phase 4: Analytics & Reports tab — Verification Result Summary + Suspicious Activity
   const verificationOutcomes = useMemo(() => computeVerificationOutcomes(verificationLogs), [verificationLogs]);
@@ -1902,7 +1908,7 @@ const handleDownloadIssuerDocument = async (doc) => {
                 background: "var(--surface-2)",
                 borderRadius: "12px",
                 border: "1px solid var(--border-strong)",
-                padding: "28px",
+                padding: "clamp(16px, 4vw, 28px)",
                 boxShadow: "0 10px 40px rgba(0,0,0,0.4)",
                 color: "var(--text)",
               }}
@@ -1969,127 +1975,16 @@ const handleDownloadIssuerDocument = async (doc) => {
                 </button>
               </div>
 
-              {/* Phase 4 GOOD: processed dossier — lifecycle timeline + immutable verification trail */}
-              {!credentialHistoryLoading && !credentialHistoryError && (
-                <>
-                  {provenance.events.length > 0 && (
-                    <div className="analytics-card" style={{ marginBottom: 14 }}>
-                      <h4 style={{ margin: "0 0 12px", color: "var(--text)", fontSize: 14 }}>
-                        🧬 Provenance Timeline
-                      </h4>
-                      <div className="analytics-timeline">
-                        {provenance.events.map((e, i) => (
-                          <div className="analytics-timeline-item" key={`prov-${i}`}>
-                            <span
-                              className="analytics-timeline-dot"
-                              style={{ background: e.color }}
-                            >
-                              {e.icon}
-                            </span>
-                            <div>
-                              <div className="analytics-timeline-label">{e.label}</div>
-                              <div className="analytics-timeline-when">{formatTimestamp(e.when)}</div>
-                              {/* BCHIST2: tx hash + reason on their own rows (full, untruncated) */}
-                              {e.txId ? <div className="ch-tx" title="Transaction ID">{e.txId}</div> : null}
-                              {e.reason ? <div className="ch-reason">Reason: {e.reason}</div> : null}
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                      <InterpretationBox>{provenance.summary}</InterpretationBox>
-                    </div>
-                  )}
-
-                  <div className="analytics-card" style={{ marginBottom: 14 }}>
-                    <h4 style={{ margin: "0 0 12px", color: "var(--text)", fontSize: 14 }}>
-                      Verification Proof Trail
-                    </h4>
-                    {proofTrail.count === 0 ? (
-                      <div className="analytics-chart-empty" style={{ height: 90 }}>
-                        Not independently verified yet.
-                      </div>
-                    ) : (
-                      <div className="analytics-timeline">
-                        {proofTrail.events.map((e, i) => {
-                          const color =
-                            e.outcome === "valid"
-                              ? "var(--ok)"
-                              : e.outcome === "not_found"
-                              ? "var(--accent-strong)"
-                              : "var(--danger)";
-                          const label =
-                            e.outcome === "valid"
-                              ? "Verified valid"
-                              : e.outcome === "not_found"
-                              ? "Forgery rejected (not found)"
-                              : e.outcome === "revoked"
-                              ? "Caught as revoked"
-                              : e.outcome === "expired"
-                              ? "Caught as expired"
-                              : "Checked";
-                          // The email is OTP-proven (taken from a signed token,
-                          // never the request body) → it's the trustworthy identity.
-                          // The name is self-reported free text → show it as secondary.
-                          const hasName =
-                            e.verifierName && e.verifierName !== "Anonymous";
-                          return (
-                            <div className="analytics-timeline-item" key={`proof-${i}`}>
-                              <span
-                                className="analytics-timeline-dot"
-                                style={{ background: color }}
-                              >
-                                <Check size={13} aria-hidden="true" color="#fff" />
-                              </span>
-                              <div>
-                                <div className="analytics-timeline-label">{label}</div>
-                                <div className="analytics-timeline-when">
-                                  {formatTimestamp(e.when)}
-                                  {e.verifierEmail ? (
-                                    <>
-                                      {" • "}
-                                      <strong>{e.verifierEmail}</strong> (verified)
-                                      {hasName ? ` · ${e.verifierName} (self-reported)` : ""}
-                                    </>
-                                  ) : (
-                                    ` • by ${hasName ? e.verifierName : "an anonymous verifier"} (self-reported)`
-                                  )}
-                                </div>
-                              </div>
-                            </div>
-                          );
-                        })}
-                      </div>
-                    )}
-                    <InterpretationBox>{proofTrail.summary}</InterpretationBox>
-                  </div>
-                </>
-              )}
-
-              {credentialHistoryLoading ? (
-                <div style={{ padding: "16px", opacity: 0.9 }}>
-                  Loading credential history...
-                </div>
-              ) : credentialHistoryError ? (
-                <div
-                  style={{
-                    padding: "12px",
-                    background: "var(--danger-weak)",
-                    border: "1px solid var(--danger-weak)",
-                    borderRadius: "10px",
-                    color: "var(--danger)",
-                  }}
-                >
-                  {credentialHistoryError}
-                </div>
-              ) : credentialHistory.length > 0 ? (
-                // ADMIN7: raw "Full audit records" table removed — the dossier is insight-first
-                // (Provenance Timeline + Verification Proof Trail render above this block).
-                null
-              ) : (
-                <div style={{ padding: "16px", opacity: 0.9 }}>
-                  No history found for this credential.
-                </div>
-              )}
+              {/* Unified dossier — same clean timeline + proof trail as the holder's See History
+                  (shared CredentialHistory component handles loading/error/empty internally). */}
+              <CredentialHistory
+                history={credentialHistory}
+                verificationLogs={verificationLogs}
+                credentialId={selectedCredentialRow?.credentialId || selectedCredentialRow?.blockchainId || selectedCredentialRow?.id}
+                showProofTrail
+                loading={credentialHistoryLoading}
+                error={credentialHistoryError}
+              />
             </div>
           </div>,
           document.body
@@ -3236,7 +3131,7 @@ const handleDownloadIssuerDocument = async (doc) => {
                   </tr>
                 </thead>
                 <tbody>
-                  {sortedVisibleIssuers.map((issuer) => {
+                  {issuersPg.pageItems.map((issuer) => {
                     const id = issuer._id || issuer.id;
                     const isDisabled = issuer.isDisabled === true || issuer.status === "disabled";
                     const adminMeta = getIssuerAdminMeta(issuer);
@@ -3466,6 +3361,7 @@ const handleDownloadIssuerDocument = async (doc) => {
           ) : (
             <div className="tab-placeholder">No issuers found for selected view.</div>
           )}
+          <Pagination {...issuersPg} />
           </div>
             <NotesCard
               description={
@@ -3558,7 +3454,7 @@ const handleDownloadIssuerDocument = async (doc) => {
                   </tr>
                 </thead>
                 <tbody>
-                  {sortedVisibleUsers.map((user) => {
+                  {usersPg.pageItems.map((user) => {
                     const isDisabled = user.isActive === false;
                     return (
                       <tr key={user._id || user.id}>
@@ -3621,6 +3517,7 @@ const handleDownloadIssuerDocument = async (doc) => {
           ) : (
             <div className="tab-placeholder">No users found for selected view.</div>
           )}
+          <Pagination {...usersPg} />
         </div>
       )}
 
@@ -3800,7 +3697,7 @@ const handleDownloadIssuerDocument = async (doc) => {
                       </tr>
                     </thead>
                     <tbody>
-                      {auditLogs.map((log, index) => (
+                      {auditPg.pageItems.map((log, index) => (
                         <tr key={log.txId || `${log._kind}-${index}`}>
                           <td>{formatTimestamp(log.timestamp)}</td>
                           <td>
@@ -3852,6 +3749,7 @@ const handleDownloadIssuerDocument = async (doc) => {
               ) : (
                 <div className="tab-placeholder">No audit logs found.</div>
               )}
+              <Pagination {...auditPg} />
             </div>
           ) : logCategory === "root_subordinate_decision" ? (
             <>
@@ -3941,7 +3839,7 @@ const handleDownloadIssuerDocument = async (doc) => {
                       </tr>
                     </thead>
                     <tbody>
-                      {sortedVerificationLogs.map((log) => (
+                      {verifyPg.pageItems.map((log) => (
                         <tr key={log.logId || log.txId}>
                           <td style={{ fontFamily: "monospace", fontSize: "12px" }}>
                             {log.logId || log.id || "N/A"}
@@ -4001,6 +3899,7 @@ const handleDownloadIssuerDocument = async (doc) => {
               ) : (
                 <div className="tab-placeholder">No verification logs found.</div>
               )}
+              <Pagination {...verifyPg} />
             </>
           ) : null}
           </div>

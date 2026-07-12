@@ -23,6 +23,7 @@ import { useSearchParams } from 'react-router-dom';
 import "../styles/verifierDashboard.css";
 import apiService from "../services/apiService";
 import { Card, Button, Field, Input, StatusPill } from "../components/ui";
+import Pagination, { usePagination } from "../components/ui/Pagination";
 import NotesCard from "../components/ui/NotesCard";
 import { ShieldCheck, CheckCircle2, XCircle, AlertTriangle, Search, FileText } from "lucide-react";
 // C10: pdfjs-dist reads the LINK ANNOTATIONS out of a ChainCert portfolio PDF (each credential
@@ -266,6 +267,7 @@ export default function VerifierDashboard() {
   // 1.2: session running-list — each uploaded PDF's results are kept as its OWN batch, so a NEW
   // upload ADDS to the history instead of wiping the previous results. Newest batch first.
   const [bulkBatches, setBulkBatches] = useState([]);
+  const bulkPg = usePagination(bulkBatches, 5); // UAT: paginate bulk-verify batches (each batch is large)
 
   // Extract every embedded verify-link's credentialId from the uploaded PDF's link
   // annotations. Only works on the ORIGINAL digital export — scanning/printing strips links.
@@ -525,7 +527,7 @@ export default function VerifierDashboard() {
                 <button type="button" className="verifier-change" onClick={() => setBulkBatches([])}>Clear results</button>
               )}
             </div>
-            {bulkBatches.map((batch) => {
+            {bulkPg.pageItems.map((batch) => {
               const c = (o) => batch.rows.filter((r) => r.outcome === o).length;
               const parts = [];
               if (c("valid")) parts.push(`${c("valid")} valid`);
@@ -586,6 +588,7 @@ export default function VerifierDashboard() {
             })}
           </div>
         )}
+        <Pagination {...bulkPg} />
       </Card>
 
       {/* Inline error */}

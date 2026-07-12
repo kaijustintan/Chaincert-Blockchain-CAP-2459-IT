@@ -84,9 +84,9 @@ export default function CredentialHistory({
                 const color = e.outcome === 'valid' ? 'var(--ok)'
                   : e.outcome === 'not_found' ? 'var(--accent-strong)' : 'var(--danger)';
                 const label = e.outcome === 'valid' ? 'Verified valid'
-                  : e.outcome === 'not_found' ? 'Not found'
-                  : e.outcome === 'revoked' ? 'Revoked'
-                  : e.outcome === 'expired' ? 'Expired' : 'Checked';
+                  : e.outcome === 'not_found' ? 'Forgery rejected (not found)'
+                  : e.outcome === 'revoked' ? 'Caught as revoked'
+                  : e.outcome === 'expired' ? 'Caught as expired' : 'Checked';
                 // Glyph must match the outcome: a check only for a valid check; failed/negative
                 // checks (revoked/expired/not-found) show an X, not a check mark. (De-emojified UAT.)
                 const Glyph = e.outcome === 'valid' ? Check : X;
@@ -95,8 +95,14 @@ export default function CredentialHistory({
                     <span className="analytics-timeline-dot" style={{ background: color, display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}><Glyph size={13} color="#fff" aria-hidden="true" /></span>
                     <div>
                       <div className="analytics-timeline-label">{label}</div>
-                      <div className="analytics-timeline-when">{fmt(e.when)}</div>
-                      {e.verifierEmail ? <div className="analytics-timeline-when">Checked by {e.verifierEmail}</div> : null}
+                      <div className="analytics-timeline-when">
+                        {fmt(e.when)}
+                        {e.verifierEmail ? (
+                          <>{' • '}<strong>{e.verifierEmail}</strong> (verified){e.verifierName && e.verifierName !== 'Anonymous' ? ` · ${e.verifierName} (self-reported)` : ''}</>
+                        ) : (
+                          ` • by ${e.verifierName && e.verifierName !== 'Anonymous' ? e.verifierName : 'an anonymous verifier'} (self-reported)`
+                        )}
+                      </div>
                     </div>
                   </div>
                 );

@@ -40,10 +40,11 @@ export function getCredentialLineage(credential, allCredentials) {
     (c) => (c.templateId || "") === tid && (c.holderID || "") === hid
   );
   const list = matches.length ? matches : [credential];
+  // UAT: newest issuance first — history displays read latest-at-top.
   return [...list].sort(
     (a, b) =>
-      new Date(a.assignedDate || a.issuedDate || a.createdAt || 0) -
-      new Date(b.assignedDate || b.issuedDate || b.createdAt || 0)
+      new Date(b.assignedDate || b.issuedDate || b.createdAt || 0) -
+      new Date(a.assignedDate || a.issuedDate || a.createdAt || 0)
   );
 }
 

@@ -157,6 +157,7 @@ export default function IssuerDashboard() {
   // separate state for TEMPLATE options (for dropdown)
   const [templateOptions, setTemplateOptions] = useState([]);
   const [templatesLoading, setTemplatesLoading] = useState(true); // UAT: gate the templates empty-state so it can't flash before the fetch resolves
+  const [lineageOpen, setLineageOpen] = useState(false); // UAT: reissue Lineage table collapsed by default (declutter the history modal)
 
   // Filter state
   const [sortBy, setSortBy] = useState("issuedDate-desc");
@@ -791,6 +792,10 @@ export default function IssuerDashboard() {
     }
     return result;
   }, [allCredentialRows, filterRecordKind, viewAllTypeFilter, viewAllSearch, viewAllSortBy]);
+
+  // UAT: pagination (10/page) for the view-all + subordinates tables.
+  const allCredsPg = usePagination(filteredAllCredentialRows, 10);
+  const subsPg = usePagination(subordinateDirectory, 10);
 
   const revokableCount = useMemo(
     // Effective status so the "(N revokable)" header matches the rows that actually show a
@@ -1702,7 +1707,7 @@ export default function IssuerDashboard() {
               <table className="template-table">
                 <thead><tr><th>Name</th><th>Type</th><th>Status</th><th>Holder Name</th><th>Visibility</th><th>Created Date</th><th>Expiry Date</th><th>Actions</th></tr></thead>
                 <tbody>
-                  {filteredAllCredentialRows.map((row, index) => (
+                  {allCredsPg.pageItems.map((row, index) => (
                     <tr key={`${row.rowType}-${row.source?.id || row.source?._id || row.source?.blockchainId || index}`}>
                       <td>{row.name}</td>
                       <td>{row.type}</td>
@@ -1717,6 +1722,7 @@ export default function IssuerDashboard() {
                 </tbody>
               </table>
             )}
+            <Pagination {...allCredsPg} />
           </div>
         </>
       )}
@@ -1898,7 +1904,7 @@ export default function IssuerDashboard() {
               <table className="template-table subordinate-table">
                 <thead><tr><th>Issuer ID</th><th>Org Name</th><th>Email</th><th>Category</th><th>Root Approval</th><th>Admin Approval</th><th>Overall Status</th><th>Created</th><th>Actions</th></tr></thead>
                 <tbody>
-                  {subordinateDirectory.map((issuer) => {
+                  {subsPg.pageItems.map((issuer) => {
                     const issuerId = issuer._id || issuer.id;
                     const isPendingRootApproval = (issuer.rootApprovalStatus || "pending") === "pending";
                     const adminApproved = String(issuer.status || "").toLowerCase() === "approved";
@@ -1937,6 +1943,7 @@ export default function IssuerDashboard() {
                 </tbody>
               </table>
             )}
+            <Pagination {...subsPg} />
           </div>
 
           {/* RA2: the standalone "Subordinate Decision Logs" table was removed — on-chain
@@ -2792,10 +2799,10 @@ export default function IssuerDashboard() {
 
       {historyOpen && (
         <div className="modal-overlay">
-          <div className="modal modal-wide history-modal" style={{ maxWidth: "900px", width: "90vw", padding: "28px", maxHeight: "80vh", overflowY: "auto" }}>
+          <div className="modal modal-wide history-modal" style={{ maxWidth: "900px", width: "90vw", padding: "clamp(16px, 4vw, 28px)", maxHeight: "80vh", overflowY: "auto" }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "16px", gap: "16px" }}>
               <div style={{ flex: 1, minWidth: 0, marginBottom: "20px" }}>
-                <h3 style={{ margin: "0 0 16px 0", fontSize: "20px", whiteSpace: "nowrap" }}>Credential History (Blockchain Audit Trail)</h3>
+                <h3 style={{ margin: "0 0 16px 0", fontSize: "20px" }}>Credential History (Blockchain Audit Trail)</h3>
                 <div style={{ display: "grid", gridTemplateColumns: "1fr", gap: "6px", fontSize: "13px", lineHeight: "1.6", textAlign: "left" }}>
                   <div><strong>Credential:</strong> {historyCredential?.credentialName || "N/A"}</div>
                   <div style={{ wordBreak: "break-all", fontFamily: "monospace", fontSize: "11px" }}>
@@ -2814,10 +2821,16 @@ export default function IssuerDashboard() {
                 across reissues (issued → revoked → reissued → expired → …). */}
             {historyLineage.length > 1 && (
               <div className="cred-lineage" style={{ marginBottom: 18, border: "1px solid var(--accent-weak)", borderRadius: 12, padding: "14px 16px", background: "var(--accent-weaker)" }}>
-                <div style={{ fontWeight: 600, fontSize: 14, marginBottom: 4 }}>Credential Lineage</div>
-                <div style={{ fontSize: 12.5, color: "rgba(255,255,255,0.62)", marginBottom: 10 }}>
-                  {historyLineage.length} issuances of <strong>{historyCredential?.credentialName || "this credential"}</strong> to <strong>{historyCredential?.holderName || historyCredential?.holderID || "this holder"}</strong>, oldest first. The <strong>highlighted</strong> row's blockchain history is shown below — click another row's <strong>View</strong> to switch.
+                <button type="button" onClick={() => setLineageOpen((o) => !o)} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", width: "100%", background: "none", border: "none", color: "var(--text)", cursor: "pointer", padding: 0, fontFamily: "inherit" }}>
+                  <span style={{ fontWeight: 600, fontSize: 14 }}>Credential Lineage — {historyLineage.length} issuances</span>
+                  <span style={{ fontSize: 12, color: "var(--accent-strong)" }}>{lineageOpen ? "Hide ▲" : "Show ▼"}</span>
+                </button>
+                {lineageOpen && (
+                <>
+                <div style={{ fontSize: 12.5, color: "rgba(255,255,255,0.62)", margin: "8px 0 10px" }}>
+                  {historyLineage.length} issuances of <strong>{historyCredential?.credentialName || "this credential"}</strong> to <strong>{historyCredential?.holderName || historyCredential?.holderID || "this holder"}</strong>, newest first. The <strong>highlighted</strong> row's blockchain history is shown below — click another row's <strong>View</strong> to switch.
                 </div>
+                <div style={{ overflowX: "auto" }}>
                 <table className="template-table">
                   <thead><tr><th>#</th><th>Status</th><th>Issued</th><th>Expiry</th><th>Revoked</th><th>Blockchain History</th></tr></thead>
                   <tbody>
@@ -2844,6 +2857,9 @@ export default function IssuerDashboard() {
                     })}
                   </tbody>
                 </table>
+                </div>
+                </>
+                )}
               </div>
             )}
 

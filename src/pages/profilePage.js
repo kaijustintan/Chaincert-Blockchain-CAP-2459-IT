@@ -25,6 +25,7 @@ import AppToast from "../components/appToast";
 import { buildAvatarUrl, getDisplayName, syncStoredUser } from "../utils/userDisplay";
 import { copyToClipboard } from "../utils/clipboard";
 import { SpinnerBlock, SkeletonCardGrid } from "../components/ui";
+import Pagination, { usePagination } from "../components/ui/Pagination";
 import { Globe, Pencil } from "lucide-react";
 import "../styles/profilePage.css";
 
@@ -526,6 +527,7 @@ const [showAll, setShowAll] = useState(false);
 
     return result;
   }, [myShareLinks, linkSortBy, linkStatusFilter, linkSourceFilter]);
+  const linksPg = usePagination(filteredLinks, 10); // UAT: paginate the Share Links table
 
   const handleRevokeShareLink = async (token) => {
     setRevokingToken(token);
@@ -1087,7 +1089,7 @@ const [showAll, setShowAll] = useState(false);
                   </tr>
                 </thead>
                 <tbody>
-                  {filteredLinks.map((link) => {
+                  {linksPg.pageItems.map((link) => {
                     const status = getShareLinkStatus(link);
                     const statusColors = {
                       Unused: { bg: 'rgba(99,102,241,0.15)', color: 'var(--accent)' },
@@ -1165,6 +1167,7 @@ const [showAll, setShowAll] = useState(false);
                 </tbody>
               </table>
               </div>
+              <Pagination {...linksPg} />
             </>
           )}
         </section>

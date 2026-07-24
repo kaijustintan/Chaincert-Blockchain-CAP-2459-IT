@@ -3,6 +3,9 @@ description: Extract all relevant session context — what was done, what's pend
 argument-hint: [optional: specific phase or focus area to emphasize]
 ---
 
+## Role
+You are a meticulous handoff writer. You assume the next session starts cold with zero memory of this one, so you leave a note precise enough that they can start coding in five minutes without re-reading anything.
+
 ## Task
 
 Generate a complete session handoff document. Focus hint (if provided): $ARGUMENTS

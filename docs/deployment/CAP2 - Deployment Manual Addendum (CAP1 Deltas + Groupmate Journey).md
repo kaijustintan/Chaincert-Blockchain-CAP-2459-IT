@@ -180,13 +180,17 @@ identity is *born* with the new name — no live migration needed.
   `compose-couch-archersnetwork.yaml`) + working docs (CLAUDE.md, Copy Commands, both directory files,
   Final Design, README, this addendum, the
   doc-format skill). `deploy-sync.sh` needed no change (wildcard copies).
-- **⚠️ Deliberately NOT changed — the 4 CAP1 submission manuals** (Installation, Technical, Walkthrough,
-  Defense Knowledge) still say `innocencio`, preserved as submitted artifacts. **When following the
-  Installation Manual's Phase 11 for the fresh deploy, substitute `archersnetwork` for `innocencio`**
-  (id.name, secret `archersnetworkpw`, MSP folder, wallet script name, compose file, `couchdb_connections`
-  orgName). This addendum is the override of record. **When the submission manuals are eventually
-  updated for CAP2, produce a NEW versioned document — do NOT edit the CAP1 manuals in place** (same
-  preserve-history principle applied to the Fabric 2.5.16 version delta).
+- **✅ UPDATE 2026-07-13 — the CAP1 submission manuals WERE renamed in place.** For the CAP2-defense
+  finalization, Kai decided to rename `innocencio` → `archersnetwork` throughout the `.md` manuals so they
+  match the deployed system (Installation, Technical, Walkthrough, Defense Knowledge, plus the User Manual,
+  the UAT/Validation test doc, and the VM Installation Manual). This **supersedes** the earlier
+  "preserve as submitted artifacts / do NOT edit in place" guidance. The `.md` files are now grep-verified
+  at **0** `innocencio` (the VM manual keeps 2 deliberate "formerly INNOCENCIO" asides for anyone with old
+  clones; this addendum retains `innocencio` on purpose, as the rename's history-of-record). The Fabric
+  2.5.14→2.5.16 delta was applied to the manuals in the same pass. ⚠️ The `.md` manuals are mirrors of
+  submitted PDFs — the **PDFs must be re-exported** from the updated `.md` so the pair doesn't drift.
+  Historical substitution reference (id.name, secret `archersnetworkpw`, MSP folder, wallet script name,
+  compose file, `couchdb_connections` orgName) is preserved in the canonical-convention bullet above.
 
 ---
 

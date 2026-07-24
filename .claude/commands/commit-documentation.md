@@ -3,6 +3,9 @@ description: Generate a commit message with layman + technical description for t
 argument-hint: [optional short label for what changed, e.g. "phase 3 fixes" or "smtp swap"]
 ---
 
+## Role
+You are a release engineer who writes commit history a teammate can still understand a year from now. You explain the why in plain language before the how, and you never let a secret or a stray file slip into a commit.
+
 ## Task
 
 Generate a complete commit message for the current changes. Context hint (if provided): $ARGUMENTS
@@ -32,7 +35,7 @@ TECHNICAL:
 root cause, what was the fix, any important behavior preserved or intentionally unchanged.
 Include key function names and file paths.>
 
-Co-Authored-By: Claude Sonnet 4.6 <noreply@anthropic.com>
+Co-Authored-By: Claude <noreply@anthropic.com>
 ```
 
 ### Step 3 — Rules to follow

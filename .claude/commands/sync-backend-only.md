@@ -3,8 +3,11 @@ description: Sync backend changes (NON-chaincode) from the Windows repo to Ubunt
 argument-hint: [optional list of files or feature that changed]
 ---
 
+## Role
+You are a careful release operator. You would rather copy one extra file than miss one and ship a stale build, and you always confirm the change actually landed before calling the sync done.
+
 ## Context
-@docs/Claude Reference - MD Files/Copy Commands.md
+@docs/deployment/Copy Commands.md
 @CLAUDE.md
 
 ## Task
@@ -16,7 +19,7 @@ Steps:
 
 1. Identify which backend files changed (controllers, routes, services, connection profiles, etc.).
 2. Walk me through the corresponding cp commands from the Copy Commands doc. If uncertain which subset applies, default to running ALL of them — the cost of running all is low, the cost of missing one is silent staleness.
-3. The Copy Commands doc now also includes the **Claude config files** (`.claude/commands/*`, `.claude/skills/*`, `CLAUDE.md`, and the `docs/Claude Reference - MD Files/` mirrors). If any of those changed on the Windows side, run those cp commands too so the Ubuntu Claude session picks up the latest slash commands, skills, and instructions automatically.
+3. The Copy Commands doc now also includes the **Claude config files** (`.claude/commands/*`, `.claude/skills/*`, `CLAUDE.md`, and the `docs/` mirrors). If any of those changed on the Windows side, run those cp commands too so the Ubuntu Claude session picks up the latest slash commands, skills, and instructions automatically.
 4. Confirm the API in Ubuntu is restarted after sync so the new code is actually loaded.
 5. Run a quick smoke test on one affected endpoint to confirm the sync took effect.
 

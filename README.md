@@ -69,7 +69,7 @@ node sdk-server-fixed.js
 ```bash
 cd ~/fabric-samples/fabric-samples/test-network
 ./network.sh up createChannel -c chaincert-channel -ca
-# Then deploy chaincode — see docs/Claude Reference - MD Files/Redeploy_CC_Instructions.md
+# Then deploy chaincode — see docs/deployment/Redeploy CC Instructions.md
 ```
 
 ### 4. Wallet setup (Ubuntu/WSL2 — first time only)
@@ -118,12 +118,12 @@ node setup_Wallet_DLSU_Subordinate_LASALLECOMPUTERSOCIETY.js
 | lasallecomputersociety@email.com | pw123 | Issuer (Subordinate) |
 | kylejustin.tan7@gmail.com | pw123 | Holder |
 
-> Full demo walkthrough: `docs/Claude Reference - MD Files/CAP1 Documents to Submit/CAP-2459-IT-WALKTHROUGH.md`
+> Full demo walkthrough: `docs/submission/cap2/manuals/CAP-2459-IT-WALKTHROUGH.md`
 >
 > ⚠️ **These accounts/passwords are the local-dev demo set.** The `pw123` password (5 chars) is now
 > **rejected by the password policy (M8, min 10 chars)** — it only works if `DISABLE_PASSWORD_POLICY` is
 > set. On the **VM**, the seeded admin accounts are `admin@email.com` / `admin2@email.com` with password
-> **`adminpw123`**; other accounts are seeded during UAT (see the VM manual, Phase 15).
+> **`<ADMIN_PASSWORD — shared out-of-band>`**; other accounts are seeded during UAT (see the VM manual, Phase 15).
 
 ---
 
@@ -148,7 +148,7 @@ docs/               Reference docs (.md mirrors preferred over PDFs)
 
 Backend files must be manually copied to Ubuntu before they take effect. Copy commands:
 ```
-docs/Claude Reference - MD Files/Copy Commands.md
+docs/deployment/Copy Commands.md
 ```
 
 ---
@@ -164,7 +164,7 @@ ChainCert is deployed and live on the DLSU **CCSCloud VM** at **http://ccscloud.
 > `cp` commands, and serves the built frontend through **Nginx + PM2**.
 >
 > **To deploy or update on the VM, follow the dedicated manual — not this README:**
-> `docs/Claude Reference - MD Files/CAP-2459-IT-VM-INSTALLATION-MANUAL.md`
+> `docs/submission/cap2/manuals/CAP-2459-IT-VM-INSTALLATION-MANUAL.md`
 > (initial install Phases 0–15 + Appendix C for day-2 updates: `git pull` → `deploy-sync.sh` →
 > build/redeploy/`pm2 restart`).
 
@@ -172,13 +172,17 @@ ChainCert is deployed and live on the DLSU **CCSCloud VM** at **http://ccscloud.
 
 ## Docs
 
-All reference docs are under `docs/Claude Reference - MD Files/` (the canonical `.md` working set). The formally submitted CAP1 PDFs live in `docs/CAP1 Documents to Submit/`.
+Reference docs live under `docs/submission/cap2/manuals/` (current manuals), `docs/reference/` (architecture/dev), and `docs/deployment/` (ops runbooks). The formally submitted CAP1 PDFs live in `docs/submission/cap1/`.
 
-| Doc | What it covers |
-|---|---|
-| `CAP-2459-IT-INSTALLATION-MANUAL.md` | Full setup, ports, identities |
-| `CAP-2459-IT-TECHNICAL-MANUAL.md` | API routes, dual-write pattern, DB design |
-| `CAP-2459-IT-WALKTHROUGH.md` | Demo accounts, scenario scripts |
-| `Redeploy_CC_Instructions.md` | Chaincode redeploy procedure |
-| `Copy_Commands.md` | Windows → Ubuntu cp commands |
-| `Final_Design.md` | Governance model, subordinate creation workflow |
+All paths below are relative to the repo root.
+
+| Doc | Location | What it covers |
+|---|---|---|
+| `CAP-2459-IT-INSTALLATION-MANUAL.md` | `docs/submission/cap2/manuals/` | Full LOCAL setup, ports, identities |
+| `CAP-2459-IT-TECHNICAL-MANUAL.md` | `docs/submission/cap2/manuals/` | API routes, dual-write pattern, DB design |
+| `CAP-2459-IT-USER-MANUAL.md` | `docs/submission/cap2/manuals/` | Role-by-role UX flows, status terminology, troubleshooting |
+| `CAP-2459-IT-WALKTHROUGH.md` | `docs/submission/cap2/manuals/` | Demo accounts, scenario scripts |
+| `CAP-2459-IT-VM-INSTALLATION-MANUAL.md` | `docs/submission/cap2/manuals/` | CCSCloud VM deploy + day-2 update runbook |
+| `Redeploy CC Instructions.md` | `docs/deployment/` | Chaincode redeploy procedure |
+| `Copy Commands.md` | `docs/deployment/` | Windows → Ubuntu cp commands |
+| `Final Design.md` | `docs/reference/` | Governance model, subordinate creation workflow |

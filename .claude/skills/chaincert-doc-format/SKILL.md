@@ -8,7 +8,7 @@ description: Use whenever working on ChainCert documentation, knowledge base ent
 ## When this skill applies
 Any task where the deliverable is a ChainCert doc — `.docx`, `.md`, or in-chat explanation that will end up in defense materials. Triggers:
 - Words: manual, knowledge base, KB, KB entry, defense, panelist, tropang, redeploy steps, installation steps, technical manual
-- File paths: anything touching `docs/`, `docs/Claude Reference - MD Files/`, or `docs/Claude Reference - MD Files/CAP1 Documents to Submit/`
+- File paths: anything touching `docs/` (esp. `docs/submission/`, `docs/reference/`, `docs/deployment/`)
 - Format requests: "explain X like in the KB", "write the defense answer for Y"
 
 ## Format rules
@@ -27,8 +27,8 @@ Any task where the deliverable is a ChainCert doc — `.docx`, `.md`, or in-chat
 
 ### Doc source preference
 ALWAYS prefer reading the `.md` mirrors over the original PDFs. Cheaper on tokens. Paths:
-- `docs/Claude Reference - MD Files/`
-- `docs/Claude Reference - MD Files/CAP1 Documents to Submit/`
+- `docs/submission/cap2/manuals/` (current manuals)
+- `docs/reference/` (architecture/dev) and `docs/deployment/` (ops runbooks)
 
 ## Hard factual constraints — these are not opinions
 

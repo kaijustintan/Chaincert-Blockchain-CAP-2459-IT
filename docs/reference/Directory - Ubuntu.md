@@ -1,5 +1,7 @@
 # Directory Structure — Ubuntu / WSL (`/home/kaitanz_`)
 
+> ⚠️ **STALE (as of 2026-07-24).** Generated 2026-05-30; the `docs/` tree was reorganized on 2026-07-24 (now `docs/submission/`, `docs/reference/`, `docs/deployment/`, `docs/design-reference/`) and this file has NOT been regenerated. Do not trust the paths below — regenerate before relying on it.
+
 Generated: 2026-05-30
 
 Tree of the Ubuntu/WSL home directory. Excludes `node_modules`, `.git`, build artifacts, the Fabric wallet (private keys), and system/runtime dotfiles (`.cache`, `.npm`, `.local`, `.pm2`, `.docker`, `.fabric-ca-client`, `.landscape`, `snap`, `.aws` and `.azure` symlinks, shell history/config).

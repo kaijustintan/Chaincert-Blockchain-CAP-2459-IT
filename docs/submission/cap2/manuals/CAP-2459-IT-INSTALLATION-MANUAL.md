@@ -17,9 +17,9 @@ March 25, 2026 — CAP-2459-IT
 - Phase 6: CouchDB Admin Database Setup
 - Phase 7: Start the Fabric Network
 - Phase 8: Create Chaincert Admin Identity
-- Phase 9: DLSU Organization Node Creation
+- Phase 9: Root Authority (DLSU) Organization Node Creation
 - Phase 10: Import DLSU Admin into Backend Wallet
-- Phase 11: Create Subordinate Issuer (INNOCENCIO)
+- Phase 11: Create Subordinate Issuer (ARCHERSNETWORK)
 - Phase 12: Create Subordinate Issuer (La Salle Computer Society)
 - Phase 13: Start Issuer CouchDB Containers
 - Final System State
@@ -38,7 +38,7 @@ Before starting the installation, it is critical to distinguish between the diff
 | System Admin Account | `admin@email.com` | Login to Web Dashboard (stored in CouchDB) |
 | Fabric Admin Identity / Issuer Fabric Identity | `chaincert-admin` | Performs Blockchain Operations (e.g., registering new issuers) |
 | Root Authority Identity | `delasalleuniversity-admin` | Root Authority that signs and issues credentials |
-| Subordinate Identity | `delasalleuniversity-subordinate-innocencio` | Department authorized to issue under the Root |
+| Subordinate Identity | `delasalleuniversity-subordinate-archersnetwork` | Department authorized to issue under the Root |
 | Subordinate Identity | `delasalleuniversity-subordinate-lasallecomputersociety` | Department authorized to issue under the Root |
 
 ### Deployment Architecture Note
@@ -197,10 +197,12 @@ Source: OG SETUP
 ```bash
 mkdir -p ~/fabric-samples
 cd ~/fabric-samples
-curl -sSL https://bit.ly/2ysbOFE | bash -s -- 2.5.0 1.5.5
+curl -sSL https://bit.ly/2ysbOFE | bash -s -- 2.5.14 1.5.5
 ```
 
 **What it does:** Downloads the official Hyperledger Fabric samples repository, including Fabric CLI binaries, Docker container images, and example networks (such as test-network).
+
+> **VERSION NOTE:** This Capstone-1 local development setup uses Hyperledger Fabric **2.5.14**. The Capstone-2 cloud deployment (CCSCloud VM) pins Fabric **2.5.16** to stay compatible with Docker Engine 29, which breaks Fabric 2.5.14 chaincode builds. If deploying on Docker 29, substitute `2.5.16` above.
 
 **Expected Output:**
 ```
@@ -427,13 +429,15 @@ Source: OG SETUP
 
 **Directory:** Ubuntu Terminal (WSL)
 
+> **PREREQUISITE (hardened backend):** `/api/auth/register` now requires `JWT_SECRET` to be set in `~/chaincert-api/.env` (the API refuses to boot without it) and, by default, a valid signup-OTP token. For a scripted/`curl` admin creation like the one below, set `DISABLE_SIGNUP_OTP=true` in `~/chaincert-api/.env` first so the OTP gate is bypassed. See the env-var table in `Installation Dependencies.md`. (Unset `DISABLE_SIGNUP_OTP` again before a real demo.)
+
 ```bash
 curl -X POST http://localhost:4000/api/auth/register \
  -H "Content-Type: application/json" \
  -d '{
    "username": "admin",
    "email": "admin@email.com",
-   "password": "adminpw123",
+   "password": "<ADMIN_PASSWORD>",
    "role": "admin"
  }'
 
@@ -442,7 +446,7 @@ curl -X POST http://localhost:4000/api/auth/register \
  -d '{
    "username": "admin2",
    "email": "admin2@email.com",
-   "password": "adminpw123",
+   "password": "<ADMIN_PASSWORD>",
    "role": "admin"
  }'
 ```
@@ -816,7 +820,7 @@ Source: NODE CREATION
 
 ---
 
-## Phase 11: Create Subordinate Issuer (INNOCENCIO)
+## Phase 11: Create Subordinate Issuer (ARCHERSNETWORK)
 
 ### 11.1 Set DLSU CA Context
 
@@ -837,13 +841,13 @@ Source: Manual subordinate workflow
 ```bash
 fabric-ca-client register \
  --caname ca-dlsu \
- --id.name delasalleuniversity-subordinate-innocencio \
- --id.secret innocenciopw \
+ --id.name delasalleuniversity-subordinate-archersnetwork \
+ --id.secret archersnetworkpw \
  --id.type client \
  --tls.certfiles "${PWD}/organizations/fabric-ca/dlsu/ca-cert.pem"
 ```
 
-**What it does:** Registers the INNOCENCIO subordinate identity in DLSU's Certificate Authority. The identity type is 'client' because subordinates only need to submit transactions, not administer the peer or channel.
+**What it does:** Registers the ARCHERSNETWORK subordinate identity in DLSU's Certificate Authority. The identity type is 'client' because subordinates only need to submit transactions, not administer the peer or channel.
 
 Source: Manual subordinate workflow
 
@@ -853,9 +857,9 @@ Source: Manual subordinate workflow
 
 ```bash
 fabric-ca-client enroll \
- -u https://delasalleuniversity-subordinate-innocencio:innocenciopw@localhost:12054 \
+ -u https://delasalleuniversity-subordinate-archersnetwork:archersnetworkpw@localhost:12054 \
  --caname ca-dlsu \
- -M "${PWD}/organizations/peerOrganizations/dlsu.example.com/users/delasalleuniversity-subordinate-innocencio@dlsu.example.com/msp" \
+ -M "${PWD}/organizations/peerOrganizations/dlsu.example.com/users/delasalleuniversity-subordinate-archersnetwork@dlsu.example.com/msp" \
  --tls.certfiles "${PWD}/organizations/fabric-ca/dlsu/ca-cert.pem"
 ```
 
@@ -869,7 +873,7 @@ Source: Manual subordinate workflow
 
 ```bash
 cp "${PWD}/organizations/peerOrganizations/dlsu.example.com/msp/config.yaml" \
- "${PWD}/organizations/peerOrganizations/dlsu.example.com/users/delasalleuniversity-subordinate-innocencio@dlsu.example.com/msp/config.yaml"
+ "${PWD}/organizations/peerOrganizations/dlsu.example.com/users/delasalleuniversity-subordinate-archersnetwork@dlsu.example.com/msp/config.yaml"
 ```
 
 **What it does:** Copies the NodeOU configuration to the subordinate's MSP directory. This configuration file tells Fabric how to classify identities (admin, client, peer, orderer) based on their OU attributes.
@@ -881,14 +885,14 @@ Source: Manual subordinate workflow
 **Directory:** `~/chaincert-api`
 
 ```bash
-node setup_Wallet_DLSU_Subordinate_INNOCENCIO.js
+node setup_Wallet_DLSU_Subordinate_ARCHERSNETWORK.js
 ```
 
-**What it does:** Reads the INNOCENCIO certificate and private key from the MSP directory and imports them into the backend wallet with mspId `DLSUMSP`.
+**What it does:** Reads the ARCHERSNETWORK certificate and private key from the MSP directory and imports them into the backend wallet with mspId `DLSUMSP`.
 
-**Expected Output:** A file appears inside: `wallet/delasalleuniversity-subordinate-innocencio.id`
+**Expected Output:** A file appears inside: `wallet/delasalleuniversity-subordinate-archersnetwork.id`
 
-**Rationale:** The backend needs this wallet identity to submit blockchain transactions on behalf of INNOCENCIO.
+**Rationale:** The backend needs this wallet identity to submit blockchain transactions on behalf of ARCHERSNETWORK.
 
 Source: Manual subordinate workflow
 
@@ -897,10 +901,10 @@ Source: Manual subordinate workflow
 **Directory:** `~/fabric-samples/fabric-samples/test-network/addDLSU/compose`
 
 ```bash
-docker-compose -f compose-couch-innocencio.yaml up -d
+docker-compose -f compose-couch-archersnetwork.yaml up -d
 ```
 
-**What it does:** Starts the CouchDB container dedicated to the INNOCENCIO subordinate issuer on port 9085.
+**What it does:** Starts the CouchDB container dedicated to the ARCHERSNETWORK subordinate issuer on port 9085.
 
 **Rationale:** Each issuer has its own CouchDB container to isolate credential storage per organization.
 
@@ -913,7 +917,7 @@ curl -X PUT http://admin:adminpw@localhost:9085/wallet_issuer_credentials
 curl -X PUT http://admin:adminpw@localhost:9085/issued_credentials
 ```
 
-**What it does:** Creates the two required databases for the INNOCENCIO issuer.
+**What it does:** Creates the two required databases for the ARCHERSNETWORK issuer.
 
 **Expected Output:** `{"ok":true}`
 
@@ -927,12 +931,12 @@ Source: Manual subordinate workflow
 curl -X POST http://admin:adminpw@localhost:5985/couchdb_connections \
  -H "Content-Type: application/json" \
  -d '{
-   "orgName": "innocencio",
+   "orgName": "archersnetwork",
    "couchDBUrl": "http://admin:adminpw@localhost:9085"
  }'
 ```
 
-**What it does:** Registers the INNOCENCIO CouchDB connection in the admin database so the backend can dynamically resolve the correct CouchDB instance during issuer approval and credential operations.
+**What it does:** Registers the ARCHERSNETWORK CouchDB connection in the admin database so the backend can dynamically resolve the correct CouchDB instance during issuer approval and credential operations.
 
 **Expected Output:** `{"ok":true, "id":"...", "rev":"..."}`
 
@@ -940,7 +944,7 @@ curl -X POST http://admin:adminpw@localhost:5985/couchdb_connections \
 
 Source: Manual subordinate workflow
 
-> **IMPORTANT:** `orgName` must be lowercase. The backend normalizes `orgName` to lowercase before querying `couchdb_connections`. Using uppercase (e.g., `INNOCENCIO`) will cause the approval process to fail with 'No CouchDB connection found.'
+> **IMPORTANT:** `orgName` must be lowercase. The backend normalizes `orgName` to lowercase before querying `couchdb_connections`. Using uppercase (e.g., `ARCHERSNETWORK`) will cause the approval process to fail with 'No CouchDB connection found.'
 
 ---
 
@@ -1127,12 +1131,12 @@ After completing all phases, the following components should be confirmed operat
 | ca_org1 / ca_org2 / ca_orderer / ca_dlsu | 7054 / 8054 / 9054 / 12054 | Running |
 | couchdb-admin | 5985 | Running |
 | couchdb_dlsu (issuer) | 9084 | Running |
-| couchdb_innocencio (issuer) | 9085 | Running |
+| couchdb_archersnetwork (issuer) | 9085 | Running |
 | couchdb_lasallecomputersociety (issuer) | 9086 | Running |
 | Chaincode (chaincert v1.0) | — | Deployed (all 3 orgs approved) |
 | chaincert-admin.id | — | In wallet |
 | delasalleuniversity-admin.id | — | In wallet |
-| delasalleuniversity-subordinate-innocencio.id | — | In wallet |
+| delasalleuniversity-subordinate-archersnetwork.id | — | In wallet |
 | delasalleuniversity-subordinate-lasallecomputersociety.id | — | In wallet |
 | couchdb_connections (3 entries) | — | Registered |
 | Backend API | 4000 | Running |
@@ -1161,11 +1165,11 @@ cp "<PROJECT_ROOT>/backend/sdk-server-fixed.js" ~/chaincert-api/sdk-server-fixed
 cp "<PROJECT_ROOT>/backend/couchDB_service.js" ~/chaincert-api/couchDB_service.js
 cp "<PROJECT_ROOT>/backend/.env" ~/chaincert-api/.env
 cp "<PROJECT_ROOT>/backend/enrollChaincertAdmin.js" ~/chaincert-api/enrollChaincertAdmin.js
-cp "<PROJECT_ROOT>/backend/setupWallet_DLSU.js" ~/chaincert-api/setupWallet_DLSU.js
+cp "<PROJECT_ROOT>/backend/node_creation/dlsu/setupWallet_DLSU.js" ~/chaincert-api/setupWallet_DLSU.js
 cp "<PROJECT_ROOT>/backend/setupWallet_ORG1.js" ~/chaincert-api/setupWallet_ORG1.js
 cp "<PROJECT_ROOT>/backend/setupWallet_ORG2.js" ~/chaincert-api/setupWallet_ORG2.js
-cp "<PROJECT_ROOT>/backend/setup_Wallet_DLSU_Subordinate_INNOCENCIO.js" ~/chaincert-api/setup_Wallet_DLSU_Subordinate_INNOCENCIO.js
-cp "<PROJECT_ROOT>/backend/setup_Wallet_DLSU_Subordinate_LASALLECOMPUTERSOCIETY.js" ~/chaincert-api/setup_Wallet_DLSU_Subordinate_LASALLECOMPUTERSOCIETY.js
+cp "<PROJECT_ROOT>/backend/node_creation/dlsu/setup_Wallet_DLSU_Subordinate_ARCHERSNETWORK.js" ~/chaincert-api/setup_Wallet_DLSU_Subordinate_ARCHERSNETWORK.js
+cp "<PROJECT_ROOT>/backend/node_creation/dlsu/setup_Wallet_DLSU_Subordinate_LASALLECOMPUTERSOCIETY.js" ~/chaincert-api/setup_Wallet_DLSU_Subordinate_LASALLECOMPUTERSOCIETY.js
 cp "<PROJECT_ROOT>/backend/issuerRequirements.js" ~/chaincert-api/config/issuerRequirements.js
 ```
 
@@ -1175,16 +1179,16 @@ cp "<PROJECT_ROOT>/backend/issuerRequirements.js" ~/chaincert-api/config/issuerR
 
 ```bash
 mkdir -p ~/chaincert-api/controllers
-cp "<PROJECT_ROOT>/backend/controllers/authController.js" ~/chaincert-api/controllers/
-cp "<PROJECT_ROOT>/backend/controllers/accountController.js" ~/chaincert-api/controllers/
-cp "<PROJECT_ROOT>/backend/controllers/issuerCredentialController.js" ~/chaincert-api/controllers/
-cp "<PROJECT_ROOT>/backend/controllers/issuerOnboardingController.js" ~/chaincert-api/controllers/
-cp "<PROJECT_ROOT>/backend/controllers/adminIssuerController.js" ~/chaincert-api/controllers/
-cp "<PROJECT_ROOT>/backend/controllers/adminAuditController.js" ~/chaincert-api/controllers/
-cp "<PROJECT_ROOT>/backend/controllers/adminDashboardController.js" ~/chaincert-api/controllers/
-cp "<PROJECT_ROOT>/backend/controllers/rootAuthorityController.js" ~/chaincert-api/controllers/
-cp "<PROJECT_ROOT>/backend/controllers/walletController.js" ~/chaincert-api/controllers/
-cp "<PROJECT_ROOT>/backend/controllers/verifierController.js" ~/chaincert-api/controllers/
+cp "<PROJECT_ROOT>/src/controllers/authController.js" ~/chaincert-api/controllers/
+cp "<PROJECT_ROOT>/src/controllers/accountController.js" ~/chaincert-api/controllers/
+cp "<PROJECT_ROOT>/src/controllers/issuerCredentialController.js" ~/chaincert-api/controllers/
+cp "<PROJECT_ROOT>/src/controllers/issuerOnboardingController.js" ~/chaincert-api/controllers/
+cp "<PROJECT_ROOT>/src/controllers/adminIssuerController.js" ~/chaincert-api/controllers/
+cp "<PROJECT_ROOT>/src/controllers/adminAuditController.js" ~/chaincert-api/controllers/
+cp "<PROJECT_ROOT>/src/controllers/adminDashboardController.js" ~/chaincert-api/controllers/
+cp "<PROJECT_ROOT>/src/controllers/rootAuthorityController.js" ~/chaincert-api/controllers/
+cp "<PROJECT_ROOT>/src/controllers/walletController.js" ~/chaincert-api/controllers/
+cp "<PROJECT_ROOT>/src/controllers/verifierController.js" ~/chaincert-api/controllers/
 ```
 
 ### A.4 Routes
@@ -1193,13 +1197,13 @@ cp "<PROJECT_ROOT>/backend/controllers/verifierController.js" ~/chaincert-api/co
 
 ```bash
 mkdir -p ~/chaincert-api/routes
-cp "<PROJECT_ROOT>/backend/routes/authRoutes.js" ~/chaincert-api/routes/
-cp "<PROJECT_ROOT>/backend/routes/adminRoutes.js" ~/chaincert-api/routes/
-cp "<PROJECT_ROOT>/backend/routes/issuerRoutes.js" ~/chaincert-api/routes/
-cp "<PROJECT_ROOT>/backend/routes/credentialRoutes.js" ~/chaincert-api/routes/
-cp "<PROJECT_ROOT>/backend/routes/walletRoutes.js" ~/chaincert-api/routes/
-cp "<PROJECT_ROOT>/backend/routes/verificationRoutes.js" ~/chaincert-api/routes/
-cp "<PROJECT_ROOT>/backend/routes/systemRoutes.js" ~/chaincert-api/routes/
+cp "<PROJECT_ROOT>/src/routes/authRoutes.js" ~/chaincert-api/routes/
+cp "<PROJECT_ROOT>/src/routes/adminRoutes.js" ~/chaincert-api/routes/
+cp "<PROJECT_ROOT>/src/routes/issuerRoutes.js" ~/chaincert-api/routes/
+cp "<PROJECT_ROOT>/src/routes/credentialRoutes.js" ~/chaincert-api/routes/
+cp "<PROJECT_ROOT>/src/routes/walletRoutes.js" ~/chaincert-api/routes/
+cp "<PROJECT_ROOT>/src/routes/verificationRoutes.js" ~/chaincert-api/routes/
+cp "<PROJECT_ROOT>/src/routes/systemRoutes.js" ~/chaincert-api/routes/
 ```
 
 ### A.5 Fabric Network Configuration Files
@@ -1214,11 +1218,11 @@ cp "<PROJECT_ROOT>/backend/node_creation/dlsu/configtx-WITHDLSU.yaml" ~/fabric-s
 cp "<PROJECT_ROOT>/backend/node_creation/dlsu/compose/compose-dlsu.yaml" ~/fabric-samples/fabric-samples/test-network/addDLSU/compose/compose-dlsu.yaml
 cp "<PROJECT_ROOT>/backend/node_creation/dlsu/compose/compose-ca-dlsu.yaml" ~/fabric-samples/fabric-samples/test-network/addDLSU/compose/compose-ca-dlsu.yaml
 cp "<PROJECT_ROOT>/backend/node_creation/dlsu/compose/compose-couch-dlsu.yaml" ~/fabric-samples/fabric-samples/test-network/addDLSU/compose/compose-couch-dlsu.yaml
-cp "<PROJECT_ROOT>/backend/node_creation/dlsu/compose/compose-couch-innocencio.yaml" ~/fabric-samples/fabric-samples/test-network/addDLSU/compose/compose-couch-innocencio.yaml
+cp "<PROJECT_ROOT>/backend/node_creation/dlsu/compose/compose-couch-archersnetwork.yaml" ~/fabric-samples/fabric-samples/test-network/addDLSU/compose/compose-couch-archersnetwork.yaml
 cp "<PROJECT_ROOT>/backend/node_creation/dlsu/compose/compose-couch-lasallecomputersociety.yaml" ~/fabric-samples/fabric-samples/test-network/addDLSU/compose/compose-couch-lasallecomputersociety.yaml
-cp "<PROJECT_ROOT>/backend/node_creation/dlsu/fabric-ca/registerEnroll.sh" ~/fabric-samples/fabric-samples/test-network/addDLSU/fabric-ca/registerEnroll.sh
-cp "<PROJECT_ROOT>/backend/node_creation/dlsu/core.yaml" ~/fabric-samples/fabric-samples/test-network/addDLSU/core.yaml
-cp "<PROJECT_ROOT>/backend/connection-delasalleuniversity.json" ~/chaincert-api/connection-delasalleuniversity.json
+cp "<PROJECT_ROOT>/backend/node_creation/dlsu/fabric-ca/registerEnrollFORDLSU.sh" ~/fabric-samples/fabric-samples/test-network/addDLSU/fabric-ca/registerEnroll.sh
+cp "<PROJECT_ROOT>/backend/node_creation/dlsu/compose/docker/peercfg/core.yaml" ~/fabric-samples/fabric-samples/test-network/addDLSU/core.yaml
+cp "<PROJECT_ROOT>/backend/node_creation/dlsu/connection-delasalleuniversity.json" ~/chaincert-api/connection-delasalleuniversity.json
 ```
 
 > **NOTE:** After copying `configtx-DEFAULT.yaml` to `configtx/configtx.yaml` in Phase 5, you will later need to copy `configtx-WITHDLSU.yaml` over it in Phase 9.4 before generating `DLSUMSP.json`. Keep both files available.

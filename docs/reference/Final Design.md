@@ -2,6 +2,8 @@
 
 # ChainCert — Final Design
 
+**Purpose:** governance/consortium design rationale + the 12-phase manual subordinate-provisioning runbook. **Audience:** dev team and evaluators.
+
 > This manual workflow is already included in the setup latest document.
 
 > **Note:** Final design is we chaincert handle everything, issuer does not handle or own their node. Approval is based off document validation and admin approval. Approval from existing orgs in the network/chaincert is only applicable if issuers handle and own their node, for which in this case is not applicable kasi it would disrupt the flow wherein issuers have added responsibility to always have to approve incoming participants. Parang future expansion or different future recommendation nalang siguro to kapag want nila na mas explicit members only and they want the capability to have a say on who gets in.

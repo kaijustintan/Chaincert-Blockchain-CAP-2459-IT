@@ -75,22 +75,19 @@ The ChainCert frontend is implemented as a React-based web application and runs 
 
 | Library | Purpose |
 |---|---|
-| `@fortawesome/fontawesome-free` | Provides icon assets used throughout the interface |
-| `web-vitals` | Performance monitoring library for measuring frontend performance metrics |
+| `lucide-react` | Line-icon set used throughout the interface. Replaced FontAwesome (`@fortawesome/fontawesome-free`), which is no longer a dependency. |
+| `framer-motion` | Drives the opacity-based page transitions between routes. |
+| `recharts` | Renders the analytics charts (donut and trend-bar reports) on the holder, issuer, and administrator dashboards. |
+| `web-vitals` | Performance monitoring library for measuring frontend performance metrics. |
 
-### Credential Export Feature
+### Credential Export and PDF Handling
 
 | Library | Purpose |
 |---|---|
-| `jspdf` | Generates downloadable PDF files for issued credentials |
+| `jspdf` | Generates downloadable PDF files for issued credentials. |
 | `dompurify` | Required by `jspdf@4` for HTML sanitization. **Must be a direct dependency** or the frontend build fails with `Can't resolve 'dompurify'` (added 2026-07-04 after it blocked the VM build). |
-| `qrcode` | Generates QR codes embedded within exported credential PDFs |
-
-### File Handling
-
-| Library | Purpose |
-|---|---|
-| `multer` | Used for handling file uploads in certain frontend operations |
+| `qrcode` | Generates QR codes embedded within exported credential PDFs. |
+| `pdfjs-dist` | Parses uploaded credential-portfolio PDFs on the Verification Dashboard to extract the embedded credential IDs for bulk verification. Loaded lazily (code-split) so it does not enlarge the main bundle. |
 
 ### Testing Libraries (Optional)
 
@@ -106,7 +103,7 @@ The following libraries are used for testing and development validation but are 
 Run the following command inside the frontend project directory:
 
 ```bash
-npm install react react-dom react-router-dom react-scripts axios jspdf dompurify qrcode @fortawesome/fontawesome-free multer web-vitals
+npm install react react-dom react-router-dom react-scripts axios jspdf dompurify qrcode pdfjs-dist lucide-react framer-motion recharts web-vitals
 ```
 
 Optional testing libraries may be installed using:
@@ -187,6 +184,8 @@ The backend reads the following variables from its `.env` file (Ubuntu only — 
 | `SMTP_OVERRIDE_TO` | Optional (demo) | If set, ALL outgoing email is redirected to this single inbox (useful when demo accounts use fake addresses). Remove for production. |
 | `DISABLE_RATE_LIMIT` | Optional (test) | `true` bypasses all rate limiting (M5). **Testing only** — a loud startup warning prints while on; remove before demo/production. |
 | `DISABLE_PASSWORD_POLICY` | Optional (test) | `true` bypasses the password-strength policy (M8). **Testing only** — loud startup warning; remove before demo/production. |
+| `DISABLE_SIGNUP_OTP` | Optional (test) | `true` bypasses the signup email-OTP gate on `/api/auth/register` (lets a scripted/`curl` account creation succeed without a 6-digit code). **Testing only** — no boot warning is printed for this one, so remove it before a real demo. |
+| `DISABLE_ISSUER_TOGGLE` | Optional (UAT) | `true` freezes the admin enable/disable-issuer action (`adminRoutes`). **UAT only** — loud startup warning; remove before demo/production. |
 
 ## 6. Chaincode (Smart Contract) Dependencies
 

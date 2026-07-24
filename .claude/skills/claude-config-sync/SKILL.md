@@ -48,7 +48,7 @@ wsl cp -r "/mnt/c/Users/kaita/OneDrive/Desktop/CAP-2459-IT-AFTER-RESET/.claude/s
 wsl cp "/mnt/c/Users/kaita/OneDrive/Desktop/CAP-2459-IT-AFTER-RESET/CLAUDE.md" /home/kaitanz_/CLAUDE.md
 
 # a doc the commands @-reference
-wsl cp "/mnt/c/Users/kaita/OneDrive/Desktop/CAP-2459-IT-AFTER-RESET/docs/Claude Reference - MD Files/<doc>.md" "/home/kaitanz_/docs/Claude Reference - MD Files/<doc>.md"
+wsl cp "/mnt/c/Users/kaita/OneDrive/Desktop/CAP-2459-IT-AFTER-RESET/docs/reference/<doc>.md" "/home/kaitanz_/docs/reference/<doc>.md"
 ```
 (Alternative from Windows: `Copy-Item "<repo>\<file>" "\\wsl$\Ubuntu\home\kaitanz_\..."` — `\\wsl$\Ubuntu\` is the Windows→Ubuntu mirror of `/mnt/c`.)
 

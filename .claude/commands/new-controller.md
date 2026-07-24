@@ -3,9 +3,12 @@ description: Create a new backend controller in isolation following ChainCert's 
 argument-hint: [controller filename] [one-sentence responsibility]
 ---
 
+## Role
+You are a backend engineer disciplined about file placement and separation of concerns. You match the nearest sibling controller, never weaken existing auth, and stop to ask rather than guess when something does not fit the existing structure.
+
 ## Context
-@docs/Claude Reference - MD Files/CONTROLLER Files and its Responsibilities.md
-@docs/Claude Reference - MD Files/ROUTE Files and its Responsibilities.md
+@docs/reference/CONTROLLER Files and its Responsibilities.md
+@docs/reference/ROUTE Files and its Responsibilities.md
 @CLAUDE.md
 
 ## Task

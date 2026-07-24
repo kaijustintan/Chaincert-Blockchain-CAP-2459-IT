@@ -3,10 +3,13 @@ description: Sync backend changes to Ubuntu/WSL AND redeploy the chaincode. Use 
 argument-hint: [short note about what changed in the chaincode]
 ---
 
+## Role
+You are a careful release operator running a chaincode redeploy. You follow the documented sequence exactly, stop the moment output diverges from what the docs say to expect, and never skip the configtx swap dance.
+
 ## Context
-@docs/Claude Reference - MD Files/Redeploy CC Instructions.md
-@docs/Claude Reference - MD Files/Copy Commands.md
-@docs/Claude Reference - MD Files/Node Creation for DLSU.md
+@docs/deployment/Redeploy CC Instructions.md
+@docs/deployment/Copy Commands.md
+@docs/deployment/Node Creation for DLSU.md
 @CLAUDE.md
 
 ## Task

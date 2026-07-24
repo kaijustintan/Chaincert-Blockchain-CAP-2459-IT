@@ -282,13 +282,13 @@ What blockchain provides regardless of design: if garbage does enter, it is perm
 
 ### Q: What are the different ways a verifier can verify credentials?
 
-**Summary:** A verifier can verify through: (1) Exported PDFs sent by the user (may contain links to profile or specific credentials), (2) User-shared links (public profile or badge preview pages), (3) Verifier Dashboard where verification is done through manual credential ID input or direct link/QR flow.
+**Summary:** A verifier can verify through: (1) Exported PDFs sent by the user (may contain links to profile or specific credentials), (2) User-shared links (public profile or badge preview pages), (3) Verification Dashboard where verification is done through manual credential ID input or direct link/QR flow.
 
-The Verifier Dashboard matters because all other paths are presentation-layer outputs fetched from CouchDB or editable PDFs. The dashboard is the official trust layer that checks against blockchain-backed verification logic.
+The Verification Dashboard matters because all other paths are presentation-layer outputs fetched from CouchDB or editable PDFs. The dashboard is the official trust layer that checks against blockchain-backed verification logic.
 
-**Technical Detail:** The system has multiple viewing/sharing paths but not all are equally trustworthy. PDFs, profile preview links, and credential/badge preview pages are convenience paths — fast, user-friendly, but fetched from off-chain data. The Verifier Dashboard is the trust/validation path that performs blockchain-backed verification.
+**Technical Detail:** The system has multiple viewing/sharing paths but not all are equally trustworthy. PDFs, profile preview links, and credential/badge preview pages are convenience paths — fast, user-friendly, but fetched from off-chain data. The Verification Dashboard is the trust/validation path that performs blockchain-backed verification.
 
-> **Defense Answer:** "Our system supports multiple verification entry points for convenience, such as PDFs, profile links, and credential preview pages. However, those are still presentation-layer outputs and may rely on off-chain data. The Verifier Dashboard exists as the authoritative validation layer, allowing verifiers to confirm credential authenticity and status through blockchain-backed verification rather than relying solely on what was shared by the user."
+> **Defense Answer:** "Our system supports multiple verification entry points for convenience, such as PDFs, profile links, and credential preview pages. However, those are still presentation-layer outputs and may rely on off-chain data. The Verification Dashboard exists as the authoritative validation layer, allowing verifiers to confirm credential authenticity and status through blockchain-backed verification rather than relying solely on what was shared by the user."
 
 ### Q: Why use CouchDB for display and blockchain for verification?
 
@@ -384,7 +384,7 @@ The three components are connected as layers of the same identity system: CA iss
 **Summary:** Four organizations exist in the ChainCert Fabric network:
 - **Org1MSP** (`peer0.org1`, port 7051, CA port 7054) = ChainCert platform itself. The `chaincert-admin` Fabric identity is derived from Org1's CA. When the backend performs system-level blockchain operations (admin audit logs, verification logs, integrity checks), it uses `chaincert-admin` which is an Org1MSP identity.
 - **Org2MSP** (`peer0.org2`, port 9051, CA port 8054) = Second base organization from Fabric's test-network. Exists because test-network ships with two orgs by default and the endorsement policy requires multiple peers. Serves as a second endorsing peer — a built-in second witness for transaction validation.
-- **DLSUMSP** (`peer0.dlsu`, port 12051, CA port 12054) = First real issuer organization added to the network. Has its own MSP, peer, CA, and subordinate identities (INNOCENCIO, LSCS).
+- **DLSUMSP** (`peer0.dlsu`, port 12051, CA port 12054) = First real issuer organization added to the network. Has its own MSP, peer, CA, and subordinate identities (ARCHERSNETWORK, LSCS).
 - **OrdererMSP** (`orderer.example.com`, port 7050, CA port 9054) = The orderer organization. Its sole job: receive endorsed transactions, sequence them into blocks (every 2 seconds or 10 transactions per `configtx.yaml` BatchTimeout/MaxMessageCount), deliver blocks to all peers. Does not execute chaincode, does not store application data.
 
 *Analogy:* Org1 = ChainCert headquarters. Org2 = a built-in auditor. DLSU = a client institution. The orderer = the court clerk who doesn't decide cases but files and distributes documents in the correct order.
@@ -480,8 +480,8 @@ Each organization has both: `ca_dlsu` issues DLSU certificates, DLSUMSP defines 
 
 Practical UAT approach:
 - *Registration and onboarding flow* (form, document upload, pending status, admin review): any tester with any unique email. Multiple testers can test simultaneously. Rejection works fully — re-registration is allowed after rejection.
-- *Full approval testing:* testers must register using an org name with a `couchdb_connections` entry — currently `delasalleuniversity`, `innocencio`, or `lasallecomputersociety` only. Other org names will cause the approve button to fail with "No CouchDB connection found." This is a safety feature.
-- *Credential operations:* testers must use pre-deployed accounts (`dlsu@email.com`, `subordinate@email.com`). For holder/verifier testing: `kyle_justin_tan@dlsu.edu.ph` and `admin1@email.com` / `admin2@email.com`.
+- *Full approval testing:* testers must register using an org name with a `couchdb_connections` entry — currently `delasalleuniversity`, `archersnetwork`, or `lasallecomputersociety` only. Other org names will cause the approve button to fail with "No CouchDB connection found." This is a safety feature.
+- *Credential operations:* testers must use pre-deployed accounts (`dlsu@email.com`, `lasallecomputersociety@email.com`). For holder/verifier testing: `kylejustin.tan7@gmail.com` and `admin1@email.com` / `admin2@email.com`.
 
 > **Defense Answer:** "UAT testers can test the full registration and onboarding workflow with any email address. Full approval requires an org with pre-deployed blockchain infrastructure — the system actively blocks approval if no CouchDB connection mapping exists for the org. Credential operations are limited to pre-configured accounts because blockchain identity and infrastructure setup is a manual process. This built-in check is a safety feature that prevents issuer activation without proper infrastructure."
 
@@ -801,9 +801,9 @@ Because CouchDB stores data that blockchain doesn't: user accounts, passwords, p
 
 ### Q: What if the holder edits the exported PDF and presents it as legitimate?
 
-This is actually the system's strongest answer. PDFs are presentation-layer artifacts. Any edited PDF still cannot change the blockchain record. The Verifier Dashboard exists precisely for this scenario — verification always goes through the blockchain-backed endpoint, not the PDF.
+This is actually the system's strongest answer. PDFs are presentation-layer artifacts. Any edited PDF still cannot change the blockchain record. The Verification Dashboard exists precisely for this scenario — verification always goes through the blockchain-backed endpoint, not the PDF.
 
-> **Defense Answer:** "This is exactly why the Verifier Dashboard exists. PDFs, no matter how convincing, are never the source of truth. Any employer or institution that needs certainty uses the verification interface, which checks directly against blockchain records. An edited PDF would immediately fail official verification."
+> **Defense Answer:** "This is exactly why the Verification Dashboard exists. PDFs, no matter how convincing, are never the source of truth. Any employer or institution that needs certainty uses the verification interface, which checks directly against blockchain records. An edited PDF would immediately fail official verification."
 
 ### Q: Your credential IDs use Date.now() plus a short random suffix. Isn't that predictable?
 

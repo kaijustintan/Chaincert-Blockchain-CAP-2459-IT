@@ -131,3 +131,30 @@ A board resolution that formally approves the certification scheme and authorize
 - 3DUniversal. (2025, October 28). *University accreditation and CHED recognition explained.* Retrieved from <https://3d-universal.com/en/blogs/university-accreditation-and-ched-recognition-explained.html>
 - Wise. (2025, November 18). *SEC business registration in the Philippines: Complete guide.* Retrieved from <https://wise.com/ph/blog/sec-business-registration>
 - FilePino. (2025, April 14). *SEC registration: How to register a corporation in the Philippines.* Retrieved from <https://www.filepino.com/how-to-register-a-corporation-in-the-philippines/>
+
+---
+
+## Others (General / Uncategorized Issuer)
+
+The `others` category is the fallback for legitimate issuing bodies that do not fit the four specific categories above. It requires a minimal baseline: proof of legal existence plus internal authorization to participate in ChainCert.
+
+### Required document 1: SEC or DTI Registration
+
+**Rationale**
+SEC registration (for corporations and partnerships) or DTI business name registration (for sole proprietors) establishes the legal existence of the entity and its right to use its business name. For an issuer that does not fall under a specialized category, this is the foundational proof that a real, legally recognized organization stands behind the credentials issued through ChainCert.
+
+### Required document 2: Board Resolution – ChainCert Authorization
+
+**Rationale**
+A governing board resolution documents the organization's formal decision to participate in ChainCert and designates the officials authorized to issue digital credentials. This ties credential issuance to an accountable, deliberate organizational decision rather than an individual acting without clear authority, which supports traceability and trust.
+
+---
+
+## Subordinate issuers (additional requirement)
+
+Subordinate issuers do not operate independently — they issue credentials under the supervision of an approved root authority (see the governance model in `Final Design.md`). In addition to their category's document requirements above, a subordinate must provide:
+
+### Required document: Root Authority Authorization Letter
+
+**Rationale**
+A formal authorization letter issued by the root authority permits the subordinate to operate under its supervision and to issue credentials through ChainCert. This confirms that the parent institution has explicitly endorsed the subordinate's participation, which is what the root-approval gate in the onboarding flow enforces before an admin can grant final approval.

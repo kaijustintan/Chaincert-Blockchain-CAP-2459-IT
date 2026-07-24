@@ -10,17 +10,24 @@ Discusses the use case and distinction between controller files.
 
 **When to put functions here:**
 
-- User registration
-- User login
+- User registration (gated by an emailed signup OTP)
+- Signup email-OTP flow + email-availability check
+- User login (legacy) and unified user-vs-issuer login
 - Issuer login
 - Password changes related to authentication/account access
 
 **Example functions:**
 
 - `register`
+- `requestSignupOtp`
+- `confirmSignupOtp`
+- `checkEmail`
 - `login`
+- `unifiedLogin`
 - `loginIssuer`
 - `changePassword`
+
+**CAP2 additions:** `requestSignupOtp` emails a 6-digit code and `confirmSignupOtp` issues a short-lived `signup_email_proof` JWT; `register` now REQUIRES that token (purpose + matching email) before saving the user, so a new account's email is server-proven (behind a `DISABLE_SIGNUP_OTP` testing toggle). `checkEmail` is a lightweight email-availability probe for the registration wizard. `unifiedLogin` resolves user-vs-issuer server-side in one request; the legacy `login` and `loginIssuer` remain available (the latter is aliased at `/api/issuer/login`).
 
 **Rule of thumb:** If the feature is about logging in, registering, or proving identity/access, it belongs here.
 
@@ -34,6 +41,8 @@ Discusses the use case and distinction between controller files.
 - Fetching all users
 - Updating profile details
 - Uploading profile pictures
+- Profile share links (generate, public generate, my-links, info, record-view, OTP-gated access, revoke)
+- Forgot / reset password (OTP-based)
 
 **Example functions:**
 
@@ -41,6 +50,18 @@ Discusses the use case and distinction between controller files.
 - `getAllUsers`
 - `updateProfile`
 - `uploadProfilePicture`
+- `generateShareLink`
+- `generatePublicShareLink`
+- `getMyShareLinks`
+- `getShareLinkInfo`
+- `recordView`
+- `requestOTP`
+- `verifyOTP`
+- `revokeShareLink`
+- `forgotPassword`
+- `resetPassword`
+
+**Note:** The profile-share functions back the `/api/auth/profile-share/*` routes; `requestOTP` + `verifyOTP` gate recipient-specific share access (and `verifyOTP` also returns a `verifierProofToken` reused by bulk verification). `forgotPassword` + `resetPassword` handle the OTP-based password reset.
 
 **Rule of thumb:** If the feature is about the user's account details or profile, but not login/auth itself, it belongs here.
 
@@ -54,6 +75,8 @@ Discusses the use case and distinction between controller files.
 - Fetching issuer requirements by category
 - Viewing submitted issuer documents
 - Reviewing onboarding-related issuer files
+- Public root-authority list (registration form parent picker)
+- Public issuer directory (browse/search approved issuers)
 
 **Example functions:**
 
@@ -61,6 +84,10 @@ Discusses the use case and distinction between controller files.
 - `getIssuerRequirementsByCategory`
 - `getIssuerDocuments`
 - `viewIssuerDocument`
+- `getPublicRootAuthorities`
+- `getPublicDirectory`
+
+**CAP2 additions:** `getPublicRootAuthorities` serves the minimal approved-root-authority list to the registration form (public, no auth — a subordinate picks its parent before it has an account; replaces the old admin-only approved-issuers call). `getPublicDirectory` powers the public issuer directory with credibility aggregates.
 
 **Rule of thumb:** If the feature is about becoming an issuer, submitting onboarding requirements, or viewing issuer application documents, it belongs here.
 
@@ -78,6 +105,9 @@ Discusses the use case and distinction between controller files.
 - Checking if issuer has templates
 - Fetching credential history
 - Getting eligible users for a template
+- Issuer-scoped Verification Reach (verifications of the issuer's own credentials)
+- Handling credential renewal requests (issuer queue + approve/decline decision)
+- Issuer in-app notifications (list, unread, mark-read)
 
 **Example functions:**
 
@@ -91,6 +121,14 @@ Discusses the use case and distinction between controller files.
 - `getEligibleUsersForTemplate`
 - `getCredentialTemplates`
 - `getIssuerCredentials`
+- `getIssuerVerifications`
+- `getRenewalRequests`
+- `decideRenewalRequest`
+- `getIssuerNotifications`
+- `getUnreadIssuerNotifications`
+- `markIssuerNotificationAsRead`
+
+**CAP2 additions:** `getIssuerVerifications` returns the issuer's own Verification Reach by filtering the global verification log server-side on `issuerID` (derived from `req.user.id`, so no IDOR; forged/not-found logs have empty `issuerID` and are excluded). `getRenewalRequests` reads this issuer's renewal-request queue; `decideRenewalRequest` records the approve/decline outcome and submits `LogRenewalDecision` on-chain for both decisions (best-effort — a log failure never fails the decision). The notification functions are scoped to the issuer via `req.user.id`.
 
 **Rule of thumb:** If the feature is about the issuer creating, issuing, revoking, or viewing credentials, it belongs here.
 
@@ -204,36 +242,54 @@ Discusses the use case and distinction between controller files.
 **When to put functions here:**
 
 - Fetching wallet credentials
+- Fetching the holder's OWN verification logs (server-side filtered)
+- Credential renewal requests (holder create + list own)
 - Updating credential visibility
 - Updating credential order
+- Updating issuer-template visibility
+- Holder in-app notifications (list, unread, mark-read)
 - Wallet-only credential presentation logic
 
 **Example functions:**
 
 - `getUserCredentials`
+- `getMyVerifications`
+- `requestCredentialRenewal`
+- `getMyRenewalRequests`
 - `updateCredentialVisibility`
 - `updateCredentialOrder`
+- `updateIssuerTemplateVisibility`
+- `getUserNotifications`
+- `getUnreadUserNotifications`
+- `markNotificationAsRead`
+
+**CAP2 additions:** `getMyVerifications` resolves the holder's own credential IDs and filters the global verification log server-side, deriving the holder from `req.user.id` (not a URL param → no IDOR). `requestCredentialRenewal` (C11) lets a holder ask the issuer to renew one of their credentials, stored as a `renewal_request` doc in the existing `user_notifications` DB; `getMyRenewalRequests` returns the holder's own requests (drives the pending "Requested" button state). All are scoped by the JWT identity.
 
 **Rule of thumb:** If the feature is about how credentials appear or behave in the student wallet, it belongs here.
 
-## verifierController.js
+## 10. verifierController.js
 
 **Purpose:** Handles credential verification and verification logging/statistics.
 
 **When to put functions here:**
 
 - Verifying credentials
-- Logging verification events
+- Verifier email-OTP flow (prove email ownership before logging)
+- Logging verification events (OTP-proven verifier email)
 - Fetching verification logs
 - Fetching verification stats
 
 **Example functions:**
 
 - `Verify_Credential`
+- `requestVerifierOtp`
+- `confirmVerifierOtp`
 - `logVerificationEvent`
 - `getAllVerificationLogs`
 - `getVerificationLogById`
 - `getVerificationStats`
+
+**CAP2 additions (V1):** `requestVerifierOtp` emails a 6-digit code and `confirmVerifierOtp` issues a short-lived `verifier_email_proof` JWT. `logVerificationEvent` REQUIRES that token and logs the verifier email FROM the token (not the request body), so the recorded verifier email cannot be spoofed. The verify-READ path (`Verify_Credential`) stays public; only LOGGING requires the token. The verifier's display NAME is still self-reported. Not-found verifications are also logged so forgery attempts appear in analytics.
 
 **Rule of thumb:** If the feature is about checking whether a credential is valid, or about verification logs and stats, it belongs here.
 
@@ -266,7 +322,7 @@ Think of your controllers like backend workers with specialties:
 | Admin wants to view all issuer rejection logs | `adminAuditController.js` |
 | Admin wants dashboard-wide credential counts | `adminDashboardController.js` |
 | Student wants to hide a credential in wallet | `walletController.js` |
-| Verifier scans a QR and checks validity | `verifierController.js` |
+| Verifier checks a credential's validity (by credential ID / link) | `verifierController.js` |
 | User logs into the platform | `authController.js` |
 
 ## Easy Rule for Future Development

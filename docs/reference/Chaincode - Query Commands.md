@@ -66,14 +66,15 @@ DLSU_PEER_TLS="${PWD}/organizations/peerOrganizations/dlsu.example.com/peers/pee
 | `GetRootSubordinateApprovalLogsByRootAuthority` | Gets approved-only subordinate logs for a specific root authority. | `ROOT_AUTHORITY_ID` |
 | `GetRootSubordinateRejectionLogsByRootAuthority` | Gets rejected-only subordinate logs for a specific root authority. | `ROOT_AUTHORITY_ID` |
 | `GetAdminPasswordChangeLogs` | Gets password-change logs for a specific admin account. | `ADMIN_EMAIL` |
+| `GetRenewalDecisionLogs` | Gets all credential-renewal decision logs (issuer approvals/declines of holder renewal requests). | None |
 
 ### 2.2 CREATE / INVOKE (Write) Operations
 
 | Function Name | Description | Arguments |
 |---|---|---|
 | `InitLedger` | Initializes the chaincode ledger (no seed data in this version). | None |
-| `CreateCredentialTemplate` | Creates a new credential template (blueprint) for issuing credentials. | `TEMPLATE_ID`, `ISSUER_ID`, `CREDENTIAL_TYPE`, `CREDENTIAL_NAME`, `DESCRIPTION`, `METADATA_JSON`, `SKILLS_JSON` |
-| `IssueCredential` | Issues a credential instance to a holder based on an existing template. | `TEMPLATE_ID`, `HOLDER_ID`, `EXPIRY_DATE` |
+| `CreateCredentialTemplate` | Creates a new credential template (blueprint) for issuing credentials. | `TEMPLATE_ID`, `ISSUER_ID`, `CREDENTIAL_TYPE`, `CREDENTIAL_NAME`, `DESCRIPTION`, `METADATA_JSON`, `SKILLS_JSON`, `RENEWABLE` (optional, `'true'`/`'false'`; defaults to renewable) |
+| `IssueCredential` | Issues a credential instance to a holder based on an existing template. | `TEMPLATE_ID`, `HOLDER_ID`, `EXPIRY_DATE`, `RENEWED_FROM` (optional; the predecessor credential ID when this issuance is a renewal) |
 | `RevokeCredential` | Revokes a credential (sets status to revoked) and stores a rejection reason. | `CREDENTIAL_ID`, `REJECTION_REASON` |
 | `ExpireCredential` | Marks a credential as expired on-chain. | `CREDENTIAL_ID` |
 | `LogVerification` | Creates a verification audit log entry for a credential verification event. | `CREDENTIAL_ID`, `VERIFIER_NAME`, `VERIFIER_EMAIL`, `VERIFICATION_RESULT_JSON` |
@@ -84,6 +85,7 @@ DLSU_PEER_TLS="${PWD}/organizations/peerOrganizations/dlsu.example.com/peers/pee
 | `LogRootSubordinateApproval` | Logs that a subordinate issuer was approved by a root authority. | `ISSUER_ID`, `ISSUER_EMAIL`, `ORG_NAME`, `ROOT_AUTHORITY_ID`, `ROOT_AUTHORITY_NAME`, `REASON` |
 | `LogRootSubordinateRejection` | Logs that a subordinate issuer was rejected by a root authority. | `ISSUER_ID`, `ISSUER_EMAIL`, `ORG_NAME`, `ROOT_AUTHORITY_ID`, `ROOT_AUTHORITY_NAME`, `REASON` |
 | `LogAdminChangePassword` | Logs an admin password change or similar security-related action. | `ADMIN_EMAIL`, `CHANGE_TYPE`, `REASON` |
+| `LogRenewalDecision` | Logs an issuer's approve/decline decision on a holder's credential-renewal request. | `REQUEST_ID`, `HOLDER_ID`, `ISSUER_ID`, `DECISION`, `REASON`, `OLD_CREDENTIAL_ID`, `NEW_CREDENTIAL_ID` |
 
 ## 3. Section 1: GET Operations (Read / Query)
 
@@ -382,6 +384,17 @@ peer chaincode query \
  -c '{"Args":["GetAdminPasswordChangeLogs","ADMIN_EMAIL"]}'
 ```
 
+### 3.27 Get Renewal Decision Logs
+
+Get all credential-renewal decision logs (every issuer approval or decline of a holder's renewal request). Takes no arguments.
+
+```bash
+peer chaincode query \
+ -C chaincert-channel \
+ -n chaincert \
+ -c '{"Args":["GetRenewalDecisionLogs"]}'
+```
+
 ## 4. Section 2: CREATE Operations (Write / Invoke)
 
 General pattern for invoke commands (with TLS and multiple peers):
@@ -417,7 +430,7 @@ peer chaincode invoke \
  --tlsRootCertFiles "${ORG1_PEER_TLS}" \
  --peerAddresses localhost:12051 \
  --tlsRootCertFiles "${DLSU_PEER_TLS}" \
- -c '{"Args":["CreateCredentialTemplate","TEMPLATE_ID","ISSUER_ID","CREDENTIAL_TYPE","CREDENTIAL_NAME","DESCRIPTION","METADATA_JSON","SKILLS_JSON"]}'
+ -c '{"Args":["CreateCredentialTemplate","TEMPLATE_ID","ISSUER_ID","CREDENTIAL_TYPE","CREDENTIAL_NAME","DESCRIPTION","METADATA_JSON","SKILLS_JSON","RENEWABLE"]}'
 ```
 
 ### 4.2 Issue Credential
@@ -436,7 +449,7 @@ peer chaincode invoke \
  --tlsRootCertFiles "${ORG1_PEER_TLS}" \
  --peerAddresses localhost:12051 \
  --tlsRootCertFiles "${DLSU_PEER_TLS}" \
- -c '{"Args":["IssueCredential","TEMPLATE_ID","HOLDER_ID","EXPIRY_DATE"]}'
+ -c '{"Args":["IssueCredential","TEMPLATE_ID","HOLDER_ID","EXPIRY_DATE","RENEWED_FROM"]}'
 ```
 
 ### 4.3 Revoke Credential
@@ -642,4 +655,23 @@ peer chaincode invoke \
  --peerAddresses localhost:12051 \
  --tlsRootCertFiles "${DLSU_PEER_TLS}" \
  -c '{"Args":["LogAdminChangePassword","ADMIN_EMAIL","CHANGE_TYPE","REASON"]}'
+```
+
+### 4.14 Log Renewal Decision
+
+Record an issuer's decision on a holder's credential-renewal request (approve or decline), written immutably to the ledger. For an approval, the old and new credential IDs capture the renewal lineage; for a decline, a reason is required. In normal operation this is submitted by the backend when an issuer acts on a renewal request, not run by hand.
+
+```bash
+peer chaincode invoke \
+ -o localhost:7050 \
+ --ordererTLSHostnameOverride orderer.example.com \
+ --tls \
+ --cafile "${ORDERER_CA}" \
+ -C chaincert-channel \
+ -n chaincert \
+ --peerAddresses localhost:7051 \
+ --tlsRootCertFiles "${ORG1_PEER_TLS}" \
+ --peerAddresses localhost:12051 \
+ --tlsRootCertFiles "${DLSU_PEER_TLS}" \
+ -c '{"Args":["LogRenewalDecision","REQUEST_ID","HOLDER_ID","ISSUER_ID","DECISION","REASON","OLD_CREDENTIAL_ID","NEW_CREDENTIAL_ID"]}'
 ```

@@ -7,9 +7,9 @@ Frontend (src/) — React 19 SPA bootstrapped from Create React App. Served from
 Backend API (backend/ + the misplaced src/controllers/ and src/routes/ — see "Windows vs Ubuntu layout" below) — Express server (sdk-server-fixed.js) that bridges the SPA to Hyperledger Fabric and CouchDB. Runs in Ubuntu/WSL2 on :4000.
 Chaincode (chaincode/) — Hyperledger Fabric smart contract (ChainCertContract). Deployed to channel chaincert-channel, contract name chaincert.
 
-CAP2 deployment target is a single Ubuntu cloud VM — CCSCloud (DLSU-provided). As of 2026-07-04 the CANONICAL AFTER-Defense repo is DEPLOYED FRESH on the VM and reachable at http://ccscloud.dlsu.edu.ph:20173/ (plain HTTP, CCSCloud-mapped port; frontend served from the VM via Nginx + PM2, not Vercel) — this SUPERSEDES the old throwaway Xeidonn/ChainCert-Deploy CAP1 fork. Full from-scratch + day-2-update (git pull → deploy-sync.sh → build/redeploy/pm2 restart) runbook: docs/Claude Reference - MD Files/CAP-2459-IT-VM-INSTALLATION-MANUAL.md. Hosts Docker + Fabric + CouchDB + Node API + React frontend; open the mapped VM firewall ports. DOCKER/FABRIC NOTE: Docker Engine v29 breaks Fabric 2.5.14 chaincode builds (abandoned fsouza/go-dockerclient incompatibility — NOT a removed builder) — fix is to upgrade Fabric 2.5.14→2.5.16 (keep Docker 29) or downgrade Docker to 28; pin 2.5.16 going forward (refs: hyperledger/fabric #5350/#5441, PR #5353/#5355). Before re-deploy: the frontend localhost URLs + CORS are now ENV-DRIVEN (June 2026 refactor — REACT_APP_API_URL / REACT_APP_FRONTEND_URL / CORS_ORIGIN / FRONTEND_URL; see env-vars section); sdk-server-fixed.js:269 FABRIC_SAMPLES_PATH was DEAD CODE (removed); the committed DLSU connection profile's /home/kaitanz_ paths are auto-patched by deploy-sync.sh. VM layout = Plan 2 "clean split" (git clone at ~/chaincert-src → runtime ~/chaincert-api + ~/chaincert-chaincode, copied by deploy-sync.sh which never touches the runtime wallet/ + .env). Still: set the .env security toggles OFF before demo. FULL current state + pending list: docs/Claude Reference - MD Files/CAP2 - Deployment Status & Pending.md. AWS EC2 / DigitalOcean remain fallbacks if CCSCloud is unavailable.
+CAP2 deployment target is a single Ubuntu cloud VM — CCSCloud (DLSU-provided). As of 2026-07-04 the CANONICAL AFTER-Defense repo is DEPLOYED FRESH on the VM and reachable at http://ccscloud.dlsu.edu.ph:20173/ (plain HTTP, CCSCloud-mapped port; frontend served from the VM via Nginx + PM2, not Vercel) — this SUPERSEDES the old throwaway Xeidonn/ChainCert-Deploy CAP1 fork. Full from-scratch + day-2-update (git pull → deploy-sync.sh → build/redeploy/pm2 restart) runbook: docs/submission/cap2/manuals/CAP-2459-IT-VM-INSTALLATION-MANUAL.md. Hosts Docker + Fabric + CouchDB + Node API + React frontend; open the mapped VM firewall ports. DOCKER/FABRIC NOTE: Docker Engine v29 breaks Fabric 2.5.14 chaincode builds (abandoned fsouza/go-dockerclient incompatibility — NOT a removed builder) — fix is to upgrade Fabric 2.5.14→2.5.16 (keep Docker 29) or downgrade Docker to 28; pin 2.5.16 going forward (refs: hyperledger/fabric #5350/#5441, PR #5353/#5355). Before re-deploy: the frontend localhost URLs + CORS are now ENV-DRIVEN (June 2026 refactor — REACT_APP_API_URL / REACT_APP_FRONTEND_URL / CORS_ORIGIN / FRONTEND_URL; see env-vars section); sdk-server-fixed.js:269 FABRIC_SAMPLES_PATH was DEAD CODE (removed); the committed DLSU connection profile's /home/kaitanz_ paths are auto-patched by deploy-sync.sh. VM layout = Plan 2 "clean split" (git clone at ~/chaincert-src → runtime ~/chaincert-api + ~/chaincert-chaincode, copied by deploy-sync.sh which never touches the runtime wallet/ + .env). Still: set the .env security toggles OFF before demo. FULL deploy runbook + gotchas: docs/deployment/CAP2 - Deployment Manual Addendum (CAP1 Deltas + Groupmate Journey).md. AWS EC2 / DigitalOcean remain fallbacks if CCSCloud is unavailable.
 
-📄 Doc-reading tip — the canonical working docs are the .md files under docs/Claude Reference - MD Files/ (and docs/Claude Reference - MD Files/CAP1 Documents to Submit/ for the .md mirrors of the formal CAP1 submission manuals). The formally submitted CAP1 PDFs live separately in docs/CAP1 Documents to Submit/ — read the .md set, not those. The full doc index lives in the Canonical docs section at the bottom of this file.
+📄 Doc-reading tip — the working docs now live under docs/submission/ (formal manuals in cap2/manuals/, paper in cap2/final-document/, defense material in cap2/), docs/reference/ (architecture/dev references), and docs/deployment/ (ops runbooks). The formally submitted CAP1 PDFs are in docs/submission/cap1/. The full doc index lives in the Canonical docs section at the bottom of this file.
 
 Commands
 Frontend (run from repo root, Windows side — runs npm start against the WSL backend):
@@ -32,9 +32,9 @@ npm start — fabric-chaincode-node start (used when chaincode runs as an extern
 
 Windows vs Ubuntu layout — important quirk
 This Windows working copy and the Ubuntu deploy tree have different layouts. Every backend script and controller is written for the Ubuntu layout; relative requires (../couchDB_service, ../config/issuerRequirements) and absolute paths (/home/kaitanz_/fabric-samples/..., /var/run/docker.sock) inside sdk-server-fixed.js only resolve there. Do not "fix" the paths to make them resolve on Windows — that breaks deployment. The marker // UBUNTU DIRECTORY BASED in some files flags this.
-Mapping (Windows → Ubuntu) — also enumerated as cp commands in docs/Claude Reference - MD Files/Copy_Commands.md:
+Mapping (Windows → Ubuntu) — also enumerated as cp commands in docs/deployment/Copy Commands.md:
 Windows pathUbuntu pathchaincode/index.js~/chaincert-chaincode/index.jsbackend/sdk-server-fixed.js~/chaincert-api/sdk-server-fixed.jsbackend/couchDB_service.js~/chaincert-api/couchDB_service.jsbackend/setupWallet_ORG1.js / ORG2.js~/chaincert-api/enrollAdmin.js / enrollOrg2Admin.js (renamed)backend/enrollChaincertAdmin.js~/chaincert-api/enrollChaincertAdmin.jsbackend/issuerRequirements.js~/chaincert-api/config/issuerRequirements.jsbackend/node_creation/dlsu/setupWallet_DLSU.js (and subordinate setups)~/chaincert-api/setup_Wallet_DLSU*.jssrc/controllers/*.js~/chaincert-api/controllers/*.js (these are Express, not React)src/routes/*.js~/chaincert-api/routes/*.js (these are Express, not React)backend/node_creation/dlsu/configtx-DEFAULT.yaml / configtx-WITHDLSU.yaml~/fabric-samples/.../test-network/configtx/configtx.yaml (one is copied in at a time)backend/node_creation/dlsu/connection-delasalleuniversity.json~/fabric-samples/.../peerOrganizations/dlsu.example.com/connection-delasalleuniversity.jsonbackend/node_creation/dlsu/compose/*.yaml~/fabric-samples/.../test-network/addDLSU/compose/*.yaml
-The Windows folder name must be exactly CAP-2459-IT-AFTER-RESET at the user's desktop — many cp commands hard-code /mnt/c/Users/kaita/OneDrive/Desktop/CAP-2459-IT-AFTER-RESET/.... See docs/Claude Reference - MD Files/Predemo_Setup.md and docs/Claude Reference - MD Files/Copy_Commands.md.
+The Windows folder name must be exactly CAP-2459-IT-AFTER-RESET at the user's desktop — many cp commands hard-code /mnt/c/Users/kaita/OneDrive/Desktop/CAP-2459-IT-AFTER-RESET/.... See docs/deployment/Copy Commands.md and docs/submission/cap2/manuals/CAP-2459-IT-VM-INSTALLATION-MANUAL.md.
 
 Sync ownership (cp commands) — token-conscious workflow
 - Ad-hoc single-file backend syncs (after editing one controller / service / route / helper): Claude does NOT run cp. Claude lists the exact cp command(s); Kai runs them. Saves the WSL roundtrip + bash-output tokens.
@@ -52,11 +52,11 @@ Reads/writes off-chain state in CouchDB via couchDB_service.js.
 Submits/queries on-chain transactions through getContractAndGateway(identityName, orgName), which loads the connection profile, opens a Gateway, and returns the chaincert contract handle.
 
 getContractAndGateway is exposed to controllers as app.locals.getContractAndGateway and injected into route handlers — controllers receive it as a parameter rather than importing the gateway directly. Init functions follow the same pattern (e.g. adminDashboardController.initExpiryCron(getContractAndGateway) is wired at server startup).
-Governance model (final design — see docs/Claude Reference - MD Files/Final_Design.md)
+Governance model (final design — see docs/reference/Final Design.md)
 ChainCert operates as a consortium, not a single-authority registry. Two issuer tiers:
 
 Root Authority (sovereign member, e.g. DLSU, Ateneo) — has its own MSP and peer, maintains a ledger copy, participates in endorsement. Provisioning a new root authority requires a channel config update (the configtx swap dance — see "Predemo / chaincode redeploy" below).
-Subordinate Issuer (e.g. a department or bootcamp under DLSU) — does NOT get a peer or a new MSP. It receives a Fabric identity registered under the root authority's CA, and operates under the root MSP. No channel config change needed. Subordinates additionally get their own CouchDB instance for credential storage; the central couchdb_connections database (on the main CouchDB at :5985) maps orgName → couchDBUrl so the API can route subordinate writes to the right CouchDB. The subordinate's MSP files are produced by the manual workflow in docs/Claude Reference - MD Files/Final_Design.md (Phases 1–12) using fabric-ca-client register/enroll against the DLSU CA at port 12054.
+Subordinate Issuer (e.g. a department or bootcamp under DLSU) — does NOT get a peer or a new MSP. It receives a Fabric identity registered under the root authority's CA, and operates under the root MSP. No channel config change needed. Subordinates additionally get their own CouchDB instance for credential storage; the central couchdb_connections database (on the main CouchDB at :5985) maps orgName → couchDBUrl so the API can route subordinate writes to the right CouchDB. The subordinate's MSP files are produced by the manual workflow in docs/reference/Final Design.md (Phases 1–12) using fabric-ca-client register/enroll against the DLSU CA at port 12054.
 
 Issuer registration is category-driven. Categories live in backend/issuerRequirements.js (ISSUER_CATEGORY_REQUIREMENTS): university, government, training_provider, industry_certifier, others. Each category has its own required-documents list (e.g. universities upload CHED recognition + SEC/charter + board resolution). The frontend renders the upload checklist dynamically from GET /api/auth/issuer-requirements/:category. Validation happens in the app layer — Fabric handles identity, endorsement, and immutable logging only.
 Approval flow:
@@ -96,7 +96,7 @@ Backend route mounting (sdk-server-fixed.js)
 /api/verify   -> verificationRoutes  (verifierController)
 /api/wallet   -> walletRoutes        (walletController — student wallet UI state; incl. GET /my-verifications: holder's own verification logs, server-side filtered by req.user.id)
 Where to put new backend code
-Per docs/Claude Reference - MD Files/CONTROLLER_Files_and_its_Responsibilities.md and docs/Claude Reference - MD Files/ROUTE_Files_and_its_Responsibilities.md — the team uses these as the canonical file-placement rules. Follow them when adding new endpoints; don't pile everything into authController.js just because it's the largest.
+Per docs/reference/CONTROLLER Files and its Responsibilities.md and docs/reference/ROUTE Files and its Responsibilities.md — the team uses these as the canonical file-placement rules. Follow them when adding new endpoints; don't pile everything into authController.js just because it's the largest.
 ControllerResponsibilityauthControllerLogin, register, password change — authentication / access entry onlyaccountControllerProfile/account data: getUserInfo, updateProfile, uploadProfilePictureissuerOnboardingControllerIssuer registration, requirements lookup, onboarding document reviewissuerCredentialControllerIssuer credential lifecycle: create template, issue, revoke, history, eligible usersadminIssuerControllerAdmin managing issuer queues: pending/approved/rejected/disabled lists, approve/reject/enable/disablerootAuthorityControllerRoot authority over subordinates: list/approve/reject subordinate issuersadminAuditControllerAudit logs (status/decision logs), admin password change, admin enable/disable usersadminDashboardControllerAdmin dashboard aggregation + maintenance (e.g. triggerExpiryCheck, expiry cron init)walletControllerStudent wallet display state: visibility/order/credentials listverifierControllerCredential verification + verification logs/stats
 Route fileDepartmentauthRoutes/api/auth/* — login, register, profile, passwordadminRoutes/api/admin/* — admin dashboard actionsissuerRoutes/api/issuer/* — issuer onboarding + dashboardcredentialRoutes/api/credentials/* — credential lifecyclewalletRoutes/api/wallet/* — student wallet UI stateverificationRoutes/api/verify/* — verifier flowssystemRoutes/api/health — diagnostics
 Service layer (couchDB_service.js) holds shared CouchDB access; chaincode (chaincode/index.js) is the on-chain source of truth.
@@ -130,7 +130,7 @@ LogIssuerApproval / LogIssuerRejection / LogIssuerStatusChange
 LogRootSubordinateApproval / LogRootSubordinateRejection
 LogUserStatusChange, LogAdminChangePassword
 LogVerification (verifier scan log)
-Read-side: GetAllStatusLogs, GetAllIssuerDecisionLogs, GetAllRootSubordinateLogs, GetRootSubordinateLogsByRootAuthority, GetAdminPasswordChangeLogs, GetAllVerificationLogs, GetVerificationLogById, etc. Full CLI catalog in docs/Claude Reference - MD Files/Chaincode_-_Query_Commands.md.
+Read-side: GetAllStatusLogs, GetAllIssuerDecisionLogs, GetAllRootSubordinateLogs, GetRootSubordinateLogsByRootAuthority, GetAdminPasswordChangeLogs, GetAllVerificationLogs, GetVerificationLogById, etc. Full CLI catalog in docs/reference/Chaincode - Query Commands.md.
 
 
 
@@ -144,10 +144,10 @@ dlsu@email.com → delasalleuniversity-admin (root, DLSU CouchDB :9084)
 lasallecomputersociety@email.com → delasalleuniversity-subordinate-lasallecomputersociety (:9086)
 ARCHERSNETWORK subordinate → delasalleuniversity-subordinate-archersnetwork (:9085)
 
-Demo credentials in docs/Claude Reference - MD Files/CAP1 Documents to Submit/CAP-2459-IT-WALKTHROUGH.md §3. Plus admins admin1@email.com / admin2@email.com and holder kylejustin.tan7@gmail.com (all pw123).
-A new issuer registration through the UI will NOT be able to issue credentials immediately after admin approval. Approval flips the status, but a working subordinate also requires the 12-phase manual workflow in docs/Claude Reference - MD Files/Final_Design.md (CA register/enroll → MSP NodeOU → wallet import → CouchDB instance → couchdb_connections row). If the API throws Identity <name> not found, that workflow hasn't been run for that account — it is not a code bug. Same for "no CouchDB URL for org" failures: check the couchdb_connections mapping.
+Demo credentials in docs/submission/cap2/manuals/CAP-2459-IT-WALKTHROUGH.md §3. Plus admins admin1@email.com / admin2@email.com and holder kylejustin.tan7@gmail.com (all pw123).
+A new issuer registration through the UI will NOT be able to issue credentials immediately after admin approval. Approval flips the status, but a working subordinate also requires the 12-phase manual workflow in docs/reference/Final Design.md (CA register/enroll → MSP NodeOU → wallet import → CouchDB instance → couchdb_connections row). If the API throws Identity <name> not found, that workflow hasn't been run for that account — it is not a code bug. Same for "no CouchDB URL for org" failures: check the couchdb_connections mapping.
 Predemo / chaincode redeploy procedure
-When you change chaincode/index.js, you must redeploy. The full procedure is in docs/Claude Reference - MD Files/Redeploy_CC_Instructions.md and docs/Claude Reference - MD Files/Predemo_Setup.md; the gist:
+When you change chaincode/index.js, you must redeploy. The full procedure is in docs/deployment/Redeploy CC Instructions.md (VM redeploy = VM manual Appendix C); the gist:
 
 Stop the API (Ctrl+C in the API terminal).
 Re-run the relevant cp commands (when in doubt, do them all).
@@ -164,7 +164,7 @@ Conventions worth knowing
 File-level outline comments at the top of major backend files (couchDB_service.js, sdk-server-fixed.js, controllers, chaincode index.js) list public functions by category. Keep these in sync when adding or renaming exports — the team uses them as a quick-reference index.
 Auth: tokens live in localStorage.token on the client; backend treats absence of Authorization as req.user = null rather than rejecting at middleware. Per-route auth checks live in the controllers.
 Roles: student (holder), issuer (root or subordinate), admin, verifier. Plus the chaincode-level chaincert-admin Fabric identity used by the API for system-level invokes.
-When in doubt about layout: read docs/Claude Reference - MD Files/Directory - Ubuntu.md and docs/Claude Reference - MD Files/DIRECTORY - Windows.md for the authoritative directory tree on each side.
+When in doubt about layout: read docs/reference/Directory - Ubuntu.md and docs/reference/DIRECTORY - Windows.md for the authoritative directory tree on each side.
 
 Phase 4 analytics/reports — SHIPPED June 2026 (tracker S4/IMP7). Adviser Sir Danny directive: end-user-first (Holder → Verifier → Issuer → Admin), processed interpreted insights, not raw tables — every chart has a "what this means" box. Full GATE findings + investigation history in project memory (project-phase4-analytics.md).
 
@@ -186,7 +186,7 @@ CRITICAL architectural facts — do NOT re-investigate:
 Future Work (document in Final Document, tracker D2): issuer-scoped Verification Reach (#6, needs issuer-filtered endpoint), share-link view analytics (needs new logging/chaincode), issuer Trust Tiering (forgery-attribution infeasible per above).
 Demo sparseness: only DLSU + ARCHERSNETWORK + LASALLECOMPUTERSOCIETY provisioned. SEED verifications before any demo (incl. one fake/non-existent ID + one revoked credential) or the verification-based reports render empty. Mockup fake issuers (AWS, Google, Mapúa) must be labeled "illustrative."
 
-CAP2 POST-CONSULTATION UPDATE (July 2026 — Sir Danny July 7 consultation; full record: docs/Claude Reference - MD Files/CAP2 - Post-Consultation Changes & Defense Notes.md). SUPERSEDES parts of the June text above. Shipped (code buckets C1–C17, all frontend + a few READ-ONLY/off-chain backend endpoints — NO chaincode redeploy):
+CAP2 POST-CONSULTATION UPDATE (July 2026 — Sir Danny July 7 consultation; full record: docs/submission/cap2/references/CAP2 - Post-Consultation Changes & Defense Notes.md). SUPERSEDES parts of the June text above. Shipped (code buckets C1–C17, all frontend + a few READ-ONLY/off-chain backend endpoints — NO chaincode redeploy):
 - Terminology: user-facing "template" → "Credential"/"Issued credential"; unissued status displays as "Draft" (internal status value "template" UNCHANGED — filters/CSS/API names untouched).
 - ADMIN analytics tab (STALE — see "CAP2 UAT-ROUND FIXES" below for the current 3-card state: Verification Result Summary / Issuers to Review / Integrity-Check; Approval Queue moved off this tab and Verification Volume was removed entirely).
 - ISSUER "Performance" tab now ALSO has: Verification Reach + "revoked/expired still being checked" (C5/C14, reuses computeHolderVerificationInsights on the issuer's own logs) and Credentials in Circulation (computeCirculationHealth — C13).
@@ -209,7 +209,7 @@ CAP2 UAT-ROUND FIXES (July 2026 — Kai's live-testing pass + a full "so what?" 
 - **B4 rename:** nav label "Verifier Dashboard" → **"Verification Dashboard"** (`navBar_User.js`, `aboutUsPage.js`, `helpPage.js`) — the `/verifier/dashboard` ROUTE is UNCHANGED (renaming it would break the QR/link already baked into every exported credential PDF). Also corrected stale "scan a QR code" copy in those same two marketing/help strings — verification is credential-ID/link based, never camera QR scanning (see the chaincert-doc-format skill's hard constraints).
 - **Bulk PDF verify was fully broken, now fixed:** `verifierDashboard.js`'s `loadPdfjs()` was loading the pdf.js worker as a raw UMD file (`workerSrc = new URL(...)`), which crashed with "require is not defined" the moment anyone tried it. Fixed via `workerPort = new Worker(new URL(...))` so webpack actually compiles the worker. A 404 (non-existent credential) now renders the styled NOT FOUND verdict instead of a generic "Could not verify" error.
 - **Analytics correctness fixes** (`analytics.js`): `computeExpirationAlerts` now uses the same end-of-day-Manila clock as `computeHealth` (previously disagreed near the expiry boundary — donut said Expired while the alert list said "0 days left"); `computeSuspiciousIssuers` flags on the ROUNDED percentage (was flagging on the raw rate while displaying the rounded one, so a row could show "25% — within normal range" against a 25% threshold); `computeIssuance`/`computeRevocationAudit` now bucket by `assignedDate` (actual issuance) instead of `issuedDate` (the TEMPLATE's creation date) — fixes wrong monthly-trend/time-to-revoke numbers.
-- Manuals updated to match (`docs/Claude Reference - MD Files/CAP1 Documents to Submit/`: TECHNICAL-MANUAL.md §10.2/10.3/10.12, USER-MANUAL.md Phases 2/5/6/7/8) and `CAP-2459-IT-UAT-and-Validation-Testing.md` (10 new test-case IDs: H-23/24, I-17–20, V-10/11, A-21/22 — new total 77 test cases).
+- Manuals updated to match (`docs/submission/cap2/manuals/`: TECHNICAL-MANUAL.md §10.2/10.3/10.12, USER-MANUAL.md Phases 2/5/6/7/8) and the UAT testing checklist (10 new test-case IDs: H-23/24, I-17–20, V-10/11, A-21/22 — new total 77 test cases; that standalone UAT-and-Validation doc was later removed, superseded by docs/submission/cap2/uat/).
 - **Deploy note:** backend files touched this batch (cp to ~/chaincert-api): `controllers/{issuerOnboardingController,verifierController,issuerCredentialController}.js`, `routes/issuerRoutes.js`; PLUS `chaincode/index.js` (redeploy — bump `-ccv`, run the configtx-swap dance per `Redeploy_CC_Instructions.md`). Restore the commented-out F01 same-day/past-expiry issuance guard (`issuerCredentialController.js` ~L418-423) before any real demo — it's intentionally disabled for UAT past-expiry testing.
 
 CAP2 UAT-ROUND — UI POLISH + PERF FOLLOW-UP (2026-07-10, 2 batches, both FRONTEND-ONLY — no `cp`, no redeploy). Landed after the 7-batch UAT round + its docs commit above.
@@ -259,7 +259,7 @@ CAP2 FINAL UI/UX REVIEW + PAGINATION (2026-07-12, ALL FRONTEND-ONLY — no `cp`,
 - **Missing filters added** (final-review audit): issuer View-Credentials **Status** filter (`viewAllStatusFilter`, uses `effectiveCredentialStatus` to match badges); admin Verification-Logs **Result** filter + search (`verificationResultFilter`/`verificationLogSearch` → `filteredVerificationLogs`); subordinate search; share-link search; renewal-queue status filter + search; issuer-directory category filter + sort; issuer "My Credentials" grid search/visibility/sort. **Dead code removed:** the `logCategory === "status"` admin log-filter block (never rendered — `"status"` isn't a selectable category).
 - **PDF renewal line:** renewed-credential export shows ONE line `Renewed: N× — first issued <date>` (dropped the duplicate "Current Since" that repeated the Date-Issued value).
 - **TDZ crash fixed:** `issuerDashboardPage.js` `filteredCredentials` was converted from an effect to a `useMemo` (loading-flash fix) but the memo factory called `applySorting` before its `const` initialized → `ReferenceError: Cannot access ... before initialization` (runtime-only; build compiled fine). Fixed by moving the memo below `applySorting`. LESSON: green `npm run build` ≠ runtime-safe for hook/render-order changes — load the page.
-- Docs: **Chapters 5–7 of the Final Document were synchronized to this implementation** — `docs/UAT Results/CHAPTER {5,6,7} - UPDATED.md` (gitignored folder). Ch5 targeted edits (React 19 not 18.2.0; chaincode is JS not Go; Fabric 2.5.14→2.5.16 deployed; **INNOCENCIO→ARCHERSNETWORK**; recipient selected by email/ID not "wallet address"; jsPDF+pdfjs-dist not PDF-lib; added the M5–M9 security measures to 5.6.5). Ch6 preserved the UAT record + added a Post-UAT Status column + a 6.1.4 remediation subsection. Ch7 reframed Immediate/Short-term recs as "Actions Taken Following UAT" + remaining items. Ch5 CA-port contradiction RESOLVED via VM `docker ps` (2026-07-13): certificate-issuance CA ports are **7054 (org1) / 8054 (org2) / 12054 (dlsu) / 9054 (orderer)** — §5.6.2 prose was right; the §5.6.4 table's 17054/18054/19054 were the CAs' operations/metrics listeners (org1 17054, org2 18054, dlsu 17154, orderer 19054) mislabeled as issuance. Table + §5.6.4 prose fixed in `CHAPTER 5 - UPDATED.md`; a §5.5 analytics/reports paragraph was also added (System-4 defense-form reference).
+- Docs: **Chapters 5–7 of the Final Document were synchronized to this implementation** — `docs/submission/cap2/final-document/CHAPTER {5,6,7}.md` (gitignored; these base-named files now hold the corrected content — the earlier "- UPDATED" copies were consolidated into them). Ch5 targeted edits (React 19 not 18.2.0; chaincode is JS not Go; Fabric 2.5.14→2.5.16 deployed; **INNOCENCIO→ARCHERSNETWORK**; recipient selected by email/ID not "wallet address"; jsPDF+pdfjs-dist not PDF-lib; added the M5–M9 security measures to 5.6.5). Ch6 preserved the UAT record + added a Post-UAT Status column + a 6.1.4 remediation subsection. Ch7 reframed Immediate/Short-term recs as "Actions Taken Following UAT" + remaining items. Ch5 CA-port contradiction RESOLVED via VM `docker ps` (2026-07-13): certificate-issuance CA ports are **7054 (org1) / 8054 (org2) / 12054 (dlsu) / 9054 (orderer)** — §5.6.2 prose was right; the §5.6.4 table's 17054/18054/19054 were the CAs' operations/metrics listeners (org1 17054, org2 18054, dlsu 17154, orderer 19054) mislabeled as issuance. Table + §5.6.4 prose fixed in `CHAPTER 5.md`; a §5.5 analytics/reports paragraph was also added (System-4 defense-form reference).
 
 Phase 5 security hardening (implemented June 2026 — these were FIXED; do not re-flag as holes)
 Two batches landed. Per-measure exploit/fix/test detail is in the session handoffs; short version:
@@ -283,7 +283,7 @@ Email delivery + routing (June 2026 — shipped, do NOT re-flag) — mailerServi
 - DEPLOYMENT NOTE: SMTP_OVERRIDE_TO is a DEMO catch-all for the fake issuer/admin addresses. In real deployment, UNSET it — every email then goes to its true recipient and the realRecipient flag becomes a no-op. With it SET, holder/viewer emails still go to real inboxes (the flag bypasses it), so use a real address for the holder account when demoing.
 
 Accepted limitations (still conscious capstone-scope decisions — don't "fix" without explicit ask)
-Rationale per item lives in docs/Claude Reference - MD Files/Defense_Knowledge_-_March_25.md.
+Rationale per item lives in docs/submission/cap1/Defense Knowledge - March 25.md.
 
 JWT in localStorage (XSS-vulnerable) — production would use httpOnly cookies.
 CouchDB creds hardcoded as admin:adminpw across files — Tier 3 / deployment moves these to env (M11).
@@ -298,36 +298,48 @@ Integrity check is one-directional (CouchDB → ledger only). It runs BOTH on-de
 Touch these only when the user explicitly asks to.
 Directory maintenance
 Whenever files or folders are added, removed, or moved in the Windows working copy (CAP-2459-IT-AFTER-RESET/) — including any change I make — remind Kai to update DIRECTORY - Windows.md in BOTH locations:
-- Windows: docs/Claude Reference - MD Files/DIRECTORY - Windows.md
-- Ubuntu: ~/docs/Claude Reference - MD Files/Directory - Windows.md
+- Windows: docs/reference/DIRECTORY - Windows.md
+- Ubuntu: ~/docs/reference/DIRECTORY - Windows.md
 
 Whenever files or folders are added, removed, or moved in the Ubuntu environment (~/) — remind Kai to update Directory - Ubuntu.md in BOTH locations:
-- Ubuntu: ~/docs/Claude Reference - MD Files/Directory - Ubuntu.md
-- Windows: docs/Claude Reference - MD Files/Directory - Ubuntu.md
+- Ubuntu: ~/docs/reference/Directory - Ubuntu.md
+- Windows: docs/reference/Directory - Ubuntu.md
 
 This applies vice-versa: a Windows change requires updating the Ubuntu copy of the Windows directory file, and a Ubuntu change requires updating the Windows copy of the Ubuntu directory file.
 Canonical docs
-The .md files below are the canonical working reference set. The formally submitted CAP1 PDFs live separately in docs/CAP1 Documents to Submit/ — read the .md set here, not those.
-docs/Claude Reference - MD Files/CAP1 Documents to Submit/ (formal CAP1 submission manuals)
+The docs tree was reorganized (2026-07-24) into docs/submission/, docs/reference/, docs/deployment/, and docs/design-reference/. The generic security-review KB moved to repo-root security-checklist/ (not ChainCert-specific). Map below.
 
-CAP-2459-IT-INSTALLATION-MANUAL.md — phased setup; canonical for ports, identities, CouchDB DB names.
-CAP-2459-IT-TECHNICAL-MANUAL.md — API route catalog, dual-write detail, database design.
-CAP-2459-IT-USER-MANUAL.md — role-by-role UX flows, status terminology, troubleshooting.
-CAP-2459-IT-WALKTHROUGH.md — demo accounts, scenario scripts, blockchain CLI verification (Appendix A).
+docs/submission/cap1/ (CAP1 formal record — PDFs + proposal)
 CAP-2459-IT-PROPOSAL.md — original problem statement (Problems #1–#9) and proposal context.
+Defense Knowledge - March 25.md — rationale for every accepted limitation, Q&A style; consult before proposing hardening changes.
+(plus the 5 formal CAP1 PDFs: INSTALLATION / TECHNICAL / USER / WALKTHROUGH manuals + Defense Knowledge.)
 
-docs/Claude Reference - MD Files/ (working / internal docs)
-
-Final_Design.md — governance model, 12-phase subordinate creation workflow, 4-part issuer registration form with prerequisites.
-Defense_Knowledge_-_March_25.md — rationale for every accepted limitation, Q&A style; consult before proposing hardening changes.
-Chaincode_-_Query_Commands.md — full CLI catalog for chaincode functions (GET vs INVOKE).
-Node_Creation_for_DLSU.md — channel config update dance, peer addition, and the "Quick Reference" peer/org switch commands.
-Redeploy_CC_Instructions.md + Predemo_Setup.md — exact configtx swap sequence and DLSU peer login env vars.
-Issuer_Required_Docs_per_Category.md — rationale per required document in backend/issuerRequirements.js.
-Chaincert_Design_Details__1.md — Platform vs Consortium architecture rationale.
+docs/submission/cap2/manuals/ (current .md manuals)
+CAP-2459-IT-INSTALLATION-MANUAL.md — phased LOCAL (WSL) setup; canonical for ports, identities, CouchDB DB names.
 CAP-2459-IT-VM-INSTALLATION-MANUAL.md — THE VM deployment manual (companion to the local Installation Manual): from-scratch Phases 0–15 + Appendix A (gotchas) / B (CCSCloud access, SSH tunnels) / C (day-2 update ops). Fabric 2.5.16, deploy-sync.sh, Nginx+PM2. Follow this for any VM deploy or update.
-CONTROLLER_Files_and_its_Responsibilities.md — canonical controller-placement rules.
-ROUTE_Files_and_its_Responsibilities.md — canonical route-placement rules.
-Copy_Commands.md — full Windows → Ubuntu cp command list.
-Installation_Dependencies.md — full npm/system dependency list per layer.
-DIRECTORY_-_Windows.md — Windows working-copy directory tree.
+CAP-2459-IT-TECHNICAL-MANUAL.md — API route catalog, dual-write detail, database design.
+CAP-2459-IT-USER-MANUAL.md — narrative role-by-role UX flows, status terminology, troubleshooting.
+CAP-2459-IT-USER-MANUAL-FULL.md — UAT Edition: same manual organized by Phase 1–8 (what UAT testers followed).
+CAP-2459-IT-WALKTHROUGH.md — demo accounts, scenario scripts, blockchain CLI verification (Appendix A).
+
+docs/submission/cap2/final-document/ (paper chapters, gitignored) — CHAPTER 5/6/7.md (contain real tester names → stay gitignored).
+docs/submission/cap2/defense-presentation/ — CAP2 - Final Defense Deck (Restructured + Script).md.
+docs/submission/cap2/references/ — CAP2 - Post-Consultation Changes & Defense Notes.md; CAP2 - Post-Defense Fix List & Findings.md.
+docs/submission/cap2/uat/ (gitignored) — CAP2 - UAT Final Report.md, UAT - Forms Contents.md, UAT - Raw Results.md, + 5 feedback buckets (real tester PII).
+
+docs/reference/ (architecture / dev reference)
+Final Design.md — governance model, 12-phase subordinate creation workflow, 4-part issuer registration form with prerequisites.
+Chaincode - Query Commands.md — full CLI catalog for chaincode functions (GET vs INVOKE).
+Issuer Required Docs per Category.md — rationale per required document in backend/issuerRequirements.js.
+Chaincert Design Details #1.md — Platform vs Consortium architecture rationale.
+CONTROLLER Files and its Responsibilities.md — canonical controller-placement rules.
+ROUTE Files and its Responsibilities.md — canonical route-placement rules.
+Installation Dependencies.md — full npm/system dependency list per layer.
+Repository Tree & File Purpose.md — human-readable repo map.
+DIRECTORY - Windows.md / Directory - Ubuntu.md — per-side directory trees.
+
+docs/deployment/ (ops runbooks)
+Node Creation for DLSU.md — channel config update dance, peer addition, and the "Quick Reference" peer/org switch commands.
+Redeploy CC Instructions.md — exact configtx swap sequence and DLSU peer login env vars (LOCAL; VM redeploy = VM manual Appendix C).
+Copy Commands.md — full Windows → Ubuntu cp command list.
+CAP2 - Deployment Manual Addendum (CAP1 Deltas + Groupmate Journey).md — CAP1→CAP2 delta rationale + Docker-29/Fabric-2.5.16 gotchas.

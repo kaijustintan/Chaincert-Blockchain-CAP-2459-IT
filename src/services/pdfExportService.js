@@ -122,7 +122,7 @@ function drawChrome(doc, pageW, exportedOn, caption) {
   doc.setTextColor(...COLORS.barText);
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(7.5);
-  doc.text(`CHAINCERT — Exported on ${exportedOn}`, pageW / 2, PAGE_H - 5.5, { align: 'center' });
+  doc.text(`CHAINCERT · Exported on ${exportedOn}`, pageW / 2, PAGE_H - 5.5, { align: 'center' });
 }
 
 /*
@@ -185,7 +185,7 @@ export async function exportCredentialToPDF(credential, templateDetails) {
   if (Number(credential.renewalCount) > 0) {
     // UAT: one clear line. The current copy's date is already the "Date Issued" row above, so we
     // don't repeat it (that was the confusing duplicate) — just the count + the original date.
-    const orig = credential.originalIssuedDate ? ` — first issued ${formatPhilippineDate(credential.originalIssuedDate)}` : '';
+    const orig = credential.originalIssuedDate ? `, first issued ${formatPhilippineDate(credential.originalIssuedDate)}` : '';
     details.push({ label: 'Renewed', value: `${credential.renewalCount}×${orig}` });
   }
   details.forEach(({ label, value }) => {
@@ -396,7 +396,7 @@ async function drawCredentialRow(doc, cred, { pageW, y, studentName, badgeSize, 
   ];
   if (Number(cred.renewalCount) > 0) {
     // UAT: one clear line — don't repeat the current copy's date (already the "Issued on" row).
-    const orig = cred.originalIssuedDate ? ` — first issued ${formatPhilippineDate(cred.originalIssuedDate)}` : '';
+    const orig = cred.originalIssuedDate ? `, first issued ${formatPhilippineDate(cred.originalIssuedDate)}` : '';
     rows.push(['Renewed:', `${cred.renewalCount}×${orig}`]);
   }
   rows.forEach(([label, val]) => {
@@ -557,7 +557,7 @@ export async function exportAllCredentialsToPDF(credentials, studentName) {
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(7.5);
     doc.setTextColor(...COLORS.muted);
-    doc.text(`CHAINCERT — Exported on ${exportedOn}`, MARGIN, PAGE_H - 6);
+    doc.text(`CHAINCERT · Exported on ${exportedOn}`, MARGIN, PAGE_H - 6);
     doc.text(`Page ${p} of ${total}`, pageW - MARGIN, PAGE_H - 6, { align: 'right' });
   }
 

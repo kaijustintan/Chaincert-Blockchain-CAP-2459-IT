@@ -20,9 +20,9 @@
 - Switch to DLSU Admin, Start its Peer, and Join the Channel
 - DLSU Peer Joins the Chaincert Channel
 - Verify Channel Membership and Install Chaincode
+- Created couch db for dlsu (inside `addDLSU/compose`)
 - Test Credential Issuance as DLSU
 - CREATED CONNECTION PROFILE FOR DLSU MANUALLY
-- Created couch db for dlsu (inside `addDLSU/compose`)
 - Import DLSU Admin into the Backend Wallet
 - Quick Reference: Switching Between Orgs
 
@@ -119,6 +119,8 @@ We're creating a dedicated secure vault for all of DLSU's certificates and keys 
 
 ## 4. Copy Over Configuration and Scripts
 
+> **Note:** Replace `<your-path>` with the actual Windows source path. The full, ready-to-run `cp` commands (with the absolute `/mnt/c/...` paths) are in `Copy Commands.md` — copy them from there instead of hand-editing `<your-path>`.
+
 ```bash
 cp <your-path>/peercfg/core.yaml \
   ~/fabric-samples/fabric-samples/test-network/addDLSU/compose/docker/peercfg/core.yaml
@@ -194,7 +196,7 @@ First, the `curl` command "knocks on the door" of your new CA to ask if it's run
 
 ---
 
-## 7. Register and Enroll DLSU User and Peer
+## 7. Register and Enroll DLSU Admin and Peer
 
 ```bash
 cd ~/fabric-samples/fabric-samples/test-network/addDLSU/fabric-ca
@@ -499,7 +501,7 @@ First, we double-check that DLSU's peer is really part of the channel — like c
 
 ---
 
-## 19. Created CouchDB for DLSU (inside `addDLSU/compose`)
+## 17. Created CouchDB for DLSU (inside `addDLSU/compose`)
 
 ```bash
 docker-compose -f compose-couch-dlsu.yaml up -d couchdb_dlsu
@@ -513,7 +515,7 @@ Database sa CouchDB ng DLSU manually via the site itself.
 
 ---
 
-## 17. Test Credential Issuance as DLSU
+## 18. Test Credential Issuance as DLSU
 
 ```bash
 peer chaincode invoke -o localhost:7050 \
@@ -530,7 +532,7 @@ The final moment: DLSU tries to issue a real credential! If this command works, 
 
 ---
 
-## 18. CREATED CONNECTION PROFILE FOR DLSU MANUALLY
+## 19. CREATED CONNECTION PROFILE FOR DLSU MANUALLY
 
 - Need to kasi this is used to link the fabric identity of the issuer account sa peer node account.
 - And edited such that Org1 always approves of all transactions done by DLSU to satisfy the majority endorsement policy, otherwise the transactions like issuing credentials wont push through — need pa mano mano pirmahan ng mga orgs.

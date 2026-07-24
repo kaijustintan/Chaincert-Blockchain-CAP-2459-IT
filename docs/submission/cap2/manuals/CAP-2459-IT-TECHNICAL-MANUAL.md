@@ -92,7 +92,7 @@ The ChainCert platform follows a multi-layered architecture composed of four pri
 
 ### Frontend Layer
 
-The frontend layer is implemented using React.js and provides the user interface for all system roles, including administrators, issuers, credential holders, and verifiers. The frontend communicates with the backend through RESTful API endpoints.
+The frontend layer is implemented using React (React 19) and provides the user interface for all system roles, including administrators, issuers, credential holders, and verifiers. The frontend communicates with the backend through RESTful API endpoints.
 
 ### Backend API Layer
 
@@ -114,11 +114,21 @@ The core infrastructure components of ChainCert are deployed using Docker contai
 
 > *Figure 1: Full application architecture — React frontend, Express backend, CouchDB instances, and Hyperledger Fabric blockchain.*
 
+### 3.2 Role Dashboard Analytics and Reports
+
+Each role dashboard surfaces interpreted analytics rather than raw tables — every report is accompanied by a plain-language "what this means" summary. The reports are computed client-side from data the dashboard already fetches (credentials, verification logs), using the pure aggregation helpers in `src/components/analytics/` (`analytics.js` plus the `DonutChart`, `TrendBars`, and `InterpretationBox` render helpers). No additional chaincode functions or CouchDB collections were introduced for analytics.
+
+- **Holder** — Credential Health (valid/expiring/expired mix), Renewal Alerts (credentials nearing expiry, with a Request-renewal action), and Verification Insights (trust signal, outcome breakdown, and most-checked credentials).
+- **Issuer** — Issuance Performance (issuance volume over time), Revocation Self-Audit (revocation rate by credential and time-to-revoke), and Verification Reach (how often the issuer's credentials are verified, including revoked/expired credentials still being checked).
+- **Admin** — Verification Result Summary (valid vs invalid outcomes), Issuers to Review (issuers with elevated revocation rates flagged for a closer look), and Integrity-Check Insight (CouchDB vs blockchain reconciliation results).
+
+Verification throughout the platform is performed by credential ID or verification link, never by camera QR scanning.
+
 ---
 
 ## 4. Blockchain Network Architecture
 
-ChainCert uses Hyperledger Fabric as the blockchain infrastructure. Key network components include:
+ChainCert uses Hyperledger Fabric (version 2.5.16) as the blockchain infrastructure. The platform was originally developed on Fabric 2.5.14 during Capstone-1; the deployed build was upgraded to 2.5.16 for compatibility with Docker Engine 29, which broke chaincode builds on 2.5.14. Key network components include:
 
 ### Peer Nodes
 
@@ -152,19 +162,21 @@ The Hyperledger Fabric network in ChainCert is deployed using Docker containers.
 **Ordering Service Container**
 - `orderer.example.com` (port 7050)
 
-**Fabric CA Containers**
+**Fabric CA Containers** — the ports below are the CA certificate-issuance (register/enroll) endpoints.
 - `ca_org1` (port 7054)
 - `ca_org2` (port 8054)
 - `ca_dlsu` (port 12054)
 - `ca_orderer` (port 9054)
 
+> Each CA also exposes a separate operations/metrics listener that is distinct from its issuance port: Org1 CA 17054, Org2 CA 18054, DLSU CA 17154, and Orderer CA 19054. These operations ports are for health/metrics scraping only — they do NOT issue certificates.
+
 **CouchDB Containers**
-- `couchdb0` (Org1 peer state DB)
-- `couchdb1` (Org2 peer state DB)
+- `couchdb0` (Org1 peer state DB — port 5984)
+- `couchdb1` (Org2 peer state DB — port 7984)
 - `couchdb_dlsu` (DLSU peer state DB)
 - `couchdb-admin` (Admin application DB — port 5985)
 - `couchdb_dlsu_issuer` (DLSU issuer DB — port 9084)
-- `couchdb_innocencio` (INNOCENCIO issuer DB — port 9085)
+- `couchdb_archersnetwork` (ARCHERSNETWORK issuer DB — port 9085)
 - `couchdb_lasallecomputersociety` (La Salle Computer Society issuer DB — port 9086)
 
 ### 4.2 Blockchain Network Diagram
@@ -198,7 +210,7 @@ The following diagram contrasts the current platform-managed model (where ChainC
 
 A typical request within the system follows the sequence below.
 
-### Credential Issuance Flow
+### 6.1 Credential Issuance Flow
 
 1. The Issuer interacts with the React frontend dashboard
 2. The frontend sends an HTTP request to the backend API
@@ -257,7 +269,7 @@ Entities such as employers or institutions that verify credential authenticity u
 
 The backend is structured using a controller-based architecture where each controller manages a specific system domain.
 
-**authController** — Handles authentication operations including: user registration, user login, issuer login, and password changes. Authentication uses JWT tokens for API authorization.
+**authController** — Handles authentication operations including: user registration (gated by a signup email-OTP proof token), signup OTP request and confirmation, unified login (resolving user vs issuer server-side in a single request), and password changes. Authentication uses JWT tokens for API authorization.
 
 **accountController** — Handles user account management including: retrieving user information, updating profiles (summary, visibility, username), profile picture uploads, generating credential profile sharing links (public and recipient-specific), OTP-based share link verification, share link revocation, forgot password (OTP via email), and password reset.
 
@@ -273,7 +285,7 @@ The backend is structured using a controller-based architecture where each contr
 
 **rootAuthorityController** — Handles governance operations performed by root authorities including: reviewing subordinate issuer applications, approving subordinate issuers (with blockchain logging and admin notification), rejecting subordinate issuers (with blockchain logging and admin notification), retrieving subordinate issuer lists (all, pending, root-approved, root-rejected, approved, disabled), and retrieving subordinate decision logs from blockchain.
 
-**verifierController** — Implements credential verification logic. Operations include: verifying credential validity (CouchDB + blockchain cross-check), retrieving verification statistics, recording verification events on the blockchain, and retrieving verification logs.
+**verifierController** — Implements credential verification logic. Operations include: verifying credential validity (blockchain first as the source of truth, with CouchDB used for enrichment and as a fallback if the ledger returns no record), retrieving verification statistics, recording verification events on the blockchain (gated by a verifier email-ownership proof token), and retrieving verification logs.
 
 **walletController** — Manages credential holder wallet functionality including: retrieving wallet credentials, updating credential visibility (public/private), updating credential display order, updating issuer template visibility (templates only, not issued credentials), retrieving user notifications, retrieving unread user notifications, and marking notifications as read.
 
@@ -283,10 +295,10 @@ The backend resolves which Fabric wallet identity to use for blockchain transact
 
 - **chaincert-admin** — Used for system-level operations: admin governance actions, credential verification, expiry processing, integrity checks, and any operation initiated by non-issuer roles.
 - **delasalleuniversity-admin** — Used for DLSU root authority credential operations: template creation, credential issuance, and revocation when the acting issuer is DLSU.
-- **delasalleuniversity-subordinate-innocencio** — Used for INNOCENCIO subordinate credential operations.
+- **delasalleuniversity-subordinate-archersnetwork** — Used for ARCHERSNETWORK subordinate credential operations.
 - **delasalleuniversity-subordinate-lasallecomputersociety** — Used for La Salle Computer Society subordinate credential operations.
 
-The identity is resolved by looking up the approved issuer record in CouchDB (which contains `fabricIdentity` and `orgMSP` fields) and passing those to the `getContractAndGateway` helper function in `sdk-server-fixed.js`, which loads the corresponding wallet identity and establishes a Fabric gateway connection.
+For issuer operations, the controller reads the acting issuer's approved CouchDB record, which stores the assigned wallet label in `fabricIdentity` and the organization in `orgName`, and passes both to the `getContractAndGateway(identityName, orgName)` helper in `sdk-server-fixed.js`. The helper selects the correct Fabric connection profile by matching the organization (the DLSU connection profile for a DLSU entity, the Org1 connection profile otherwise), loads the named wallet identity, and opens a Fabric gateway on `chaincert-channel`. System-level operations pass the fixed `chaincert-admin` identity directly. The subordinate and root identity labels are assigned at approval time (`<org>-admin` for a root authority, `<rootAuthority>-subordinate-<org>` for a subordinate) and then stored in the issuer's `fabricIdentity` field, so they are derived values rather than a hardcoded mapping.
 
 ### 8.2 Issuer Document Requirements by Category
 
@@ -353,8 +365,11 @@ The backend exposes a collection of RESTful API endpoints grouped by domain.
 
 | Endpoint | Description |
 |---|---|
-| `POST /api/auth/register` | Register a new user |
-| `POST /api/auth/login` | User login |
+| `POST /api/auth/register` | Register a new user (requires a `signup_email_proof` token from the signup OTP flow) |
+| `POST /api/auth/check-email` | Email-availability probe for the registration wizard |
+| `POST /api/auth/signup/request-otp` | Email a signup OTP to verify a new account's email (public) |
+| `POST /api/auth/signup/confirm-otp` | Confirm the signup OTP and return a `signup_email_proof` token (public) |
+| `POST /api/auth/login` | Unified login (resolves user vs issuer server-side in one request) |
 | `POST /api/auth/change-password` | Update user password |
 | `GET /api/auth/user/:id` | Retrieve user profile |
 | `GET /api/auth/users` | List users |
@@ -376,14 +391,22 @@ The backend exposes a collection of RESTful API endpoints grouped by domain.
 | Endpoint | Description |
 |---|---|
 | `POST /api/issuer/register` | Submit issuer registration |
-| `POST /api/issuer/login` | Issuer login |
+| `POST /api/issuer/login` | Issuer login (alias of the unified `/api/auth/login`) |
 | `GET /api/issuer/issuer-requirements/:category` | Retrieve document requirements |
-| `GET /api/issuer/:issuerId/documents` | Retrieve issuer documents |
-| `GET /api/issuer/:issuerId/documents/:name` | View/download issuer document |
+| `GET /api/issuer/root-authorities` | Public list of approved root authorities (registration form) |
+| `GET /api/issuer/directory` | Public issuer directory with credibility aggregates |
+| `GET /api/issuer/issuer/:issuerId/documents` | Retrieve issuer documents |
+| `GET /api/issuer/issuer/:issuerId/documents/:attachmentName` | View/download issuer document |
 | `GET /api/issuer/issuer/templates/exists` | Check if issuer has templates |
-| `GET /api/issuer/:issuerId/credentials` | Get issuer credentials (dashboard) |
+| `GET /api/issuer/issuer/:issuerId/credentials` | Get issuer credentials (dashboard) |
 | `GET /api/issuer/issuer/templates/:templateId/eligible-users` | Get eligible users for template |
 | `GET /api/issuer/credentials/history` | Get credential history (blockchain) |
+| `GET /api/issuer/my-verifications` | Issuer's own Verification Reach (server-side filtered by issuer ID) |
+| `GET /api/issuer/renewal-requests` | Get this issuer's renewal-request queue |
+| `PATCH /api/issuer/renewal-requests/:requestId/decision` | Approve/decline a renewal request (logged on-chain) |
+| `GET /api/issuer/notifications` | Get this issuer's in-app notifications |
+| `GET /api/issuer/notifications/unread` | Get unread issuer notifications |
+| `PATCH /api/issuer/notifications/:notificationId/read` | Mark issuer notification as read |
 | `POST /api/issuer/credentials/create` | Create credential template |
 
 ### Credential Routes — Base path: `/api/credentials`
@@ -396,8 +419,10 @@ The backend exposes a collection of RESTful API endpoints grouped by domain.
 | `GET /api/credentials/:id/history` | Get blockchain history of credential |
 | `POST /api/credentials/:credentialId/issue` | Issue credential to holder |
 | `POST /api/credentials/:credentialId/revoke` | Revoke credential |
-| `GET /api/credentials/:credentialId/verify` | Verify credential |
-| `POST /api/credentials/:credentialId/log-verification` | Write verification log on-chain |
+| `POST /api/credentials/verify/request-otp` | Verifier email OTP — send code (proves email before logging) |
+| `POST /api/credentials/verify/confirm-otp` | Verifier email OTP — confirm code, return proof token |
+| `GET /api/credentials/:credentialId/verify` | Verify credential by ID (public, read-only) |
+| `POST /api/credentials/:credentialId/log-verification` | Write verification log on-chain (requires verifier proof token) |
 
 ### Admin Routes — Base path: `/api/admin`
 
@@ -450,11 +475,16 @@ The backend exposes a collection of RESTful API endpoints grouped by domain.
 | `GET /api/admin/root/subordinate-logs/approved` | Root: own approval logs |
 | `GET /api/admin/root/subordinate-logs/rejected` | Root: own rejection logs |
 
+> The admin router also exposes three backward-compatible aliases of the endpoints above: `POST /api/admin/trigger-integrity-check` (alias of `/integrity-check`), `GET /api/admin/status-logs/issuers/:issuerEmail`, and `GET /api/admin/status-logs/users/:userEmail`.
+
 ### Wallet Routes — Base path: `/api/wallet`
 
 | Endpoint | Description |
 |---|---|
 | `GET /api/wallet/credentials/:holderID` | Retrieve wallet credentials |
+| `GET /api/wallet/my-verifications` | Holder's own verification logs (server-side filtered, no IDOR) |
+| `POST /api/wallet/renewal-requests` | Request renewal of one of the holder's credentials |
+| `GET /api/wallet/renewal-requests` | Get the holder's own renewal requests |
 | `PATCH /api/wallet/visibility/:credentialId` | Update credential visibility |
 | `PATCH /api/wallet/order/:credentialId` | Update credential display order |
 | `PATCH /api/wallet/issuer-template-visibility/:id` | Update issuer template visibility |
@@ -496,8 +526,8 @@ The ChainCert platform uses a Hyperledger Fabric smart contract implemented in `
 ### 10.3 Issued Credential Lifecycle
 
 - **IssueCredential** — Issues a credential instance to a specific holder based on an existing template. The issued credential explicitly stores `templateId`, `holderID`, issuer details, metadata, skills, issuance timestamp, and optional expiry date. Inherits the template's `renewable` flag, and accepts an optional `renewedFrom` argument — the ID of the predecessor credential when this issuance is a renewal re-issue, forming a lineage chain the wallet UI uses to show a "Renewed N×" indicator.
-- **RevokeCredential** — Marks an issued credential as revoked. Updates status to revoked, records a deterministic `revokedAt` timestamp, and stores an optional rejection reason.
-- **ExpireCredential** — Marks a credential as expired on-chain. Called by the backend expiry process when the credential's expiry date has passed.
+- **RevokeCredential** — Marks an issued credential as revoked. Updates status to revoked, records a deterministic `revokedAt` timestamp, and stores an optional rejection reason. The call is rejected if the credential is already revoked or already expired (including a credential that is past its end-of-day Manila expiry).
+- **ExpireCredential** — Marks a credential as expired on-chain. Called by the backend expiry process when the credential's expiry date has passed. The call is rejected if the credential is already revoked or already expired.
 
 ### 10.4 Credential Retrieval and Verification
 
@@ -578,7 +608,7 @@ The lifecycle of a credential consists of several stages.
 
 **Credential Expiration** — Expired credentials are automatically processed by the midnight cron job (and can be manually triggered by admin). CouchDB is updated first, then blockchain is logged.
 
-**Credential Verification** — Third parties may verify credentials using credential IDs via the verification interface. Verification checks both CouchDB and blockchain, and the result is logged on-chain.
+**Credential Verification** — Third parties may verify credentials using credential IDs via the verification interface. Verification queries the blockchain first as the source of truth, using CouchDB for enrichment or as a fallback, and the result is logged on-chain.
 
 ### 11.1 Dual-Write Architecture Pattern
 
@@ -586,7 +616,7 @@ All credential lifecycle operations (template creation, issuance, revocation, ex
 
 For credential issuance specifically, the CouchDB write involves multiple sequential operations: saving to the issuer's CouchDB (`issued_credentials`), saving to the admin CouchDB (`wallet_user_credentials`), and creating a holder notification (`user_notifications`). These are not wrapped in a multi-database transaction because CouchDB does not support cross-database transactions.
 
-### Section 11.1: Adding Fabric Identities Under an Existing Organization
+### 11.2 Adding Fabric Identities Under an Existing Organization
 
 When multiple issuer accounts need to operate under the same organization node (e.g., multiple subordinate issuers under DLSU), each account requires its own Fabric identity. This involves two steps: registering and enrolling the identity in the organization's Certificate Authority, then importing it into the application wallet.
 
@@ -696,6 +726,7 @@ This instance contains the following databases:
 - **couchdb_connections** — Stores connection metadata mapping issuer orgNames to their CouchDB URLs for dynamic database resolution.
 - **profile_share_links** — Stores generated profile-sharing tokens, recipient email info, expiration settings, OTP fields, view counts, and active/revoked states.
 - **wallet_user_credentials** — Stores wallet-facing off-chain copies of credentials assigned to holders. Supports dashboard rendering, wallet views, credential visibility settings, ordering preferences, and integrity checking.
+- **admin_audit_logs** — Stores off-chain administrative action audit records (for example, admin password-change metadata) written on the main instance alongside the on-chain audit log.
 
 ### 12.2 Issuer CouchDB Instances
 
@@ -704,7 +735,7 @@ Each approved issuer organization receives its own dedicated CouchDB instance:
 | Issuer | Port | Role |
 |---|---|---|
 | DLSU (De La Salle University) | 9084 | Root authority issuer |
-| INNOCENCIO | 9085 | Subordinate issuer |
+| ARCHERSNETWORK | 9085 | Subordinate issuer |
 | La Salle Computer Society | 9086 | Subordinate issuer |
 
 Each issuer instance contains the following databases:
@@ -731,6 +762,31 @@ Security mechanisms include:
 - **Audit Logging** — All major governance actions (issuer approval/rejection, user enable/disable, subordinate decisions, admin password changes, credential verifications) are recorded on the blockchain.
 - **Email Validation** — Email validation uses regex on registration to prevent invalid email addresses.
 
+### 13.1 Environment Configuration
+
+The backend reads its configuration from `~/chaincert-api/.env`, which is not committed to version control.
+
+| Variable | Required | Purpose |
+|---|---|---|
+| `JWT_SECRET` | Yes | Signing secret for JWT authentication. The server refuses to start if it is unset — there is no fallback secret. |
+| `CORS_ORIGIN` | No | Allowed frontend origin (default `http://localhost:3000`). |
+| `FRONTEND_URL` | No | Public site base used to build emailed profile-share links (default `http://localhost:3000`). |
+| `COUCHDB_URL` | No | Connection string for the admin CouchDB instance (default `http://admin:adminpw@localhost:5985`). |
+| `SMTP_USER` | No | Email account used to send OTP and notification emails. |
+| `SMTP_APP_PASSWORD` | No | Application password for the SMTP account. |
+| `SMTP_OVERRIDE_TO` | No | Demo catch-all recipient for test issuer/admin addresses; left unset in production. |
+| `DISABLE_RATE_LIMIT` | No | Testing toggle that bypasses auth rate limiting. Must be unset for production. |
+| `DISABLE_PASSWORD_POLICY` | No | Testing toggle that bypasses the password-strength policy. Must be unset for production. |
+| `DISABLE_SIGNUP_OTP` | No | Testing toggle that bypasses the signup email-OTP gate. Must be unset for production. |
+| `DISABLE_ISSUER_TOGGLE` | No | Testing toggle that freezes issuer enable/disable actions. Must be unset for production. |
+
+The React frontend reads two build-time variables, baked into the bundle at `npm run build`:
+
+| Variable | Purpose |
+|---|---|
+| `REACT_APP_API_URL` | Backend API base URL (default `http://localhost:4000/api`). |
+| `REACT_APP_FRONTEND_URL` | Public site base used for the verification link in exported credential PDFs (default `http://localhost:3000`). |
+
 ---
 
 ## 14. System Directory Structure
@@ -746,7 +802,7 @@ The ChainCert deployment environment is organized across backend, chaincode, and
 | `~/chaincert-api/controllers/` | Backend business logic controllers (authController, accountController, issuerOnboardingController, issuerCredentialController, adminIssuerController, adminAuditController, adminDashboardController, rootAuthorityController, verifierController, walletController). |
 | `~/chaincert-api/routes/` | REST API route definitions (authRoutes, adminRoutes, issuerRoutes, credentialRoutes, walletRoutes, verificationRoutes, systemRoutes). |
 | `~/chaincert-api/config/` | Backend configuration files (issuerRequirements.js). |
-| `~/chaincert-api/wallet/` | Enrolled Fabric wallet identities (chaincert-admin, delasalleuniversity-admin, delasalleuniversity-subordinate-innocencio, delasalleuniversity-subordinate-lasallecomputersociety). |
+| `~/chaincert-api/wallet/` | Enrolled Fabric wallet identities (chaincert-admin, delasalleuniversity-admin, delasalleuniversity-subordinate-archersnetwork, delasalleuniversity-subordinate-lasallecomputersociety). |
 | `~/chaincert-chaincode/` | Hyperledger Fabric smart contract source (index.js, package.json). |
 | `~/fabric-samples/.../test-network/` | Main Hyperledger Fabric test-network directory. |
 | `~/fabric-samples/.../test-network/addDLSU/` | DLSU organization onboarding assets (connection profiles, CA scripts, Docker Compose files). |
@@ -758,7 +814,7 @@ The ChainCert deployment environment is organized across backend, chaincode, and
 
 **Directory Structure Notes** — The structure reflects three major deployment domains: Application Layer (backend API + chaincode), Blockchain Network Layer (Fabric test network, org assets, channel artifacts, scripts, crypto materials), and Identity/Configuration Layer (wallet identities, MSP directories, TLS certificates, Fabric CA records, connection profiles).
 
-### Section 14.1: Backend Dependencies
+### 14.1 Backend Dependencies
 
 The ChainCert backend requires the following npm packages, installed via `npm install` in the `~/chaincert-api` directory.
 
@@ -769,6 +825,7 @@ The ChainCert backend requires the following npm packages, installed via `npm in
 | dotenv | Loads environment variables from .env configuration file |
 | bcryptjs | Secure password hashing using bcrypt (10 rounds) |
 | jsonwebtoken | JWT token generation and verification for API authentication |
+| helmet | Sets security-related HTTP response headers on API responses |
 | multer | Handles multipart file uploads (issuer document submissions) |
 | nodemailer | Email delivery for OTP codes (forgot password, share link verification) |
 | node-cron | Scheduled job execution (midnight credential expiry check) |
@@ -781,8 +838,16 @@ The ChainCert backend requires the following npm packages, installed via `npm in
 
 | Package | Purpose |
 |---|---|
+| react / react-dom | Core UI library (React 19) |
+| react-router-dom | Client-side routing across all role dashboards |
+| axios | HTTP client for backend API calls (via `axiosInstance.js`) |
+| recharts | Charting library for the dashboard analytics and reports |
+| framer-motion | Page-transition animations |
+| lucide-react | Icon set used throughout the interface |
 | jspdf | Generates downloadable PDF files for credential export |
 | qrcode | Generates QR codes embedded in exported credential PDFs |
+| pdfjs-dist | Parses uploaded credential PDFs for bulk verification |
+| dompurify | Sanitizes user-supplied text before rendering |
 
 **Chaincode Dependencies** (installed in `~/chaincert-chaincode`):
 
@@ -830,7 +895,7 @@ The following are known limitations, trade-offs, and areas for improvement that 
 ### Data & Operations
 
 - Dual-write pattern with no multi-database transaction support — partial failures handled by warnings, not automatic rollback.
-- Credential expiry has a timing gap — credentials remain 'valid' on blockchain until the cron job or admin manual trigger runs. No real-time expiry check in VerifyCredential chaincode.
+- Credential expiry IS re-checked in real time at verification: `VerifyCredential` compares against end-of-day Manila (+08:00), so a past-expiry credential reads EXPIRED immediately without waiting for any job. The remaining timing gap is only in the persisted `status` field: a credential's stored status stays 'valid'/'issued' on the blockchain until the daily expiry cron (or an admin manual trigger) flips it to 'expired' for dashboards and list views.
 - No notification on credential expiry — holder's credential silently becomes expired.
 - Duplicate prevention relies on CouchDB, not blockchain-level check — partial write failure could allow duplicate issuance.
 - Credential IDs use `Date.now() + Math.random()` — not cryptographically secure, but ID is not a security token.
@@ -875,7 +940,7 @@ CouchDB is separated per organization:
 
 - Port 5985 → Admin/global data (users, issuers, notifications, wallet credentials, share links)
 - Port 9084 → DLSU root authority issuer data
-- Port 9085 → INNOCENCIO subordinate issuer data
+- Port 9085 → ARCHERSNETWORK subordinate issuer data
 - Port 9086 → La Salle Computer Society subordinate issuer data
 
 This ensures data isolation, organization-level separation, and security boundary enforcement.
@@ -913,10 +978,10 @@ The system follows a hybrid architecture.
 ### 18.2 Credential Verification
 
 1. Verifier inputs credential ID
-2. Backend checks CouchDB (`wallet_user_credentials`) for fast lookup
-3. Blockchain verification executed via `VerifyCredential` chaincode
+2. Backend executes blockchain verification via `VerifyCredential` chaincode (the source of truth)
+3. CouchDB (`wallet_user_credentials`) is used to enrich the result, and as a fallback if the ledger returns no record
 4. Result computed (valid/revoked/expired with reason)
-5. Verification log recorded on-chain via `LogVerification`
+5. Verification log recorded on-chain via `LogVerification` (requires a verifier email-proof token)
 
 ### 18.3 Issuer Onboarding
 
@@ -1384,7 +1449,7 @@ peer chaincode query -C chaincert-channel -n chaincert \
 
 Expected Output:
 ```json
-[{"type":"root_subordinate_approval","orgName":"INNOCENCIO",...},{"type":"root_subordinate_approval","orgName":"La Salle Computer Society",...}, ...]
+[{"type":"root_subordinate_approval","orgName":"ARCHERSNETWORK",...},{"type":"root_subordinate_approval","orgName":"La Salle Computer Society",...}, ...]
 ```
 
 #### A.2.21 Get All Root Subordinate Approval Logs
@@ -1396,7 +1461,7 @@ peer chaincode query -C chaincert-channel -n chaincert \
 
 Expected Output:
 ```json
-[{"type":"root_subordinate_approval","orgName":"INNOCENCIO",...}, ...]
+[{"type":"root_subordinate_approval","orgName":"ARCHERSNETWORK",...}, ...]
 ```
 
 #### A.2.22 Get All Root Subordinate Rejection Logs
@@ -1425,7 +1490,7 @@ peer chaincode query -C chaincert-channel -n chaincert \
 
 Expected Output:
 ```json
-[{"rootAuthorityId":"issuer_dlsu_admin_com_1710000000000","orgName":"INNOCENCIO","type":"root_subordinate_approval",...}, ...]
+[{"rootAuthorityId":"issuer_dlsu_admin_com_1710000000000","orgName":"ARCHERSNETWORK","type":"root_subordinate_approval",...}, ...]
 ```
 
 #### A.2.24 Get Root Sub Approval Logs by Root Authority
@@ -1479,6 +1544,19 @@ Expected Output:
 [{"adminEmail":"admin@email.com","changeType":"password_change","timestamp":"2026-03-20T15:00:00Z","txId":"abc123..."}, ...]
 ```
 
+#### A.2.27 Get Renewal Decision Logs
+
+```bash
+# Template (no arguments)
+peer chaincode query -C chaincert-channel -n chaincert \
+ -c '{"Args":["GetRenewalDecisionLogs"]}'
+```
+
+Expected Output:
+```json
+[{"type":"renewal_decision","requestId":"renewal_1710000000000_abc","holderID":"abc123def456ghi789","issuerID":"issuer_dlsu_admin_com_1710000000000","decision":"approved","oldCredentialId":"cred_old_id","newCredentialId":"cred_new_id","timestamp":"2026-03-20T16:00:00Z","txId":"abc123..."}, ...]
+```
+
 ### A.3 CREATE Operations (Write / Invoke)
 
 > All invoke commands share the same orderer/peer flag pattern. The `${ORDERER_CA}`, `${ORG1_PEER_TLS}`, and `${DLSU_PEER_TLS}` variables are set in the Prerequisites section.
@@ -1492,7 +1570,7 @@ peer chaincode invoke -o localhost:7050 \
  -C chaincert-channel -n chaincert \
  --peerAddresses localhost:7051 --tlsRootCertFiles "${ORG1_PEER_TLS}" \
  --peerAddresses localhost:12051 --tlsRootCertFiles "${DLSU_PEER_TLS}" \
- -c '{"Args":["CreateCredentialTemplate","TEMPLATE_ID","ISSUER_ID","CREDENTIAL_TYPE","CREDENTIAL_NAME","DESCRIPTION","METADATA_JSON","SKILLS_JSON"]}'
+ -c '{"Args":["CreateCredentialTemplate","TEMPLATE_ID","ISSUER_ID","CREDENTIAL_TYPE","CREDENTIAL_NAME","DESCRIPTION","METADATA_JSON","SKILLS_JSON","RENEWABLE"]}'
 ```
 
 Actual example:
@@ -1503,12 +1581,14 @@ peer chaincode invoke -o localhost:7050 \
  -C chaincert-channel -n chaincert \
  --peerAddresses localhost:7051 --tlsRootCertFiles "${ORG1_PEER_TLS}" \
  --peerAddresses localhost:12051 --tlsRootCertFiles "${DLSU_PEER_TLS}" \
- -c '{"Args":["CreateCredentialTemplate","cred_1710000000000_abc123def","issuer_dlsu_admin_com_1710000000000","Academic","Bachelor of Science in IT","4-year degree program","{}","[\"Programming\",\"Database Management\"]"]}'
+ -c '{"Args":["CreateCredentialTemplate","cred_1710000000000_abc123def","issuer_dlsu_admin_com_1710000000000","Academic","Bachelor of Science in IT","4-year degree program","{}","[\"Programming\",\"Database Management\"]","true"]}'
 ```
+
+> `RENEWABLE` is an optional trailing argument (D5). It defaults to renewable unless the string `"false"` is passed; templates created before this field was added read as renewable.
 
 Expected Output:
 ```json
-{"id":"cred_1710000000000_abc123def","issuerID":"issuer_dlsu_admin_com_1710000000000","credentialType":"Academic","credentialName":"Bachelor of Science in IT","status":"active","isTemplate":true,"issuedDate":"2026-03-01T10:00:00Z"}
+{"id":"cred_1710000000000_abc123def","issuerID":"issuer_dlsu_admin_com_1710000000000","credentialType":"Academic","credentialName":"Bachelor of Science in IT","status":"active","isTemplate":true,"renewable":true,"issuedDate":"2026-03-01T10:00:00Z"}
 ```
 
 #### A.3.2 Issue Credential
@@ -1520,17 +1600,19 @@ peer chaincode invoke -o localhost:7050 \
  -C chaincert-channel -n chaincert \
  --peerAddresses localhost:7051 --tlsRootCertFiles "${ORG1_PEER_TLS}" \
  --peerAddresses localhost:12051 --tlsRootCertFiles "${DLSU_PEER_TLS}" \
- -c '{"Args":["IssueCredential","TEMPLATE_ID","HOLDER_ID","EXPIRY_DATE"]}'
+ -c '{"Args":["IssueCredential","TEMPLATE_ID","HOLDER_ID","EXPIRY_DATE","RENEWED_FROM"]}'
 ```
 
 Actual example:
 ```bash
-... -c '{"Args":["IssueCredential","cred_1710000000000_abc123def","abc123def456ghi789","2027-03-01T00:00:00Z"]}'
+... -c '{"Args":["IssueCredential","cred_1710000000000_abc123def","abc123def456ghi789","2027-03-01T00:00:00Z",""]}'
 ```
+
+> `RENEWED_FROM` is an optional trailing argument (D2). For a fresh issuance leave it empty (`""`); on a renewal re-issue pass the predecessor credential ID to record the old→new lineage. The issued credential also inherits its template's `renewable` flag.
 
 Expected Output:
 ```json
-{"id":"cred_1710000000000_abc123def_abc123def456ghi789_1710000100000","templateId":"cred_1710000000000_abc123def","holderID":"abc123def456ghi789","status":"issued","expiryDate":"2027-03-01T00:00:00Z"}
+{"id":"cred_1710000000000_abc123def_abc123def456ghi789_1710000100000","templateId":"cred_1710000000000_abc123def","holderID":"abc123def456ghi789","status":"issued","expiryDate":"2027-03-01T00:00:00Z","renewedFrom":"","renewable":true}
 ```
 
 #### A.3.3 Revoke Credential
@@ -1624,13 +1706,15 @@ Expected Output:
 #### A.3.9 Log Issuer Approval
 
 ```bash
-... -c '{"Args":["LogIssuerApproval","ISSUER_ID","ISSUER_EMAIL","ORG_NAME","REASON"]}'
+... -c '{"Args":["LogIssuerApproval","ISSUER_ID","ISSUER_EMAIL","ORG_NAME","REASON","ADMIN_EMAIL"]}'
 ```
 
 Actual example:
 ```bash
-... -c '{"Args":["LogIssuerApproval","issuer_dlsu_admin_com_1710000000000","dlsu@email.com","De La Salle University","Complete documentation"]}'
+... -c '{"Args":["LogIssuerApproval","issuer_dlsu_admin_com_1710000000000","dlsu@email.com","De La Salle University","Complete documentation","admin@email.com"]}'
 ```
+
+> `ADMIN_EMAIL` (the approving administrator) is a required 5th argument; the invoke throws if it is omitted.
 
 Expected Output:
 ```json
@@ -1640,13 +1724,15 @@ Expected Output:
 #### A.3.10 Log Issuer Rejection
 
 ```bash
-... -c '{"Args":["LogIssuerRejection","ISSUER_ID","ISSUER_EMAIL","ORG_NAME","REASON"]}'
+... -c '{"Args":["LogIssuerRejection","ISSUER_ID","ISSUER_EMAIL","ORG_NAME","REASON","ADMIN_EMAIL"]}'
 ```
 
 Actual example:
 ```bash
-... -c '{"Args":["LogIssuerRejection","issuer_fake_org_com_1710000000000","fake@org.com","Fake Org","Incomplete documentation"]}'
+... -c '{"Args":["LogIssuerRejection","issuer_fake_org_com_1710000000000","fake@org.com","Fake Org","Incomplete documentation","admin@email.com"]}'
 ```
+
+> `ADMIN_EMAIL` (the rejecting administrator) is a required 5th argument; the invoke throws if it is omitted.
 
 Expected Output:
 ```json
@@ -1661,12 +1747,12 @@ Expected Output:
 
 Actual example:
 ```bash
-... -c '{"Args":["LogRootSubordinateApproval","issuer_innocencio_1710000000000","innocencio@dlsu.edu.ph","INNOCENCIO","issuer_dlsu_admin_com_1710000000000","De La Salle University","Verified department"]}'
+... -c '{"Args":["LogRootSubordinateApproval","issuer_archersnetwork_1710000000000","archersnetwork@dlsu.edu.ph","ARCHERSNETWORK","issuer_dlsu_admin_com_1710000000000","De La Salle University","Verified department"]}'
 ```
 
 Expected Output:
 ```json
-{"type":"root_subordinate_approval","orgName":"INNOCENCIO","rootAuthorityName":"De La Salle University","reason":"Verified department"}
+{"type":"root_subordinate_approval","orgName":"ARCHERSNETWORK","rootAuthorityName":"De La Salle University","reason":"Verified department"}
 ```
 
 #### A.3.12 Log Root Subordinate Rejection
@@ -1688,18 +1774,38 @@ Expected Output:
 #### A.3.13 Log Admin Password Change
 
 ```bash
-... -c '{"Args":["LogAdminChangePassword","ADMIN_EMAIL","CHANGE_TYPE","REASON"]}'
+... -c '{"Args":["LogAdminChangePassword","ADMIN_EMAIL","CHANGE_TYPE","REASON","ACTING_ADMIN_EMAIL"]}'
 ```
 
 Actual example:
 ```bash
-... -c '{"Args":["LogAdminChangePassword","admin@email.com","password_change","Routine security update"]}'
+... -c '{"Args":["LogAdminChangePassword","admin@email.com","password_change","Routine security update","admin@email.com"]}'
 ```
+
+> `CHANGE_TYPE` and `ACTING_ADMIN_EMAIL` are required; `REASON` is optional. `ACTING_ADMIN_EMAIL` records which administrator performed the change.
 
 Expected Output:
 ```json
 {"type":"admin_password_change","adminEmail":"admin@email.com","changeType":"password_change","timestamp":"2026-03-20T15:00:00Z"}
 ```
+
+#### A.3.14 Log Renewal Decision
+
+```bash
+... -c '{"Args":["LogRenewalDecision","REQUEST_ID","HOLDER_ID","ISSUER_ID","DECISION","REASON","OLD_CREDENTIAL_ID","NEW_CREDENTIAL_ID"]}'
+```
+
+Actual example:
+```bash
+... -c '{"Args":["LogRenewalDecision","renewal_1710000000000_abc","abc123def456ghi789","issuer_dlsu_admin_com_1710000000000","approved","","cred_old_id","cred_new_id"]}'
+```
+
+Expected Output:
+```json
+{"type":"renewal_decision","requestId":"renewal_1710000000000_abc","holderID":"abc123def456ghi789","issuerID":"issuer_dlsu_admin_com_1710000000000","decision":"approved","oldCredentialId":"cred_old_id","newCredentialId":"cred_new_id","timestamp":"2026-03-20T16:00:00Z"}
+```
+
+> On a decline, pass `"declined"` with a `REASON` and leave `OLD_CREDENTIAL_ID`/`NEW_CREDENTIAL_ID` empty. This log is the only on-chain record of a decline. On approval, the re-issue is a separate `IssueCredential` transaction and the two credential IDs record the lineage.
 
 ---
 
@@ -1716,7 +1822,7 @@ chaincert-api/
  .env
  enrollChaincertAdmin.js
  setup_Wallet_DLSU.js
- setup_Wallet_DLSU_Subordinate_INNOCENCIO.js
+ setup_Wallet_DLSU_Subordinate_ARCHERSNETWORK.js
  setup_Wallet_DLSU_Subordinate_LASALLECOMPUTERSOCIETY.js
  controllers/
   authController.js
@@ -1742,7 +1848,7 @@ chaincert-api/
  wallet/
   chaincert-admin.id
   delasalleuniversity-admin.id
-  delasalleuniversity-subordinate-innocencio.id
+  delasalleuniversity-subordinate-archersnetwork.id
   delasalleuniversity-subordinate-lasallecomputersociety.id
 ```
 

@@ -3,9 +3,12 @@ description: Plan and walk through a new ChainCert feature across the full data 
 argument-hint: [short description of the feature to add]
 ---
 
+## Role
+You are a senior full-stack engineer who knows ChainCert's layered data flow cold (chaincode, CouchDB, controller, route, apiService, frontend). You plan the whole path before writing a line, and you refuse to quietly skip a layer just because the backend was the focus.
+
 ## Context
-@docs/Claude Reference - MD Files/CONTROLLER Files and its Responsibilities.md
-@docs/Claude Reference - MD Files/ROUTE Files and its Responsibilities.md
+@docs/reference/CONTROLLER Files and its Responsibilities.md
+@docs/reference/ROUTE Files and its Responsibilities.md
 @CLAUDE.md
 
 ## Task

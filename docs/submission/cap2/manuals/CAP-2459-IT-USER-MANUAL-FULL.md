@@ -15,7 +15,7 @@ ChainCert issues, manages, and verifies digital credentials on a blockchain, so 
 - How to Use This Manual
 - Before You Start
 - Phase 1 — Register & Log In (Holder)
-- Phase 2 — Create Template & Issue Credential (Issuer)
+- Phase 2 — Create & Issue Credential (Issuer)
 - Phase 3 — Receive & View Credential (Holder)
 - Phase 4 — Verify the Credential (Verifier)
 - Phase 5 — Revoke, Expire, Not-Found (Issuer + Verifier)
@@ -51,10 +51,12 @@ Everyone tests against the same shared environment, so you may see data created 
 | Role | Login | Password |
 |---|---|---|
 | Credential Holder | *register your own* | *you choose* |
-| Issuer — De La Salle University (root) | dlsu@email.com | Dlsu12345! |
-| Issuer — La Salle Computer Society (subordinate) | lasallecomputersociety@email.com | pw123 |
-| Administrator | admin@email.com *(also admin2@email.com)* | pw123 |
+| Issuer — De La Salle University (root) | dlsu@email.com | *(provided separately)* |
+| Issuer — La Salle Computer Society (subordinate) | lasallecomputersociety@email.com | *(provided separately)* |
+| Administrator | admin@email.com *(also admin2@email.com)* | *(provided separately)* |
 | Verifier | *no login — enter your name + real email* | — |
+
+> Demo account passwords are provided out-of-band and are not committed to the repository. Rotate them before production.
 
 **Please note (demo limits):**
 
@@ -62,12 +64,17 @@ Everyone tests against the same shared environment, so you may see data created 
 2. The Issuer, Root, and Admin accounts are **shared** — do not change their passwords or disable them.
 3. Emails to the demo **issuer/admin** addresses go to a central inbox, so you will not receive them. Emails to your own holder account, the verifier code, and share codes arrive normally.
 
+**Getting around long lists (applies everywhere):**
+
+- **Pagination.** Every long list and table in ChainCert shows **10 rows per page**. A centered control sits at the bottom of the list with **Prev**, **Page X of Y**, and **Next**, and a **"Showing X–Y of N"** caption underneath. When a list fits on one page the control is hidden. This covers the holder wallet, the issuer credential tables (drafts, issued, revoke, view-all, subordinates, renewal requests), the admin tables (issuers, users, credentials, audit and verification logs), the credential-history page, the public issuer directory, profile share-links, and the verifier's bulk-verify results.
+- **Search, filter, and sort.** Most lists also have a search box, one or more filter dropdowns, and a sort control above them. These act on the **whole** list first, then pagination pages the filtered result — so searching or filtering never hides matches on other pages.
+
 **At a glance** — complete the phases in order and tick each one off:
 
 | ✔ | Phase | Role | You will… |
 |---|---|---|---|
 | ☐ | 1 | Holder | Register your own account and log in |
-| ☐ | 2 | Issuer | Create a template and issue a credential to your holder |
+| ☐ | 2 | Issuer | Create a credential and issue it to your holder |
 | ☐ | 3 | Holder | Open the credential and copy its Credential ID |
 | ☐ | 4 | Verifier | Verify the credential → **VALID** |
 | ☐ | 5 | Issuer + Verifier | Revoke / expire / fake it → **REVOKED / EXPIRED / NOT FOUND** |
@@ -86,12 +93,14 @@ Everyone tests against the same shared environment, so you may see data created 
 2. Choose **User** (credential holder).
    *[Screenshot: Role selection — User or Issuer]*
 3. Fill in your details and click **Register**.
-   *Example:* First Name `Juan`, Last Name `Dela Cruz`, Email `your.real@email.com`, Username `juandc`, Password `Chaincert2026!` (minimum 10 characters).
-   > **Use a real email you can open.** The system sends credential notifications (and password resets) to this address, so you will want to receive them during testing.
+   *Example:* Full Name `Juan Dela Cruz`, Email `your.real@email.com`, Password `Chaincert2026!` (minimum 10 characters), then re-type it in **Confirm Password**. *(There is no separate username — you log in with your email. The password field has a show/hide eye icon and a live strength checklist.)*
+   > **Use a real email you can open.** Registration sends a 6-digit code to this address, and the system later sends credential notifications and password resets here too.
    *[Screenshot: User registration form]*
-4. Log in with your new email and password.
+4. **Confirm your email.** Enter the **6-digit code** emailed to you and continue. Your account is created only after the code is confirmed. *(This proves you own the email address; you can resend the code or go back to change the email.)*
+   *[Screenshot: Registration — enter email code]*
+5. Log in with your new email and password.
    *[Screenshot: Login page]*
-5. *(Optional)* Try **Forgot Password** (log out first). Its purpose is to let a holder regain access without help. Click **Forgot Password** on the login page, enter your email, check your inbox for the OTP, then set a new password.
+6. *(Optional)* Try **Forgot Password** (log out first). Its purpose is to let a holder regain access without help. Click **Forgot Password** on the login page, enter your email, check your inbox for the OTP, then set a new password.
    → **What to expect:** you are returned to the **login page**, and you receive an **email confirming your password was changed**. Log in again with your **new** password to confirm it works.
    *[Screenshot: Forgot Password — OTP flow]*
 
@@ -102,15 +111,15 @@ Everyone tests against the same shared environment, so you may see data created 
 
 ---
 
-## Phase 2 — Create Template & Issue Credential (Issuer)
+## Phase 2 — Create & Issue Credential (Issuer)
 
-**Goal:** issue a credential to the holder account you just made. This is the core issuer task — turning a reusable template into a credential owned by a specific person and recorded on the blockchain.
+**Goal:** issue a credential to the holder account you just made. This is the core issuer task — turning a reusable credential definition into a credential owned by a specific person and recorded on the blockchain.
 
-1. Log out, then log in as the shared issuer **dlsu@email.com / Dlsu12345!**.
+1. Log out, then log in as the shared issuer **dlsu@email.com**.
    *[Screenshot: Issuer dashboard — home]*
-2. Open **Create Template**. Fill in the fields and click **Create Template**.
-   *(A template is a reusable blueprint — you fill in the details once, then issue many credentials from it without re-typing everything.)*
-   > **Note:** give the template a **unique name** that you are not already using for another active template of yours. Duplicate active names are rejected with an error; either choose a different name or archive the existing template.
+2. Open the **Credentials** view and click **Create credential**. Fill in the fields and click **Create Credential**.
+   *(This is a reusable definition — you fill in the details once, then issue it to many people without re-typing everything. Until you issue it to someone, it shows in your lists with the status **Draft**.)*
+   > **Note:** give the credential a **unique name** that you are not already using for another active credential of yours. Duplicate active names are rejected with an error (you'll see a live "name already taken" warning as you type); choose a different name.
    *Example values:*
    - **Credential Name:** `Bachelor of Science in Information Technology`
    - **Credential Type:** `Academic` *(or `Professional` / `Training`)*
@@ -119,14 +128,14 @@ Everyone tests against the same shared environment, so you may see data created 
    - **Badge Image:** any image file, e.g. a program or school logo (PNG/JPG)
    - **Allow holders to request renewal:** on by default — check for credentials holders should be able to ask to renew (an ID or membership); uncheck for one-time credentials like a diploma. Only renewable credentials show holders a **Request renewal** button (see Phase 8).
 
-   *[Screenshot: Create Template — form filled]*
-   *[Screenshot: Create Template — success message]*
-3. Open **Issue Credential** and select the template you just created.
-   *[Screenshot: Issue Credential — template dropdown]*
+   *[Screenshot: Create Credential — form filled]*
+   *[Screenshot: Create Credential — success message]*
+3. Open **Issue Credential** and select the credential you just created (its **Draft**).
+   *[Screenshot: Issue Credential — credential dropdown]*
 4. Select the **recipient** — your holder account from Phase 1.
-   *(The dropdown lists only holders who can still receive this credential. Anyone who already holds a valid copy is hidden — you cannot issue the same template to the same person twice. If a holder's copy was later revoked or expired, they become selectable again.)*
+   *(The dropdown lists only holders who can still receive this credential. Anyone who already holds a valid copy is hidden — you cannot issue the same credential to the same person twice. If a holder's copy was later revoked or expired, they become selectable again.)*
    *[Screenshot: Issue Credential — recipient dropdown]*
-5. *(Optional)* set an expiry date — e.g. one year from today — then click **Issue Credential**.
+5. *(Optional)* set an expiry date — e.g. one year from today (you can pick any date up to about 20 years out) — then click **Issue Credential**.
    *[Screenshot: Issue Credential — success]*
 
 → **What to expect:** a success confirmation, and the credential is recorded on the blockchain. The holder is notified **two ways at once**: an in-app notification (bell icon) **and** an email to their registered address. *(You will see both in Phase 3.)*
@@ -135,9 +144,9 @@ Everyone tests against the same shared environment, so you may see data created 
 
 These tools let you find, audit, and analyze everything you have issued — without leaving the dashboard.
 
-- **View All Credentials** — *Purpose:* a single place to find any template or issued credential you have created, so you do not have to remember IDs.
+- **View All Credentials** — *Purpose:* a single place to find any credential you have created — draft or issued — so you do not have to remember IDs.
   1. Open the **View All Credentials** tab.
-  2. Use the **search** box to find a credential by name or ID, and the **status/type filters** to narrow the list (for example, only issued, or only a given credential type).
+  2. Use the **search** box to find a credential by name or ID, and the **Record Kind**, **Status**, and **Type** filters to narrow the list. The **Status** filter has: **Issued / Active**, **Expired**, **Revoked**, and **Draft** (a credential you created but have not issued to anyone yet). Sort with the **Sort by** control. Long lists page 10 rows at a time.
   *[Screenshot: Issuer — View All Credentials]*
 - **Credential History** *(navigation bar)* — *Purpose:* shows the credential's immutable, on-chain trail, which is your proof that nothing was changed after the fact.
   1. Open **Credential History** from the navigation bar.
@@ -146,7 +155,7 @@ These tools let you find, audit, and analyze everything you have issued — with
 - **Analytics** — *Purpose:* turns your issuing activity into plain-language insights, so you can see your output and spot problems.
   1. Open the **Analytics** view.
   2. Read **Issuance Performance** — how many credentials you have issued and the trend over time.
-  3. Read **Revocation Self-Audit** — revocations broken down **by template** and by **how quickly after issuance** they were revoked, which helps you catch a template or process that keeps producing mistakes.
+  3. Read **Revocation Self-Audit** — revocations broken down **by credential** and by **how quickly after issuance** they were revoked, which helps you catch a credential or process that keeps producing mistakes.
   *[Screenshot: Issuer — Analytics (Issuance Performance + Revocation Self-Audit)]*
 
 > **✅ Forms to answer now:** Issuer form — **I-01, I-02, I-03, I-04, I-05, I-06, I-07, I-08, I-10, I-11, I-12, I-17**.
@@ -167,9 +176,13 @@ These tools let you find, audit, and analyze everything you have issued — with
    *[Screenshot: Credential detail view]*
 5. **Copy the Credential ID** — you will paste it in Phase 4.
    *[Screenshot: Credential detail — Credential ID highlighted]*
-6. Click **View Blockchain History** to see the on-chain timeline of this credential (creation, issuance, and any later events, with timestamps).
+6. Click **See history** to open the on-chain timeline of this credential (creation, issuance, and any later events, with timestamps).
    *Purpose:* lets the holder independently confirm the credential's history on the ledger, not just trust the app's display.
    *[Screenshot: Credential detail — Blockchain History]*
+
+   > **One consistent timeline everywhere.** The holder's **See history**, the issuer's per-credential **View BC History**, and the admin's **Credential Dossier** all show the **same** clean timeline, with the **newest event at the top** and a plain-language "what this means" summary.
+   >
+   > **Why a badge can say "Expired" while the history shows only "Issued" — this is not an error.** A credential's status is worked out live from its expiry date, so its badge flips to **Expired** the moment the date passes. The permanent "Expired" record on the blockchain is written by a **daily maintenance job**, so there is a short window where the badge already reads Expired but the on-chain job has not run yet. During that window the timeline shows a **dashed, clearly-labeled "Expired (reached expiry date)" marker** with a note that the permanent on-chain record is finalized by the daily job. Once the job runs, this becomes a normal on-chain event.
 
 → **What to expect:** the credential appears in the wallet with status **Issued** (issuer, dates, skills, Credential ID), **plus** an in-app notification **and** an email — confirming the holder is alerted both ways.
 
@@ -214,8 +227,8 @@ These tools let you find, audit, and analyze everything you have issued — with
 
 **Expired** — *why:* credentials such as certifications lapse on a date, and a verifier must see that immediately.
 3. As the issuer **dlsu@email.com**, create and issue a credential whose **expiry date is in the past**, then verify it:
-   1. Open **Create Template** and create a template (or reuse an existing one).
-   2. Open **Issue Credential**, select the template and your holder account.
+   1. Open the **Credentials** view and create a credential (or reuse an existing one).
+   2. Open **Issue Credential**, select the credential and your holder account.
    3. Set the **expiry date to yesterday's date**, then click **Issue Credential**.
    4. Open the credential (or its confirmation) and **copy the Credential ID**.
    5. As the verifier, verify that ID.
@@ -262,7 +275,7 @@ These tools let you find, audit, and analyze everything you have issued — with
    *[Screenshot: Issuer registration — Part 4]*
 
 **Root authority approves** *(subordinate applications only)*
-5. Log in as **dlsu@email.com** → **Subordinate Management** → Pending.
+5. Log in as **dlsu@email.com** → **Subordinate Management** → Pending. *(The **My Subordinates** view has a **search** box to find a subordinate quickly, and pages 10 rows at a time.)*
    *[Screenshot: Subordinate Management — pending list]*
 6. Open the application, review it, and click **Approve**. Status becomes **Root Approved**.
    → **What to expect:** the applicant is **emailed** that its root authority approved it and that the application now moves to the platform admin. *(For the test issuer account this email goes to the central demo inbox — see demo limit 3.)*
@@ -288,13 +301,13 @@ These tools let you find, audit, and analyze everything you have issued — with
    The **Pending** view opens with an **Approval Queue & Turnaround** summary (how many applications are waiting, the oldest wait in days, and your average approval time) and a **Days Waiting** column on every row — sort **Oldest First** to see who has waited longest. Approve/reject from here exactly as in Phase 6.
    *[Screenshot: Admin — Issuers, Pending queue with Approval Queue & Turnaround + Days Waiting]*
 2. **Credentials tab** — *Purpose:* one master view of everything issued across all issuers, for spot-checks and support.
-   Browse every template and issued credential across all issuers; filter by issuer/type/status and search by name or ID.
+   Browse every credential across all issuers — drafts and issued; filter by issuer/type/status and search by name or ID.
    *[Screenshot: Admin — Credentials tab]*
 3. **Integrity Check** — Analytics & Reports tab → **Run Integrity Check**.
    *What it's for: lets the admin catch tampering — it checks each record in the fast-read database against the blockchain, so if any record was altered outside the app, the mismatch is flagged. (The blockchain is the source of truth.)*
    You can **run it manually** at any time from this tab. It **also runs automatically every day at 8:00 AM (Manila time)**, and emails the admins only when it finds a mismatch.
    *[Screenshot: Admin — Integrity Check results]*
-4. **Logs** — Logs tab → verification, status, issuer-decision, and root-subordinate logs. *(If you switch between `admin@email.com` and `admin2@email.com`, notice each logged action shows which admin performed it.)*
+4. **Logs** — Logs tab → verification, status, issuer-decision, and root-subordinate logs. On the **verification** logs, use the **Result** filter (**Valid**, **Revoked**, **Expired**, **Not Found**, **Invalid**) and the **search** box (verifier, holder, or credential ID) to narrow what you see. *(If you switch between `admin@email.com` and `admin2@email.com`, notice each logged action shows which admin performed it.)*
    *What it's for: a tamper-evident audit trail — every verification and governance decision is recorded on the blockchain and cannot be edited or deleted after the fact.*
    *[Screenshot: Admin — Logs tab]*
 5. **Analytics & Reports** — verification result summary, **Issuers to Review** (issuers with an unusually high revocation rate — a prompt to take a closer look, not an automatic verdict), and integrity insight; open a credential's **Dossier** for its full trail.
@@ -339,15 +352,15 @@ These tools let you find, audit, and analyze everything you have issued — with
 - **Preview Public Profile** — *Purpose:* see exactly what a viewer sees before you share, so nothing private is exposed by accident. **Locate it:** Profile page → **Preview Public Profile**.
 - **Reorder credentials** — *Purpose:* choose the order your credentials appear on your shared profile. **Locate it:** Profile page → drag-and-drop your credentials.
 - **Visibility (Public/Private)** — *Purpose:* keep selected credentials off your shared profile while keeping them in your wallet. **Locate it:** on a credential, toggle **Public/Private** — private credentials are hidden from your shared profile but stay in your own wallet.
-- **Profile Sharing** — *Purpose:* let someone view your credentials without them logging in — either openly or restricted to one person.
+- **Profile Sharing** — *Purpose:* let someone view your credentials without them logging in, either openly or restricted to one person. The **public "Anyone with Link" option is the everyday primary way to share**: put one link on your resume, and any employer can open it and click **Verify all on the blockchain**. Use a specific-recipient link when you want a single, private handoff to one known person.
   1. Go to **Profile → Share Profile**.
   2. **Anyone with Link** — your permanent public link is shown automatically; click **Copy**. Anyone with the link can view your public credentials.
-  3. **Specific Recipient** — enter the recipient's email and click **Generate & Send Link**. The link is emailed to them, and when they open it they must enter a **6-digit code emailed to them** before your profile shows. *(Same idea as the verifier code — it confirms the viewer is who you meant to share with. The recipient needs a real, checkable email.)*
+  3. **Specific Recipient** — enter the recipient's email and click **Generate & Send Link**. The link is emailed to them, and when they open it they must enter a **6-digit code emailed to them** before your profile shows. *(Same idea as the verifier code: it confirms the viewer is who you meant to share with. The recipient needs a real, checkable email.)*
   *[Screenshot: Profile — Share Profile]*
-- **Revoke a share link** — *Purpose:* immediately cut off access to a link you shared earlier. **Steps:** from the **Share Links** list, click **Revoke** next to the link — it stops working right away.
+- **Revoke a share link** — *Purpose:* immediately cut off access to a link you shared earlier. **Steps:** from the **Share Links** list, click **Revoke** next to the link — it stops working right away. The Share Links list has a **search** box (plus status/source filters and sort) and pages 10 links at a time, so a long list stays manageable.
 - **PDF export** — *Purpose:* produce a portable, re-verifiable copy of a credential to attach to an application or email.
   1. From a credential, click **Export PDF** (single credential or full portfolio).
-  2. The file includes the **Credential ID** and a **verification link (with QR code)**, so anyone can re-verify it later. If the export includes a **revoked** credential, a styled in-app confirmation names it before the download proceeds. A credential that has been **renewed** shows a "Renewed N× (reissued)" line in the PDF.
+  2. The file includes the **Credential ID** and a **verification link (with QR code)**, so anyone can re-verify it later. If the export includes a **revoked** credential, a styled in-app confirmation names it before the download proceeds. A credential that has been **renewed** shows one line in the PDF: **"Renewed: N× — first issued <date>"** (how many times it has been reissued, and the original issue date).
   > **Note:** on this HTTP demo site, your browser may warn that the download is "not secure" or ask you to **Keep** it. This is expected because the site runs over plain HTTP (no TLS yet) — click **Keep**. The PDF is generated **in your browser**, so it is safe.
   *[Screenshot: Credential — Export PDF]*
 - **Notifications** — *Purpose:* keep the holder informed of issue/revoke events. **Locate it:** the bell icon shows issue/revoke alerts (also sent by email).
@@ -356,9 +369,14 @@ These tools let you find, audit, and analyze everything you have issued — with
 
 - **Decide renewal requests** — *Purpose:* review a holder's renewal request against your own records — ChainCert routes the request, it doesn't verify requalification for you.
   1. Go to the **Issue** view → **Renewal Requests** card (click to expand — it's collapsed by default to keep the Issue view uncluttered).
-  2. **Approve** to issue a fresh credential with a new expiry on the spot, or **Decline** with a reason the holder will see.
-  3. Both decisions are recorded immutably on the blockchain, whether approved or declined.
+  2. Use the **Status** filter (**All / Pending / Approved / Declined**) and the **search** box (by credential or holder) to work the queue; it pages 10 rows at a time.
+  3. **Approve** to issue a fresh credential with a new expiry on the spot, or **Decline** with a reason the holder will see.
+  4. Both decisions are recorded immutably on the blockchain, whether approved or declined.
   *[Screenshot: Issuer — Renewal Requests queue]*
+- **My Credentials grid (Profile page)** — *Purpose:* browse the credentials you have created from your own profile page. On the issuer **Profile** page, the **My Credentials** grid has a **search** box, a **visibility** filter, and a **sort** control, and pages 10 at a time.
+  *[Screenshot: Issuer — Profile, My Credentials grid]*
+- **Public Issuer Directory** — *Purpose:* a public, browsable list of approved issuers so anyone can find an organization and the credential types it offers. Open the **Issuer Directory** (public page), then use the **search** box, the **Category** filter, and the **Sort** control to find an issuer; the grid pages 10 cards at a time.
+  *[Screenshot: Public — Issuer Directory]*
 - **Batch issuance** — *Purpose:* issue one credential to many holders in a single pass instead of one at a time.
   1. Go to the **Issue** view → **Batch issue from list**.
   2. Pick the credential, then import a **.csv or .txt** file of recipient **emails or holder IDs** (one per line, or comma-separated).
@@ -373,7 +391,7 @@ These tools let you find, audit, and analyze everything you have issued — with
 ### Verifier features
 
 - **Bulk verify from a PDF** — *Purpose:* check every credential in someone's portfolio in one pass instead of one ID at a time.
-  1. On the **Verification Dashboard**, confirm your email first (see Phase 5).
+  1. On the **Verification Dashboard**, confirm your email first (see Phase 4).
   2. Under **Bulk verify from a ChainCert PDF**, choose the holder's **exported ChainCert PDF** — the original digital file. *(A scanned or printed copy won't work — the verification links only exist in the digital export.)*
   3. Verification **starts automatically** the moment the PDF is processed — no extra button to click. Every credential inside is checked live against the blockchain in one pass, each shown as a full result card, and every check is logged under your verified email, exactly like a single verification.
   4. Results are **kept for your session** — upload a second PDF and its results are added above the first, not replaced. Use **Clear results** to start fresh.
@@ -403,7 +421,7 @@ These tools let you find, audit, and analyze everything you have issued — with
 | Wallet is empty | Nothing has been issued to you yet, or the status filter isn't set to **All**. |
 | Verifier won't let me verify | Confirm your email first with the 6-digit code. Use a real email. |
 | Real credential shows NOT FOUND | Make sure the Credential ID is exact (copy-paste it) and was actually issued. |
-| "Duplicate name" when creating a template | You already have an active template with that name. Use a different name or archive the old one. |
+| "Duplicate name" when creating a credential | You already have an active credential with that name. Use a different name. |
 | PDF download shows "not secure" / asks to Keep | Expected on the HTTP demo. Click **Keep** — the file is generated in your browser. |
 | No email received | Demo issuer/admin emails route to a central inbox (demo limit 3). Your own account, verifier, and share-code emails arrive normally. |
 

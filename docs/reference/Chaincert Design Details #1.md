@@ -222,3 +222,5 @@ For the purposes of the thesis:
 - The prototype uses managed infrastructure.
 
 Final architectural framing will be confirmed after consulting the project adviser.
+
+> **Update (2026-07-07):** The adviser consultation (Sir Danny) is complete. The consortium-vs-managed framing has been settled — ChainCert is framed as a **consortium** deployment (each participating organization can operate its own node; the prototype centrally hosts the infrastructure for development practicality). This is no longer an open question. See `CAP2 - Post-Consultation Changes & Defense Notes.md` for the full record.

@@ -38,6 +38,7 @@
 - Phase 13: Build the Frontend
 - Phase 14: Nginx + PM2 + Reboot Persistence
 - Phase 15: Demo Data & UAT
+- Pre-Demo Security Checklist (re-enable controls before the defense)
 - Final System State
 - Appendix A: VM Gotchas & Troubleshooting
 - Appendix B: CCSCloud Access (SSH, tunnels, Proxmox)
@@ -57,8 +58,8 @@ distinguish the four identity types (mixing them up is the #1 cause of setup fai
 | Root Authority Identity | `delasalleuniversity-admin` | DLSU credential operations |
 | Subordinate Identity | `delasalleuniversity-subordinate-archersnetwork` / `…-lasallecomputersociety` | Department issuing under DLSU's CA (no own peer) |
 
-> **⚠️ Difference from Local Installation:** None. This phase is conceptual. **Note the rename:** the
-> subordinate formerly called INNOCENCIO is now **ARCHERSNETWORK** (canonical convention — see the
+> **⚠️ Difference from Local Installation:** None. This phase is conceptual. The subordinate issuer is
+> **ARCHERSNETWORK** throughout this manual (formerly named INNOCENCIO in older data/clones — see the
 > Addendum §B8).
 
 ---
@@ -173,8 +174,8 @@ unnecessary and can interfere. (Our verified VM had **none** present.)
 
 ## Phase 3: Install Hyperledger Fabric 2.5.16
 
-> **⚠️ Difference from Local Installation:** The local manual installs Fabric **2.5.0** (`bash -s -- 2.5.0 1.5.5`).
-> On the VM you MUST install **2.5.16 / CA 1.5.17** — Docker 29 cannot build chaincode on 2.5.0 (the
+> **⚠️ Difference from Local Installation:** The local manual installs Fabric **2.5.14** (`bash -s -- 2.5.14 1.5.5`).
+> On the VM you MUST install **2.5.16 / CA 1.5.17** — Docker 29 cannot build chaincode on 2.5.14 (the
 > abandoned `fsouza/go-dockerclient` bug). Use the classic `bootstrap.sh` (NOT the newer
 > `install-fabric.sh`) so the binaries land in the double-nested `~/fabric-samples/fabric-samples/bin`
 > layout the code assumes.
@@ -311,9 +312,13 @@ sed 's/\(JWT_SECRET=\).*/\1<redacted>/' .env
 **What it does:** Writes `.env` with a freshly generated `JWT_SECRET` + the VM's public origin. The
 `sed` prints it back with the secret redacted (safe to screenshot).
 
-**Rationale:** `JWT_SECRET` is fail-closed (M3). `CORS_ORIGIN`/`FRONTEND_URL` = the public URL. Leave
-`DISABLE_RATE_LIMIT` / `DISABLE_PASSWORD_POLICY` **unset** (protections ON). SMTP left blank (email is
-non-fatal at boot; configure before a real demo).
+**Rationale:** `JWT_SECRET` is fail-closed (M3). `CORS_ORIGIN`/`FRONTEND_URL` = the public URL.
+`COUCHDB_URL` points the backend at the admin CouchDB instance on port 5985 (the backend reads it at
+boot, falling back to `http://admin:adminpw@localhost:5985` if unset). For a
+defense/demo build, leave **all** `DISABLE_*` toggles unset — `DISABLE_RATE_LIMIT`,
+`DISABLE_PASSWORD_POLICY`, `DISABLE_SIGNUP_OTP`, `DISABLE_ISSUER_TOGGLE` — so every protection stays ON
+(see the **Pre-Demo Security Checklist**). SMTP left blank (email is non-fatal at boot; configure before
+a real demo).
 
 ### 5.4 Start the API under PM2
 
@@ -333,14 +338,15 @@ calls fail for now — Fabric isn't up yet — but boot only needs JWT_SECRET + 
 **Directory:** VM shell
 
 ```bash
-curl -X POST http://localhost:4000/api/auth/register -H "Content-Type: application/json" -d '{"username":"admin","email":"admin@email.com","password":"adminpw123","role":"admin"}'
-curl -X POST http://localhost:4000/api/auth/register -H "Content-Type: application/json" -d '{"username":"admin2","email":"admin2@email.com","password":"adminpw123","role":"admin"}'
+curl -X POST http://localhost:4000/api/auth/register -H "Content-Type: application/json" -d '{"username":"admin","email":"admin@email.com","password":"<ADMIN_PASSWORD>","role":"admin"}'
+curl -X POST http://localhost:4000/api/auth/register -H "Content-Type: application/json" -d '{"username":"admin2","email":"admin2@email.com","password":"<ADMIN_PASSWORD>","role":"admin"}'
 ```
 
 **Expected Output:** `{"success":true,"message":"User registered successfully",…}` ×2.
 
-> **⚠️ Password note:** use **`adminpw123`** (10 chars — passes the M8 policy). The old demo password
-> `pw123` (5 chars) is **rejected** by the password policy. Log in later with `adminpw123`.
+> **⚠️ Password note:** use a strong password of **at least 10 characters** so it passes the M8 policy.
+> A 5-character password (like the old `pw123`) is **rejected** by the password policy. Use the same
+> password to log in later, and keep the real demo passwords out-of-band (never committed to the repo).
 
 ---
 
@@ -414,7 +420,7 @@ ls wallet/
 > **⚠️ Difference from Local Installation:** The workflow is the same 12-step configtx dance, **but two
 > VM-specific gotchas surface here** — the peer's docker.sock mount alignment, and the docker-compose
 > v1 `--force-recreate` crash. Both are handled below / in Appendix A. And **`deployCC` is the moment
-> the Docker-29/2.5.16 fix proves out** — the chaincode image build that failed on 2.5.0.
+> the Docker-29/2.5.16 fix proves out** — the chaincode image build that failed on 2.5.14.
 
 Follow the CAP1 Installation Manual's Phase 9 (steps 9.1–9.12) **verbatim** for the command sequence
 (CA up → `registerEnroll.sh createDLSU` → `configtx-WITHDLSU` swap → generate DLSUMSP.json →
@@ -467,10 +473,11 @@ ls wallet/
 
 ## Phase 10: Create Subordinate Issuer (ARCHERSNETWORK)
 
-> **⚠️ Difference from Local Installation:** The local manual's Phase 11 is **INNOCENCIO** — this is
-> the **renamed ARCHERSNETWORK** subordinate. All `innocencio` → `archersnetwork`, secret
-> `archersnetworkpw`, the **Convention-B** MSP folder, the renamed wallet script + compose file, and
-> the lowercase `archersnetwork` couchdb_connections row. Port stays **9085**.
+> **⚠️ Difference from Local Installation:** This is the **ARCHERSNETWORK** subordinate — org name
+> `archersnetwork`, secret `archersnetworkpw`, the **Convention-B** MSP folder, the
+> `setup_Wallet_DLSU_Subordinate_ARCHERSNETWORK.js` wallet script + `compose-couch-archersnetwork.yaml`,
+> and the lowercase `archersnetwork` couchdb_connections row. Port **9085**. (This subordinate was
+> called INNOCENCIO in older clones/data; everything here uses `archersnetwork`.)
 
 **Directory:** `~/fabric-samples/fabric-samples/test-network` (then `~/chaincert-api` for the wallet import)
 
@@ -675,6 +682,73 @@ persistent volumes).
 
 ---
 
+## Pre-Demo Security Checklist (re-enable controls before the defense)
+
+> **⚠️ Read this before every defense/demo.** During UAT and group stress-testing several security
+> controls were **switched OFF** via `.env` toggles so testers wouldn't get blocked. They MUST be turned
+> back ON for the defense, or the panel will (rightly) see a system running with its protections disabled.
+> This is the single most important pre-demo step.
+
+**The rule of thumb:** remove the four backend `DISABLE_*` toggles and the one frontend
+`REACT_APP_DISABLE_ISSUER_TOGGLE`, **but KEEP the two past-expiry knobs** (the demo issues already-expired
+credentials on purpose).
+
+### Step 1 — Backend: remove the `DISABLE_*` toggles
+
+**Directory:** `~/chaincert-api`
+
+```bash
+nano ~/chaincert-api/.env
+```
+Delete (or comment out) all four of these lines if present:
+
+| Toggle to REMOVE | What it disables when set | Control restored when removed |
+|---|---|---|
+| `DISABLE_RATE_LIMIT` | per-IP login/forgot/reset throttle (M5) | Rate limiting **ON** |
+| `DISABLE_PASSWORD_POLICY` | min-10 + common-password blocklist (M8) | Password policy **ON** |
+| `DISABLE_SIGNUP_OTP` | email-ownership OTP gate on user signup | Signup OTP **ON** |
+| `DISABLE_ISSUER_TOGGLE` | backend guard behind issuer enable/disable | Issuer enable/disable **ON** |
+
+Then restart the API so it re-reads `.env`:
+```bash
+pm2 restart chaincert-api --update-env
+pm2 logs chaincert-api --lines 30 --nostream
+```
+
+**Confirm the toggles are OFF by their absence in the boot banner.** When a toggle is set, the API prints
+a **loud startup warning**. Once removed, these banners must **NOT** appear:
+
+- `RATE LIMITING DISABLED` (from `DISABLE_RATE_LIMIT`)
+- `PASSWORD POLICY DISABLED` (from `DISABLE_PASSWORD_POLICY`)
+- `ISSUER ENABLE-DISABLE …` warning (from `DISABLE_ISSUER_TOGGLE`)
+
+If you still see any of them, the toggle is still in `.env` — remove it and restart again.
+*(Note: `DISABLE_SIGNUP_OTP` has no loud boot banner wired, so verify it by removing the line and confirming
+user signup now demands the emailed 6-digit code.)*
+
+### Step 2 — Frontend: remove `REACT_APP_DISABLE_ISSUER_TOGGLE` and rebuild
+
+**Directory:** `~/chaincert-src`
+
+```bash
+nano ~/chaincert-src/.env.production      # delete the REACT_APP_DISABLE_ISSUER_TOGGLE line
+cd ~/chaincert-src && CI=false npm run build
+```
+
+`REACT_APP_*` vars are baked at **build time**, so a **rebuild** (not a restart) is what actually removes
+the toggle from the served bundle. Nginx serves the new `build/` immediately.
+
+### Step 3 — KEEP these two (do NOT remove) — the demo needs past-dated credentials
+
+| Keep as-is | Where | Why keep it |
+|---|---|---|
+| `REACT_APP_ALLOW_PAST_EXPIRY=true` | `~/chaincert-src/.env.production` | lets the UI accept an expiry date in the past so the demo can show an already-expired credential |
+| F01 past-expiry **issuance guard COMMENTED** | `issuerCredentialController.js` (~L418–436) | the backend must also accept a past/same-day expiry for that same demo credential; leave it commented |
+
+These two are intentional demo affordances, not security holes — every OTHER control above is back ON.
+
+---
+
 ## Final System State
 
 | Component | VM Port (internal) | External (CCSCloud) | Notes |
@@ -685,7 +759,7 @@ persistent volumes).
 | SSH | 22 | **20172** | office WiFi firewalls this |
 | Orderer | 7050 | — | |
 | Org1 / Org2 / DLSU peers | 7051 / 9051 / 12051 | — | |
-| Org1 / Org2 / DLSU CAs | 7054 / 8054 / 12054 | — | |
+| Org1 / Org2 / DLSU CAs (certificate issuance) | 7054 / 8054 / 12054 | — | orderer CA is **9054** |
 | Admin CouchDB | 5985 | — | non-standard; SSH-tunnel to browse |
 | DLSU / ARCHERSNETWORK / LSCS issuer CouchDB | 9084 / 9085 / 9086 | — | |
 

@@ -3,6 +3,9 @@ description: Search recent Claude session transcripts for repeated patterns and 
 argument-hint: [optional: topic or area to focus on, e.g. "debugging", "git", "deployment"]
 ---
 
+## Role
+You are a workflow analyst studying how Kai actually works. You care about repeated behavior, not one-off wording, and you only flag a pattern once you have seen it enough times to be confident it is real.
+
 ## Context
 @CLAUDE.md
 

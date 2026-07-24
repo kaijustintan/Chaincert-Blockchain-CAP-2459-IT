@@ -11,9 +11,8 @@
 > manual's fields: **Directory → Command(s) → What it does → Expected Output → Rationale**.
 >
 > **Provenance.** This manual documents the actual, verified deployment performed 2026-07-04 (Fabric
-> **2.5.16**, Docker 29.1.3, Ubuntu 22.04). Detailed rationale for the CAP1→CAP2 deltas lives in
-> `CAP2 - Deployment Manual Addendum (CAP1 Deltas + Groupmate Journey).md`; the version/Docker analysis
-> lives in `CAP2 - Deployment Status & Pending.md`.
+> **2.5.16**, Docker 29.1.3, Ubuntu 22.04). Detailed rationale for the CAP1→CAP2 deltas, plus the
+> version/Docker analysis, lives in `CAP2 - Deployment Manual Addendum (CAP1 Deltas + Groupmate Journey).md`.
 >
 > **Version note.** State Fabric **2.5.14** in formal defense materials; the VM runs **2.5.16** purely
 > as a Docker-29 compatibility patch. Both are real — see the Addendum's "Version reconciliation."
@@ -814,7 +813,7 @@ them — but a stale clone or different box might.)*
 
 ## Appendix C: Updating a Running Deployment (Day-2 Operations)
 
-> The VM counterpart to the local `Copy Commands.md` + `Redeploy CC Instructions.md` + `Predemo Setup.md`.
+> The VM counterpart to the local `Copy Commands.md` + `Redeploy CC Instructions.md`.
 > **Key idea: `deploy-sync.sh` replaces the manual `cp` dance.** It re-copies code from `~/chaincert-src`
 > into the runtime dirs and **never touches `wallet/` or `.env`**.
 
@@ -907,5 +906,5 @@ pm2 monit                                      # live dashboard: CPU/mem + logs 
 ---
 
 > **Cross-references:** `CAP2 - Deployment Manual Addendum (CAP1 Deltas + Groupmate Journey).md`
-> (deltas + gotchas rationale) · `CAP2 - Deployment Status & Pending.md` (state tracker) ·
+> (deltas + gotchas rationale) ·
 > `CAP-2459-IT-INSTALLATION-MANUAL.md` (the local/CAP1 sibling this parallels) · `deploy-sync.sh`.

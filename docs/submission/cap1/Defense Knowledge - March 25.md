@@ -526,7 +526,7 @@ This section covers what IS implemented first, then acknowledged trade-offs.
 
 #### Phase 5 Security Hardening (June 2026)
 
-A two-tier hardening pass driven by an AI-readable security checklist (`docs/Security Checklist/`):
+A two-tier hardening pass driven by an AI-readable security checklist (`security-checklist/`):
 
 - **M1 — Object-level authorization (BOLA/IDOR fix):** wallet endpoints derive the owner from the JWT (`req.user.id`), not a client-supplied URL id, so a logged-in user can only read/modify their OWN credentials & notifications.
 - **M2 — Centralized auth guards:** `/api/wallet` requires authentication; `/api/admin` requires an admin token (root-authority routes stay `role: 'issuer'`). Closed a gap where admin listing endpoints had no auth check.

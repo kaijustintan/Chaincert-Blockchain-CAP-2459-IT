@@ -325,7 +325,7 @@ stale clone or a different box resurfaces them.
    `-M` path verbatim now.
 
 ## Cross-references
-- `CAP2 - Deployment Status & Pending.md` — current state + pending list (canonical status tracker).
 - `CAP-2459-IT-VM-INSTALLATION-MANUAL.md` — the full from-scratch VM runbook (Phases 0–15) this Part C summarizes.
 - `CAP-2459-IT-INSTALLATION-MANUAL.md` (CAP1, unchanged) — detailed sub-commands for unchanged phases.
 - `deploy-sync.sh` (repo root) — the source→runtime sync this addendum relies on.
+- (The former `CAP2 - Deployment Status & Pending.md` status tracker was retired in the 2026-07-24 docs reorg — its live state is now this addendum + the VM Installation Manual + `docs/submission/cap2/references/`.)

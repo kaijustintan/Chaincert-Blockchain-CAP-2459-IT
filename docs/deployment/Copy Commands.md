@@ -271,7 +271,8 @@ cp -r "/mnt/c/Users/kaita/OneDrive/Desktop/CAP-2459-IT-AFTER-RESET/.claude/skill
 cp "/mnt/c/Users/kaita/OneDrive/Desktop/CAP-2459-IT-AFTER-RESET/CLAUDE.md" ~/CLAUDE.md
 
 # Doc mirrors the commands @-reference (Redeploy, Copy Commands, Node Creation, CONTROLLER, ROUTE, etc.)
-cp -r "/mnt/c/Users/kaita/OneDrive/Desktop/CAP-2459-IT-AFTER-RESET/docs/Claude Reference - MD Files" ~/docs/
+# Post-2026-07-24 reorg: docs/ now lives under submission/reference/deployment/design-reference — copy the whole tree.
+cp -r "/mnt/c/Users/kaita/OneDrive/Desktop/CAP-2459-IT-AFTER-RESET/docs" ~/
 ```
 
 > ⚠️ REVERSE direction (Ubuntu → Windows): if you edited a Claude config file from inside an Ubuntu session,

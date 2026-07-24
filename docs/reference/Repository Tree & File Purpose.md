@@ -128,20 +128,32 @@ CAP-2459-IT-AFTER-RESET/
 │   └── styles/                      CSS: design tokens + per-page/component stylesheets (~25 files)
 │       └── tokens.css                    Single source of truth for design tokens (colors, spacing, type)
 │
-└── docs/                         Documentation and reference material
-    ├── CAP1 Documents to Submit/         Formally submitted CAP1 PDFs (do not edit; read the .md mirrors)
-    ├── Claude Reference - MD Files/      Canonical working docs (the .md set Claude reads)
-    │   ├── CAP1 Documents to Submit/         .md mirrors of the formal CAP1 manuals (Installation, Technical, User, Walkthrough)
-    │   ├── CAP2 - *.md                       CAP2 records: deployment status, post-consultation changes, defense notes
-    │   ├── CAP2 - Final Defense *.md         Defense presentation plan(s) + scripts (this planning work)
-    │   ├── Final_Design.md                   Governance model + subordinate creation workflow
-    │   ├── Redeploy_CC_Instructions.md / Predemo_Setup.md   Chaincode redeploy + demo setup runbooks
+└── docs/                         Documentation and reference material (reorganized 2026-07-24)
+    ├── submission/                       Everything formally submitted or destined for submission
+    │   ├── cap1/                             Formal CAP1 set: 5 submitted PDFs + Proposal + Defense Knowledge (.md)
+    │   └── cap2/
+    │       ├── manuals/                          Current .md manuals (Installation, VM Installation, Technical, User ×2, Walkthrough)
+    │       ├── final-document/                   CHAPTER 5/6/7.md — gitignored (real tester names, still being finalized)
+    │       ├── defense-presentation/              Current defense deck outline + script
+    │       ├── references/                        Post-Consultation Changes + Post-Defense Fix List
+    │       └── uat/                               Gitignored: UAT Final Report, Forms Contents, Raw Results, 5 feedback buckets
+    ├── reference/                         Architecture / dev reference (this file lives here)
+    │   ├── Final Design.md                   Governance model + subordinate creation workflow
+    │   ├── Chaincert Design Details #1.md    Platform vs Consortium architecture rationale
+    │   ├── CONTROLLER / ROUTE Files and its Responsibilities.md   Canonical backend placement rules
+    │   ├── Chaincode - Query Commands.md     Full CLI catalog for chaincode functions
+    │   ├── Issuer Required Docs per Category.md
+    │   ├── Installation Dependencies.md
     │   ├── DIRECTORY - Windows.md / Directory - Ubuntu.md   Authoritative directory trees per environment
-    │   └── (Chaincode query commands, controller/route responsibilities, copy commands, etc.)
-    ├── July 7, Consultation/             Adviser (Sir Danny) July 7 consultation raw material
-    ├── UAT Results/                      UAT raw feedback + updated Final Document chapters (5, 6, 7)
-    ├── Security Checklist/               Security hardening checklist / notes
+    │   └── Repository Tree & File Purpose.md   this file
+    ├── deployment/                        Ops runbooks
+    │   ├── CAP2 - Deployment Manual Addendum.md   CAP1→CAP2 deltas + Docker-29/Fabric-2.5.16 gotchas
+    │   ├── Node Creation for DLSU.md         Channel config update dance, peer addition
+    │   ├── Redeploy CC Instructions.md       Chaincode redeploy + configtx swap sequence
+    │   └── Copy Commands.md                  Windows → Ubuntu cp command list
     └── design-reference/halo/            Design inspiration (Halo template: css/html/screenshots) — NOT app code
+
+security-checklist/                 Generic AI-readable security-review KB — moved OUT of docs/ (repo root, not ChainCert-specific)
 ```
 
 ---
@@ -156,4 +168,3 @@ CAP-2459-IT-AFTER-RESET/
 - `dlsu@email.com` → DLSU root authority (CouchDB :9084)
 - `lasallecomputersociety@email.com` → LSCS subordinate (:9086)
 - ARCHERSNETWORK subordinate (:9085)
-```

@@ -1112,6 +1112,7 @@ export default function StudentDashboard() {
                   showProofTrail
                   loading={historyLoading}
                   error={historyError}
+                  proofTrailLoading={viLoading}
                 />
               </div>
             )}

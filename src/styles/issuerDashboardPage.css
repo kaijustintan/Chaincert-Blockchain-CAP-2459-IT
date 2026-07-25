@@ -2017,6 +2017,38 @@
   margin-top: 8px;
 }
 
+/* S3-c: one-click skill suggestions (issuer's own past skills, type-filtered).
+   Ghost styling so chips read as shortcuts, distinct from the solid added tags. */
+.skills-suggest-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-top: 8px;
+}
+.skills-suggest-label {
+  font-size: var(--fs-caption);
+  color: var(--text-muted);
+}
+.skill-suggest-chip {
+  display: inline-flex;
+  align-items: center;
+  margin: 0;
+  width: auto;
+  padding: 5px 11px;
+  border-radius: var(--radius-pill);
+  background: transparent;
+  border: 1px dashed var(--border-strong);
+  color: var(--text-muted);
+  font-size: var(--fs-small);
+  cursor: pointer;
+}
+.skill-suggest-chip:hover {
+  border-color: var(--accent-strong);
+  color: var(--accent-strong);
+  background: var(--accent-weak);
+}
+
 .skill-tag {
   display: inline-flex;
   align-items: center;

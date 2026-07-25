@@ -40,7 +40,10 @@
 
 const nano = require('nano');
 const bcryptjs = require('bcryptjs');
-const COUCHDB_URL = 'http://admin:adminpw@localhost:5985';
+// M11 (partial): admin-CouchDB URL is env-driven with the historical default as fallback.
+// Set COUCHDB_URL in ~/chaincert-api/.env to point at a secured/non-default instance.
+// (dotenv loads in sdk-server-fixed.js BEFORE this module is required — order verified.)
+const COUCHDB_URL = process.env.COUCHDB_URL || 'http://admin:adminpw@localhost:5985';
 const couch = nano(COUCHDB_URL);
 
 
@@ -557,7 +560,9 @@ async function getPendingIssuers() {
         type: 'issuer_registration',
         status: 'pending'
       },
-      sort: ['createdAt']
+      sort: ['createdAt'],
+      // Mango default returns 25 rows; every query in this file now carries an explicit limit (defense-revision sweep).
+      limit: 100000
     });
 
     /* Step 3: Return pending issuer documents (F04: drop root-rejected subs)
@@ -599,7 +604,8 @@ async function getPendingRootIssuers() {
         status: 'pending',
         issuerType: 'root'
       },
-      sort: ['createdAt']
+      sort: ['createdAt'],
+      limit: 100000
     });
 
     return result.docs;
@@ -629,7 +635,8 @@ async function getPendingSubordinateIssuers() {
         status: 'pending',
         issuerType: 'subordinate'
       },
-      sort: ['createdAt']
+      sort: ['createdAt'],
+      limit: 100000
     });
 
     // F04: exclude subordinates already rejected by their root authority
@@ -664,7 +671,8 @@ async function getPendingSubordinateIssuersAwaitingRootApproval() {
         issuerType: 'subordinate',
         rootApprovalStatus: 'pending'
       },
-      sort: ['createdAt']
+      sort: ['createdAt'],
+      limit: 100000
     });
 
     return result.docs;
@@ -696,7 +704,8 @@ async function getPendingSubordinateIssuersRootApproved() {
         issuerType: 'subordinate',
         rootApprovalStatus: 'approved'
       },
-      sort: ['createdAt']
+      sort: ['createdAt'],
+      limit: 100000
     });
 
     return result.docs;
@@ -735,7 +744,8 @@ async function getAdminActionablePendingIssuers() {
           }
         ]
       },
-      sort: ['createdAt']
+      sort: ['createdAt'],
+      limit: 100000
     });
 
     return result.docs;
@@ -813,7 +823,8 @@ async function getIssuerByEmail(email) {
 
     /* Step 2: Query issuer by email*/
     const result = await issuersDB.find({
-      selector: { email: email }
+      selector: { email: email },
+      limit: 1
     });
 
     /* Step 3: Return issuer if found, else null */
@@ -956,10 +967,10 @@ async function Approve_Issuer(issuerId, adminEmail) {
 
     /* Step 6: Resolve issuer-specific CouchDB URL using "couchdb_connections" DB */
     const normalizedOrgName = issuerDoc.orgName.toLowerCase().replace(/\s+/g, "");
-    const nanoAdmin = require('nano')('http://admin:adminpw@localhost:5985');
+    const nanoAdmin = require('nano')(COUCHDB_URL); // was a second hardcoded copy; routed through the env-driven constant
     const connDb = nanoAdmin.use('couchdb_connections');
 
-    const result = await connDb.find({ selector: { orgName: normalizedOrgName } });
+    const result = await connDb.find({ selector: { orgName: normalizedOrgName }, limit: 1 });
 
     /* Step 7: Attach couchDBUrl */
     if (result.docs.length > 0) {
@@ -1060,7 +1071,8 @@ async function getApprovedIssuer(email) {
       type: 'issuer_registration',
       email: email,
       status: 'approved'
-    }
+    },
+    limit: 1
   });
 
   /* Step 3: Return issuer doc if exists, else null
@@ -1106,7 +1118,8 @@ async function getPendingSubordinatesForRoot(rootAuthorityId) {
         rootAuthorityId: rootAuthorityId,
         rootApprovalStatus: 'pending'
       },
-      sort: ['createdAt']
+      sort: ['createdAt'],
+      limit: 100000
     });
 
     return result.docs || [];
@@ -1148,7 +1161,8 @@ async function getAllSubordinatesForRoot(rootAuthorityId) {
         type: 'issuer_registration',
         issuerType: 'subordinate',
         rootAuthorityId: rootAuthorityId
-      }
+      },
+      limit: 100000
     });
 
     const rows = result.docs || [];
@@ -1199,7 +1213,8 @@ async function getRootApprovedSubordinatesForRoot(rootAuthorityId) {
         issuerType: 'subordinate',
         rootAuthorityId: rootAuthorityId,
         rootApprovalStatus: 'approved'
-      }
+      },
+      limit: 100000
     });
 
     const rows = result.docs || [];
@@ -1249,7 +1264,8 @@ async function getRootRejectedSubordinatesForRoot(rootAuthorityId) {
         issuerType: 'subordinate',
         rootAuthorityId: rootAuthorityId,
         rootApprovalStatus: 'rejected'
-      }
+      },
+      limit: 100000
     });
 
     const rows = result.docs || [];
@@ -1300,7 +1316,8 @@ async function getApprovedSubordinatesForRoot(rootAuthorityId) {
         issuerType: 'subordinate',
         rootAuthorityId: rootAuthorityId,
         status: 'approved'
-      }
+      },
+      limit: 100000
     });
 
     const rows = result.docs || [];
@@ -1351,7 +1368,8 @@ async function getDisabledSubordinatesForRoot(rootAuthorityId) {
         issuerType: 'subordinate',
         rootAuthorityId: rootAuthorityId,
         status: 'disabled'
-      }
+      },
+      limit: 100000
     });
 
     const rows = result.docs || [];
@@ -1629,7 +1647,8 @@ async function getUnreadNotifications() {
     selector: {
       type: 'notification',
       read: false
-    }
+    },
+    limit: 100000
   });
 
   /* Step 3: Return unread notification docs */
@@ -2098,7 +2117,8 @@ async function Issue_Credential_DB(issuerEmail, credentialData) {
 
       const existing = await tempWalletDb.find({
         selector: { holderID: credentialData.holderID },
-        fields: ['currentOrder']
+        fields: ['currentOrder'],
+        limit: 100000
       });
 
       if (existing.docs.length > 0) {
@@ -2182,7 +2202,8 @@ async function getIssuerCredentials(issuerId) {
     const walletDb = issuerCouch.use('wallet_issuer_credentials');
     
     const result = await walletDb.find({
-      selector: { type: 'credential_instance' }
+      selector: { type: 'credential_instance' },
+      limit: 100000
     });
     
     console.log(`[COUCHDB] ✅ Found ${result.docs.length} credentials for issuer ${issuerId}`);
@@ -2226,7 +2247,8 @@ async function getUserCredentialsByHolderId(holderID) {
        Tropang Ex: Filter by user/student ID.
     */
     const result = await userWalletDb.find({
-      selector: { holderID: holderID }
+      selector: { holderID: holderID },
+      limit: 100000
     });
     
     console.log(`[COUCHDB] ✅ Found ${result.docs.length} credentials for holder ${holderID}`);
@@ -2695,7 +2717,8 @@ async function getApprovedIssuers() {
         type: 'issuer_registration',
         status: 'approved'
       },
-      sort: ['createdAt'] // CHANGES: same sort as pending issuers; avoids no_usable_index on orgName
+      sort: ['createdAt'], // CHANGES: same sort as pending issuers; avoids no_usable_index on orgName
+      limit: 100000
     });
 
     /* Step 3: Return approved issuer documents
@@ -2757,7 +2780,8 @@ async function getRejectedIssuers() {
           { status: 'rejected' },
           { status: 'pending', rootApprovalStatus: 'rejected' }
         ]
-      }
+      },
+      limit: 100000
     });
 
     /* Step 3: Return rejected issuer documents, oldest-first (matches the old
@@ -2785,7 +2809,8 @@ async function getDisabledIssuers() {
         type: 'issuer_registration',
         status: 'disabled'
       },
-      sort: ['createdAt']
+      sort: ['createdAt'],
+      limit: 100000
     });
 
     return result.docs;
@@ -2821,7 +2846,8 @@ async function getIssuerTemplatesByIssuerId(issuerId) {
       console.warn('[COUCHDB] wallet_issuer_credentials isTemplate index ensure failed (non-fatal):', idxErr.message);
     }
     const result = await db.find({
-      selector: { isTemplate: true }
+      selector: { isTemplate: true },
+      limit: 100000
     });
 
     console.log(`[COUCHDB] Found ${result.docs.length} TEMPLATE(s) for issuer ${issuerId}`);
@@ -2872,7 +2898,8 @@ async function checkIssuerHasCredentialTemplates(issuerId) {
           { isTemplate: true },
           { type: 'credential_template' }
         ]
-      }
+      },
+      limit: 100000
     });
 
     const count = Array.isArray(result?.docs) ? result.docs.length : 0;
@@ -2905,7 +2932,8 @@ async function getIssuerIssuedByIssuerId(issuerId) {
 
     // Based on your screenshot: issued copies have type: "credential_instance"
     const result = await db.find({
-      selector: { type: 'credential_instance' }
+      selector: { type: 'credential_instance' },
+      limit: 100000
       // Optional strict filter (not required since per-issuer DB):
       // selector: { type: 'credential_instance', issuerID: issuerId }
     });
@@ -3223,7 +3251,8 @@ async function checkAndExpireCredentials() {
           { status: 'issued' },
           { status: 'active' }
         ]
-      }
+      },
+      limit: 100000
     });
 
     const expiredIds = [];
@@ -3340,7 +3369,8 @@ async function getAdminByEmail(adminEmail) {
 async function getAdminEmails() {
   if (!usersDb) await initializeDatabases();
   const result = await usersDb.find({
-    selector: { type: 'user', role: 'admin' }
+    selector: { type: 'user', role: 'admin' },
+    limit: 100000
   });
   return (result.docs || []).map((d) => d.email).filter(Boolean);
 }
@@ -3512,7 +3542,8 @@ async function getBlockedHolderIDsByTemplate(templateId) {
     */
     const result = await userWalletDb.find({
       selector: { templateId: templateId },
-      fields: ['holderID', 'expiryDate', 'status']
+      fields: ['holderID', 'expiryDate', 'status'],
+      limit: 100000
     });
 
     /* Step 5: Build blocked set (unique holderIDs)
@@ -3635,7 +3666,7 @@ async function createProfileShareLink(userId, token, recipientEmail, expiresAt, 
 */
 async function getProfileShareLink(token) {
   if (!profileShareLinksDb) await initializeDatabases();
-  const result = await profileShareLinksDb.find({ selector: { token } });
+  const result = await profileShareLinksDb.find({ selector: { token }, limit: 1 });
   return result.docs[0] || null;
 }
 

@@ -20,6 +20,7 @@ const nano = require('nano');
 const couchdbService = require('../couchDB_service');  // UBUNTU DIRECTORY BASED
 const { sendServerError } = require('../securityHelpers'); // Phase 5 Tier 2 (M9)
 const mailerService = require('../mailerService'); // F28: holder credential emails
+const { findNameMatches } = require('../utils/nameSimilarity'); // S3-a: exact + near-match name detection — UBUNTU DIRECTORY BASED (~/chaincert-api/utils/)
 
 // ==========================================================================================================================================================================
 //                                                             CREDENTIAL TEMPLATE CREATION (BLOCKCHAIN + COUCHDB)
@@ -67,7 +68,7 @@ exports.Create_CredentialTemplate = async (req, res, getContractAndGateway) => {
       Tropang Ex: Kukunin natin yung fields na galing sa form/UI.
     */
     // ✅ Extract from request body
-    const { credentialType, credentialName, description, metadata, skills, badgeImage, renewable } = req.body; // - polo (renewable: D5)
+    const { credentialType, credentialName, description, metadata, skills, badgeImage, renewable, confirmSimilar } = req.body; // - polo (renewable: D5; confirmSimilar: S3-a near-match override)
 
     /* Step 2: Validate required fields
 
@@ -96,30 +97,46 @@ exports.Create_CredentialTemplate = async (req, res, getContractAndGateway) => {
     const credentialId = `cred_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
     const issuerId = req.user.id;
 
-    /* Step 2.5: Block duplicate ACTIVE template names per issuer (UAT feedback Group 4.1)
+    /* Step 2.5: Block duplicate + warn near-match ACTIVE template names per issuer
+       (UAT feedback Group 4.1 + defense revision S3-a)
 
        Technical:
        Chaincode only enforces uniqueness by ID, so an issuer could create two "BSIT"
-       templates. Enforce name-uniqueness here at the controller layer (case-insensitive,
-       trimmed) against the CouchDB template mirror — consistent with the existing
-       CouchDB-based duplicate-prevention (chaincode-level would require a redeploy). Scoped
-       per issuer + active-only so a revoked/archived template name can be reused.
+       templates. Two tiers via utils/nameSimilarity against the CouchDB template mirror:
+       EXACT (normalized equality — lowercase + strip non-alphanumeric, a strict superset
+       of the old trim+lowercase check, so "Python-Certificate" vs "Python Certificate"
+       is now caught) → hard 409. NEAR-MATCH (truncation/abbreviation pattern, e.g.
+       "Python Cert" vs "Python Certificate") → 409 with code SIMILAR_NAME unless the
+       caller re-submits with confirmSimilar:true (the UI's confirm step sets it after
+       showing the warning). Deliberately pattern-based, NOT a similarity score — any
+       score cutoff would be an arbitrary threshold of exactly the kind the defense
+       panel flagged. Scoped per issuer + active-only so archived names stay reusable.
        Tropang Ex:
-       Bawal magkaroon ng dalawang aktibong template na pareho ang pangalan (e.g. dalawang
-       "BSIT"). Kung meron na, i-reject bago pa sumulat sa blockchain.
+       Bawal ang eksaktong kapareho ng pangalan. Yung KAMUKHA lang (putol/daglat tulad ng
+       "Python Cert"), babalaan muna — matutuloy lang kapag kinumpirma ng issuer na sadya.
     */
     try {
       const existingTemplates = await couchdbService.getIssuerTemplatesByIssuerId(issuerId);
-      const wantedName = String(credentialName).trim().toLowerCase();
-      const clash = (Array.isArray(existingTemplates) ? existingTemplates : []).find((t) => {
-        const status = String(t.status || '').toLowerCase();
-        const isActive = status !== 'revoked' && status !== 'disabled' && status !== 'inactive' && status !== 'archived';
-        return isActive && String(t.credentialName || '').trim().toLowerCase() === wantedName;
-      });
-      if (clash) {
+      const activeNames = (Array.isArray(existingTemplates) ? existingTemplates : [])
+        .filter((t) => {
+          const status = String(t.status || '').toLowerCase();
+          return status !== 'revoked' && status !== 'disabled' && status !== 'inactive' && status !== 'archived';
+        })
+        .map((t) => String(t.credentialName || '').trim())
+        .filter(Boolean);
+      const matches = findNameMatches(String(credentialName).trim(), activeNames);
+      if (matches.exact.length > 0) {
         return res.status(409).json({
           success: false,
           error: `You already have an active template named "${String(credentialName).trim()}". Please use a different name or archive the existing one.`
+        });
+      }
+      if (matches.similar.length > 0 && !confirmSimilar) {
+        return res.status(409).json({
+          success: false,
+          code: 'SIMILAR_NAME',
+          similar: matches.similar,
+          error: `This name is similar to your existing ${matches.similar.map((n) => `"${n}"`).join(', ')}. Re-submit with confirmSimilar to create it anyway.`
         });
       }
     } catch (dupCheckErr) {

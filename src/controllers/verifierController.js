@@ -432,6 +432,7 @@ const getVerificationStats = async (req, res) => {
       selector: {
         _id: { $gt: null },
       },
+      limit: 100000,
     });
 
     const allCredentials = result.docs || [];

@@ -18,6 +18,8 @@
   - credentialId — credential to trace in the proof trail.
   - showProofTrail — render the Verification Proof Trail (holder/admin: true; issuer: false — no endpoint).
   - loading / error — pass-through states.
+  - proofTrailLoading — verification-logs fetch still in flight; shows a spinner in the trail
+    section instead of a false "Not independently verified yet." (own-finding #6 fix).
 */
 import React, { useMemo } from 'react';
 import { computeProvenance, computeProofTrail } from './analytics';
@@ -37,6 +39,7 @@ export default function CredentialHistory({
   showProofTrail = false,
   loading = false,
   error = null,
+  proofTrailLoading = false,
 }) {
   const provenance = useMemo(() => computeProvenance(history), [history]);
   const proofTrail = useMemo(
@@ -118,7 +121,12 @@ export default function CredentialHistory({
       {showProofTrail && proofTrail && (
         <div className="analytics-card" style={{ marginTop: 14 }}>
           <h4>Verification Proof Trail</h4>
-          {proofTrail.count === 0 ? (
+          {proofTrail.count === 0 && proofTrailLoading ? (
+            /* Own-finding #6: while the (slow, full-ledger) verification-logs fetch is in
+               flight, an empty list means "still loading", NOT "never verified" — showing
+               the negative here was a false claim that corrected itself seconds later. */
+            <SpinnerBlock label="Loading verification trail…" minHeight={80} />
+          ) : proofTrail.count === 0 ? (
             <div className="analytics-chart-empty" style={{ height: 80 }}>Not independently verified yet.</div>
           ) : (
             <div className="analytics-timeline">

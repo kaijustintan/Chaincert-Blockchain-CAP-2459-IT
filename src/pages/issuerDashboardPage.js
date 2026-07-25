@@ -41,6 +41,7 @@ import Pagination, { usePagination } from "../components/ui/Pagination";
 import StatusLegend from "../components/ui/StatusLegend";
 import CredentialHistory from "../components/analytics/CredentialHistory";
 import { effectiveCredentialStatus, minIssueExpiryDate, maxIssueExpiryDate } from "../utils/credentialStatus"; // F01
+import { findNameMatches } from "../utils/nameSimilarity"; // S3-a: exact + near-match name detection
 import { getCredentialLineage, isSameInstance } from "../utils/credentialLineage"; // Q1
 import { LayoutDashboard, FilePlus, Award, Ban, List, BarChart3, Receipt, Building2, Bell, Check, X } from "lucide-react";
 
@@ -1183,19 +1184,55 @@ export default function IssuerDashboard() {
     }
   };
 
-  // Batch A (I-04): live "name already taken" warning. Compares the typed name against the
-  // issuer's own ACTIVE templates already in memory (templateOptions), mirroring the backend's
-  // trimmed + lowercased exact-match on active templates. No new fetch/endpoint; advisory only
-  // (the backend 409 remains the hard guard).
+  // Batch A (I-04) + defense revision S3-a: live name check against the issuer's own
+  // ACTIVE templates in memory. Now two-tier via utils/nameSimilarity: exact (normalized
+  // equality, catches punctuation/spacing variants — BLOCKS) and similar (truncation/
+  // abbreviation pattern like "Python Cert" vs "Python Certificate" — WARNS, creatable
+  // via the existing confirm step). Advisory only; the backend 409s remain the hard guard.
   const nameClash = useMemo(() => {
-    const wanted = String(createForm.credentialName || "").trim().toLowerCase();
-    if (!wanted) return false;
-    return (Array.isArray(templateOptions) ? templateOptions : []).some((t) => {
-      const s = String(t?.status || "").toLowerCase();
-      const isActive = s !== "revoked" && s !== "disabled" && s !== "inactive" && s !== "archived";
-      return isActive && String(t?.credentialName || "").trim().toLowerCase() === wanted;
-    });
+    const wanted = String(createForm.credentialName || "").trim();
+    if (!wanted) return { exact: [], similar: [] };
+    const activeNames = (Array.isArray(templateOptions) ? templateOptions : [])
+      .filter((t) => {
+        const s = String(t?.status || "").toLowerCase();
+        return s !== "revoked" && s !== "disabled" && s !== "inactive" && s !== "archived";
+      })
+      .map((t) => String(t?.credentialName || "").trim())
+      .filter(Boolean);
+    return findNameMatches(wanted, activeNames);
   }, [templateOptions, createForm.credentialName]);
+
+  /* Defense revision S3-c (UAT 5.2): one-click skill suggestions in the create modal,
+     drawn from THIS issuer's OWN past credentials and filtered by the selected
+     credential type (falls back to all of the issuer's skills while the type has no
+     history yet). Deliberately self-scoped: no cross-issuer vocabulary, no new
+     endpoint — computed from templateOptions already in memory. Free-text stays
+     untouched; chips are shortcuts, not a restriction. */
+  const skillSuggestions = useMemo(() => {
+    if (!showCreateModal) return [];
+    const selType = String(createForm.credentialType || "").trim().toLowerCase();
+    const added = new Set(skillsList.map((s) => String(s).trim().toLowerCase()));
+    const byNorm = new Map(); // normalized skill -> { display, count, typeMatch }
+    for (const t of (Array.isArray(templateOptions) ? templateOptions : [])) {
+      const tType = String(t?.credentialType || "").trim().toLowerCase();
+      for (const raw of (Array.isArray(t?.skills) ? t.skills : [])) {
+        const display = String(raw || "").trim();
+        if (!display) continue;
+        const norm = display.toLowerCase();
+        if (added.has(norm)) continue;
+        const e = byNorm.get(norm) || { display, count: 0, typeMatch: false };
+        e.count += 1;
+        if (selType && tType === selType) e.typeMatch = true;
+        byNorm.set(norm, e);
+      }
+    }
+    const all = [...byNorm.values()];
+    const pool = selType && all.some((e) => e.typeMatch) ? all.filter((e) => e.typeMatch) : all;
+    return pool
+      .sort((a, b) => b.count - a.count || a.display.localeCompare(b.display))
+      .slice(0, 8)
+      .map((e) => e.display);
+  }, [showCreateModal, templateOptions, createForm.credentialType, skillsList]);
 
   // Group 4.5: validate + normalize the type, then open the confirmation step (no write yet).
   const handleCreateCredential = (e) => {
@@ -1204,7 +1241,9 @@ export default function IssuerDashboard() {
     const type = createForm.credentialType.trim();
     const name = createForm.credentialName.trim();
     if (!type || !name) { setCreateError("Please fill in Credential Type and Name"); return; }
-    if (nameClash) { setCreateError("You already have an active credential with this name. Please choose a different name."); return; }
+    if (nameClash.exact.length > 0) { setCreateError("You already have an active credential with this name. Please choose a different name."); return; }
+    // Near-matches do NOT block — the warning is visible on the name field and repeated in
+    // the confirm step; proceeding through Confirm is the explicit "create anyway".
     setCreateConfirmStep(true);
   };
 
@@ -1213,7 +1252,9 @@ export default function IssuerDashboard() {
     setCreateLoading(true); setCreateError("");
     try {
       const credentialId = `cred_${Date.now()}_${Math.random().toString(36).substring(2, 17)}`;
-      await apiService.Create_CredentialTemplate({ id: credentialId, credentialType: createForm.credentialType.trim(), credentialName: createForm.credentialName.trim(), description: createForm.description, metadata: createForm.metadata, renewable: createForm.renewable !== false, skills: skillsList, badgeImage: badgeImageBase64, visibility: 'private' });
+      // confirmSimilar: user has seen the near-match warning and clicked Confirm. Direct API
+      // callers without this flag still get the backend's SIMILAR_NAME 409.
+      await apiService.Create_CredentialTemplate({ id: credentialId, credentialType: createForm.credentialType.trim(), credentialName: createForm.credentialName.trim(), description: createForm.description, metadata: createForm.metadata, renewable: createForm.renewable !== false, skills: skillsList, badgeImage: badgeImageBase64, visibility: 'private', confirmSimilar: nameClash.similar.length > 0 });
       showToast("Credential created successfully!"); closeCreateModal(); fetchCredentials(); fetchTemplateOptions();
     } catch (err) {
       // Keep the confirm modal open and surface the server message (e.g. duplicate-name 409).
@@ -2479,7 +2520,10 @@ export default function IssuerDashboard() {
                     <input type="text" name="credentialType" value={createForm.credentialType} onChange={handleCreateFormChange} placeholder="Enter a custom credential type" maxLength={60} required style={{ marginTop: "8px" }} />
                   )}
                 </div>
-                <div className="form-group"><label>Credential Name <span className="required-star">*</span></label><input type="text" name="credentialName" value={createForm.credentialName} onChange={handleCreateFormChange} placeholder="e.g. Company Staff Card" required />{nameClash && <span className="form-label-hint" style={{ color: "var(--warn)", display: "block", marginTop: 6 }}>You already have an active credential with this name — names should be unique.</span>}</div>
+                <div className="form-group"><label>Credential Name <span className="required-star">*</span></label><input type="text" name="credentialName" value={createForm.credentialName} onChange={handleCreateFormChange} placeholder="e.g. Company Staff Card" required />
+                  {nameClash.exact.length > 0 && <span className="form-label-hint" style={{ color: "var(--danger)", display: "block", marginTop: 6 }}>You already have an active credential with this name — names must be unique.</span>}
+                  {nameClash.exact.length === 0 && nameClash.similar.length > 0 && <span className="form-label-hint" style={{ color: "var(--warn)", display: "block", marginTop: 6 }}>Similar to your existing {nameClash.similar.map((n) => `"${n}"`).join(", ")} — holders may confuse the two. You can still create it if it is intentionally distinct.</span>}
+                </div>
               </div>
               <div className="form-group"><label>Description</label><textarea name="description" value={createForm.description} onChange={handleCreateFormChange} rows={2} placeholder="Describe the credential's purpose..." /></div>
               <div className="form-group"><label>Metadata <span className="form-label-hint">(optional)</span></label><input type="text" name="metadata" value={createForm.metadata} onChange={handleCreateFormChange} placeholder="e.g. Level: Manager" /></div>
@@ -2498,6 +2542,16 @@ export default function IssuerDashboard() {
               <div className="form-group">
                 <label>Skills <span className="form-label-hint">(optional — recipients will earn these)</span></label>
                 <div className="skills-input-row"><input type="text" value={skillInput} onChange={(e) => setSkillInput(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleAddSkill(); }}} placeholder="e.g. Python, Project Management" /><button type="button" className="add-skill-btn" onClick={handleAddSkill}>+ Add Skill</button></div>
+                {skillSuggestions.length > 0 && (
+                  <div className="skills-suggest-row">
+                    <span className="skills-suggest-label">From your past credentials:</span>
+                    {skillSuggestions.map((s) => (
+                      <button key={s} type="button" className="skill-suggest-chip" onClick={() => setSkillsList((prev) => (prev.includes(s) ? prev : [...prev, s]))}>
+                        + {s}
+                      </button>
+                    ))}
+                  </div>
+                )}
                 {skillsList.length > 0 && <div className="skills-tags">{skillsList.map((skill, idx) => <span key={idx} className="skill-tag"><span>{skill}</span><button type="button" onClick={() => handleRemoveSkill(skill)} aria-label={`Remove ${skill}`}>×</button></span>)}</div>}
               </div>
               <div className="form-group">
@@ -2527,6 +2581,11 @@ export default function IssuerDashboard() {
             <p style={{ margin: "12px 0 4px", fontSize: "14px", lineHeight: 1.6, color: "var(--text)" }}>
               You're about to create the credential <strong>"{createForm.credentialName.trim()}"</strong> (type: <strong>{createForm.credentialType.trim()}</strong>). You can issue it to recipients right after.
             </p>
+            {nameClash.similar.length > 0 && (
+              <p style={{ margin: "4px 0", fontSize: "13px", lineHeight: 1.6, color: "var(--warn)" }}>
+                Heads up: this name is similar to your existing {nameClash.similar.map((n) => `"${n}"`).join(", ")}. Confirming creates it anyway.
+              </p>
+            )}
             {createError && <div className="form-error">{createError}</div>}
             <div className="form-actions">
               <button type="button" className="action-btn" onClick={confirmCreateCredential} disabled={createLoading}>

@@ -1042,7 +1042,8 @@ Enable_User: async (userId, reason) => {
         metadata: credentialData.metadata,
         renewable: credentialData.renewable !== false,  // D5: can holders request renewal? (default true)
         skills: credentialData.skills || [],          // - polo
-        badgeImage: credentialData.badgeImage || ''   // - polo
+        badgeImage: credentialData.badgeImage || '',  // - polo
+        confirmSimilar: credentialData.confirmSimilar === true // S3-a: user confirmed past the near-match warning
       });
 
       /* Step 2: Return backend response

@@ -2008,6 +2008,7 @@ const handleDownloadIssuerDocument = async (doc) => {
                 showProofTrail
                 loading={credentialHistoryLoading}
                 error={credentialHistoryError}
+                proofTrailLoading={logsLoading}
               />
             </div>
           </div>,

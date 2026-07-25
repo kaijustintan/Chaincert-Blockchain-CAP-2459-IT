@@ -725,6 +725,17 @@ If you still see any of them, the toggle is still in `.env` — remove it and re
 *(Note: `DISABLE_SIGNUP_OTP` has no loud boot banner wired, so verify it by removing the line and confirming
 user signup now demands the emailed 6-digit code.)*
 
+**Also decide on `SMTP_OVERRIDE_TO` in the same `.env`.** It is not a security toggle and has no boot
+banner, so it is easy to forget — but it silently redirects **all** outgoing mail to a single inbox.
+
+| Setting | Effect | When to use |
+|---|---|---|
+| `SMTP_OVERRIDE_TO=<inbox>` **set** | every email goes to that one inbox, regardless of recipient | Demo with fake issuer/admin addresses, so nothing is lost to non-existent mailboxes. Holder and verifier emails still reach real recipients — those sends bypass the override deliberately. |
+| `SMTP_OVERRIDE_TO=` **unset** | every email goes to its true recipient | Real deployment, or any demo where the accounts use real addresses |
+
+If a demo depends on someone actually receiving an email, unset it and use a real address for that
+account. See Appendix A gotcha on outbound SMTP if mail still does not arrive.
+
 ### Step 2 — Frontend: remove `REACT_APP_DISABLE_ISSUER_TOGGLE` and rebuild
 
 **Directory:** `~/chaincert-src`
@@ -770,7 +781,7 @@ These two are intentional demo affordances, not security holes — every OTHER c
 
 ## Appendix A: VM Gotchas & Troubleshooting
 
-*(The five issues debugged live on 2026-07-04. Repo fixes are committed, so a fresh clone shouldn't hit
+*(Items 1-6 were debugged live on 2026-07-04; item 7 is a recurring operational issue. Repo fixes are committed, so a fresh clone shouldn't hit
 them — but a stale clone or different box might.)*
 
 1. **`deployCC` → "dial unix /host/var/run/docker.sock: no such file or directory."** The peer's socket
@@ -791,6 +802,20 @@ them — but a stale clone or different box might.)*
 6. **Leaked PAT / SSH password:** never embed a PAT in a git remote URL (it lands in `.git/config`) or
    paste a password into a shared doc. If done: `git remote set-url origin https://github.com/…` (no
    token) + **revoke the PAT**; `passwd` to rotate + share out-of-band.
+7. **Notification emails not arriving.** In-app notifications appear but no email does. Check these
+   four in order, most likely first:
+   (a) **`SMTP_OVERRIDE_TO` is set** — the demo catch-all is redirecting everything to one inbox:
+   `grep SMTP_ ~/chaincert-api/.env` (see the Pre-Demo Security Checklist for when to keep vs unset it).
+   (b) **The network blocks outbound SMTP** — campus and office WiFi commonly do, phone hotspots
+   usually do not: `curl -v telnet://smtp.gmail.com:587` (a hang means blocked).
+   (c) **The recipient is a placeholder demo address** that does not exist.
+   (d) **Spam folder.**
+   Then confirm the send attempt reached the mail layer:
+   `pm2 logs chaincert-api --lines 50 --nostream | grep -i mail`.
+   *Expected result:* the log records a successful send and the message arrives at the real address.
+   *(Note: all mail sends from one platform mailbox on behalf of issuers, not from each issuer's own
+   domain — sending as an unauthorized domain without SPF/DKIM gets flagged as spam. Per-issuer
+   sending addresses are future work.)*
 
 ---
 

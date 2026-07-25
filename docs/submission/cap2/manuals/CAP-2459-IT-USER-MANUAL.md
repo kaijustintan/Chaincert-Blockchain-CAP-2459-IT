@@ -1,5 +1,22 @@
 # ChainCert — User Manual
 
+> ## ⚠️ HISTORICAL RECORD — superseded
+>
+> **This manual is retained as a historical record and is no longer maintained.** It documents
+> the system as demonstrated at the CAP2 defense, organised as one continuous narrative.
+>
+> **For current instructions, use the role-specific manuals instead:**
+>
+> | Your role | Manual |
+> |---|---|
+> | Credential holder | `CAP-2459-IT-USER-MANUAL-HOLDER.md` |
+> | Issuing organisation | `CAP-2459-IT-USER-MANUAL-ISSUER.md` |
+> | Platform administrator | `CAP-2459-IT-USER-MANUAL-ADMIN.md` |
+> | Employer or verifier | `CAP-2459-IT-USER-MANUAL-VERIFIER.md` |
+>
+> Those four manuals are organised by feature rather than by scenario, cover each role
+> separately, and include troubleshooting procedures. Some details below have since changed.
+
 **ChainCert** — Blockchain-Based Credential Issuance and Verification Platform
 Post-UAT Edition · CAP-2459-IT · July 23, 2026
 

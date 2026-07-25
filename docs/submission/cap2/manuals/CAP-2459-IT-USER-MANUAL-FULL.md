@@ -3,6 +3,22 @@
 
 # ChainCert — User Manual (UAT Edition)
 
+> ## ⚠️ HISTORICAL RECORD — the UAT test script
+>
+> **This document is retained as a historical record and is no longer maintained.** It is the
+> phase-by-phase test script that User Acceptance Testing participants followed in July 2026,
+> including the form references they answered against. It is preserved unchanged because
+> Chapter 6 of the capstone document reports results gathered using it.
+>
+> **It is not a usage guide.** For current instructions, use the role-specific manuals:
+>
+> | Your role | Manual |
+> |---|---|
+> | Credential holder | `CAP-2459-IT-USER-MANUAL-HOLDER.md` |
+> | Issuing organisation | `CAP-2459-IT-USER-MANUAL-ISSUER.md` |
+> | Platform administrator | `CAP-2459-IT-USER-MANUAL-ADMIN.md` |
+> | Employer or verifier | `CAP-2459-IT-USER-MANUAL-VERIFIER.md` |
+
 **ChainCert** — Blockchain-Based Credential Issuance and Verification Platform
 Updated: July 5, 2026 — CAP-2459-IT
 

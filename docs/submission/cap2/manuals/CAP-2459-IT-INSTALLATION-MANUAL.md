@@ -24,6 +24,7 @@ March 25, 2026 — CAP-2459-IT
 - Phase 13: Start Issuer CouchDB Containers
 - Final System State
 - Appendix A: Master Copy Commands Reference
+- Appendix B: Troubleshooting
 
 ---
 
@@ -1231,3 +1232,428 @@ cp "<PROJECT_ROOT>/backend/node_creation/dlsu/connection-delasalleuniversity.jso
 > ```bash
 > sed -i 's/\r//' ~/fabric-samples/fabric-samples/test-network/addDLSU/fabric-ca/registerEnroll.sh
 > ```
+
+---
+
+## Appendix B: Troubleshooting
+
+Every entry below follows the same shape: **Symptom** (what you see) → **Cause** (why it
+happens) → **Fix** (the commands to run) → **Expected result** (how you know it worked).
+Work top-to-bottom within an entry; if the final step still fails, see *Escalation* at the
+end of this appendix.
+
+For issues specific to the **cloud VM deployment**, see Appendix A of
+`CAP-2459-IT-VM-INSTALLATION-MANUAL.md` instead. This appendix covers the **local WSL2**
+installation described in Phases 0-13 above.
+
+---
+
+### B.1 Environment & Prerequisites (Phases 1-2)
+
+#### B.1.1 `wsl --install` reports "WSL is already installed"
+
+**Symptom.** The Phase 1 install command exits with an error mentioning WSL is already present.
+
+**Cause.** Expected on any machine where WSL was set up before. Not a failure.
+
+**Fix.** Skip the install and confirm you are on WSL **2** with Ubuntu:
+```powershell
+wsl -l -v
+```
+If the VERSION column shows `1`, upgrade the distribution:
+```powershell
+wsl --set-version Ubuntu 2
+```
+
+**Expected result.** `wsl -l -v` lists `Ubuntu` with `STATE: Running` and `VERSION: 2`.
+
+---
+
+#### B.1.2 `node -v` shows the wrong version, or `node` is not found inside Ubuntu
+
+**Symptom.** Node commands fail, or the version does not match the one installed in Phase 1.
+
+**Cause.** Node was installed on Windows, not inside the Ubuntu distribution — they are
+separate environments. A common mistake is running the install from PowerShell.
+
+**Fix.** Open an Ubuntu shell first (`wsl` or the Ubuntu app), then verify and reinstall
+there if needed:
+```bash
+which node && node -v && npm -v
+```
+
+**Expected result.** `which node` returns a path under `/usr/` (not `/mnt/c/...`), and the
+version matches Phase 1.
+
+---
+
+#### B.1.3 Docker commands fail with "permission denied" on the Docker socket
+
+**Symptom.** `docker ps` returns `permission denied while trying to connect to the Docker
+daemon socket`.
+
+**Cause.** Your Ubuntu user is not in the `docker` group, or the group membership has not
+been applied to the current shell session.
+
+**Fix.**
+```bash
+sudo usermod -aG docker $USER
+```
+Then close **all** Ubuntu terminals and open a new one (group membership is only applied to
+new sessions). If it still fails, restart WSL from PowerShell:
+```powershell
+wsl --shutdown
+```
+
+**Expected result.** `docker ps` runs without `sudo` and prints a container table (possibly
+empty).
+
+---
+
+#### B.1.4 Fabric binaries not found (`peer: command not found`)
+
+**Symptom.** `peer version` or `./network.sh` fails with a command-not-found error.
+
+**Cause.** `PATH` and `FABRIC_CFG_PATH` are shell-session variables. They must be exported
+in **every new terminal** you use for Fabric work.
+
+**Fix.** From the test-network directory:
+```bash
+export PATH=${PWD}/../bin:$PATH
+export FABRIC_CFG_PATH=$PWD/../config/
+peer version
+```
+
+**Expected result.** `peer version` prints `Version: 2.5.x`.
+
+---
+
+### B.2 Chaincode & Network (Phases 3, 7)
+
+#### B.2.1 `deployCC` fails with a Docker socket path error
+
+**Symptom.** Chaincode deployment fails with `dial unix /host/var/run/docker.sock: no such
+file or directory`.
+
+**Cause.** The peer container's socket mount and its `CORE_VM_ENDPOINT` setting disagree
+about the socket path.
+
+**Fix.**
+```bash
+sed -i 's|:/run/docker.sock|:/host/var/run/docker.sock|g' \
+  ~/fabric-samples/fabric-samples/test-network/compose/docker/docker-compose-test-net.yaml
+```
+Then recreate the peer containers using the procedure in **B.2.2**.
+
+**Expected result.** `./network.sh deployCC ...` completes and prints `Chaincode
+definition committed on channel 'chaincert-channel'`.
+
+---
+
+#### B.2.2 Peers must be recreated (never use `--force-recreate`)
+
+**Symptom.** You need to restart peer containers after a config change, or you see
+`KeyError: 'ContainerConfig'` from docker-compose.
+
+**Cause.** docker-compose v1 crashes on `--force-recreate` against newer Docker versions and
+leaves zombie `<id>_peer...` containers behind.
+
+**Fix.** Remove the containers explicitly, then bring them back up:
+```bash
+docker ps -a --format '{{.Names}}' | grep peer0.org1.example.com | xargs -r docker rm -f
+docker ps -a --format '{{.Names}}' | grep peer0.org2.example.com | xargs -r docker rm -f
+
+cd ~/fabric-samples/fabric-samples/test-network
+docker-compose -f compose/compose-test-net.yaml \
+  -f compose/compose-couch.yaml \
+  -f compose/docker/docker-compose-test-net.yaml \
+  up -d --no-deps peer0.org1.example.com peer0.org2.example.com
+```
+
+**Expected result.** `docker ps` shows both peers `Up`, with no `_peer` zombie names.
+
+---
+
+#### B.2.3 Chaincode deploy fails after editing `chaincode/index.js`
+
+**Symptom.** The network runs, but your chaincode changes are not reflected, or `deployCC`
+reports a version conflict.
+
+**Cause.** Fabric will not overwrite a committed chaincode version. Every redeploy needs a
+new `-ccv` value, and the DLSU org must be re-approved (see `Redeploy CC Instructions.md`).
+
+**Fix.** Stop the API, re-copy the chaincode, and redeploy with a bumped version:
+```bash
+cp /mnt/c/Users/<you>/.../chaincode/index.js ~/chaincert-chaincode/index.js
+cd ~/fabric-samples/fabric-samples/test-network
+./network.sh deployCC -c chaincert-channel -ccn chaincert -ccl javascript \
+  -ccp ~/chaincert-chaincode -ccv 2.1
+```
+Then run the DLSU install/approve/commit sequence from Phase 9.
+
+**Expected result.** `peer lifecycle chaincode querycommitted -C chaincert-channel` shows
+your new version number with all three orgs approved.
+
+---
+
+### B.3 CouchDB (Phases 6, 13)
+
+#### B.3.1 Database creation fails with "Connection reset by peer"
+
+**Symptom.** The `curl -X PUT` commands in Phase 6 fail immediately after starting a fresh
+CouchDB container.
+
+**Cause.** A startup race — CouchDB accepts TCP connections a moment before it is ready to
+serve requests.
+
+**Fix.** Wait about two seconds and re-run the same commands. They are idempotent, so
+re-running is safe:
+```bash
+sleep 2
+curl -X PUT http://admin:adminpw@localhost:5985/users
+```
+
+**Expected result.** `{"ok":true}` — or `{"error":"file_exists"}`, which also means the
+database is present and you can continue.
+
+---
+
+#### B.3.2 Backend cannot reach CouchDB / "ECONNREFUSED 5985"
+
+**Symptom.** The API fails on boot, or health checks report a database error.
+
+**Cause.** The admin CouchDB container is not running, or it is on a different port. Note
+ChainCert uses **5985**, not CouchDB's default 5984.
+
+**Fix.**
+```bash
+docker ps | grep couchdb
+curl http://admin:adminpw@localhost:5985/_up
+```
+If the container is missing, start it per Phase 6. If CouchDB lives elsewhere, point the API
+at it instead of editing code — set `COUCHDB_URL` in `~/chaincert-api/.env`:
+```bash
+COUCHDB_URL=http://admin:adminpw@localhost:5985
+```
+
+**Expected result.** `curl .../_up` returns `{"status":"ok"}` and the API boots cleanly.
+
+---
+
+#### B.3.3 An issuer's credentials do not appear (subordinate CouchDB)
+
+**Symptom.** A provisioned subordinate issuer logs in, but their credential list is empty or
+errors with a message about a missing CouchDB URL.
+
+**Cause.** Each subordinate has its own CouchDB instance, and the central
+`couchdb_connections` database maps `orgName` to that instance's URL. A missing row means
+the API does not know where to read or write.
+
+**Fix.** Confirm the subordinate's container is up and its mapping row exists:
+```bash
+docker ps | grep couch
+curl http://admin:adminpw@localhost:5985/couchdb_connections/_all_docs?include_docs=true
+```
+If the row is missing, add it per Phase 13.
+
+**Expected result.** The mapping document lists the subordinate's `orgName` with the correct
+port (`:9085` for ARCHERSNETWORK, `:9086` for LSCS), and the dashboard loads.
+
+---
+
+### B.4 Wallets & Identities (Phases 8, 10-12)
+
+#### B.4.1 API throws `Identity <name> not found`
+
+**Symptom.** An action fails with an error naming a Fabric identity that does not exist in
+the wallet.
+
+**Cause.** **This is not a code bug.** The wallet enrollment script for that identity has not
+been run. A newly approved issuer is not automatically provisioned on the network — approval
+flips their account status, while the Fabric identity is created by the manual workflow.
+
+**Fix.** Run the enrollment script for the identity named in the error, then confirm it
+landed in the wallet:
+```bash
+cd ~/chaincert-api
+node enrollChaincertAdmin.js      # or the relevant setup_Wallet_*.js script
+ls ~/chaincert-api/wallet/
+```
+For a brand-new subordinate issuer, follow the full 12-phase workflow in
+`docs/reference/Final Design.md`.
+
+**Expected result.** `ls ~/chaincert-api/wallet/` lists a `.id` file matching the identity
+name from the error, and the action succeeds on retry.
+
+---
+
+#### B.4.2 Subordinate wallet import fails with "cert.pem not found"
+
+**Symptom.** A `setup_Wallet_DLSU_Subordinate_*.js` script cannot find the certificate file.
+
+**Cause.** The path the script reads from does not match the `-M` output path used during
+`fabric-ca-client enroll`.
+
+**Fix.** Both subordinates use the naming convention
+`delasalleuniversity-subordinate-<org>@dlsu.example.com`. Re-run the enroll step writing to
+the folder the script expects, then confirm the file exists before re-running the import:
+```bash
+ls ~/fabric-samples/fabric-samples/test-network/organizations/peerOrganizations/\
+dlsu.example.com/users/delasalleuniversity-subordinate-<org>@dlsu.example.com/msp/signcerts/
+```
+
+**Expected result.** `cert.pem` is present at that path, and the wallet script completes
+with a success message.
+
+---
+
+#### B.4.3 Shell scripts fail with `\r: command not found` or "bad interpreter"
+
+**Symptom.** A script copied from Windows fails immediately with stray-character errors.
+
+**Cause.** Windows CRLF line endings in a file executed by a Linux shell.
+
+**Fix.**
+```bash
+sed -i 's/\r//' <path-to-script>.sh
+```
+
+**Expected result.** The script runs normally.
+
+---
+
+### B.5 Backend API (Phase 4)
+
+#### B.5.1 API refuses to start, exits mentioning `JWT_SECRET`
+
+**Symptom.** `node sdk-server-fixed.js` exits immediately on boot.
+
+**Cause.** Intentional fail-closed behavior (security measure M3). The API will not run
+without a signing secret — there is no insecure default.
+
+**Fix.** Generate one and add it to `~/chaincert-api/.env`:
+```bash
+openssl rand -hex 48
+```
+```bash
+JWT_SECRET=<paste the generated value>
+```
+
+**Expected result.** The API boots and `curl http://localhost:4000/api/health` responds.
+
+---
+
+#### B.5.2 Frontend loads but every request fails with a CORS error
+
+**Symptom.** The browser console shows CORS policy errors; the UI shows loading or error
+states everywhere.
+
+**Cause.** `CORS_ORIGIN` on the backend does not match the address the frontend is actually
+served from.
+
+**Fix.** Set it in `~/chaincert-api/.env` to the exact origin (scheme, host, and port, no
+trailing slash), then restart the API:
+```bash
+CORS_ORIGIN=http://localhost:3000
+```
+
+**Expected result.** Requests succeed and the dashboard populates.
+
+---
+
+#### B.5.3 Login is rejected with "Too many attempts from this IP"
+
+**Symptom.** Repeated login attempts start failing regardless of correct credentials.
+
+**Cause.** **Not a bug** — the per-IP rate limiter (security measure M5) allows 10 attempts
+per 15 minutes on login, forgot-password, and reset endpoints.
+
+**Fix.** Wait 15 minutes, or for a group testing session only, add the testing toggle to
+`~/chaincert-api/.env` and restart:
+```bash
+DISABLE_RATE_LIMIT=true
+```
+
+**Expected result.** Login succeeds. **Remove this toggle before any demo or production
+run** — the API prints a loud startup warning while it is active.
+
+---
+
+#### B.5.4 Notification emails are not arriving
+
+**Symptom.** In-app notifications appear, but no email is received.
+
+**Cause.** Most often environmental rather than a code fault. Four common reasons, in order
+of likelihood:
+1. `SMTP_OVERRIDE_TO` is set — a demo catch-all that redirects all mail to one inbox.
+2. The network blocks outbound SMTP (office and campus WiFi commonly do; a phone hotspot
+   usually does not).
+3. The recipient is a placeholder demo address that does not exist.
+4. The message was delivered to a spam folder.
+
+**Fix.** Work through them in order:
+```bash
+grep -E 'SMTP_' ~/chaincert-api/.env
+```
+Unset `SMTP_OVERRIDE_TO` to deliver to real recipients. Test outbound SMTP reachability:
+```bash
+curl -v telnet://smtp.gmail.com:587
+```
+If the connection hangs, the network is blocking it — retry on a different connection. Then
+check the API log for the send attempt:
+```bash
+pm2 logs chaincert-api --lines 50 --nostream | grep -i mail
+```
+
+**Expected result.** The log records a successful send, and the message arrives at the real
+recipient address.
+
+> **Note on sender identity.** ChainCert sends all mail from one platform mailbox on behalf
+> of issuers, rather than from each issuer's own domain. This is deliberate: sending as a
+> domain you are not authorized for (without SPF and DKIM records) causes messages to be
+> flagged as spam or spoofing. Per-issuer sending addresses are identified as future work.
+
+---
+
+### B.6 Verifying a Healthy Installation
+
+Run these in order. All should pass before you consider the setup complete.
+
+```bash
+# 1. Containers up (expect orderer, 3 peers, CAs, CouchDB instances)
+docker ps --format 'table {{.Names}}\t{{.Status}}'
+
+# 2. Chaincode committed on the channel
+cd ~/fabric-samples/fabric-samples/test-network
+peer lifecycle chaincode querycommitted -C chaincert-channel
+
+# 3. Admin CouchDB reachable
+curl http://admin:adminpw@localhost:5985/_up
+
+# 4. Wallet identities present
+ls ~/chaincert-api/wallet/
+
+# 5. API healthy
+curl http://localhost:4000/api/health
+```
+
+**Expected result.** Step 2 lists `chaincert` with all three organizations approved; step 3
+returns `{"status":"ok"}`; step 4 lists the admin, DLSU, and subordinate identity files; step
+5 returns a success payload.
+
+---
+
+### Escalation
+
+If an entry's fix does not resolve the problem:
+
+1. **Capture the exact error.** `pm2 logs chaincert-api --lines 100 --nostream`, or the full
+   terminal output of the failing command.
+2. **Check the peer and chaincode logs**, which often contain the real cause when an API
+   error is generic: `docker logs peer0.org1.example.com --tail 100`.
+3. **Confirm this is not a known deployment gotcha** — see Appendix A of
+   `CAP-2459-IT-VM-INSTALLATION-MANUAL.md`.
+4. **Confirm the identity workflow was completed** for the account involved (see B.4.1); a
+   large share of "broken feature" reports are unprovisioned identities.
+5. If the issue is reproducible from a clean clone, record the phase number, the exact
+   command, and the full error, and raise it with the project team.

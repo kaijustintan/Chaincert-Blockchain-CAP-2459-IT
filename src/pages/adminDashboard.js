@@ -11,7 +11,7 @@
   users · logs · analytics) inside the design-system AppShell/Sidebar. Heavy apiService usage; reads are
   lazy per tab. Logs tab is the unified "Audit Logs" view (ADMIN5 — Status + Issuer Decision merged with
   a Type filter) plus Verification + Root-Subordinate categories. Analytics uses the shared helpers
-  (computeVerificationOutcomes / computeSuspiciousIssuers / computeDemand / computeIntegritySummary) and
+  (computeVerificationOutcomes / computeSuspiciousIssuers / computeIntegritySummary) and
   a per-credential "Credential Dossier" modal (computeProvenance / computeProofTrail). effectiveCredential
   Status (F01) for compute-on-read expiry. Verification logs are admin-only globally.
 
@@ -37,6 +37,7 @@ import {
   computeProvenance,
   computeProofTrail,
   computeIssuerApprovalTurnaround,
+  QUEUE_AGING_NOTE_DAYS,
 } from "../components/analytics/analytics";
 import { AppShell, Sidebar, Spinner, SpinnerBlock, InfoHint } from "../components/ui";
 import Pagination, { usePagination } from "../components/ui/Pagination";
@@ -1121,7 +1122,7 @@ const handleDownloadIssuerDocument = async (doc) => {
       setAdminCredentialsError(null);
 
       // Analytics passes { unfiltered: true } so whole-system aggregates (Suspicious Activity /
-      // "Issuers to Review", KPIs) don't silently inherit the Credentials-tab issuer/type filter.
+      // "Revocation Rate by Issuer", KPIs) don't silently inherit the Credentials-tab issuer/type filter.
       const params = {};
       if (!opts.unfiltered) {
         if (adminCredIssuerFilter !== "all") {
@@ -3128,9 +3129,12 @@ const handleDownloadIssuerDocument = async (doc) => {
                   <div style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 40, height: 40, borderRadius: 12, background: "rgba(124,92,252,0.14)", color: "var(--accent-strong)", flexShrink: 0 }}><ClipboardList size={20} aria-hidden="true" /></div>
                   <div><div style={{ fontSize: 26, fontWeight: 800, lineHeight: 1 }}>{approvalQueue.pendingCount}</div><div className="analytics-card-sub" style={{ marginTop: 5 }}>Pending</div></div>
                 </div>
-                <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "14px 16px", borderRadius: 14, background: approvalQueue.oldestDays > 14 ? "rgba(229,100,90,0.08)" : "rgba(255,255,255,0.03)", border: `1px solid ${approvalQueue.oldestDays > 14 ? "rgba(229,100,90,0.4)" : "var(--border)"}` }}>
-                  <div style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 40, height: 40, borderRadius: 12, background: approvalQueue.oldestDays > 14 ? "rgba(229,100,90,0.16)" : "rgba(255,255,255,0.06)", color: approvalQueue.oldestDays > 14 ? "var(--danger)" : "var(--text-muted)", flexShrink: 0 }}><Clock size={20} aria-hidden="true" /></div>
-                  <div><div style={{ fontSize: 26, fontWeight: 800, lineHeight: 1, color: approvalQueue.oldestDays > 14 ? "var(--danger)" : "var(--text)" }}>{approvalQueue.oldestDays}<span style={{ fontSize: 15, fontWeight: 700 }}>d</span></div><div className="analytics-card-sub" style={{ marginTop: 5 }}>Oldest waiting</div></div>
+                {/* Defense revision S4: aging emphasis is a NEUTRAL accent highlight driven by the
+                    named QUEUE_AGING_NOTE_DAYS constant (a team-chosen attention marker, not a
+                    lateness verdict — review cadence varies by organization). */}
+                <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "14px 16px", borderRadius: 14, background: approvalQueue.oldestDays > QUEUE_AGING_NOTE_DAYS ? "rgba(124,92,252,0.10)" : "rgba(255,255,255,0.03)", border: `1px solid ${approvalQueue.oldestDays > QUEUE_AGING_NOTE_DAYS ? "var(--border-accent, rgba(124,92,252,0.4))" : "var(--border)"}` }}>
+                  <div style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 40, height: 40, borderRadius: 12, background: approvalQueue.oldestDays > QUEUE_AGING_NOTE_DAYS ? "rgba(124,92,252,0.16)" : "rgba(255,255,255,0.06)", color: approvalQueue.oldestDays > QUEUE_AGING_NOTE_DAYS ? "var(--accent-strong)" : "var(--text-muted)", flexShrink: 0 }}><Clock size={20} aria-hidden="true" /></div>
+                  <div><div style={{ fontSize: 26, fontWeight: 800, lineHeight: 1, color: "var(--text)" }}>{approvalQueue.oldestDays}<span style={{ fontSize: 15, fontWeight: 700 }}>d</span></div><div className="analytics-card-sub" style={{ marginTop: 5 }}>Oldest waiting</div></div>
                 </div>
                 <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "14px 16px", borderRadius: 14, background: "rgba(52,178,123,0.06)", border: "1px solid var(--border)" }}>
                   <div style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 40, height: 40, borderRadius: 12, background: "rgba(52,178,123,0.14)", color: "var(--ok)", flexShrink: 0 }}><Timer size={20} aria-hidden="true" /></div>
@@ -3972,10 +3976,12 @@ const handleDownloadIssuerDocument = async (doc) => {
               <InterpretationBox>{verificationOutcomes.summary}</InterpretationBox>
             </div>
 
-            {/* Suspicious Activity Insight (rule-based, transparent thresholds) */}
+            {/* Revocation Rate by Issuer — descriptive ranking (defense revision S1/S4:
+                renamed from "Issuers to Review"; band marker, no flag icon, no accusatory
+                styling — the rate is information, not a verdict). */}
             <div className="analytics-card">
-              <h3 style={{ display: "flex", alignItems: "center" }}>2. Issuers to Review<InfoHint text="Issuers with an unusually high revocation rate — a prompt to take a closer look, not a verdict." /></h3>
-              <div className="analytics-rule-pill">Rule: revocation rate &gt; {suspicious.thresholdPct}% in the last {suspicious.windowDays} days</div>
+              <h3 style={{ display: "flex", alignItems: "center" }}>2. Revocation Rate by Issuer<InfoHint text="All active issuers ranked by their recent revocation rate. The band boundary is a team-chosen marker to surface unusual activity — not an external standard, and not a verdict." /></h3>
+              <div className="analytics-rule-pill">Band: revocation rate &ge; {suspicious.thresholdPct}% in the last {suspicious.windowDays} days &middot; issuers with fewer than {suspicious.minSample} credentials are not banded</div>
               <div className="analytics-flag-list">
                 {suspicious.issuers.length === 0 && (
                   <div className="analytics-chart-empty" style={{ height: 120 }}>
@@ -3983,14 +3989,9 @@ const handleDownloadIssuerDocument = async (doc) => {
                   </div>
                 )}
                 {suspicious.issuers.map((iss) => (
-                  <div
-                    key={iss.issuerId}
-                    className={`analytics-flag-row${iss.flagged ? " flagged" : ""}`}
-                  >
+                  <div key={iss.issuerId} className="analytics-flag-row">
                     <div>
-                      <div className="analytics-flag-issuer">
-                        {iss.flagged ? <Flag size={13} aria-hidden="true" style={{ verticalAlign: "-2px", marginRight: 4 }} /> : ""}{iss.issuerName}
-                      </div>
+                      <div className="analytics-flag-issuer">{iss.issuerName}</div>
                       <div className="analytics-flag-reason">{iss.reason}</div>
                       {iss.flagged && (
                         <button
@@ -4002,7 +4003,7 @@ const handleDownloadIssuerDocument = async (doc) => {
                           }}
                           style={{ background: "none", border: "none", padding: 0, marginTop: 4, color: "var(--accent-strong)", cursor: "pointer", fontSize: 12.5, fontWeight: 600 }}
                         >
-                          Review this issuer →
+                          View this issuer &rarr;
                         </button>
                       )}
                     </div>

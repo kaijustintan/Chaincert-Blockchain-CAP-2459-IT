@@ -188,6 +188,17 @@ export async function exportCredentialToPDF(credential, templateDetails) {
     const orig = credential.originalIssuedDate ? `, first issued ${formatPhilippineDate(credential.originalIssuedDate)}` : '';
     details.push({ label: 'Renewed', value: `${credential.renewalCount}×${orig}` });
   }
+  // Defense revision S2: the revocation reason must appear on the PDF, not only in the app.
+  // Guarded — a credential revoked before the reason field existed (or whose CouchDB mirror
+  // write failed) legitimately has none; we print nothing rather than "undefined".
+  if (String(credential.status).toLowerCase() === 'revoked') {
+    if (credential.revokedAt) {
+      details.push({ label: 'Revoked On', value: formatPhilippineDate(credential.revokedAt) });
+    }
+    if (credential.rejectionReason && String(credential.rejectionReason).trim()) {
+      details.push({ label: 'Revocation Reason', value: String(credential.rejectionReason).trim() });
+    }
+  }
   details.forEach(({ label, value }) => {
     doc.setFontSize(9.5);
     doc.setFont('helvetica', 'bold');
@@ -312,6 +323,18 @@ function drawTranscriptHeader(doc, pageW, exportedOn) {
 */
 function estimateRowHeight(doc, cred, textW, badgeSize, qrSize) {
   let h = 4 + 6 + 5 + 3 * 5; // name + Status line + 3 issued lines
+  // Dynamic rows the drawer appends (Renewed / revocation Reason). These were
+  // previously uncounted — a pre-existing gap for "Renewed" that would push a
+  // tall row past the page-break check. Mirror the drawer's wrap math (size 9).
+  doc.setFontSize(9);
+  if (Number(cred.renewalCount) > 0) h += 5;
+  if (String(cred.status).toLowerCase() === 'revoked' && String(cred.rejectionReason || '').trim()) {
+    doc.setFont('helvetica', 'bold'); // drawer measures the label in bold
+    const lblW = doc.getTextWidth('Reason:') + 2;
+    doc.setFont('helvetica', 'normal');
+    const rl = doc.splitTextToSize(String(cred.rejectionReason).trim(), textW - lblW);
+    h += rl.length * 5;
+  }
   const desc = cred.description || '';
   if (desc.trim()) {
     doc.setFont('helvetica', 'normal');
@@ -399,6 +422,11 @@ async function drawCredentialRow(doc, cred, { pageW, y, studentName, badgeSize, 
     const orig = cred.originalIssuedDate ? `, first issued ${formatPhilippineDate(cred.originalIssuedDate)}` : '';
     rows.push(['Renewed:', `${cred.renewalCount}×${orig}`]);
   }
+  // Defense revision S2: the revocation reason must appear on the exported PDF.
+  // Guarded — legacy revocations without a stored reason print nothing.
+  if (String(cred.status).toLowerCase() === 'revoked' && String(cred.rejectionReason || '').trim()) {
+    rows.push(['Reason:', String(cred.rejectionReason).trim()]);
+  }
   rows.forEach(([label, val]) => {
     doc.setFont('helvetica', 'bold');
     doc.setTextColor(...COLORS.label);
@@ -406,8 +434,11 @@ async function drawCredentialRow(doc, cred, { pageW, y, studentName, badgeSize, 
     const lblW = doc.getTextWidth(label) + 2;
     doc.setFont('helvetica', 'normal');
     doc.setTextColor(...COLORS.value);
-    doc.text(String(val), textX + lblW, ty);
-    ty += 5;
+    // Wrap long values (a free-text reason can be hundreds of chars) inside the
+    // text column instead of running under the QR block on the right.
+    const lines = doc.splitTextToSize(String(val), textW - lblW);
+    doc.text(lines, textX + lblW, ty);
+    ty += lines.length * 5;
   });
 
   // Description

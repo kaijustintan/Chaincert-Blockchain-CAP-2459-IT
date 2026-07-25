@@ -42,3 +42,6 @@ chaincode/*.tar.gz
 # Local-only: UAT raw data + tester PII + draft paper chapters — not for GitHub
 docs/submission/cap2/uat/
 docs/submission/cap2/final-document/
+# Defense form (full names of 4 students + 3 faculty, numeric grade), raw defense
+# transcript (verbatim panelist remarks), and the revision working notes derived from them.
+docs/submission/cap2/defense-revisions/

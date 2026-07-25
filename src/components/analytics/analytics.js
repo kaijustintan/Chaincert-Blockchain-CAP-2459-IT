@@ -25,7 +25,6 @@
       - computeSuspiciousIssuers(rows, opts)    rule-based revocation-rate flags
       - computeIntegritySummary(integrityResult) last CouchDB-vs-ledger check, processed [NICE]
       - computeIssuerApprovalTurnaround(pending, approved) pending-queue aging + avg approval days [C6]
-      - computeVerificationVolume(logs)         verifications per month (peak-season/load signal) [C12]
       - computeProvenance(history)              processed credential lifecycle timeline [GOOD]
       - computeProofTrail(logs, credentialId)   per-credential immutable verification trail [GOOD]
     SHARED
@@ -35,10 +34,18 @@
 import { effectiveCredentialStatus } from '../../utils/credentialStatus';
 
 // ── Tunable rule constants (kept visible for panel defensibility) ──────────────
+// Every threshold here is a TEAM DESIGN CHOICE, not an external standard. They are
+// applied uniformly because ChainCert does not model per-organization operating
+// norms; per-organization configurable thresholds are documented future work.
 export const EXPIRING_SOON_DAYS = 60;       // a credential "expiring soon" if it lapses within this many days
-export const SUSPICIOUS_WINDOW_DAYS = 30;   // look-back window for the revocation-spike rule
-export const SUSPICIOUS_THRESHOLD = 0.25;   // flag issuers revoking >= 25% within the window
+export const SUSPICIOUS_WINDOW_DAYS = 30;   // look-back window for the revocation-rate ranking
+export const SUSPICIOUS_THRESHOLD = 0.25;   // "high" band of the revocation-rate ranking (>= 25% within the window)
 export const SUSPICIOUS_MIN_SAMPLE = 4;     // ignore issuers with too few credentials (avoids 1/1 = 100% noise)
+export const FAST_REVOKE_DAYS = 14;         // time-to-revoke "fast" bucket boundary (~a typical administrative correction window)
+export const REVOKE_BUCKET_MID_DAYS = 30;   // upper edge of the middle time-to-revoke bucket
+export const FAST_SHARE_NOTE_PCT = 50;      // fast-revocation share at which the self-audit summary adds a review note
+export const INACTIVE_SHARE_NOTE_PCT = 30;  // inactive share at which the circulation summary adds a review note
+export const QUEUE_AGING_NOTE_DAYS = 14;    // pending-application age the admin queue tile highlights (neutral emphasis)
 
 // Shared chart palette (mirrors existing dashboard color vars)
 // Phase 3: de-saturated to match the design tokens (tokens.css). Constant values
@@ -62,6 +69,20 @@ function toTime(value) {
 
 function lc(v) {
   return String(v || '').toLowerCase();
+}
+
+/*
+  Grouping-key normalizers. Raw strings must never be Map keys for grouping:
+  "Academic" vs "academic " split one category into two bars, and the same
+  credential logged as user_cred_X vs X split one row into two buckets.
+  Display keeps the original string; only the GROUPING key is normalized.
+*/
+function normTypeKey(v) {
+  return lc(v).trim();
+}
+// Same prefix-stripping the wallet endpoints use (walletController.js normalizeCredentialId).
+function normCredIdKey(v) {
+  return String(v || '').replace(/^user_cred_/, '').replace(/^issuer_cred_/, '');
 }
 
 /*
@@ -162,14 +183,19 @@ export function computeIssuance(credentials) {
     return true;
   });
 
-  // by type
+  // by type — grouped on the NORMALIZED key (trim+lowercase) so "Academic" /
+  // "academic " / "ACADEMIC" count as one bar; the first-seen original string
+  // is kept for display.
   const typeMap = new Map();
   for (const c of issued) {
-    const key = c.credentialType || 'Uncategorized';
-    typeMap.set(key, (typeMap.get(key) || 0) + 1);
+    const raw = String(c.credentialType || '').trim() || 'Uncategorized';
+    const key = normTypeKey(raw);
+    const entry = typeMap.get(key);
+    if (entry) entry.count += 1;
+    else typeMap.set(key, { display: raw, count: 1 });
   }
-  const byType = [...typeMap.entries()]
-    .map(([type, count]) => ({ type, count }))
+  const byType = [...typeMap.values()]
+    .map(({ display, count }) => ({ type: display, count }))
     .sort((a, b) => b.count - a.count);
 
   // last 6 months scaffold (oldest → newest); built deterministically from "now"
@@ -320,14 +346,22 @@ export function computeSuspiciousIssuers(rows, opts = {}) {
     // Flag on the ROUNDED percentage we actually display, so a row shown as "25%" can
     // never read "within normal range" against a "≥ 25%" rule (round-vs-raw bug).
     const ratePct = Math.round(rate * 100);
-    const flagged = a.issued >= minSample && ratePct >= thresholdPct;
+    // Defense revision S1/S4: "flagged" is now a descriptive BAND marker, not an
+    // accusation — the card renders a ranked list of all issuers and marks which
+    // band each falls in. Small samples (< minSample) are labeled as such rather
+    // than silently shown "within normal range" (the old hidden-rule bug).
+    const smallSample = a.issued < minSample;
+    const flagged = !smallSample && ratePct >= thresholdPct;
     return {
       ...a,
       ratePct,
       flagged,
-      reason: flagged
-        ? `Revoked ${a.revokedInWindow} of ${a.issued} credential(s) (${ratePct}%) in the last ${windowDays} days — above the ${thresholdPct}% threshold.`
-        : `Revoked ${a.revokedInWindow} of ${a.issued} (${ratePct}%) in the last ${windowDays} days — within normal range.`,
+      smallSample,
+      reason: smallSample
+        ? `Revoked ${a.revokedInWindow} of ${a.issued} (${ratePct}%) in the last ${windowDays} days — sample too small to band (fewer than ${minSample} credentials).`
+        : flagged
+          ? `Revoked ${a.revokedInWindow} of ${a.issued} credential(s) (${ratePct}%) in the last ${windowDays} days — in the high band (≥ ${thresholdPct}%).`
+          : `Revoked ${a.revokedInWindow} of ${a.issued} (${ratePct}%) in the last ${windowDays} days.`,
     };
   }).sort((a, b) => b.ratePct - a.ratePct || b.issued - a.issued);
 
@@ -337,12 +371,12 @@ export function computeSuspiciousIssuers(rows, opts = {}) {
   if (issuers.length === 0) {
     summary = 'No issued-credential activity to analyze yet.';
   } else if (flaggedCount === 0) {
-    summary = `No issuers to review. All ${issuers.length} active issuer(s) have a ${windowDays}-day revocation rate below the ${thresholdPct}% threshold.`;
+    summary = `All ${issuers.length} active issuer(s) currently sit below the ${thresholdPct}% band for ${windowDays}-day revocation rate. The band is a team-chosen marker, not an external standard — what counts as a normal rate varies by organization and credential type.`;
   } else {
-    summary = `${flaggedCount} issuer(s) to review — an unusually high revocation rate (≥ ${thresholdPct}% in the last ${windowDays} days) in the highlighted rows. A high rate isn't proof of wrongdoing; it's a prompt to take a closer look.`;
+    summary = `${flaggedCount} issuer(s) currently sit in the high band (≥ ${thresholdPct}% revocations in the last ${windowDays} days). A high rate is not evidence of wrongdoing — revocation practices differ by organization — but unusually high activity may be worth a closer look.`;
   }
 
-  return { issuers, flaggedCount, windowDays, thresholdPct, summary };
+  return { issuers, flaggedCount, windowDays, thresholdPct, minSample, summary };
 }
 
 /*
@@ -357,7 +391,7 @@ export function computeSuspiciousIssuers(rows, opts = {}) {
   TECHNICAL:
   Pure derive from the holder's already-loaded credentials. Skips revoked and
   never-expiring (no expiryDate) credentials. Urgency tiers: expired (effective
-  end-of-day-Manila status via effectiveCredentialStatus) > critical (<= 14) >
+  end-of-day-Manila status via effectiveCredentialStatus) >
   soon (<= EXPIRING_SOON_DAYS), with daysLeft measured against the same end-of-day-Manila
   boundary the Health donut/badges use. Sorted ascending by daysLeft, so
   overdue (negative) sit at the top, then soonest upcoming. Anything beyond
@@ -373,7 +407,7 @@ export function computeSuspiciousIssuers(rows, opts = {}) {
 
   EXAMPLE
     computeExpirationAlerts([{credentialName:'Diploma', expiryDate:'<in 12 days>', status:'issued'}])
-    → { alerts:[{credentialName:'Diploma', daysLeft:12, urgency:'critical', ...}],
+    → { alerts:[{credentialName:'Diploma', daysLeft:12, urgency:'soon', ...}],
         expiringSoonCount:1, expiredCount:0, summary:"1 credential expires within 60 days..." }
 */
 export function computeExpirationAlerts(credentials) {
@@ -395,9 +429,11 @@ export function computeExpirationAlerts(credentials) {
     const boundary = Number.isNaN(endOfDayManila) ? exp : endOfDayManila;
     const daysLeft = Math.ceil((boundary - now) / DAY);
 
+    // Defense revision S1: the former "critical (<=14d)" tier was removed — it was
+    // invisible to the user (only flipped a pill color, the word never rendered)
+    // and was an undocumentable extra threshold. One 60-day band + expired.
     let urgency;
     if (eff === 'expired') urgency = 'expired';    // authoritative end-of-day-Manila expiry
-    else if (daysLeft <= 14) urgency = 'critical';
     else if (daysLeft <= EXPIRING_SOON_DAYS) urgency = 'soon';
     else continue;                                 // beyond the window → not an alert
 
@@ -726,7 +762,10 @@ export function computeHolderVerificationInsights(logs) {
     }
 
     const name = log.credentialName || log.credentialId || 'Unknown credential';
-    const id = String(log.credentialId || log.blockchainId || name);
+    // Group on the prefix-stripped ID so a check logged as user_cred_X and one
+    // logged as X land in the SAME bucket (fixes the stuck per-credential count
+    // + phantom "1x" row). Falls back to the name when no ID exists, as before.
+    const id = normCredIdKey(log.credentialId || log.blockchainId) || String(name);
     if (!perCredMap.has(id)) {
       perCredMap.set(id, { credentialId: id, credentialName: name, count: 0, validCount: 0, invalidCount: 0, events: [] });
     }
@@ -824,15 +863,25 @@ export function computeRevocationAudit(credentials) {
   // by template (credentialName the user recognizes; fallback to type)
   const tmplMap = new Map();
   for (const c of revoked) {
-    const label = c.credentialName || c.credentialType || 'Uncategorized';
-    tmplMap.set(label, (tmplMap.get(label) || 0) + 1);
+    // Same raw-key class bug as computeIssuance byType: user-typed names must be
+    // grouped on a normalized key or casing/whitespace variants split one bar in two.
+    const raw = String(c.credentialName || c.credentialType || '').trim() || 'Uncategorized';
+    const key = normTypeKey(raw);
+    const entry = tmplMap.get(key);
+    if (entry) entry.count += 1;
+    else tmplMap.set(key, { display: raw, count: 1 });
   }
-  const byTemplate = [...tmplMap.entries()]
-    .map(([label, count]) => ({ label, count }))
+  const byTemplate = [...tmplMap.values()]
+    .map(({ display, count }) => ({ label: display, count }))
     .sort((a, b) => b.count - a.count);
 
   // time-to-revoke buckets
-  const buckets = { '≤14 days': 0, '15–30 days': 0, '>30 days': 0 };
+  // Bucket labels double as the chart's x-axis labels — built from the named
+  // constants so the displayed rule always matches the implemented rule.
+  const FAST_LABEL = `≤${FAST_REVOKE_DAYS} days`;
+  const MID_LABEL = `${FAST_REVOKE_DAYS + 1}–${REVOKE_BUCKET_MID_DAYS} days`;
+  const LATE_LABEL = `>${REVOKE_BUCKET_MID_DAYS} days`;
+  const buckets = { [FAST_LABEL]: 0, [MID_LABEL]: 0, [LATE_LABEL]: 0 };
   let determinable = 0;
   const DAY = 24 * 60 * 60 * 1000;
   for (const c of revoked) {
@@ -843,14 +892,14 @@ export function computeRevocationAudit(credentials) {
     if (rt === null || it === null) continue;
     determinable++;
     const days = Math.max(0, Math.round((rt - it) / DAY));
-    if (days <= 14) buckets['≤14 days']++;
-    else if (days <= 30) buckets['15–30 days']++;
-    else buckets['>30 days']++;
+    if (days <= FAST_REVOKE_DAYS) buckets[FAST_LABEL]++;
+    else if (days <= REVOKE_BUCKET_MID_DAYS) buckets[MID_LABEL]++;
+    else buckets[LATE_LABEL]++;
   }
   const bySpeed = Object.entries(buckets).map(([bucket, count]) => ({ bucket, count }));
 
   const topTemplate = byTemplate.length ? byTemplate[0] : null;
-  const earlyCount = buckets['≤14 days'];
+  const earlyCount = buckets[FAST_LABEL];
   const fastShare = determinable > 0 ? Math.round((earlyCount / determinable) * 100) : 0;
 
   let summary;
@@ -862,10 +911,13 @@ export function computeRevocationAudit(credentials) {
     const tmplNote = topTemplate
       ? ` "${topTemplate.label}" accounts for the most revocations (${topTemplate.count} of ${revokedTotal}).`
       : '';
+    // Defense revision S1/G2: describe, never diagnose. Whether a fast revocation
+    // is a problem depends on the organization's own process — the summary flags
+    // the share as unusual and prompts a look, without asserting an error.
     const speedNote = determinable > 0
-      ? (fastShare >= 50
-          ? ` ${fastShare}% were revoked within 14 days of issuing — this points to a problem at ISSUANCE (data entry / eligibility checks), not the credential lifecycle.`
-          : ` Most revocations happened well after issuance — consistent with normal lifecycle changes rather than issuance errors.`)
+      ? (fastShare >= FAST_SHARE_NOTE_PCT
+          ? ` ${fastShare}% were revoked within ${FAST_REVOKE_DAYS} days of issuing — an unusually large share of quick revocations for this period; worth reviewing the affected records. What counts as normal here varies by organization and issuance process.`
+          : ` Most revocations happened well after issuance.`)
       : '';
     summary = `You have revoked ${revokedTotal} of ${total} issued credential(s).${tmplNote}${speedNote}`;
   }
@@ -945,55 +997,10 @@ export function computeIssuerApprovalTurnaround(pending, approved) {
   return { pendingCount, oldestDays, queue, decidedCount, avgDays, medianDays, summary };
 }
 
-/*
-  Function Name: computeVerificationVolume
-
-  LAYMAN (Tropang Ex):
-  Para sa admin: "Ilang verification ang dumadaan sa platform kada buwan?" Makikita agad
-  kung may peak season (hal. graduation / hiring season) — kapag alam mo kung kailan
-  dumadagsa, alam mo kung kailan babantayan ang system load. Honest usage signal,
-  hindi vanity: bilang ng TOTOONG on-chain checks.
-
-  TECHNICAL:
-  Buckets the global verification logs into the last-6-months scaffold (reuses
-  lastSixMonths + toTime). total = all logs (even older than 6 months); byMonth counts
-  only in-window logs. peak = busiest in-window month. Pure; null-tolerant.
-
-  PARAMS:
-  - logs — array of verification log objects (verifiedAt/timestamp/createdAt). [] tolerated.
-
-  RETURNS:
-  { total, byMonth:[{label,count}], peak:{label,count}, thisMonth, summary }
-*/
-export function computeVerificationVolume(logs) {
-  const list = Array.isArray(logs) ? logs : [];
-  const months = lastSixMonths();
-  const monthIndex = new Map(months.map((m, i) => [m.key, i]));
-
-  for (const log of list) {
-    const t = toTime(log && (log.verifiedAt || log.timestamp || log.createdAt));
-    if (t === null) continue;
-    const d = new Date(t);
-    const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
-    if (monthIndex.has(key)) months[monthIndex.get(key)].count++;
-  }
-
-  const total = list.length;
-  const byMonth = months.map((m) => ({ label: m.label, count: m.count }));
-  const peak = byMonth.reduce((best, m) => (m.count > best.count ? m : best), { label: null, count: 0 });
-  const thisMonth = byMonth[byMonth.length - 1] ? byMonth[byMonth.length - 1].count : 0;
-
-  let summary;
-  if (total === 0) {
-    summary = 'No verifications recorded yet. Once verifiers start checking credentials, monthly volume appears here — useful for anticipating peak periods like graduation or hiring season.';
-  } else {
-    summary = `${total} verification(s) recorded on-chain` +
-      `${peak.count > 0 ? `; the busiest month in the last 6 was ${peak.label} (${peak.count})` : ''}. ` +
-      'Volume trends show when the platform is under the most load — e.g. graduation or hiring seasons.';
-  }
-
-  return { total, byMonth, peak, thisMonth, summary };
-}
+/* computeVerificationVolume was REMOVED (defense-revision cleanup): it had zero
+   importers since the UAT round decided no admin action ties to monthly verification
+   counts (same rationale that removed the Demand Index). Recover from git history
+   if a load-planning report is ever wanted again. */
 
 /*
   Function Name: computeCirculationHealth
@@ -1027,8 +1034,11 @@ export function computeCirculationHealth(credentials) {
     const deadShare = 100 - aliveShare;
     const parts = [`${aliveShare}% of the ${h.total} credential(s) you've issued are still active (${alive} of ${h.total})`];
     if (h.expiringSoon > 0) parts.push(`${h.expiringSoon} expire within ${EXPIRING_SOON_DAYS} days`);
-    if (deadShare >= 30) {
-      parts.push(`${h.revoked} revoked and ${h.expired} expired — a large inactive share; check whether your validity periods match how long these credentials stay relevant`);
+    if (deadShare >= INACTIVE_SHARE_NOTE_PCT) {
+      // Defense revision S1: descriptive dual reading — a high inactive share is
+      // normal for short-validity credentials and only worth a look for long-lived
+      // ones. State both; let the issuer judge their own context.
+      parts.push(`${h.revoked} revoked and ${h.expired} expired (${deadShare}% of what you've issued). For short-duration credentials this is a normal turnover pattern; for long-lived qualifications it may be worth reviewing whether the validity periods fit`);
     } else if (h.revoked + h.expired > 0) {
       parts.push(`${h.revoked} revoked and ${h.expired} expired remain visible in holders' wallets, clearly labeled`);
     }

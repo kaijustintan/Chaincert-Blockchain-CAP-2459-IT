@@ -281,13 +281,15 @@ export default function IssuerDashboard() {
   }, []);
 
   // Perf: load Verification Reach only when the Performance (analytics) view is first opened.
-  const [reachFetched, setReachFetched] = useState(false);
+  // Once-guard is a ref (not state) so setting it never retriggers this effect — same class of
+  // bug as the holder's viFetched self-cancelling fetch.
+  const reachFetchedRef = useRef(false);
   useEffect(() => {
-    if (activeView !== "analytics" || reachFetched) return;
-    setReachFetched(true);
+    if (activeView !== "analytics" || reachFetchedRef.current) return;
+    reachFetchedRef.current = true;
     fetchIssuerVerifications();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeView, reachFetched]);
+  }, [activeView]);
 
   // C11: load this issuer's renewal-request queue (scope derived server-side from the JWT).
   const fetchRenewalRequests = async () => {

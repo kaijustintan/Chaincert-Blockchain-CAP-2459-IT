@@ -352,7 +352,10 @@ export default function StudentDashboard() {
   /* Phase 4: Verification Insights — the holder's OWN verification logs (server-side filtered) */
   const [myVerifications, setMyVerifications] = useState([]);
   const [viLoading, setViLoading] = useState(false);
-  const [viFetched, setViFetched] = useState(false);
+  // Once-guard is a ref, NOT state: putting it in the effect's dependency array made the
+  // effect cancel its own in-flight fetch (cleanup ran on the guard's state change, active
+  // went false, the resolved data was discarded and viLoading never cleared).
+  const viFetchedRef = useRef(false);
   const vinsights = useMemo(() => computeHolderVerificationInsights(myVerifications), [myVerifications]);
 
   // Perf: the verification-logs endpoint does a full-ledger scan whose cost grows with every logged
@@ -360,8 +363,8 @@ export default function StudentDashboard() {
   // (loading === false) so the heavy scan never competes with the credential fetch that the
   // "Loading credentials…" spinner actually waits on.
   useEffect(() => {
-    if (loading || viFetched) return;
-    setViFetched(true);
+    if (loading || viFetchedRef.current) return;
+    viFetchedRef.current = true;
     let active = true;
     setViLoading(true);
     apiService
@@ -370,7 +373,7 @@ export default function StudentDashboard() {
       .catch(() => { if (active) setMyVerifications([]); })
       .finally(() => { if (active) setViLoading(false); });
     return () => { active = false; };
-  }, [loading, viFetched]);
+  }, [loading]);
 
   // ── See History handler ────────────────────────────────────────────────────
 
@@ -869,8 +872,7 @@ export default function StudentDashboard() {
                     <div className="analytics-flag-list">
                       {renewal.alerts.map((a, i) => {
                         const expired = a.urgency === "expired";
-                        const critical = a.urgency === "critical";
-                        const pillColor = expired || critical ? "var(--danger)" : "var(--warn)";
+                        const pillColor = expired ? "var(--danger)" : "var(--warn)";
                         return (
                           <div key={`${a.credentialName}-${i}`} className={`analytics-flag-row${expired ? " flagged" : ""}`}>
                             <div>

@@ -1128,7 +1128,7 @@ const getDocumentDescription = (docKey) => {
               <div className="success-icon-wrapper">
                 <div className="success-icon-circle"><Check size={24} aria-hidden="true" /></div>
               </div>
-              <h3>Application Received</h3>
+              <h3>Application Pending Review</h3>
 
               {issuer.issuerType === "subordinate" ? (
                 <div className="issuer-message-body">

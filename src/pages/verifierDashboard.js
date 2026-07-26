@@ -539,7 +539,7 @@ export default function VerifierDashboard() {
               return (
                 <div key={batch.id} style={{ marginBottom: 22 }}>
                   <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10, fontSize: 13, color: "var(--text-muted)" }}>
-                    <FileText size={15} aria-hidden="true" />
+                    <FileText size={16} aria-hidden="true" />
                     <strong style={{ color: "var(--text)" }}>{batch.fileName}</strong>
                     <span>— {batch.rows.length} checked{parts.length ? `: ${parts.join(" · ")}` : ""}</span>
                   </div>

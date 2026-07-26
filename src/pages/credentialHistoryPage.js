@@ -3,6 +3,7 @@ import apiService from "../services/apiService";
 import { useNavigate } from "react-router-dom";
 import "../styles/issuerDashboardPage.css";
 import Pagination, { usePagination } from "../components/ui/Pagination";
+import { SpinnerBlock, EmptyState } from "../components/ui";
 
 export default function CredentialHistoryPage() {
   const [searchId, setSearchId] = useState("");
@@ -310,7 +311,7 @@ export default function CredentialHistoryPage() {
             className="history-search-btn history-search-btn--primary"
             disabled={loading}
           >
-            {loading ? "Loading..." : "Search"}
+            {loading ? "Loading…" : "Search"}
           </button>
           {/* CSS-CHANGE: replaced inline style background with themed class */}
           <button
@@ -409,12 +410,8 @@ export default function CredentialHistoryPage() {
         </div>
       )}
 
-      {/* CSS-CHANGE: replaced inline style with className */}
-      {loading && (
-        <div className="history-loading">
-          <h3>Fetching blockchain history...</h3>
-        </div>
-      )}
+      {/* U-5: shared SpinnerBlock instead of a bare heading — matches every other page's loading state. */}
+      {loading && <SpinnerBlock label="Fetching blockchain history…" minHeight={120} />}
 
       {!loading && filteredHistory.length > 0 && (
         <>
@@ -490,26 +487,21 @@ export default function CredentialHistoryPage() {
       )}
 
       {/* CSS-CHANGE: replaced inline style with className */}
+      {/* U-5: shared EmptyState instead of ad-hoc .history-empty paragraphs. */}
       {!loading &&
         allHistory.length > 0 &&
         filteredHistory.length === 0 && (
-          <div className="history-empty">
-            <p>
-              No records match your filters. Try adjusting the filter options.
-            </p>
-          </div>
+          <EmptyState
+            title="No records match your filters"
+            message="Try adjusting the filter options."
+          />
         )}
 
-      {/* CSS-CHANGE: replaced inline style with className */}
       {!loading && allHistory.length === 0 && (
-        <div className="history-empty">
-          <p>
-            No history found.{" "}
-            {isFiltered
-              ? "Try a different credential ID."
-              : "Issue some credentials first!"}
-          </p>
-        </div>
+        <EmptyState
+          title="No history found"
+          message={isFiltered ? "Try a different credential ID." : "Issue some credentials first."}
+        />
       )}
     </div>
   );

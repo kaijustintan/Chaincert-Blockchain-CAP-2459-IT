@@ -1489,6 +1489,28 @@ Check_IssuerHasTemplates: async () => {
     }
   },
 
+  // U-7: forgot-password flow moved off forgotPassword.js's raw fetch() so every
+  // API call rides the same axios base URL config (no duplicated REACT_APP_API_URL fallback).
+  forgotPassword: async (email) => {
+    try {
+      const response = await axios.post('/auth/forgot-password', { email });
+      return response.data;
+    } catch (error) {
+      console.error('Error requesting password reset:', error.response?.data?.message || error.message);
+      throw error;
+    }
+  },
+
+  resetPassword: async (email, otp, newPassword) => {
+    try {
+      const response = await axios.post('/auth/reset-password', { email, otp, newPassword });
+      return response.data;
+    } catch (error) {
+      console.error('Error resetting password:', error.response?.data?.message || error.message);
+      throw error;
+    }
+  },
+
   Log_VerificationEvent: async (credentialId, verifierName, verifierEmail, verifyResult) => {
     try {
       const response = await axios.post(

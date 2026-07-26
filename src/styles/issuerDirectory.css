@@ -70,7 +70,7 @@
   place-items: center;
   background: var(--accent-weak);
   color: var(--accent-strong);
-  font-weight: 700;
+  font-weight: var(--fw-bold);
   font-size: 20px;
   overflow: hidden;
 }

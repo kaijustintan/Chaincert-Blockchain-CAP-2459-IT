@@ -96,7 +96,7 @@
   border: 1px solid var(--accent-weak);
   color: var(--accent-strong);
   font-size: 12px;
-  font-weight: 600;
+  font-weight: var(--fw-semibold);
   letter-spacing: 0.8px;
   text-transform: uppercase;
   margin-bottom: 24px;
@@ -105,7 +105,7 @@
 
 .hero-title {
   font-size: 3.2rem;
-  font-weight: 700;
+  font-weight: var(--fw-bold);
   line-height: 1.2;
   margin: 0 0 20px 0;
   color: var(--text);
@@ -175,17 +175,17 @@
   background: var(--surface-3);
 }
 .hero-role-icon { display: inline-flex; color: var(--accent-strong); margin-bottom: 2px; }
-.hero-role-title { font-weight: 700; font-size: 15px; color: var(--text); }
+.hero-role-title { font-weight: var(--fw-bold); font-size: 15px; color: var(--text); }
 .hero-role-sub { font-size: 13px; color: var(--text-muted); line-height: 1.5; flex: 1; }
 .hero-role-cta {
   display: inline-flex; align-items: center; gap: 5px; margin-top: 8px;
-  font-size: 13px; font-weight: 600; color: var(--accent-strong);
+  font-size: 13px; font-weight: var(--fw-semibold); color: var(--accent-strong);
   transition: gap 0.2s ease;
 }
 .hero-role-card:hover .hero-role-cta { gap: 9px; }
 .hero-role-badge {
   position: absolute; top: 12px; right: 12px;
-  font-size: 10.5px; font-weight: 700; letter-spacing: 0.02em; text-transform: uppercase;
+  font-size: 10.5px; font-weight: var(--fw-bold); letter-spacing: 0.02em; text-transform: uppercase;
   color: var(--accent-strong); background: var(--accent-weak);
   border: 1px solid var(--border-accent);
   border-radius: 999px; padding: 3px 8px;
@@ -195,7 +195,7 @@
   padding: 13px 32px;
   border-radius: 12px;
   font-size: 14px;
-  font-weight: 600;
+  font-weight: var(--fw-semibold);
   font-family: var(--font-ui);
   cursor: pointer;
   transition: all 0.3s ease;
@@ -250,13 +250,13 @@
 
 .metric-num {
   font-size: 28px;
-  font-weight: 700;
+  font-weight: var(--fw-bold);
   color: var(--text);
 }
 
 .metric-label {
   font-size: 11px;
-  font-weight: 600;
+  font-weight: var(--fw-semibold);
   text-transform: uppercase;
   letter-spacing: 0.8px;
   color: var(--accent-strong);
@@ -279,7 +279,7 @@
 .section-title {
   text-align: center;
   font-size: 2rem;
-  font-weight: 700;
+  font-weight: var(--fw-bold);
   margin: 0 0 8px 0;
   color: var(--text);
 }
@@ -329,7 +329,7 @@
 
 .feature-card h3 {
   font-size: 18px;
-  font-weight: 600;
+  font-weight: var(--fw-semibold);
   color: var(--text);
   margin: 0 0 10px 0;
 }
@@ -381,7 +381,7 @@
 
 .why-card h4 {
   font-size: 16px;
-  font-weight: 600;
+  font-weight: var(--fw-semibold);
   color: var(--text);
   margin: 0 0 8px 0;
 }
@@ -422,7 +422,7 @@
 
 .cta-card h2 {
   font-size: 1.8rem;
-  font-weight: 700;
+  font-weight: var(--fw-bold);
   color: var(--text);
   margin: 0 0 12px 0;
 }
@@ -479,7 +479,7 @@
   border-radius: 16px;
   padding: 18px 20px;
   color: var(--text);
-  font-weight: 600;
+  font-weight: var(--fw-semibold);
   box-shadow: 0 8px 28px rgba(0,0,0,0.2);
 }
 

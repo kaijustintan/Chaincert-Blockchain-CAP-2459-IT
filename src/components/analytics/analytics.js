@@ -106,7 +106,7 @@ function normCredIdKey(v) {
 
   EXAMPLE
     computeHealth([{status:'issued',expiryDate:'2026-07-01'}, {status:'revoked'}])
-    → { total:2, healthy:0, expiringSoon:1, expired:0, revoked:1, slices:[...], summary:"..." }
+    → { total:2, healthy:0, expiringSoon:1, expired:0, revoked:1, slices:[...], summary:"…" }
 */
 export function computeHealth(credentials) {
   const list = Array.isArray(credentials) ? credentials : [];
@@ -408,7 +408,7 @@ export function computeSuspiciousIssuers(rows, opts = {}) {
   EXAMPLE
     computeExpirationAlerts([{credentialName:'Diploma', expiryDate:'<in 12 days>', status:'issued'}])
     → { alerts:[{credentialName:'Diploma', daysLeft:12, urgency:'soon', ...}],
-        expiringSoonCount:1, expiredCount:0, summary:"1 credential expires within 60 days..." }
+        expiringSoonCount:1, expiredCount:0, summary:"1 credential expires within 60 days…" }
 */
 export function computeExpirationAlerts(credentials) {
   const list = Array.isArray(credentials) ? credentials : [];
@@ -543,7 +543,7 @@ export function computeIntegritySummary(integrityResult) {
   - history — array of blockchain history entries (each with timestamp + value{...}). [] tolerated.
 
   RETURNS:
-  { events:[{label, icon, color, when, status}], created, issued, revoked, expired, summary }
+  { events:[{label, action, color, when, status}], created, issued, revoked, expired, summary }
 */
 export function computeProvenance(history) {
   const list = Array.isArray(history) ? history : [];
@@ -560,13 +560,15 @@ export function computeProvenance(history) {
     return 'updated';
   };
 
+  // U-9: emoji `icon` fields removed — renderers (CredentialHistory) map `action`
+  // to lucide icons; nothing consumed the emoji since the de-emojification pass.
   const META = {
-    created:  { label: 'Credential created', icon: '📄', color: COLORS.blue },
-    issued:   { label: 'Issued to holder', icon: '🎓', color: COLORS.green },
-    reissued: { label: 'Reissued (renewal)', icon: '🔄', color: COLORS.blue },
-    updated:  { label: 'Updated',          icon: '✏️', color: COLORS.gray },
-    expired:  { label: 'Expired',          icon: '⏳', color: COLORS.amber },
-    revoked:  { label: 'Revoked',          icon: '🚫', color: COLORS.red },
+    created:  { label: 'Credential created', color: COLORS.blue },
+    issued:   { label: 'Issued to holder', color: COLORS.green },
+    reissued: { label: 'Reissued (renewal)', color: COLORS.blue },
+    updated:  { label: 'Updated',          color: COLORS.gray },
+    expired:  { label: 'Expired',          color: COLORS.amber },
+    revoked:  { label: 'Revoked',          color: COLORS.red },
   };
 
   // newest → oldest (latest first) — UAT: history timelines read top-down, most recent at the top
@@ -576,7 +578,6 @@ export function computeProvenance(history) {
     const m = META[action] || META.updated;
     return {
       label: m.label,
-      icon: m.icon,
       action,
       color: m.color,
       when: entry.timestamp || null,

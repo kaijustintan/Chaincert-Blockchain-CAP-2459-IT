@@ -1,6 +1,7 @@
 // forgotPassword.js - polo
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
+import apiService from "../services/apiService";
 import PasswordCriteria from "../components/passwordCriteria";
 import PasswordInput from "../components/passwordInput";
 import { AlertTriangle, CheckCircle2 } from "lucide-react";
@@ -24,14 +25,10 @@ function ForgotPassword() {
     setLoading(true);
 
     try {
-      const response = await fetch(`${process.env.REACT_APP_API_URL || 'http://localhost:4000/api'}/auth/forgot-password`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email })
-      });
-      const data = await response.json();
+      // U-7: same endpoint, now through the shared apiService/axios instance.
+      const data = await apiService.forgotPassword(email);
 
-      if (data.success && data.otpSent) { 
+      if (data.success && data.otpSent) {
         setStep("reset");
       } else if (data.success && !data.otpSent) {
         setError("No account found with that email address.");
@@ -39,7 +36,8 @@ function ForgotPassword() {
         setError(data.message || "Something went wrong.");
       }
     } catch (err) {
-      setError("Server error. Please try again.");
+      // axios throws on 4xx — surface the server's message like the old fetch flow did.
+      setError(err.response?.data?.message || "Server error. Please try again.");
     }
 
     setLoading(false);
@@ -64,12 +62,8 @@ function ForgotPassword() {
     setLoading(true);
 
     try {
-      const response = await fetch(`${process.env.REACT_APP_API_URL || 'http://localhost:4000/api'}/auth/reset-password`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, otp, newPassword })
-      });
-      const data = await response.json();
+      // U-7: same endpoint, now through the shared apiService/axios instance.
+      const data = await apiService.resetPassword(email, otp, newPassword);
 
       if (data.success) {
         setStep("success");
@@ -77,7 +71,8 @@ function ForgotPassword() {
         setError(data.message || "Reset failed. Please try again.");
       }
     } catch (err) {
-      setError("Server error. Please try again.");
+      // axios throws on 4xx (e.g. wrong/expired OTP) — show the server's reason.
+      setError(err.response?.data?.message || "Reset failed. Please try again.");
     }
 
     setLoading(false);
@@ -125,7 +120,7 @@ function ForgotPassword() {
             />
           </div>
           <button type="submit" className="login-btn" disabled={loading}>
-            {loading ? "Sending Code..." : "Send Verification Code"}
+            {loading ? "Sending Code…" : "Send Verification Code"}
           </button>
         </form>
       </>
@@ -178,7 +173,7 @@ function ForgotPassword() {
             />
           </div>
           <button type="submit" className="login-btn" disabled={loading}>
-            {loading ? "Resetting..." : "Reset Password"}
+            {loading ? "Resetting…" : "Reset Password"}
           </button>
         </form>
         <div style={{ textAlign: "center", marginTop: "12px" }}>

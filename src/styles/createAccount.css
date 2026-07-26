@@ -75,7 +75,7 @@
 
 .register-heading {
   font-size: 22px;
-  font-weight: 600;
+  font-weight: var(--fw-semibold);
   color: var(--text);
   margin: 0 0 8px 0;
 }
@@ -145,7 +145,7 @@
   color: var(--text);
   font-size: 17px;
   margin: 0 0 8px 0;
-  font-weight: 600;
+  font-weight: var(--fw-semibold);
 }
 
 .role-button p {
@@ -176,7 +176,7 @@
   border-radius: 12px;
   cursor: pointer;
   font-size: 14px;
-  font-weight: 600;
+  font-weight: var(--fw-semibold);
   font-family: var(--font-ui);
   transition: all 0.3s ease;
 }
@@ -243,7 +243,7 @@
 .form-card-header h2 {
   color: var(--text);
   font-size: 20px;
-  font-weight: 700;
+  font-weight: var(--fw-bold);
   margin: 0 0 4px 0;
 }
 
@@ -269,7 +269,7 @@
 
 .input-group label {
   font-size: 11px;
-  font-weight: 700;
+  font-weight: var(--fw-bold);
   text-transform: uppercase;
   letter-spacing: 0.8px;
   color: var(--accent-strong);
@@ -344,7 +344,7 @@
   padding: 6px 14px;
   border-radius: 8px;
   font-size: 12px;
-  font-weight: 600;
+  font-weight: var(--fw-semibold);
   cursor: pointer;
   margin-right: 10px;
   font-family: var(--font-ui);
@@ -371,7 +371,7 @@
    ===================================================== */
 .form-section-title {
   font-size: 14px;
-  font-weight: 700;
+  font-weight: var(--fw-bold);
   color: var(--accent-strong);
   margin: 24px 0 16px 0;
   padding-bottom: 8px;
@@ -407,7 +407,7 @@
   align-items: center;
   gap: 8px;
   font-size: 13px;
-  font-weight: 500;
+  font-weight: var(--fw-medium);
   animation: shake 0.3s ease;
 }
 
@@ -425,7 +425,7 @@
   color: var(--text);
   border: none;
   border-radius: 14px;
-  font-weight: 600;
+  font-weight: var(--fw-semibold);
   cursor: pointer;
   font-size: 15px;
   font-family: var(--font-ui);
@@ -507,7 +507,7 @@
   display: grid;
   place-items: center;
   font-size: 13px;
-  font-weight: 700;
+  font-weight: var(--fw-bold);
   background: var(--surface-2);
   color: var(--text-muted);
   border: 1px solid var(--border);
@@ -533,7 +533,7 @@
   transform: translateX(-50%);
   white-space: nowrap;
   font-size: 12px;
-  font-weight: 600;
+  font-weight: var(--fw-semibold);
   color: var(--text-muted);
 }
 
@@ -573,7 +573,7 @@
   color: var(--text);
   border: 1px solid var(--border);
   border-radius: 14px;
-  font-weight: 600;
+  font-weight: var(--fw-semibold);
   cursor: pointer;
   font-size: 15px;
   font-family: var(--font-ui);
@@ -642,7 +642,7 @@
   color: var(--accent-strong);
   cursor: pointer;
   font-size: 13px;
-  font-weight: 600;
+  font-weight: var(--fw-semibold);
   font-family: var(--font-ui);
   padding: 0;
   transition: color 0.3s ease;
@@ -678,14 +678,14 @@
   justify-content: center;
   font-size: 32px;
   color: var(--text);
-  font-weight: 700;
+  font-weight: var(--fw-bold);
   box-shadow: 0 8px 32px var(--border-accent);
 }
 
 .issuer-message h3 {
   color: var(--text);
   font-size: 22px;
-  font-weight: 700;
+  font-weight: var(--fw-bold);
   margin: 0 0 8px 0;
 }
 
@@ -718,7 +718,7 @@
 .issuer-message h3 {
   color: var(--text);
   font-size: 22px;
-  font-weight: 700;
+  font-weight: var(--fw-bold);
   margin: 0 0 12px 0;
   letter-spacing: -0.01em;
 }
@@ -726,7 +726,7 @@
 .issuer-message-lead {
   color: var(--accent-strong);
   font-size: 14px;
-  font-weight: 600;
+  font-weight: var(--fw-semibold);
   margin-bottom: 20px;
   padding-bottom: 16px;
   border-bottom: 1px solid var(--accent-weak);
@@ -879,7 +879,7 @@
   border: 1px solid var(--accent-weak);
   background: rgba(12, 8, 32, 0.98);
   box-shadow: 0 18px 40px rgba(0, 0, 0, 0.35);
-  z-index: 1000;
+  z-index: var(--z-dropdown);
 }
 
 .searchable-select-item {
@@ -898,7 +898,7 @@
 .searchable-item-name {
   color: var(--text);
   font-size: 14px;
-  font-weight: 600;
+  font-weight: var(--fw-semibold);
 }
 
 .searchable-item-meta {

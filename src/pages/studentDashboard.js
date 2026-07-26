@@ -562,7 +562,7 @@ export default function StudentDashboard() {
                 <h3>Notifications</h3>
                 {unreadNotifications.length > 0 && (
                   <button type="button" className="holder-notif-markall" onClick={handleMarkAllRead} disabled={markAllLoading}>
-                    {markAllLoading ? "Marking..." : "Mark all as read"}
+                    {markAllLoading ? "Marking…" : "Mark all as read"}
                   </button>
                 )}
               </div>

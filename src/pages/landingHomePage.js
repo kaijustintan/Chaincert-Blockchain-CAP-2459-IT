@@ -65,7 +65,7 @@ function LandingHomePage() {
               <span className="hero-role-icon"><r.Icon size={26} aria-hidden="true" /></span>
               <span className="hero-role-title">{r.title}</span>
               <span className="hero-role-sub">{r.sub}</span>
-              <span className="hero-role-cta">Get started <ArrowRight size={15} aria-hidden="true" /></span>
+              <span className="hero-role-cta">Get started <ArrowRight size={16} aria-hidden="true" /></span>
             </button>
           ))}
         </div>

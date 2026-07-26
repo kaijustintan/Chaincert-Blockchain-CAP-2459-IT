@@ -24,12 +24,12 @@ import apiService from "../services/apiService";
 import AppToast from "../components/appToast";
 import { buildAvatarUrl, getDisplayName, syncStoredUser } from "../utils/userDisplay";
 import { copyToClipboard } from "../utils/clipboard";
-import { SpinnerBlock, SkeletonCardGrid } from "../components/ui";
+import { SpinnerBlock, SkeletonCardGrid, useEscapeClose, EmptyState } from "../components/ui";
 import Pagination, { usePagination } from "../components/ui/Pagination";
 import { exportCredentialToPDF } from "../services/pdfExportService";
 import { effectiveCredentialStatus } from "../utils/credentialStatus";
 import { getRenewalCount, getRenewalDates } from "../utils/credentialLineage";
-import { Globe, Pencil, Download, ScrollText } from "lucide-react";
+import { Globe, Pencil, Download, ScrollText, GripVertical } from "lucide-react";
 import "../styles/profilePage.css";
 
 export default function ProfilePage() {
@@ -417,10 +417,10 @@ const [showAll, setShowAll] = useState(false);
     try {
       await apiService.Update_IssuerTemplateVisibility(credentialKey, newVisibility);
       setIssuerTemplates((prev) => prev.map((t) => ((t.id || t._id) === credentialKey ? { ...t, visibility: newVisibility } : t)));
-      showToast(`Template is now ${newVisibility}.`);
+      showToast(`Credential is now ${newVisibility}.`);
     } catch (err) {
       console.error('[PROFILE PAGE] Failed to update template visibility:', err);
-      showToast(err.response?.data?.message || 'Failed to update template visibility.', 'danger');
+      showToast(err.response?.data?.message || 'Failed to update credential visibility.', 'danger');
     }
   };
 
@@ -599,6 +599,15 @@ const [showAll, setShowAll] = useState(false);
     setShareDescription('');
   };
 
+  // U-4: Escape closes the topmost open modal (export warning sits above the
+  // credential detail, which sits above the share modal in practice).
+  useEscapeClose([
+    [!!exportWarn, () => setExportWarn(null)],
+    [!!pendingTemplateToggle, () => setPendingTemplateToggle(null)],
+    [!!selectedCred, closeCredModal],
+    [showShareModal, handleCloseShareModal],
+  ]);
+
   const handleGenerateShareLink = async (typeOverride) => {
     // handle both specific and public share types. typeOverride lets the "Anyone with Link"
     // tab (and the issuer auto-open) fetch the public link immediately without waiting on the
@@ -662,15 +671,15 @@ const [showAll, setShowAll] = useState(false);
 
     {/* C2: confirm template visibility change */}
     {pendingTemplateToggle && (
-      <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', zIndex: 999999, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }} onClick={() => setPendingTemplateToggle(null)}>
+      <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', zIndex: 'var(--z-modal)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }} onClick={() => setPendingTemplateToggle(null)}>
         <div onClick={(e) => e.stopPropagation()} style={{ width: 'min(440px, 92vw)', background: 'var(--surface-2)', borderRadius: 12, border: '1px solid var(--border-strong)', padding: 24, boxShadow: '0 10px 40px rgba(0,0,0,0.4)', color: 'var(--text)' }}>
           <h3 style={{ margin: '0 0 8px' }}>
-            {pendingTemplateToggle.visibility === 'public' ? 'Make this template private?' : 'Make this template public?'}
+            {pendingTemplateToggle.visibility === 'public' ? 'Make this credential private?' : 'Make this credential public?'}
           </h3>
           <p style={{ margin: '0 0 20px', fontSize: 13, lineHeight: 1.5, color: 'var(--text-muted)' }}>
             {pendingTemplateToggle.visibility === 'public'
-              ? `"${pendingTemplateToggle.credentialName || 'This template'}" will be hidden from your public issuer profile.`
-              : `"${pendingTemplateToggle.credentialName || 'This template'}" will appear on your public issuer profile for anyone to see.`}
+              ? `"${pendingTemplateToggle.credentialName || 'This credential'}" will be hidden from your public issuer profile.`
+              : `"${pendingTemplateToggle.credentialName || 'This credential'}" will appear on your public issuer profile for anyone to see.`}
           </p>
           <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
             <button type="button" onClick={() => setPendingTemplateToggle(null)} style={{ background: 'transparent', border: '1px solid rgba(255,255,255,0.25)', color: 'var(--text)', borderRadius: 8, padding: '10px 16px', cursor: 'pointer', fontWeight: 600 }}>Cancel</button>
@@ -749,7 +758,7 @@ const [showAll, setShowAll] = useState(false);
                   onClick={handleSaveEditProfile}
                   disabled={isSaving}
                 >
-                  {isSaving ? "Saving..." : "Save Changes"}
+                  {isSaving ? "Saving…" : "Save Changes"}
                 </button>
                 <button
                   type="button"
@@ -870,7 +879,7 @@ const [showAll, setShowAll] = useState(false);
           </div>
           {issuerTemplatesLoading && <SkeletonCardGrid count={6} />}
           {!issuerTemplatesLoading && issuerTemplates.length === 0 && (
-            <div className="empty-card">No credentials yet. Create one from your dashboard.</div>
+            <EmptyState title="No credentials yet" message="Create one from your dashboard." />
           )}
           {!issuerTemplatesLoading && issuerTemplates.length > 0 && (
             <>
@@ -901,7 +910,7 @@ const [showAll, setShowAll] = useState(false);
               </div>
             </div>
             {filteredIssuerTemplates.length === 0 ? (
-              <div className="empty-card">No credentials match your filter.</div>
+              <EmptyState title="No credentials match your filter" />
             ) : (
             <div className="badges-grid">
               {issuerTplPg.pageItems.map((template) => {
@@ -946,7 +955,7 @@ const [showAll, setShowAll] = useState(false);
         {credLoading && <SkeletonCardGrid count={6} />}
         {!credLoading && credError && <div className="empty-card error">{credError}</div>}
         {!credLoading && !credError && credentials.length === 0 && (
-          <div className="empty-card">No credentials have been issued to you yet.</div>
+          <EmptyState title="No credentials yet" message="Credentials issued to you will appear here." />
         )}
 
         {!credLoading && !credError && credentials.length > 0 && (
@@ -987,7 +996,7 @@ const [showAll, setShowAll] = useState(false);
                   onDragEnd={canReorder ? handleDragEnd : undefined}
                   onClick={() => { setSelectedCred(cred); setHistoryOpen(false); setHistoryData(null); }}
                 >
-                  {canReorder && <div className="drag-handle" title="Drag to reorder">⠿</div>}
+                  {canReorder && <div className="drag-handle" title="Drag to reorder"><GripVertical size={14} aria-hidden="true" /></div>}
                   {/* Public indicator — shows which credentials appear on public profile - polo */}
                   {cred.visibility === 'public' && (
                     <div className="public-indicator" title="Visible on your public profile"><Globe size={13} aria-hidden="true" /></div>
@@ -1114,7 +1123,7 @@ const [showAll, setShowAll] = useState(false);
           </div>
           {shareLinksLoading && <SpinnerBlock label="Loading share links…" minHeight={90} />}
           {!shareLinksLoading && myShareLinks.length === 0 && (
-            <div className="empty-card">No share links generated yet.</div>
+            <EmptyState title="No share links yet" message="Generate one with Share Profile." />
           )}
           {!shareLinksLoading && myShareLinks.length > 0 && (
             <>
@@ -1233,7 +1242,7 @@ const [showAll, setShowAll] = useState(false);
                                   cursor: 'pointer', fontFamily: 'Poppins, sans-serif'
                                 }}
                               >
-                                {revokingToken === link.token ? 'Revoking...' : 'Revoke'}
+                                {revokingToken === link.token ? 'Revoking…' : 'Revoke'}
                               </button>
                             </>
                           ) : (
@@ -1383,7 +1392,7 @@ const [showAll, setShowAll] = useState(false);
                   onClick={() => handleGenerateShareLink('specific')}
                   disabled={shareLoading}
                 >
-                  {shareLoading ? 'Generating...' : 'Generate & Send Link'}
+                  {shareLoading ? 'Generating…' : 'Generate & Send Link'}
                 </button>
               </div>
             )}

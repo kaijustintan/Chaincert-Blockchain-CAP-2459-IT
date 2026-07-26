@@ -94,7 +94,7 @@ export default function Transcript() {
             <input
               type="text"
               className="search-input"
-              placeholder="Search lectures, topics, or content..."
+              placeholder="Search lectures, topics, or content…"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
             />

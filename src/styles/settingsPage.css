@@ -36,7 +36,7 @@
 .sidebar-header h3 {
   margin: 0;
   font-size: 24px;
-  font-weight: 700;
+  font-weight: var(--fw-bold);
   background: linear-gradient(135deg, var(--accent) 0%, var(--accent-strong) 100%);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
@@ -73,7 +73,7 @@
 
 .sidebar-header h2 {
   font-size: 24px;
-  font-weight: 700;
+  font-weight: var(--fw-bold);
   margin: 0;
   background: linear-gradient(135deg, var(--text) 0%, var(--accent-strong) 100%);
   -webkit-background-clip: text;
@@ -86,7 +86,7 @@
   cursor: pointer;
   color: var(--text-muted);
   transition: all 0.3s ease;
-  font-weight: 500;
+  font-weight: var(--fw-medium);
   display: flex;
   align-items: center;
   gap: 12px;
@@ -103,7 +103,7 @@
 }
 
 .settings-sidebar li.active {
-  font-weight: 700;
+  font-weight: var(--fw-bold);
   background: linear-gradient(135deg, var(--accent) 0%, var(--accent-strong) 100%);
   color: var(--text);
   border-left: 4px solid var(--text);
@@ -120,7 +120,7 @@
 .settings-content h2 {
   margin: 0 0 10px 0;
   font-size: 32px;
-  font-weight: 700;
+  font-weight: var(--fw-bold);
   color: var(--text);
 }
 
@@ -157,7 +157,7 @@
   margin: 0 0 12px 0;
   font-size: 18px;
   color: var(--text);
-  font-weight: 600;
+  font-weight: var(--fw-semibold);
 }
 
 .settings-section p {
@@ -187,7 +187,7 @@
 
 .info-row .value {
   color: var(--text);
-  font-weight: 600;
+  font-weight: var(--fw-semibold);
   font-size: 14px;
 }
 
@@ -198,7 +198,7 @@
   padding: 4px 12px;
   border-radius: 12px;
   font-size: 12px;
-  font-weight: 600;
+  font-weight: var(--fw-semibold);
   margin-left: 8px;
 }
 
@@ -215,7 +215,7 @@
 
 .current-value {
   color: var(--text) !important;
-  font-weight: 600 !important;
+  font-weight: var(--fw-semibold) !important;
   font-size: 15px !important;
 }
 
@@ -225,7 +225,7 @@
   border: none;
   color: var(--accent);
   font-size: 14px;
-  font-weight: 600;
+  font-weight: var(--fw-semibold);
   cursor: pointer;
   text-decoration: underline;
   padding: 0;
@@ -243,7 +243,7 @@
   padding: 10px 20px;
   border-radius: 10px;
   cursor: pointer;
-  font-weight: 600;
+  font-weight: var(--fw-semibold);
   font-size: 14px;
   transition: all 0.3s ease;
   border: none;
@@ -282,7 +282,7 @@
   padding: 12px 24px;
   border-radius: 10px;
   cursor: pointer;
-  font-weight: 700;
+  font-weight: var(--fw-bold);
   font-size: 14px;
   transition: all 0.3s ease;
 }
@@ -305,7 +305,7 @@
   padding: 12px 24px;
   border-radius: 12px;
   font-size: 14px;
-  font-weight: 600;
+  font-weight: var(--fw-semibold);
   cursor: pointer;
   display: flex;
   align-items: center;
@@ -327,7 +327,7 @@
   padding: 12px 24px;
   border-radius: 12px;
   font-size: 14px;
-  font-weight: 600;
+  font-weight: var(--fw-semibold);
   cursor: pointer;
   display: flex;
   align-items: center;
@@ -349,7 +349,7 @@
   padding: 8px 16px;
   border-radius: 8px;
   font-size: 13px;
-  font-weight: 500;
+  font-weight: var(--fw-medium);
   cursor: pointer;
   transition: all 0.3s ease;
   font-family: var(--font-ui);
@@ -369,7 +369,7 @@
   padding: 10px 20px;
   border-radius: 10px;
   cursor: pointer;
-  font-weight: 600;
+  font-weight: var(--fw-semibold);
   font-size: 14px;
   transition: all 0.3s;
 }
@@ -569,7 +569,7 @@ input:checked + .slider:before {
   padding: 4px 12px;
   border-radius: 12px;
   font-size: 12px;
-  font-weight: 600;
+  font-weight: var(--fw-semibold);
 }
 
 .session-status.active {
@@ -581,7 +581,7 @@ input:checked + .slider:before {
   padding: 6px 14px;
   border-radius: 12px;
   font-size: 13px;
-  font-weight: 600;
+  font-weight: var(--fw-semibold);
   display: inline-block;
 }
 
@@ -600,7 +600,7 @@ input:checked + .slider:before {
   background: rgba(0, 0, 0, 0.85);
   display: flex;
   align-items: center;
-  z-index: 2000;
+  z-index: var(--z-modal);
   backdrop-filter: blur(4px);
 }
 
@@ -741,7 +741,7 @@ input:checked + .slider:before {
   display: block;
   color: var(--text-muted);
   font-size: 14px;
-  font-weight: 600;
+  font-weight: var(--fw-semibold);
   margin-bottom: 8px;
 }
 
@@ -793,7 +793,7 @@ input:checked + .slider:before {
   padding: 12px 24px;
   border-radius: 10px;
   cursor: pointer;
-  font-weight: 700;
+  font-weight: var(--fw-bold);
   font-size: 14px;
   transition: all 0.3s ease;
 }

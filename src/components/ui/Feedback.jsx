@@ -3,7 +3,7 @@
   FILE: Feedback.jsx
   LAYMAN (Tropang Ex): Mga "sandali lang, naglo-load" indicators. Spinner = umiikot
   na dash-ring para sa section/page loads. Skeleton = kumikislap na kahon na kahawig
-  ng content na paparating — mas maganda tingnan kaysa "Loading..." na text.
+  ng content na paparating — mas maganda tingnan kaysa "Loading…" na text.
   SkeletonCardGrid / SkeletonRows = handa nang hugis para sa card grids at table rows.
 
   TECHNICAL: Spinner (.cc-spinner — SVG dash-ring) and Skeleton (.cc-skeleton —

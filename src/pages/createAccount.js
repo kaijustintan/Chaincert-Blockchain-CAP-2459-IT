@@ -186,7 +186,7 @@ export default function CreateAccount() {
       });
 
       if (response.success) {
-        showToast("Account created successfully! Redirecting to login...");
+        showToast("Account created successfully! Redirecting to login…");
         setTimeout(
           () => navigate("/login", { state: { successMessage: "Account created successfully! Please log in." } }),
           900
@@ -768,7 +768,7 @@ const getDocumentDescription = (docKey) => {
 
             {!userOtpStep ? (
               <button type="submit" className="btn-primary" disabled={userLoading}>
-                {userLoading ? "Sending code..." : "Create User Account"}
+                {userLoading ? "Sending code…" : "Create User Account"}
               </button>
             ) : (
               <div className="signup-otp-gate" style={{ display: "flex", flexDirection: "column", gap: 12, marginTop: 4 }}>
@@ -786,7 +786,7 @@ const getDocumentDescription = (docKey) => {
                   />
                 </div>
                 <button type="button" className="btn-primary" onClick={confirmUserSignup} disabled={userLoading}>
-                  {userLoading ? "Verifying..." : "Verify & Create Account"}
+                  {userLoading ? "Verifying…" : "Verify & Create Account"}
                 </button>
                 <div style={{ display: "flex", gap: 12, justifyContent: "center" }}>
                   <button type="button" className="btn-link" onClick={handleResendSignupOtp} disabled={userLoading}>Resend code</button>
@@ -977,7 +977,7 @@ const getDocumentDescription = (docKey) => {
                       }}
                       onFocus={() => setRootAuthorityOpen(true)}
                       onBlur={() => setTimeout(() => setRootAuthorityOpen(false), 180)}
-                      placeholder={rootIssuersLoading ? "Loading root authorities..." : "Type to search root authorities..."}
+                      placeholder={rootIssuersLoading ? "Loading root authorities…" : "Type to search root authorities…"}
                       className="search-select-input"
                       autoComplete="off"
                       required
@@ -1017,7 +1017,7 @@ const getDocumentDescription = (docKey) => {
                           })
                         ) : (
                           <li className="searchable-select-empty">
-                            {rootIssuersLoading ? "Loading root authorities..." : "No root authorities found."}
+                            {rootIssuersLoading ? "Loading root authorities…" : "No root authorities found."}
                           </li>
                         )}
                       </ul>
@@ -1118,7 +1118,7 @@ const getDocumentDescription = (docKey) => {
                     className="btn-primary"
                     disabled={issuerLoading}
                   >
-                    {issuerLoading ? "Submitting..." : "Submit Issuer Registration"}
+                    {issuerLoading ? "Submitting…" : "Submit Issuer Registration"}
                   </button>
                 )}
               </div>

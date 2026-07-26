@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import apiService from "../services/apiService";
 import "../styles/settingsPage.css";
-import { AppShell, Sidebar } from "../components/ui";
+import { AppShell, Sidebar, useEscapeClose } from "../components/ui";
 import { User, Bell, ShieldCheck } from "lucide-react";
 
 export default function SettingsPage() {
@@ -13,6 +13,8 @@ export default function SettingsPage() {
 
   const [activeTab, setActiveTab] = useState("account");
   const [isPasswordModalOpen, setIsPasswordModalOpen] = useState(false);
+  // U-4: Escape closes the change-password modal, same as its ✕.
+  useEscapeClose([[isPasswordModalOpen, () => setIsPasswordModalOpen(false)]]);
   const [emailNotifications, setEmailNotifications] = useState(true);
   const [pushNotifications, setPushNotifications] = useState(true);
 
@@ -261,7 +263,7 @@ export default function SettingsPage() {
                   className="save-btn"
                   disabled={isChangingPassword}
                 >
-                  {isChangingPassword ? 'Changing...' : 'Change Password'}
+                  {isChangingPassword ? 'Changing…' : 'Change Password'}
                 </button>
               </div>
             </form>

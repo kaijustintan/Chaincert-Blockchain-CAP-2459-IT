@@ -30,7 +30,7 @@
   border: 1px solid var(--accent-weak);
   color: var(--accent-strong);
   font-size: 12px;
-  font-weight: 600;
+  font-weight: var(--fw-semibold);
   letter-spacing: 0.8px;
   text-transform: uppercase;
   margin-bottom: 24px;
@@ -39,7 +39,7 @@
 
 .help-hero-title {
   font-size: 2.6rem;
-  font-weight: 700;
+  font-weight: var(--fw-bold);
   margin: 0 0 16px 0;
   color: var(--text);
   animation: fadeInUp 0.5s ease-out 0.1s both;
@@ -95,7 +95,7 @@
 
 .ql-text {
   font-size: 13px;
-  font-weight: 600;
+  font-weight: var(--fw-semibold);
   color: var(--accent-strong);
 }
 
@@ -109,7 +109,7 @@
 .help-section-title {
   text-align: center;
   font-size: 1.6rem;
-  font-weight: 700;
+  font-weight: var(--fw-bold);
   color: var(--text);
   margin: 0 0 32px 0;
 }
@@ -147,7 +147,7 @@
 
 .faq-num {
   font-size: 12px;
-  font-weight: 700;
+  font-weight: var(--fw-bold);
   color: var(--border-accent);
   flex-shrink: 0;
   width: 24px;
@@ -156,7 +156,7 @@
 .faq-question h4 {
   flex: 1;
   font-size: 15px;
-  font-weight: 600;
+  font-weight: var(--fw-semibold);
   color: var(--text);
   margin: 0;
 }
@@ -213,7 +213,7 @@
 
 .contact-card h3 {
   font-size: 1.3rem;
-  font-weight: 700;
+  font-weight: var(--fw-bold);
   color: var(--text);
   margin: 0 0 8px 0;
 }
@@ -244,7 +244,7 @@
   border-radius: 12px;
   font-size: 14px;
   color: var(--accent-strong);
-  font-weight: 500;
+  font-weight: var(--fw-medium);
 }
 
 /* ── RESPONSIVE ── */

@@ -35,7 +35,7 @@
   border: 1px solid var(--accent-weak);
   color: var(--accent-strong);
   font-size: 12px;
-  font-weight: 600;
+  font-weight: var(--fw-semibold);
   letter-spacing: 0.8px;
   text-transform: uppercase;
   margin-bottom: 24px;
@@ -44,7 +44,7 @@
 
 .about-hero-title {
   font-size: 2.8rem;
-  font-weight: 700;
+  font-weight: var(--fw-bold);
   line-height: 1.2;
   margin: 0 0 20px 0;
   color: var(--text);
@@ -78,7 +78,7 @@
 .about-section-title {
   text-align: center;
   font-size: 1.8rem;
-  font-weight: 700;
+  font-weight: var(--fw-bold);
   color: var(--text);
   margin: 0 0 8px 0;
 }
@@ -146,7 +146,7 @@
 
 .about-role-card h3 {
   font-size: 17px;
-  font-weight: 600;
+  font-weight: var(--fw-semibold);
   color: var(--text);
   margin: 0 0 8px 0;
 }
@@ -182,7 +182,7 @@
 
 .about-tech-item h4 {
   font-size: 15px;
-  font-weight: 600;
+  font-weight: var(--fw-semibold);
   color: var(--accent-strong);
   margin: 0 0 8px 0;
 }
@@ -219,7 +219,7 @@
 
 .about-benefit h4 {
   font-size: 15px;
-  font-weight: 600;
+  font-weight: var(--fw-semibold);
   color: var(--text);
   margin: 0 0 8px 0;
 }

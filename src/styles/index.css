@@ -38,6 +38,16 @@ samp {
   color: var(--text);
 }
 
+/* U-7: baseline disabled feedback for EVERY button. Families with their own
+   :disabled rules (.cc-btn, .login-btn, .action-btn, .btn-primary, …) override
+   this via higher specificity; inline-styled sites already match these values.
+   This catches the buttons that previously gave NO visual cue when disabled
+   (e.g. verifier OTP buttons, profile preview actions). */
+button:disabled {
+  cursor: not-allowed;
+  opacity: 0.65;
+}
+
 /* Token-driven scrollbars so dense tables/panels match the dark theme. */
 * {
   scrollbar-width: thin;

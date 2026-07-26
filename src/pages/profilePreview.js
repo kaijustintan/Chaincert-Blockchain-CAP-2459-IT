@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo } from "react";
 import { useParams } from "react-router-dom";
 import apiService from "../services/apiService";
-import { SpinnerBlock } from "../components/ui";
+import { SpinnerBlock, useEscapeClose, EmptyState } from "../components/ui";
 import { effectiveCredentialStatus } from "../utils/credentialStatus";
 import { Ban, Lock } from "lucide-react";
 import '../styles/profilePreview.css';
@@ -92,6 +92,12 @@ export default function ProfilePreview() {
   const [credentials, setCredentials] = useState([]);
   const [credLoading, setCredLoading] = useState(false);
   const [selectedPreviewCred, setSelectedPreviewCred] = useState(null);
+
+  // U-4: Escape closes the credential detail popup. The OTP gates and the
+  // verify-all progress modal are deliberately excluded (gates stay put).
+  useEscapeClose([
+    [!!selectedPreviewCred, () => setSelectedPreviewCred(null)],
+  ]);
 
   // ── C10: "Verify all" — bulk-check every listed credential against the blockchain ──
   // vaToken = 'verifier_email_proof' JWT. Specific-recipient links get it free from the
@@ -454,7 +460,7 @@ export default function ProfilePreview() {
     background: 'rgba(8,4,20,0.88)',
     backdropFilter: 'blur(12px)',
     display: 'flex', alignItems: 'center', justifyContent: 'center',
-    zIndex: 1000
+    zIndex: 'var(--z-modal)'
   };
   const gateBoxStyle = {
     background: 'rgba(12,8,32,0.97)',
@@ -539,7 +545,7 @@ export default function ProfilePreview() {
             </div>
             {gateError && <p style={{ color: 'var(--danger)', fontSize: '0.85rem', margin: 0 }}>{gateError}</p>}
             <button onClick={handleRequestOTP} disabled={gateLoading} style={gateBtnStyle}>
-              {gateLoading ? 'Sending...' : 'Send Verification Code'}
+              {gateLoading ? 'Sending…' : 'Send Verification Code'}
             </button>
           </div>
         </div>
@@ -573,7 +579,7 @@ export default function ProfilePreview() {
             </div>
             {gateError && <p style={{ color: 'var(--danger)', fontSize: '0.85rem', margin: 0 }}>{gateError}</p>}
             <button onClick={handleVerifyOTP} disabled={gateLoading} style={gateBtnStyle}>
-              {gateLoading ? 'Verifying...' : 'Verify'}
+              {gateLoading ? 'Verifying…' : 'Verify'}
             </button>
             <button
               onClick={handleResendOTP}
@@ -683,7 +689,7 @@ export default function ProfilePreview() {
         <div className="badge-list">
           {credLoading && <SpinnerBlock label="Loading credentials…" minHeight={120} />}
           {!credLoading && credentials.length === 0 && (
-            <div>No public credentials yet.</div>
+            <EmptyState title="No public credentials yet" />
           )}
           {!credLoading && credentials.map((cred, index) => {
             // Use effective (end-of-day-Manila) status so a cron-lagged past-expiry credential

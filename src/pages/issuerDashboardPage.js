@@ -36,14 +36,14 @@ import TrendBars from "../components/analytics/TrendBars";
 import Sparkline from "../components/analytics/Sparkline";
 import InterpretationBox from "../components/analytics/InterpretationBox";
 import { computeIssuance, computeRevocationAudit, computeHolderVerificationInsights, computeCirculationHealth, COLORS as ANALYTICS_COLORS } from "../components/analytics/analytics";
-import { AppShell, Sidebar, Button, StatusPill, SpinnerBlock, Spinner, InfoHint } from "../components/ui";
+import { AppShell, Sidebar, Button, StatusPill, SpinnerBlock, Spinner, InfoHint, useEscapeClose, EmptyState } from "../components/ui";
 import Pagination, { usePagination } from "../components/ui/Pagination";
 import StatusLegend from "../components/ui/StatusLegend";
 import CredentialHistory from "../components/analytics/CredentialHistory";
 import { effectiveCredentialStatus, minIssueExpiryDate, maxIssueExpiryDate } from "../utils/credentialStatus"; // F01
 import { findNameMatches } from "../utils/nameSimilarity"; // S3-a: exact + near-match name detection
 import { getCredentialLineage, isSameInstance } from "../utils/credentialLineage"; // Q1
-import { LayoutDashboard, FilePlus, Award, Ban, List, BarChart3, Receipt, Building2, Bell, Check, X } from "lucide-react";
+import { LayoutDashboard, FilePlus, Award, Ban, List, BarChart3, Receipt, Building2, Bell, Check, X, ChevronDown } from "lucide-react";
 
 // Group 4.2: collapse credential-type strings case-insensitively (trim + first-seen casing
 // wins) so "Academic" / "academic" / "Academic " become ONE dropdown option. The create form
@@ -1318,6 +1318,30 @@ export default function IssuerDashboard() {
   // C2: confirm before flipping a template's visibility (styled modal, not window.confirm)
   const [pendingVisibilityTemplate, setPendingVisibilityTemplate] = useState(null);
 
+  // U-4: Escape closes the topmost open modal. Order = stacking priority (confirm
+  // overlays before their parents). Each close mirrors that modal's own Cancel/✕,
+  // including its in-flight guards — Escape can never do more than a click could.
+  // Placed BELOW every referenced const (TDZ: a hook-call expression that reads a
+  // later `const` crashes at runtime even though the build compiles — see the
+  // filteredCredentials lesson in the final-review batch).
+  useEscapeClose([
+    [!!descriptionModal, () => setDescriptionModal(null)],
+    [showCreateModal && createConfirmStep, () => { if (!createLoading) { setCreateConfirmStep(false); setCreateError(""); } }],
+    [showIssueModal && issueConfirmStep, () => { if (!issueLoading) { setIssueConfirmStep(false); setIssueError(""); } }],
+    [showRevokeModal && revokeConfirmStep, () => { if (!revokeLoading) { setRevokeConfirmStep(false); setRevokeError(""); } }],
+    [!!renewalDecide, () => { if (!renewalActionLoading) setRenewalDecide(null); }],
+    [!!pendingVisibilityTemplate, () => setPendingVisibilityTemplate(null)],
+    [showCreateModal, closeCreateModal],
+    [showIssueModal, closeIssueModal],
+    [showRevokeModal, closeRevokeModal],
+    [showBatchModal, closeBatchRevokeModal],           // self-guards on batchRunning
+    [showBatchIssueModal, closeBatchIssueModal],       // self-guards on batchIssueRunning
+    [subHistoryOpen, closeSubordinateHistory],
+    [historyOpen, closeHistory],
+    [showIssuerDocumentsModal, closeIssuerDocumentsModal],
+    [showRejectSubordinateModal, closeRejectSubordinateModal], // self-guards on rejectSubordinateLoading
+  ]);
+
   const handleToggleTemplateVisibility = (template) => {
     setPendingVisibilityTemplate(template);
   };
@@ -1552,7 +1576,7 @@ export default function IssuerDashboard() {
           <div className="table-container">
             <h3 style={{ marginBottom: 12 }}>Your Credentials ({filteredTemplates.length})</h3>
             <div className="filter-row">
-              <div className="filter-group"><label>Search:</label><input value={templateSearch} onChange={(e) => setTemplateSearch(e.target.value)} placeholder="Search credentials..." className="filter-select" /></div>
+              <div className="filter-group"><label>Search:</label><input value={templateSearch} onChange={(e) => setTemplateSearch(e.target.value)} placeholder="Search credentials…" className="filter-select" /></div>
               <div className="filter-group"><label>Type:</label><select value={templateTypeFilter} onChange={(e) => setTemplateTypeFilter(e.target.value)} className="filter-select"><option value="all">All Types</option>{uniqueTemplateTypes.map((type) => <option key={type} value={type}>{type}</option>)}</select></div>
               <div className="filter-group"><label>Sort by:</label><select value={templateSortBy} onChange={(e) => setTemplateSortBy(e.target.value)} className="filter-select"><option value="newest">Most Recent</option><option value="oldest">Oldest First</option><option value="name-asc">Name A-Z</option><option value="name-desc">Name Z-A</option></select></div>
             </div>
@@ -1627,7 +1651,7 @@ export default function IssuerDashboard() {
                     )}
                     <InfoHint text="Holders asking to re-issue an expiring credential. Approving re-issues the same credential with a new expiry — check your own records first; ChainCert routes the request, it doesn't verify requalification." />
                   </span>
-                  <span style={{ fontSize: 16, color: "var(--text-muted)", transform: renewalOpen ? "rotate(180deg)" : "none", transition: "transform .2s ease", flexShrink: 0 }} aria-hidden="true">▾</span>
+                  <span style={{ display: "inline-flex", color: "var(--text-muted)", transform: renewalOpen ? "rotate(180deg)" : "none", transition: "transform .2s ease", flexShrink: 0 }} aria-hidden="true"><ChevronDown size={16} /></span>
                 </button>
                 {renewalOpen && (
                   <div style={{ padding: "0 18px 16px" }}>
@@ -1653,7 +1677,7 @@ export default function IssuerDashboard() {
                         </div>
                       </div>
                       {filteredRenewalRequests.length === 0 ? (
-                        <div className="no-results"><p>No renewal requests match your filter.</p></div>
+                        <EmptyState title="No renewal requests match your filter" />
                       ) : (
                       <div className="analytics-flag-list">
                         {renewalPg.pageItems.map((r) => (
@@ -1719,7 +1743,7 @@ export default function IssuerDashboard() {
                 </select>
               </div>
             </div>
-            <div className="filter-row"><div className="filter-group"><label htmlFor="issueSearch">Search:</label><input id="issueSearch" value={issueSearch} onChange={(e) => setIssueSearch(e.target.value)} placeholder="Search by credential, holder, or ID..." className="filter-select" /></div></div><div className="results-info">Showing <strong>{issueTableCredentials.length}</strong> of <strong>{credentials.length}</strong> credentials</div>
+            <div className="filter-row"><div className="filter-group"><label htmlFor="issueSearch">Search:</label><input id="issueSearch" value={issueSearch} onChange={(e) => setIssueSearch(e.target.value)} placeholder="Search by credential, holder, or ID…" className="filter-select" /></div></div><div className="results-info">Showing <strong>{issueTableCredentials.length}</strong> of <strong>{credentials.length}</strong> credentials</div>
           </div>
 
           {issueTableCredentials.length > 0 && (
@@ -1796,11 +1820,11 @@ export default function IssuerDashboard() {
           <div className="table-container">
             <div className="filter-row">
               <div className="filter-group"><label>Record Kind:</label><select value={filterRecordKind} onChange={(e) => setFilterRecordKind(e.target.value)} className="filter-select"><option value="all">All</option><option value="templates">Credentials</option><option value="issued">Issued Credentials</option></select></div><div className="filter-group"><label>Status:</label><select value={viewAllStatusFilter} onChange={(e) => setViewAllStatusFilter(e.target.value)} className="filter-select"><option value="all">All Statuses</option><option value="issued">Issued / Active</option><option value="expired">Expired</option><option value="revoked">Revoked</option><option value="draft">Draft</option></select></div><div className="filter-group"><label>Type:</label><select value={viewAllTypeFilter} onChange={(e) => setViewAllTypeFilter(e.target.value)} className="filter-select"><option value="all">All Types</option>{getUniqueCredentialTypes().map((type) => <option key={type} value={type}>{type}</option>)}</select></div>
-              <div className="filter-group"><label>Search:</label><input value={viewAllSearch} onChange={(e) => setViewAllSearch(e.target.value)} placeholder="Search credentials..." className="filter-select" /></div>
+              <div className="filter-group"><label>Search:</label><input value={viewAllSearch} onChange={(e) => setViewAllSearch(e.target.value)} placeholder="Search credentials…" className="filter-select" /></div>
               <div className="filter-group"><label>Sort by:</label><select value={viewAllSortBy} onChange={(e) => setViewAllSortBy(e.target.value)} className="filter-select"><option value="newest">Most Recent</option><option value="oldest">Oldest First</option><option value="name-asc">Name A-Z</option><option value="name-desc">Name Z-A</option></select></div>
             </div>
             {filteredAllCredentialRows.length === 0 ? (
-              <div className="no-results"><p>No credentials match your filters.</p></div>
+              <EmptyState title="No credentials match your filters" />
             ) : (
               <table className="template-table has-sticky-actions">
                 <thead><tr><th>Name</th><th>Type</th><th>Status</th><th>Holder Name</th><th>Visibility</th><th>Created Date</th><th>Expiry Date</th><th>Actions</th></tr></thead>
@@ -1879,7 +1903,7 @@ export default function IssuerDashboard() {
             <div className="filter-row">
               <div className="filter-group"><label>Status:</label><select value={revokeStatusFilter} onChange={(e) => setRevokeStatusFilter(e.target.value)} className="filter-select"><option value="all">All Status</option><option value="issued">Issued</option><option value="revoked">Revoked</option><option value="expired">Expired</option></select></div>
               <div className="filter-group"><label>Type:</label><select value={revokeTypeFilter} onChange={(e) => setRevokeTypeFilter(e.target.value)} className="filter-select"><option value="all">All Types</option>{getUniqueCredentialTypes().map((type) => <option key={type} value={type}>{type}</option>)}</select></div>
-              <div className="filter-group"><label>Search:</label><input value={revokeSectionSearch} onChange={(e) => setRevokeSectionSearch(e.target.value)} placeholder="Search by credential, holder, or ID..." className="filter-select" /></div>
+              <div className="filter-group"><label>Search:</label><input value={revokeSectionSearch} onChange={(e) => setRevokeSectionSearch(e.target.value)} placeholder="Search by credential, holder, or ID…" className="filter-select" /></div>
               <div className="filter-group"><label>Sort by:</label><select value={revokeSortBy} onChange={(e) => setRevokeSortBy(e.target.value)} className="filter-select"><option value="newest">Most Recent</option><option value="oldest">Oldest First</option><option value="name-asc">Name A-Z</option><option value="name-desc">Name Z-A</option><option value="status-asc">Status A-Z</option></select></div>
             </div>
             {revokeTableCredentials.length === 0 ? (
@@ -2006,7 +2030,7 @@ export default function IssuerDashboard() {
 
             {subordinateDirectoryLoading ? <SpinnerBlock label="Loading subordinate directory…" />
             : subordinateDirectoryError ? <div className="no-results"><p style={{ color: "var(--danger)" }}>{subordinateDirectoryError}</p></div>
-            : filteredSubordinates.length === 0 ? <div className="no-results"><p>No subordinate issuers found for this filter.</p></div>
+            : filteredSubordinates.length === 0 ? <EmptyState title="No subordinate issuers found" message="Try a different filter." />
             : (
               <table className="template-table subordinate-table has-sticky-actions">
                 <thead><tr><th>Issuer ID</th><th>Org Name</th><th>Email</th><th>Category</th><th>Root Approval</th><th>Admin Approval</th><th>Overall Status</th><th>Created</th><th>Actions</th></tr></thead>
@@ -2525,7 +2549,7 @@ export default function IssuerDashboard() {
                   {nameClash.exact.length === 0 && nameClash.similar.length > 0 && <span className="form-label-hint" style={{ color: "var(--warn)", display: "block", marginTop: 6 }}>Similar to your existing {nameClash.similar.map((n) => `"${n}"`).join(", ")} — holders may confuse the two. You can still create it if it is intentionally distinct.</span>}
                 </div>
               </div>
-              <div className="form-group"><label>Description</label><textarea name="description" value={createForm.description} onChange={handleCreateFormChange} rows={2} placeholder="Describe the credential's purpose..." /></div>
+              <div className="form-group"><label>Description</label><textarea name="description" value={createForm.description} onChange={handleCreateFormChange} rows={2} placeholder="Describe the credential's purpose…" /></div>
               <div className="form-group"><label>Metadata <span className="form-label-hint">(optional)</span></label><input type="text" name="metadata" value={createForm.metadata} onChange={handleCreateFormChange} placeholder="e.g. Level: Manager" /></div>
               {/* D5: renewable flag — controls whether holders see a "Request renewal" button.
                   N1: the "?" is a SIBLING of the label (not inside it) so clicking it can never
@@ -2631,7 +2655,7 @@ export default function IssuerDashboard() {
                     }}
                     onFocus={() => setIssueTemplateOpen(true)}
                     onBlur={() => setTimeout(() => setIssueTemplateOpen(false), 180)}
-                    placeholder="Type to search credentials..."
+                    placeholder="Type to search credentials…"
                     className="search-select-input"
                     autoComplete="off"
                   />
@@ -2673,7 +2697,7 @@ export default function IssuerDashboard() {
                     }}
                     onFocus={() => { if (issueForm.credentialId) setIssueRecipientOpen(true); }}
                     onBlur={() => setTimeout(() => setIssueRecipientOpen(false), 180)}
-                    placeholder={issueForm.credentialId ? "Type to search recipients..." : "Select a credential first"}
+                    placeholder={issueForm.credentialId ? "Type to search recipients…" : "Select a credential first"}
                     className="search-select-input"
                     disabled={!issueForm.credentialId}
                     autoComplete="off"
@@ -2771,7 +2795,7 @@ export default function IssuerDashboard() {
                     onChange={(e) => { setRevokeHolderSearch(e.target.value); setRevokeHolderOpen(true); if (revokeSelectedHolder) { setRevokeSelectedHolder(""); setRevokeForm((prev) => ({ ...prev, credentialId: "" })); setRevokeCredentialSearch(""); } }}
                     onFocus={() => setRevokeHolderOpen(true)}
                     onBlur={() => setTimeout(() => setRevokeHolderOpen(false), 180)}
-                    placeholder="Type to search holders..."
+                    placeholder="Type to search holders…"
                     className="search-select-input" autoComplete="off" />
                   {revokeSelectedHolder && (
                     <button type="button" className="searchable-select-clear" onClick={() => { setRevokeHolderSearch(""); setRevokeSelectedHolder(""); setRevokeForm((prev) => ({ ...prev, credentialId: "" })); setRevokeCredentialSearch(""); setRevokeHolderOpen(true); }} aria-label="Clear selection">✕</button>
@@ -2804,7 +2828,7 @@ export default function IssuerDashboard() {
                     }}
                     onFocus={() => setRevokeCredentialOpen(true)}
                     onBlur={() => setTimeout(() => setRevokeCredentialOpen(false), 180)}
-                    placeholder="Type to search credentials..."
+                    placeholder="Type to search credentials…"
                     className="search-select-input"
                     autoComplete="off"
                   />
@@ -2851,7 +2875,7 @@ export default function IssuerDashboard() {
               </div>
               </>
               )}
-              <div className="form-group"><label>Revocation Reason:</label><textarea name="rejectionReason" value={revokeForm.rejectionReason} onChange={handleRevokeFormChange} rows={3} placeholder="State the reason for revoking this credential..." required /></div>
+              <div className="form-group"><label>Revocation Reason:</label><textarea name="rejectionReason" value={revokeForm.rejectionReason} onChange={handleRevokeFormChange} rows={3} placeholder="State the reason for revoking this credential…" required /></div>
               {revokeError && <div className="form-error">{revokeError}</div>}
               <div className="form-actions"><button type="submit" className="action-btn revoke-btn">Revoke</button><button type="button" onClick={closeRevokeModal} className="action-btn btn-cancel">Cancel</button></div>
             </form>
@@ -2894,7 +2918,7 @@ export default function IssuerDashboard() {
             {rootSubordinateLogsLoading ? (
               <SpinnerBlock label="Loading history…" />
             ) : subHistoryLogs.length === 0 ? (
-              <div className="no-results"><p>No on-chain decisions recorded for this subordinate yet.</p></div>
+              <EmptyState title="No on-chain decisions recorded yet" />
             ) : (
               <table className="template-table">
                 <thead><tr><th>Decision</th><th>Reason</th><th>Performed By MSP</th><th>Timestamp</th><th>Tx ID</th></tr></thead>
@@ -2907,7 +2931,7 @@ export default function IssuerDashboard() {
                         <td>{log.reason || "—"}</td>
                         <td style={{ fontFamily: "monospace", fontSize: 12 }}>{log.performedByMSP || "N/A"}</td>
                         <td>{log.timestamp ? new Date(log.timestamp).toLocaleString() : "N/A"}</td>
-                        <td style={{ fontFamily: "monospace", fontSize: 12 }}>{log.txId ? `${String(log.txId).slice(0, 18)}...` : "N/A"}</td>
+                        <td style={{ fontFamily: "monospace", fontSize: 12 }}>{log.txId ? `${String(log.txId).slice(0, 18)}…` : "N/A"}</td>
                       </tr>
                     );
                   })}
@@ -3021,7 +3045,7 @@ export default function IssuerDashboard() {
 
       {/* Submitted Documents Modal */}
       {showIssuerDocumentsModal && ReactDOM.createPortal(
-        <div onClick={closeIssuerDocumentsModal} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", zIndex: 999999, display: "flex", alignItems: "center", justifyContent: "center", padding: "20px" }}>
+        <div onClick={closeIssuerDocumentsModal} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", zIndex: "var(--z-modal)", display: "flex", alignItems: "center", justifyContent: "center", padding: "20px" }}>
           <div onClick={(e) => e.stopPropagation()} style={{ width: "min(900px, 95vw)", maxHeight: "85vh", overflow: "auto", background: "var(--surface-2)", borderRadius: "12px", border: "1px solid var(--border-strong)", padding: "18px", boxShadow: "0 10px 40px rgba(0,0,0,0.4)", color: "var(--text)" }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "12px" }}>
               <div><h3 style={{ margin: 0 }}>Submitted Documents</h3><div style={{ fontSize: "13px", opacity: 0.85, marginTop: "6px" }}><div><strong>Issuer:</strong> {selectedIssuerForDocuments?.orgName || "N/A"}</div><div><strong>Email:</strong> {selectedIssuerForDocuments?.email || "N/A"}</div></div></div>
@@ -3034,7 +3058,7 @@ export default function IssuerDashboard() {
                 {issuerDocuments.map((doc, idx) => (
                   <tr key={doc.attachmentName || idx}>
                     <td>{doc.docType || "N/A"}</td><td>{doc.originalname || "N/A"}</td><td>{doc.mimetype || "N/A"}</td>
-                    <td>{typeof doc.size === "number" ? `${(doc.size / 1024).toFixed(1)} KB` : "N/A"}</td>
+                    <td>{typeof doc.size === "number" ? `${(doc.size / 1024).toFixed(1)}…` : "N/A"}</td>
                     <td style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
                       <button type="button" onClick={() => handleViewIssuerDocument(doc)} className="action-btn" style={{ padding: "6px 10px", fontSize: "12px", background: "var(--accent-weak)", color: "var(--accent-strong)", border: "1px solid rgba(255,255,255,0.18)" }}>View</button>
                       <button type="button" onClick={() => handleDownloadIssuerDocument(doc)} className="action-btn" style={{ padding: "6px 10px", fontSize: "12px", background: "var(--ok-weak)", color: "var(--ok)", border: "1px solid rgba(255,255,255,0.18)" }}>Download</button>
@@ -3042,23 +3066,23 @@ export default function IssuerDashboard() {
                   </tr>
                 ))}
               </tbody></table></div>
-            ) : <div style={{ padding: "16px", opacity: 0.9 }}>No submitted documents found.</div>}
+            ) : <EmptyState title="No submitted documents found" />}
           </div>
         </div>, document.body
       )}
 
       {/* Reject Subordinate Modal */}
       {showRejectSubordinateModal && ReactDOM.createPortal(
-        <div onClick={closeRejectSubordinateModal} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", zIndex: 999999, display: "flex", alignItems: "center", justifyContent: "center", padding: "20px" }}>
+        <div onClick={closeRejectSubordinateModal} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", zIndex: "var(--z-modal)", display: "flex", alignItems: "center", justifyContent: "center", padding: "20px" }}>
           <div onClick={(e) => e.stopPropagation()} style={{ width: "min(520px, 95vw)", background: "var(--surface-2)", borderRadius: "12px", border: "1px solid var(--border-strong)", padding: "18px", boxShadow: "0 10px 40px rgba(0,0,0,0.4)", color: "var(--text)" }}>
             <h3 style={{ marginTop: 0 }}>Reject Subordinate Issuer</h3>
             <p style={{ opacity: 0.85, marginTop: "6px" }}>Please provide a rejection reason.</p>
             <form onSubmit={submitRejectSubordinate}>
-              <textarea value={rejectSubordinateReason} onChange={(e) => setRejectSubordinateReason(e.target.value)} placeholder="Enter rejection reason..." rows={4} style={{ width: "100%", borderRadius: "10px", padding: "10px", marginTop: "10px", background: "var(--border)", border: "1px solid var(--border-strong)", color: "var(--text)", outline: "none", resize: "vertical", boxSizing: "border-box" }} />
+              <textarea value={rejectSubordinateReason} onChange={(e) => setRejectSubordinateReason(e.target.value)} placeholder="Enter rejection reason…" rows={4} style={{ width: "100%", borderRadius: "10px", padding: "10px", marginTop: "10px", background: "var(--border)", border: "1px solid var(--border-strong)", color: "var(--text)", outline: "none", resize: "vertical", boxSizing: "border-box" }} />
               {rejectSubordinateError && <div style={{ color: "var(--danger)", marginTop: "10px" }}>{rejectSubordinateError}</div>}
               <div style={{ display: "flex", gap: "10px", justifyContent: "flex-end", marginTop: "14px" }}>
                 <button type="button" onClick={closeRejectSubordinateModal} disabled={rejectSubordinateLoading} style={{ padding: "10px 14px", borderRadius: "10px", border: "1px solid rgba(255,255,255,0.18)", background: "transparent", color: "var(--text)", cursor: rejectSubordinateLoading ? "not-allowed" : "pointer", opacity: rejectSubordinateLoading ? 0.65 : 1, fontWeight: 700 }}>Cancel</button>
-                <button type="submit" disabled={rejectSubordinateLoading} style={{ padding: "10px 14px", borderRadius: "10px", border: "1px solid rgba(255,255,255,0.18)", background: "var(--danger-weak)", color: "var(--danger)", cursor: rejectSubordinateLoading ? "not-allowed" : "pointer", opacity: rejectSubordinateLoading ? 0.65 : 1, fontWeight: 800 }}>{rejectSubordinateLoading ? "Rejecting..." : "Confirm Reject"}</button>
+                <button type="submit" disabled={rejectSubordinateLoading} style={{ padding: "10px 14px", borderRadius: "10px", border: "1px solid rgba(255,255,255,0.18)", background: "var(--danger-weak)", color: "var(--danger)", cursor: rejectSubordinateLoading ? "not-allowed" : "pointer", opacity: rejectSubordinateLoading ? 0.65 : 1, fontWeight: 800 }}>{rejectSubordinateLoading ? "Rejecting…" : "Confirm Reject"}</button>
               </div>
             </form>
           </div>

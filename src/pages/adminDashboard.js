@@ -39,7 +39,7 @@ import {
   computeIssuerApprovalTurnaround,
   QUEUE_AGING_NOTE_DAYS,
 } from "../components/analytics/analytics";
-import { AppShell, Sidebar, Spinner, SpinnerBlock, InfoHint } from "../components/ui";
+import { AppShell, Sidebar, Spinner, SpinnerBlock, InfoHint, useEscapeClose, EmptyState } from "../components/ui";
 import Pagination, { usePagination } from "../components/ui/Pagination";
 import CredentialHistory from "../components/analytics/CredentialHistory";
 import NotesCard from "../components/ui/NotesCard";
@@ -1410,6 +1410,22 @@ const handleDownloadIssuerDocument = async (doc) => {
     setHistoryStatusLoading(false);
   };
 
+  // U-4: Escape closes the topmost open modal, via the SAME close functions the
+  // Cancel/✕ buttons call (so their in-flight guards apply). The integrity-run
+  // confirm is first — it can sit above the dashboard while others are closed.
+  useEscapeClose([
+    [integrityConfirmOpen, () => setIntegrityConfirmOpen(false)],
+    [!!descriptionModal, () => setDescriptionModal(null)],
+    [showIntegrityModal, () => setShowIntegrityModal(false)],
+    [showApproveIssuerModal, closeApproveIssuerModal],
+    [showRejectIssuerModal, closeRejectIssuerModal],
+    [showIssuerStatusModal, closeIssuerStatusModal],
+    [showUserStatusModal, closeUserStatusModal],
+    [showHistoryStatusModal, closeHistoryStatusModal],
+    [showIssuerDocumentsModal, closeIssuerDocumentsModal],
+    [showHistoryModal, closeHistoryModal],
+  ]);
+
   const getStatDisplayValue = (isLoading, value) => (isLoading ? "—" : value);
 
   const credentialStats = [
@@ -1784,7 +1800,7 @@ const handleDownloadIssuerDocument = async (doc) => {
         ReactDOM.createPortal(
           <div
             onClick={() => setIntegrityConfirmOpen(false)}
-            style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", zIndex: 999999, display: "flex", alignItems: "center", justifyContent: "center", padding: "20px" }}
+            style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", zIndex: "var(--z-modal)", display: "flex", alignItems: "center", justifyContent: "center", padding: "20px" }}
           >
             <div
               onClick={(e) => e.stopPropagation()}
@@ -1812,7 +1828,7 @@ const handleDownloadIssuerDocument = async (doc) => {
         ReactDOM.createPortal(
           <div
             onClick={() => setShowIntegrityModal(false)}
-            style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", zIndex: 999999, display: "flex", alignItems: "center", justifyContent: "center", padding: "20px" }}
+            style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", zIndex: "var(--z-modal)", display: "flex", alignItems: "center", justifyContent: "center", padding: "20px" }}
           >
             <div
               onClick={(e) => e.stopPropagation()}
@@ -1929,7 +1945,7 @@ const handleDownloadIssuerDocument = async (doc) => {
               position: "fixed",
               inset: 0,
               background: "rgba(0,0,0,0.6)",
-              zIndex: 999999,
+              zIndex: "var(--z-modal)",
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
@@ -2038,7 +2054,7 @@ const handleDownloadIssuerDocument = async (doc) => {
               position: "fixed",
               inset: 0,
               background: "rgba(0,0,0,0.6)",
-              zIndex: 999999,
+              zIndex: "var(--z-modal)",
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
@@ -2087,7 +2103,7 @@ const handleDownloadIssuerDocument = async (doc) => {
         ReactDOM.createPortal(
           <div
             onClick={closeApproveIssuerModal}
-            style={{ position:"fixed",inset:0,background:"rgba(0,0,0,0.6)",zIndex:999999,display:"flex",alignItems:"center",justifyContent:"center",padding:"20px" }}
+            style={{ position:"fixed",inset:0,background:"rgba(0,0,0,0.6)",zIndex:"var(--z-modal)",display:"flex",alignItems:"center",justifyContent:"center",padding:"20px" }}
           >
             <div
               onClick={(e) => e.stopPropagation()}
@@ -2115,7 +2131,7 @@ const handleDownloadIssuerDocument = async (doc) => {
                   disabled={approveIssuerLoading}
                   style={{ padding:"10px 14px",borderRadius:"10px",border:"1px solid rgba(255,255,255,0.18)",background:"var(--ok-weak)",color:"var(--ok)",cursor:approveIssuerLoading?"not-allowed":"pointer",opacity:approveIssuerLoading?0.65:1,fontWeight:800 }}
                 >
-                  {approveIssuerLoading ? "Approving..." : "Confirm Approve"}
+                  {approveIssuerLoading ? "Approving…" : "Confirm Approve"}
                 </button>
               </div>
             </div>
@@ -2131,7 +2147,7 @@ const handleDownloadIssuerDocument = async (doc) => {
               position: "fixed",
               inset: 0,
               background: "rgba(0,0,0,0.6)",
-              zIndex: 999999,
+              zIndex: "var(--z-modal)",
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
@@ -2160,7 +2176,7 @@ const handleDownloadIssuerDocument = async (doc) => {
                 <textarea
                   value={rejectReason}
                   onChange={(e) => setRejectReason(e.target.value)}
-                  placeholder="Enter rejection reason..."
+                  placeholder="Enter rejection reason…"
                   rows={4}
                   style={{
                     width: "100%",
@@ -2221,7 +2237,7 @@ const handleDownloadIssuerDocument = async (doc) => {
                       fontWeight: 800,
                     }}
                   >
-                    {Reject_IssuerLoading ? "Rejecting..." : "Confirm Reject"}
+                    {Reject_IssuerLoading ? "Rejecting…" : "Confirm Reject"}
                   </button>
                 </div>
               </form>
@@ -2238,7 +2254,7 @@ const handleDownloadIssuerDocument = async (doc) => {
               position: "fixed",
               inset: 0,
               background: "rgba(0,0,0,0.6)",
-              zIndex: 999999,
+              zIndex: "var(--z-modal)",
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
@@ -2268,7 +2284,7 @@ const handleDownloadIssuerDocument = async (doc) => {
                 <textarea
                   value={issuerStatusReason}
                   onChange={(e) => setIssuerStatusReason(e.target.value)}
-                  placeholder="Enter reason..."
+                  placeholder="Enter reason…"
                   rows={4}
                   style={{
                     width: "100%",
@@ -2334,7 +2350,7 @@ const handleDownloadIssuerDocument = async (doc) => {
                     }}
                   >
                     {issuerStatusLoading
-                      ? "Submitting..."
+                      ? "Submitting…"
                       : issuerStatusAction === "disable"
                       ? "Confirm Disable"
                       : "Confirm Enable"}
@@ -2354,7 +2370,7 @@ const handleDownloadIssuerDocument = async (doc) => {
               position: "fixed",
               inset: 0,
               background: "rgba(0,0,0,0.6)",
-              zIndex: 999999,
+              zIndex: "var(--z-modal)",
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
@@ -2384,7 +2400,7 @@ const handleDownloadIssuerDocument = async (doc) => {
                 <textarea
                   value={userStatusReason}
                   onChange={(e) => setUserStatusReason(e.target.value)}
-                  placeholder="Enter reason..."
+                  placeholder="Enter reason…"
                   rows={4}
                   style={{
                     width: "100%",
@@ -2450,7 +2466,7 @@ const handleDownloadIssuerDocument = async (doc) => {
                     }}
                   >
                     {userStatusLoading
-                      ? "Submitting..."
+                      ? "Submitting…"
                       : userStatusAction === "disable"
                       ? "Confirm Disable"
                       : "Confirm Enable"}
@@ -2470,7 +2486,7 @@ const handleDownloadIssuerDocument = async (doc) => {
               position: "fixed",
               inset: 0,
               background: "rgba(0,0,0,0.6)",
-              zIndex: 999999,
+              zIndex: "var(--z-modal)",
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
@@ -2555,7 +2571,7 @@ const handleDownloadIssuerDocument = async (doc) => {
                   </table>
                 </div>
               ) : (
-                <div style={{ padding: "16px", opacity: 0.9 }}>No status change history found.</div>
+                <EmptyState title="No status change history found" />
               )}
             </div>
           </div>,
@@ -2570,7 +2586,7 @@ const handleDownloadIssuerDocument = async (doc) => {
                 position: "fixed",
                 inset: 0,
                 background: "rgba(0,0,0,0.6)",
-                zIndex: 999999,
+                zIndex: "var(--z-modal)",
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "center",
@@ -2925,7 +2941,7 @@ const handleDownloadIssuerDocument = async (doc) => {
                 type="text"
                 value={adminCredSearchQuery}
                 onChange={(e) => setAdminCredSearchQuery(e.target.value)}
-                placeholder="Search..."
+                placeholder="Search…"
               />
             </div>
 
@@ -2999,7 +3015,7 @@ const handleDownloadIssuerDocument = async (doc) => {
                 </table>
               </div>
             ) : (
-              <div className="tab-placeholder">No credentials found for selected filters.</div>
+              <EmptyState title="No credentials found" message="Try different filters." />
             )}
             <Pagination {...adminCredsPg} />
             </div>
@@ -3405,7 +3421,7 @@ const handleDownloadIssuerDocument = async (doc) => {
               </table>
             </div>
           ) : (
-            <div className="tab-placeholder">No issuers found for selected view.</div>
+            <EmptyState title="No issuers found" message="Try a different view or search." />
           )}
           <Pagination {...issuersPg} />
           </div>
@@ -3561,7 +3577,7 @@ const handleDownloadIssuerDocument = async (doc) => {
               </table>
             </div>
           ) : (
-            <div className="tab-placeholder">No users found for selected view.</div>
+            <EmptyState title="No users found" message="Try a different view or search." />
           )}
           <Pagination {...usersPg} />
         </div>
@@ -3660,7 +3676,7 @@ const handleDownloadIssuerDocument = async (doc) => {
                   type="text"
                   value={rootSubordinateSearchQuery}
                   onChange={(e) => setRootSubordinateSearchQuery(e.target.value)}
-                  placeholder="Search root authority name..."
+                  placeholder="Search root authority name…"
                   style={{
                     padding: "8px 10px",
                     borderRadius: 10,
@@ -3696,7 +3712,7 @@ const handleDownloadIssuerDocument = async (doc) => {
                   type="text"
                   value={auditSearch}
                   onChange={(e) => setAuditSearch(e.target.value)}
-                  placeholder="Search email, reason, performed by..."
+                  placeholder="Search email, reason, performed by…"
                   style={{
                     padding: "8px 10px",
                     borderRadius: 10,
@@ -3776,7 +3792,7 @@ const handleDownloadIssuerDocument = async (doc) => {
                   </table>
                 </div>
               ) : (
-                <div className="tab-placeholder">No audit logs found.</div>
+                <EmptyState title="No audit logs found" />
               )}
               <Pagination {...auditPg} />
             </div>
@@ -3829,7 +3845,7 @@ const handleDownloadIssuerDocument = async (doc) => {
                     </table>
                   </div>
                 ) : (
-                  <div className="tab-placeholder">No root subordinate logs found.</div>
+                  <EmptyState title="No root subordinate logs found" />
                 )
               )}
               <Pagination {...rootSubPg} />
@@ -3912,7 +3928,7 @@ const handleDownloadIssuerDocument = async (doc) => {
                   </table>
                 </div>
               ) : (
-                <div className="tab-placeholder">No verification logs found.</div>
+                <EmptyState title="No verification logs found" />
               )}
               <Pagination {...verifyPg} />
             </>

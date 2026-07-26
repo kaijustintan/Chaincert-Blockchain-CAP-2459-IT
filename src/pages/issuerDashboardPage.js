@@ -342,7 +342,7 @@ export default function IssuerDashboard() {
           ? { newCredentialId, newExpiryDate: renewalExpiry || "" }
           : { declineReason: renewalDeclineReason.trim() }
       );
-      showToast(action === "approve" ? "Renewal approved — a renewed credential was issued." : "Renewal declined.");
+      showToast(action === "approve" ? "Renewal approved — a renewed credential was issued and the holder was emailed." : "Renewal declined.");
       setRenewalDecide(null);
       fetchRenewalRequests();
       if (action === "approve") fetchCredentials();
@@ -1381,7 +1381,7 @@ export default function IssuerDashboard() {
     setIssueError("");
     try {
       await apiService.Issue_Credential(issueForm.credentialId, issueForm.recipientId, issueForm.expiryDate);
-      showToast("Credential issued successfully!");
+      showToast("Credential issued — a notification email was sent to the holder.");
       closeIssueModal();
       fetchCredentials();
     } catch (err) {
@@ -1566,7 +1566,7 @@ export default function IssuerDashboard() {
           ============================================================ */}
       {activeView === "create" && (
         <>
-          <h2>Create Credentials</h2>
+          <h2>Create Credential</h2>
 
           <div style={{ margin: "20px 0" }}>
             <button onClick={openCreateModal} className="action-btn create-btn">+ Create New Credential</button>

@@ -71,10 +71,14 @@ CAP-2459-IT-AFTER-RESET/
 │   │   │
 │   │   └── cap2/                               ← everything CAP2-specific
 │   │       ├── manuals/                        ← current .md manuals (canonical working reference set)
-│   │       │   ├── CAP-2459-IT-INSTALLATION-MANUAL.md
+│   │       │   ├── CAP-2459-IT-INSTALLATION-MANUAL.md  ← + Appendix B troubleshooting (17 entries, added post-defense)
 │   │       │   ├── CAP-2459-IT-TECHNICAL-MANUAL.md
-│   │       │   ├── CAP-2459-IT-USER-MANUAL.md          ← lean narrative (core journey + optional)
-│   │       │   ├── CAP-2459-IT-USER-MANUAL-FULL.md     ← Phase 1–8 "UAT Edition" (what UAT testers followed)
+│   │       │   ├── CAP-2459-IT-USER-MANUAL.md          ← FROZEN historical record (banner points to the 4 role manuals)
+│   │       │   ├── CAP-2459-IT-USER-MANUAL-FULL.md     ← FROZEN "UAT Edition" (Ch6 reports results gathered with it)
+│   │       │   ├── CAP-2459-IT-USER-MANUAL-HOLDER.md   ← NEW (post-defense D7) per-role manual + troubleshooting
+│   │       │   ├── CAP-2459-IT-USER-MANUAL-ISSUER.md   ← NEW (post-defense D7) largest — create/issue/batch/revoke/renewals/reports/subordinates
+│   │       │   ├── CAP-2459-IT-USER-MANUAL-ADMIN.md    ← NEW (post-defense D7) approval gate, dossier, audit logs, analytics, integrity check
+│   │       │   ├── CAP-2459-IT-USER-MANUAL-VERIFIER.md ← NEW (post-defense D7) no-account flow: OTP, single + bulk PDF verify
 │   │       │   ├── CAP-2459-IT-VM-INSTALLATION-MANUAL.md ← THE VM deploy manual (Phases 0–15 + Appendix A/B/C)
 │   │       │   └── CAP-2459-IT-WALKTHROUGH.md
 │   │       │
@@ -86,9 +90,12 @@ CAP-2459-IT-AFTER-RESET/
 │   │       ├── defense-presentation/
 │   │       │   └── CAP2 - Final Defense Deck (Restructured + Script).md
 │   │       │
-│   │       ├── references/                     ← post-hoc change logs / defense-prep notes
+│   │       ├── references/                     ← post-hoc change logs / defense-prep notes (COMMITTED — keep sanitized)
+│   │       │   ├── CAP2 - Final Game Plan.md   ← NEW: sanitized S-1…S-8 + U-1…U-9 execution record (no names/grade/transcript)
 │   │       │   ├── CAP2 - Post-Consultation Changes & Defense Notes.md
 │   │       │   └── CAP2 - Post-Defense Fix List & Findings.md
+│   │       │
+│   │       ├── defense-revisions/              ← gitignored: defense form transcription, raw transcript, groupmate summaries, working gameplan
 │   │       │
 │   │       └── uat/                            ← gitignored: raw tester data + PII
 │   │           ├── CAP2 - UAT Final Report.md         ← finalized deliverable (Suggestions/Errors/Links/Appendix)
@@ -158,20 +165,21 @@ CAP-2459-IT-AFTER-RESET/
 │   │   │   └── TrendBars.jsx
 │   │   ├── ui/                               ← design-system primitives (single source of truth — see tokens.css)
 │   │   │   ├── AppShell.jsx
-│   │   │   ├── Badge.jsx
+│   │   │   ├── Badge.jsx                     ← StatusPill is the exported one; raw Badge kept internally (StatusPill wraps it)
 │   │   │   ├── Button.jsx
-│   │   │   ├── Card.jsx
-│   │   │   ├── DataTable.jsx
-│   │   │   ├── EmptyState.jsx
-│   │   │   ├── Feedback.jsx
-│   │   │   ├── Field.jsx
+│   │   │   ├── Card.jsx                      ← CardHeader removed post-defense (0 consumers)
+│   │   │   ├── EmptyState.jsx                ← use for FULL-PANE empties (micro-empties stay plain text)
+│   │   │   ├── Feedback.jsx                  ← Spinner / SpinnerBlock / Skeleton*
+│   │   │   ├── Field.jsx                     ← Field + Input only (Select/Textarea removed post-defense, 0 consumers)
 │   │   │   ├── InfoHint.jsx / InfoHint.css    ← hover/focus "?" explainer (portal-rendered)
 │   │   │   ├── Modal.jsx
 │   │   │   ├── NotesCard.jsx
 │   │   │   ├── Pagination.jsx                ← usePagination hook + <Pagination> control (10/page, centered)
 │   │   │   ├── StatusLegend.jsx
+│   │   │   ├── useEscapeClose.js             ← NEW: Escape closes the TOPMOST open hand-rolled modal ([isOpen, close] pairs, stacking order)
 │   │   │   ├── index.js                      ← barrel export
-│   │   │   └── ui.css
+│   │   │   └── ui.css                        ← incl. .has-sticky-actions (pins a table's trailing Actions column)
+│   │   │   (DataTable.jsx DELETED post-defense — 0 consumers)
 │   │   ├── navBar_Guest/                     ← empty placeholder dir (no files yet)
 │   │   ├── adminProtectedRoutes.js
 │   │   ├── appToast.js
@@ -241,7 +249,6 @@ CAP-2459-IT-AFTER-RESET/
 │   │   ├── appToast.css
 │   │   ├── badgeDetailsPage.css
 │   │   ├── createAccount.css
-│   │   ├── credentialCard.css
 │   │   ├── dashboard.css
 │   │   ├── footer.css
 │   │   ├── helpPage.css
@@ -261,10 +268,11 @@ CAP-2459-IT-AFTER-RESET/
 │   │
 │   ├── utils/
 │   │   ├── clipboard.js                      ← HTTP-safe copy-to-clipboard helper
-│   │   ├── credentialLineage.js              ← renewal/reissue lineage helper (getCredentialLineage)
+│   │   ├── credentialLineage.js              ← renewal/reissue lineage (getCredentialLineage + getRenewalCount/getRenewalDates, shared by both PDF export paths)
 │   │   ├── credentialStatus.js               ← effective-status + maxIssueExpiryDate helpers
 │   │   ├── cryptoPolyfill.js                 ← crypto.randomUUID polyfill for plain-HTTP
 │   │   ├── formatDate.js
+│   │   ├── nameSimilarity.js                 ← NEW: duplicate/near-match credential-name rules. CommonJS — the ONLY src/utils file that ALSO deploys to ~/chaincert-api/utils/
 │   │   └── userDisplay.js
 │   │
 │   ├── App.js

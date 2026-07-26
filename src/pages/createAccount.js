@@ -1154,7 +1154,12 @@ const getDocumentDescription = (docKey) => {
                     Ensure your contact email is active for any correspondence.
                   </p>
                 </div>
-              )} 
+              )}
+
+              {/* S3-d: confirm the system-generated email so applicants know to check their inbox. */}
+              <p style={{ fontSize: 13, color: "var(--text-muted)", marginTop: 8 }}>
+                A confirmation email has been sent to your registered email address.
+              </p>
 
               <button className="btn-primary" onClick={() => navigate("/login")}>
                 Return to Login

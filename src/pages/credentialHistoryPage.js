@@ -255,9 +255,9 @@ export default function CredentialHistoryPage() {
   const getStatusInfo = (record) => {
   const rawStatus = record.value?.status || record.currentStatus || "";
   const status = String(rawStatus).toLowerCase();
-  if (status === "revoked") return { className: "history-status history-status--revoked", text: "🔴 Revoked" };
-  if (status === "active") return { className: "history-status history-status--active", text: "🟢 Active" };
-  if (status === "issued") return { className: "history-status history-status--issued", text: "🟢 Issued" };
+  if (status === "revoked") return { className: "history-status history-status--revoked", text: "Revoked" };
+  if (status === "active") return { className: "history-status history-status--active", text: "Active" };
+  if (status === "issued") return { className: "history-status history-status--issued", text: "Issued" };
   return { className: "history-status history-status--unknown", text: "Status Unknown" };
 };
 
@@ -352,9 +352,9 @@ export default function CredentialHistoryPage() {
                 className="history-filter-select"
               >
                 <option value="all">All Statuses</option>
-                <option value="active">🟢 Active</option>
-                <option value="issued">🟢 Issued</option>
-                <option value="revoked">🔴 Revoked</option>
+                <option value="active">Active</option>
+                <option value="issued">Issued</option>
+                <option value="revoked">Revoked</option>
               </select>
             </div>
 

@@ -256,11 +256,18 @@ runtime; Nginx only serves `build/`).
 
 **Verify:**
 ```bash
-ls ~/chaincert-api                                  # config/ controllers/ routes/ sdk-server-fixed.js …
+ls ~/chaincert-api                                  # config/ controllers/ routes/ utils/ sdk-server-fixed.js …
 echo "controllers: $(ls ~/chaincert-api/controllers | wc -l)  (expect 10)"
 echo "routes: $(ls ~/chaincert-api/routes | wc -l)  (expect 7)"
+ls ~/chaincert-api/utils/nameSimilarity.js          # REQUIRED — API crash-loops at boot without it
 ls ~/chaincert-api/setup_Wallet_DLSU_Subordinate_*.js   # ARCHERSNETWORK + LASALLECOMPUTERSOCIETY
 ```
+
+> **⚠️ If `utils/nameSimilarity.js` is missing**, the API will not boot — PM2 restarts it forever and
+> `pm2 logs` repeats `Error: Cannot find module '../utils/nameSimilarity'`. That file is the only
+> `src/utils/` member that is backend code; `deploy-sync.sh` copies it by name (step 3b). If you add
+> another backend-shared util under `src/utils/`, add it to that step too — the directory is **not**
+> globbed, because everything else in it is frontend-only ES-module code.
 
 ---
 

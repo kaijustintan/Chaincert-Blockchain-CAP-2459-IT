@@ -30,7 +30,7 @@ echo "   CC  = $CC"
 echo "   FAB = $FAB"
 
 # 1) Runtime dirs (wallet/ is created only if missing — never wiped)
-mkdir -p "$API/controllers" "$API/routes" "$API/config" "$API/wallet" "$CC"
+mkdir -p "$API/controllers" "$API/routes" "$API/config" "$API/utils" "$API/wallet" "$CC"
 
 # 2) Backend core files (+ the documented renames). Copying backend/package.json is what
 #    fixes the recurring "wrong package.json / Cannot find module" bug (npm now installs the
@@ -48,6 +48,12 @@ cp "$SRC/backend/setupWallet_ORG2.js"     "$API/enrollOrg2Admin.js"  # rename
 # 3) Express controllers + routes (these live under src/ but are BACKEND code).
 cp "$SRC/src/controllers/"*.js "$API/controllers/"
 cp "$SRC/src/routes/"*.js      "$API/routes/"
+# 3b) nameSimilarity.js is the ONE file under src/utils/ that is ALSO backend code: it is CommonJS,
+#     dependency-free, and required by controllers/issuerCredentialController.js. Everything else in
+#     src/utils/ is ES-module FRONTEND code (window/localStorage), so do NOT glob this directory —
+#     copy backend-shared utils by name. Omitting this file crash-loops the API at boot with
+#     "Cannot find module '../utils/nameSimilarity'" (MODULE_NOT_FOUND). Added 2026-07-26.
+cp "$SRC/src/utils/nameSimilarity.js" "$API/utils/"
 # NOTE: src/services/authenticationService.js is a FRONTEND helper — do NOT copy it here (per CLAUDE.md).
 
 # 4) DLSU wallet-setup scripts (rename setupWallet_DLSU.js -> setup_Wallet_DLSU.js).

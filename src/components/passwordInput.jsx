@@ -51,7 +51,7 @@ export default function PasswordInput({ ...rest }) {
         style={{
           position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)',
           background: 'none', border: 'none', padding: 0, cursor: 'pointer',
-          display: 'inline-flex', color: 'var(--text-muted, #94a3b8)',
+          display: 'inline-flex', color: 'var(--text-muted)',
         }}
       >
         {show ? <EyeOff size={18} aria-hidden="true" /> : <Eye size={18} aria-hidden="true" />}

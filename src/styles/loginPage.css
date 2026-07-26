@@ -249,7 +249,7 @@
 .input-group input:focus {
   outline: none;
   border-color: var(--accent);
-  box-shadow: 0 0 0 3px var(--accent-weak);
+  box-shadow: var(--focus-ring);
   background: rgba(27, 27, 41, 0.98);
 }
 

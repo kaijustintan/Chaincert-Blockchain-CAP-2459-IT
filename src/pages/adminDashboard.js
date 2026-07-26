@@ -687,7 +687,7 @@ const handleDownloadIssuerDocument = async (doc) => {
           : entry?.value?.assignedDate && entry?.value?.holderID
             ? 'issued'
             : entry?.value?.isTemplate === true || entry?.value?.holderID === '' || !entry?.value?.holderID
-              ? 'created template'
+              ? 'created credential'
               : 'updated';
         const status = String(entry?.status || entry?.value?.status || '').toLowerCase();
         const credentialType = String(entry?.credentialType || entry?.value?.credentialType || '').toLowerCase();
@@ -1568,7 +1568,7 @@ const handleDownloadIssuerDocument = async (doc) => {
                       transition: "border-color .15s ease, transform .15s ease",
                       ...(isActive
                         ? {
-                            outline: "2px solid var(--accent, var(--accent))",
+                            outline: "2px solid var(--accent)",
                             outlineOffset: "1px",
                           }
                         : {}),
@@ -3149,7 +3149,7 @@ const handleDownloadIssuerDocument = async (doc) => {
                 {/* Defense revision S4: aging emphasis is a NEUTRAL accent highlight driven by the
                     named QUEUE_AGING_NOTE_DAYS constant (a team-chosen attention marker, not a
                     lateness verdict — review cadence varies by organization). */}
-                <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "14px 16px", borderRadius: 14, background: approvalQueue.oldestDays > QUEUE_AGING_NOTE_DAYS ? "rgba(124,92,252,0.10)" : "rgba(255,255,255,0.03)", border: `1px solid ${approvalQueue.oldestDays > QUEUE_AGING_NOTE_DAYS ? "var(--border-accent, rgba(124,92,252,0.4))" : "var(--border)"}` }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "14px 16px", borderRadius: 14, background: approvalQueue.oldestDays > QUEUE_AGING_NOTE_DAYS ? "rgba(124,92,252,0.10)" : "rgba(255,255,255,0.03)", border: `1px solid ${approvalQueue.oldestDays > QUEUE_AGING_NOTE_DAYS ? "var(--border-accent)" : "var(--border)"}` }}>
                   <div style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 40, height: 40, borderRadius: 12, background: approvalQueue.oldestDays > QUEUE_AGING_NOTE_DAYS ? "rgba(124,92,252,0.16)" : "rgba(255,255,255,0.06)", color: approvalQueue.oldestDays > QUEUE_AGING_NOTE_DAYS ? "var(--accent-strong)" : "var(--text-muted)", flexShrink: 0 }}><Clock size={20} aria-hidden="true" /></div>
                   <div><div style={{ fontSize: 26, fontWeight: 800, lineHeight: 1, color: "var(--text)" }}>{approvalQueue.oldestDays}<span style={{ fontSize: 15, fontWeight: 700 }}>d</span></div><div className="analytics-card-sub" style={{ marginTop: 5 }}>Oldest waiting</div></div>
                 </div>

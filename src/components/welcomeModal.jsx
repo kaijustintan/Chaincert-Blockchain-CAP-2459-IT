@@ -62,35 +62,35 @@ export default function WelcomeModal() {
     >
       <div
         onClick={(e) => e.stopPropagation()}
-        style={{ background: 'var(--surface, #12141a)', border: '1px solid var(--border-strong, rgba(255,255,255,0.16))', borderRadius: 16, maxWidth: 520, width: '100%', padding: 24, boxShadow: 'var(--shadow-lg, 0 20px 60px rgba(0,0,0,0.5))', color: 'var(--text, #e5e7eb)', textAlign: 'left' }}
+        style={{ background: 'var(--surface)', border: '1px solid var(--border-strong)', borderRadius: 16, maxWidth: 520, width: '100%', padding: 24, boxShadow: 'var(--shadow-lg)', color: 'var(--text)', textAlign: 'left' }}
       >
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12 }}>
           <h2 style={{ margin: 0, fontSize: 20 }}>Welcome to ChainCert</h2>
-          <button type="button" onClick={dismiss} aria-label="Close" style={{ background: 'none', border: 'none', color: 'var(--text-muted, #9aa0aa)', cursor: 'pointer', display: 'inline-flex' }}>
+          <button type="button" onClick={dismiss} aria-label="Close" style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', display: 'inline-flex' }}>
             <X size={20} aria-hidden="true" />
           </button>
         </div>
-        <p style={{ color: 'var(--text-muted, #9aa0aa)', fontSize: 14, marginTop: 8 }}>
+        <p style={{ color: 'var(--text-muted)', fontSize: 14, marginTop: 8 }}>
           A blockchain-backed platform for issuing, holding, and verifying credentials. Here's who does what:
         </p>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 12, margin: '16px 0' }}>
           {roles.map((r) => (
             <div key={r.title} style={{ display: 'flex', gap: 12, alignItems: 'flex-start' }}>
-              <span style={{ color: 'var(--accent, #8b7cf6)', flexShrink: 0, marginTop: 2 }}><r.Icon size={20} aria-hidden="true" /></span>
+              <span style={{ color: 'var(--accent)', flexShrink: 0, marginTop: 2 }}><r.Icon size={20} aria-hidden="true" /></span>
               <div>
                 <div style={{ fontWeight: 700, fontSize: 14 }}>{r.title}</div>
-                <div style={{ fontSize: 13, color: 'var(--text-muted, #9aa0aa)' }}>{r.body}</div>
+                <div style={{ fontSize: 13, color: 'var(--text-muted)' }}>{r.body}</div>
               </div>
             </div>
           ))}
         </div>
-        <p style={{ fontSize: 13, color: 'var(--text-muted, #9aa0aa)', margin: '0 0 16px' }}>
+        <p style={{ fontSize: 13, color: 'var(--text-muted)', margin: '0 0 16px' }}>
           Use the top navigation to move between pages — hover any nav item for a hint.
         </p>
         <button
           type="button"
           onClick={dismiss}
-          style={{ background: 'var(--accent, #8b7cf6)', color: 'var(--text-on-accent, #fff)', border: 'none', borderRadius: 10, padding: '10px 18px', fontWeight: 600, cursor: 'pointer', width: '100%', fontSize: 14 }}
+          style={{ background: 'var(--accent)', color: 'var(--text-on-accent)', border: 'none', borderRadius: 10, padding: '10px 18px', fontWeight: 600, cursor: 'pointer', width: '100%', fontSize: 14 }}
         >
           Got it — let's go
         </button>

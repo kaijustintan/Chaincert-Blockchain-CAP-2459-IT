@@ -64,7 +64,7 @@ export default function CredentialHistory({
     const marker = {
       label: 'Expired (reached expiry date)',
       action: 'expired',
-      color: 'var(--warn, #d9a441)',
+      color: 'var(--warn)',
       when: credential.expiryDate ? `${String(credential.expiryDate).slice(0, 10)}T23:59:59+08:00` : null,
       derived: true,
     };

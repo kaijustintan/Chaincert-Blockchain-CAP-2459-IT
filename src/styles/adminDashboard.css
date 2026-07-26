@@ -368,32 +368,32 @@
 /* ── Filter Rows ── */
 .filter-row { display: flex; flex-wrap: wrap; gap: 16px; margin-bottom: 20px; align-items: flex-end; }
 .filter-item { display: flex; flex-direction: column; gap: 6px; min-width: 160px; max-width: 280px; }
-.filter-item label { font-weight: 600; font-size: var(--fs-caption); color: var(--text-muted, var(--text-muted)); text-transform: uppercase; letter-spacing: 0.6px; }
+.filter-item label { font-weight: 600; font-size: var(--fs-caption); color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.6px; }
 .filter-item select, .filter-item input {
   padding: 9px 12px; border: 1px solid var(--border-strong); border-radius: var(--radius-control);
   font-size: var(--fs-small); background-color: var(--border); color: var(--text);
   font-family: var(--font-ui); transition: border-color var(--motion-fast) var(--ease);
 }
 .filter-item select { cursor: pointer; -webkit-appearance: none; -moz-appearance: none; appearance: none;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%23a78bfa' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%23A8A8B8' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
   background-repeat: no-repeat; background-position: right 10px center; background-size: 16px; padding-right: 32px;
 }
 .filter-item select option { background-color: var(--surface-2); color: var(--text); }
 .filter-item input::placeholder { color: rgba(255,255,255,0.3); }
-.filter-item select:focus, .filter-item input:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-weak); }
+.filter-item select:focus, .filter-item input:focus { outline: none; border-color: var(--accent); box-shadow: var(--focus-ring); }
 
 .issuer-filter-row { display: flex; align-items: center; gap: 12px; margin-bottom: 16px; flex-wrap: wrap; row-gap: 10px; }
-.issuer-filter-row label { font-weight: 500; font-size: var(--fs-small); color: var(--text-muted, var(--text-muted)); }
+.issuer-filter-row label { font-weight: 500; font-size: var(--fs-small); color: var(--text-muted); }
 .issuer-filter-row select {
   padding: 9px 12px; border: 1px solid var(--border-strong); border-radius: var(--radius-control);
   font-size: var(--fs-small); background-color: var(--border); color: var(--text);
   font-family: var(--font-ui); cursor: pointer; transition: border-color var(--motion-fast) var(--ease);
   -webkit-appearance: none; -moz-appearance: none; appearance: none;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%23a78bfa' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%23A8A8B8' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
   background-repeat: no-repeat; background-position: right 10px center; background-size: 16px; padding-right: 32px;
 }
 .issuer-filter-row select option { background-color: var(--surface-2); color: var(--text); }
-.issuer-filter-row select:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-weak); }
+.issuer-filter-row select:focus { outline: none; border-color: var(--accent); box-shadow: var(--focus-ring); }
 
 /* ── Stat Cards (legacy) ── */
 .tab-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 16px; margin-bottom: 24px; }

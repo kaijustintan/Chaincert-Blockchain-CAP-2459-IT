@@ -53,3 +53,67 @@ export function isSameInstance(a, b) {
   if (!a || !b) return false;
   return (a.blockchainId || a.id) === (b.blockchainId || b.id);
 }
+
+/*
+  Function Name: getRenewalCount
+
+  LAYMAN (Tropang Ex):
+  Ilang beses na na-renew itong credential? Kung isa lang siya sa listahan, 0 —
+  hindi pa na-renew. Kung tatlo silang magkakapatid (same credential, same tao),
+  ibig sabihin dalawang beses na na-reissue, kaya 2 ang isasauli.
+
+  TECHNICAL:
+  Counts sibling instances sharing (templateId, holderID) and subtracts the
+  original issuance. Tolerates both holderID and holderId casings, which the
+  wallet and profile payloads use inconsistently.
+
+  PARAMS:
+  - cred           — the focal credential.
+  - allCredentials — the full list already loaded on the page.
+
+  RETURNS:
+  Integer >= 0. 0 when the credential has no templateId or has never been reissued.
+*/
+export function getRenewalCount(cred, allCredentials) {
+  if (!cred || !cred.templateId) return 0;
+  const key = `${cred.templateId}|${cred.holderID || cred.holderId || ''}`;
+  return (allCredentials || []).filter(
+    (c) => `${c.templateId || ''}|${c.holderID || c.holderId || ''}` === key
+  ).length - 1;
+}
+
+/*
+  Function Name: getRenewalDates
+
+  LAYMAN (Tropang Ex):
+  Para sa PDF export ng na-renew na credential: kailan siya UNANG na-issue, at
+  kailan yung kasalukuyang kopya. Hindi buong history — dalawang petsa lang,
+  para masabi ng PDF na "Originally issued X, current since Y".
+
+  TECHNICAL:
+  Resolves the oldest and newest instance in the lineage by actual issuance time.
+  Returns {} when there is no reissue (fewer than 2 instances), so callers can
+  spread it without emitting empty PDF rows.
+
+  PARAMS:
+  - cred           — the focal credential.
+  - allCredentials — the full list already loaded on the page.
+
+  RETURNS:
+  { originalIssuedDate, currentSinceDate } or {} when not renewed.
+*/
+export function getRenewalDates(cred, allCredentials) {
+  if (!cred || !cred.templateId) return {};
+  const key = `${cred.templateId}|${cred.holderID || cred.holderId || ''}`;
+  const line = (allCredentials || []).filter(
+    (c) => `${c.templateId || ''}|${c.holderID || c.holderId || ''}` === key
+  );
+  if (line.length < 2) return {};
+  const t = (c) => new Date(c.assignedDate || c.savedToUserWalletAt || c.createdAt || 0).getTime();
+  const sorted = [...line].sort((a, b) => t(a) - t(b));
+  const first = sorted[0], last = sorted[sorted.length - 1];
+  return {
+    originalIssuedDate: first.assignedDate || first.savedToUserWalletAt || first.createdAt || null,
+    currentSinceDate: last.assignedDate || last.savedToUserWalletAt || last.createdAt || null,
+  };
+}

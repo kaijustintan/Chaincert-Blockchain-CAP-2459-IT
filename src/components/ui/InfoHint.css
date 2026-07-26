@@ -22,9 +22,9 @@
 .cc-infohint-bubble {
   width: max-content;
   max-width: 280px;
-  background: var(--surface-1, #1B1B29);
-  color: var(--text, #ECECF1);
-  border: 1px solid var(--border-strong, rgba(255, 255, 255, 0.16));
+  background: var(--surface-2);
+  color: var(--text);
+  border: 1px solid var(--border-strong);
   border-radius: 10px;
   padding: 9px 12px;
   font-size: 12.5px;
@@ -46,10 +46,10 @@
 /* Arrow points DOWN toward the trigger when the bubble opens above it… */
 .cc-infohint-bubble--top::after {
   top: 100%;
-  border-top-color: var(--surface-1, #1B1B29);
+  border-top-color: var(--surface-2);
 }
 /* …and UP when it flips below the trigger (near the top edge). */
 .cc-infohint-bubble--bottom::after {
   bottom: 100%;
-  border-bottom-color: var(--surface-1, #1B1B29);
+  border-bottom-color: var(--surface-2);
 }

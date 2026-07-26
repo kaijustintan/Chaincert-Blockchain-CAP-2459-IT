@@ -26,7 +26,10 @@ import { buildAvatarUrl, getDisplayName, syncStoredUser } from "../utils/userDis
 import { copyToClipboard } from "../utils/clipboard";
 import { SpinnerBlock, SkeletonCardGrid } from "../components/ui";
 import Pagination, { usePagination } from "../components/ui/Pagination";
-import { Globe, Pencil } from "lucide-react";
+import { exportCredentialToPDF } from "../services/pdfExportService";
+import { effectiveCredentialStatus } from "../utils/credentialStatus";
+import { getRenewalCount, getRenewalDates } from "../utils/credentialLineage";
+import { Globe, Pencil, Download, ScrollText } from "lucide-react";
 import "../styles/profilePage.css";
 
 export default function ProfilePage() {
@@ -50,6 +53,9 @@ export default function ProfilePage() {
   const [credLoading, setCredLoading] = useState(true);
   const [credError, setCredError] = useState(null);
   const [selectedCred, setSelectedCred] = useState(null);
+  // U-6: styled revoked-in-export warning, mirroring the holder wallet's guard so the
+  // same credential can't be exported silently here but warned about there.
+  const [exportWarn, setExportWarn] = useState(null);
 
   // Show all toggle for credential wallet - polo
 const [showAll, setShowAll] = useState(false);
@@ -1462,7 +1468,25 @@ const [showAll, setShowAll] = useState(false);
             </div>
             <div className="modal-footer">
               <button className="action-btn history" onClick={() => handleSeeHistory(selectedCred)}>
-                📜 See History
+                <ScrollText size={16} aria-hidden="true" /> See history
+              </button>
+              <button
+                className="action-btn"
+                onClick={() => {
+                  // U-6: parity with the holder wallet — same export, same revoked warning.
+                  const doExport = () => exportCredentialToPDF({
+                    ...selectedCred,
+                    renewalCount: getRenewalCount(selectedCred, credentials),
+                    ...getRenewalDates(selectedCred, credentials),
+                  }, null);
+                  if (effectiveCredentialStatus(selectedCred) === "revoked") {
+                    setExportWarn({ names: [selectedCred.credentialName], proceed: doExport });
+                  } else {
+                    doExport();
+                  }
+                }}
+              >
+                <Download size={16} aria-hidden="true" /> Export PDF
               </button>
             </div>
             {historyOpen && (
@@ -1499,6 +1523,42 @@ const [showAll, setShowAll] = useState(false);
                 )}
               </div>
             )}
+          </div>
+        </div>
+      )}
+
+      {/* U-6: revoked-in-export warning — same copy and behaviour as the holder wallet. */}
+      {exportWarn && (
+        <div className="modal-overlay" onClick={() => setExportWarn(null)}>
+          <div className="modal" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header">
+              <h2>Export a revoked credential?</h2>
+              <button className="close-btn" aria-label="Close" onClick={() => setExportWarn(null)}>✕</button>
+            </div>
+            <div className="modal-body">
+              <div style={{ fontSize: 14, lineHeight: 1.6, color: "var(--text)" }}>
+                <p style={{ margin: "0 0 10px" }}>
+                  This export includes a <strong>revoked</strong> credential:
+                </p>
+                <ul style={{ margin: "0 0 12px", paddingLeft: 20 }}>
+                  {exportWarn.names.map((n, i) => (
+                    <li key={i} style={{ color: "var(--danger)", fontWeight: 600 }}>{n}</li>
+                  ))}
+                </ul>
+                <p style={{ margin: 0, color: "var(--text-muted)", fontSize: 13 }}>
+                  Anyone who verifies it on the blockchain will see it's revoked. You can still export it — just make sure that's intended.
+                </p>
+              </div>
+            </div>
+            <div className="modal-footer">
+              <button className="action-btn" onClick={() => setExportWarn(null)}>Cancel</button>
+              <button
+                className="action-btn"
+                onClick={() => { const w = exportWarn; setExportWarn(null); w?.proceed?.(); }}
+              >
+                Export anyway
+              </button>
+            </div>
           </div>
         </div>
       )}

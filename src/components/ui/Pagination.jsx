@@ -68,7 +68,7 @@ export default function Pagination({ page, pageCount, setPage, total, pageSize }
     display: 'inline-flex', alignItems: 'center', gap: 4,
     background: 'var(--surface-2)', border: '1px solid var(--border-strong)',
     color: disabled ? 'var(--text-subtle)' : 'var(--text)',
-    borderRadius: 'var(--radius-control, 8px)', padding: '6px 12px',
+    borderRadius: 'var(--radius-control)', padding: '6px 12px',
     fontSize: 13, fontWeight: 600, cursor: disabled ? 'not-allowed' : 'pointer',
     opacity: disabled ? 0.5 : 1, fontFamily: 'inherit',
   });

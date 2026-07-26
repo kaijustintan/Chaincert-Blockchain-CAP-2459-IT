@@ -405,7 +405,7 @@
 .settings-select:focus {
   outline: none;
   border-color: var(--accent);
-  box-shadow: 0 0 0 3px var(--accent-weak);
+  box-shadow: var(--focus-ring);
 }
 
 /* App & Org cards */
@@ -759,7 +759,7 @@ input:checked + .slider:before {
 .form-group input:focus {
   outline: none;
   border-color: var(--accent);
-  box-shadow: 0 0 0 3px var(--accent-weak);
+  box-shadow: var(--focus-ring);
 }
 
 .form-group input::placeholder {

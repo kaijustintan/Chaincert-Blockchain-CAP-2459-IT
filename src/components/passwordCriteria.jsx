@@ -55,7 +55,7 @@ export default function PasswordCriteria({ password = '', confirmPassword, tone 
 
   const palette = tone === 'dark'
     ? { met: '#4ade80', pending: '#94a3b8', text: '#cbd5e1', danger: '#f87171' }
-    : { met: 'var(--ok, #16a34a)', pending: 'var(--border-strong, #9aa0aa)', text: 'var(--text-muted, #6b7280)', danger: 'var(--danger, #dc2626)' };
+    : { met: 'var(--ok)', pending: 'var(--border-strong)', text: 'var(--text-muted)', danger: 'var(--danger)' };
 
   const rowStyle = (met) => ({
     display: 'flex',

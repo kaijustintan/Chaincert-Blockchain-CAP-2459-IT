@@ -295,7 +295,7 @@
 .filter-group label {
   font-weight: 600;
   margin-bottom: 6px;
-  color: var(--text-muted, var(--text-muted));
+  color: var(--text-muted);
   font-size: var(--fs-caption);
   text-transform: uppercase;
   letter-spacing: 0.6px;
@@ -314,7 +314,7 @@
   -webkit-appearance: none;
   -moz-appearance: none;
   appearance: none;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%23a78bfa' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%23A8A8B8' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
   background-repeat: no-repeat;
   background-position: right 12px center;
   background-size: 16px;
@@ -328,7 +328,7 @@
 .filter-select:focus {
   outline: none;
   border-color: var(--accent);
-  box-shadow: 0 0 0 2px var(--accent-weak);
+  box-shadow: var(--focus-ring);
 }
 
 .filter-select option {
@@ -685,7 +685,7 @@
 .form-group select:focus {
   outline: none;
   border-color: var(--accent);
-  box-shadow: 0 0 0 3px var(--accent-weak), 0 0 20px var(--accent-weaker);
+  box-shadow: var(--focus-ring), 0 0 20px var(--accent-weaker);
   background: rgba(22, 16, 55, 0.98);
 }
 
@@ -699,7 +699,7 @@
   -webkit-appearance: none;
   -moz-appearance: none;
   appearance: none;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%23a78bfa' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%23A8A8B8' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
   background-repeat: no-repeat;
   background-position: right 12px center;
   background-size: 16px;
@@ -1241,7 +1241,7 @@
   -webkit-appearance: none;
   -moz-appearance: none;
   appearance: none;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%23a78bfa' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%23A8A8B8' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
   background-repeat: no-repeat;
   background-position: right 10px center;
   background-size: 16px;
@@ -1256,7 +1256,7 @@
 .history-search-select:focus {
   outline: none;
   border-color: var(--accent);
-  box-shadow: 0 0 0 3px var(--accent-weak);
+  box-shadow: var(--focus-ring);
 }
 
 /* Search text input */
@@ -1280,7 +1280,7 @@
 .history-search-input:focus {
   outline: none;
   border-color: var(--accent);
-  box-shadow: 0 0 0 3px var(--accent-weak);
+  box-shadow: var(--focus-ring);
   background: rgba(22, 16, 55, 0.98);
 }
 
@@ -1387,7 +1387,7 @@
   -webkit-appearance: none;
   -moz-appearance: none;
   appearance: none;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%23a78bfa' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%23A8A8B8' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
   background-repeat: no-repeat;
   background-position: right 10px center;
   background-size: 16px;
@@ -1406,7 +1406,7 @@
 .history-filter-select:focus {
   outline: none;
   border-color: var(--accent);
-  box-shadow: 0 0 0 3px var(--accent-weak);
+  box-shadow: var(--focus-ring);
 }
 
 /* Stats/info box */
@@ -1649,7 +1649,7 @@
   -webkit-appearance: none;
   -moz-appearance: none;
   appearance: none;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%23a78bfa' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%23A8A8B8' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
   background-repeat: no-repeat;
   background-position: right 10px center;
   background-size: 16px;
@@ -1660,7 +1660,7 @@
 .table-container select:focus {
   outline: none;
   border-color: var(--accent);
-  box-shadow: 0 0 0 3px var(--accent-weak);
+  box-shadow: var(--focus-ring);
 }
 
 .subordinate-filter-group select option,
@@ -1981,7 +1981,7 @@
 .modal input::placeholder, .modal textarea::placeholder, .search-select-input::placeholder { color: var(--border-strong); }
 .field-helper { font-size: var(--fs-label); color: var(--accent-strong); margin-top: 2px; }
 .search-select-input { width: 100%; border-radius: var(--radius-modal); border: 1px solid var(--accent-weak); background: rgba(18,12,45,0.95); color: var(--text); font-family: var(--font-ui); transition: all var(--motion) var(--ease); }
-.search-select-input:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-weak); }
+.search-select-input:focus { outline: none; border-color: var(--accent); box-shadow: var(--focus-ring); }
 .selected-credential-card { padding: 12px 14px; border-radius: var(--radius-modal); background: var(--border); border: 1px solid var(--border-strong); color: var(--text); font-size: var(--fs-small); line-height: 1.55; word-break: break-word; }
 .modal-two-col { align-items: start; gap: 18px; }
 .skills-input-row input { min-height: 46px; }
@@ -2340,7 +2340,7 @@
   align-items: start;
 }
 .revoke-locked-card .rlc-row dt {
-  color: var(--text-muted, var(--accent-strong));
+  color: var(--text-muted);
   font-size: var(--fs-label);
   text-transform: uppercase;
   letter-spacing: 0.04em;

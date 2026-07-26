@@ -436,7 +436,7 @@ export default function VerifierDashboard() {
     <div className="verifier-page">
       <div className="verifier-head">
         <div className="verifier-head-icon"><ShieldCheck size={26} aria-hidden="true" /></div>
-        <h1>Verify a Credential</h1>
+        <h1>Verification Dashboard</h1>
         <p>Enter a credential ID or code to check its authenticity on the blockchain.</p>
       </div>
 

@@ -64,7 +64,7 @@ function HelpPage() {
     {
       cat: "issuers",
       q: "What types of credentials can be issued?",
-      a: "ChainCert supports any type of digital credential: degrees, diplomas, certificates, micro-credentials, professional licenses, awards, and more. Issuers define the type, skills, and metadata for each template."
+      a: "ChainCert supports any type of digital credential: degrees, diplomas, certificates, micro-credentials, professional licenses, awards, and more. Issuers define the type, skills, and metadata for each credential."
     },
     {
       cat: "issuers",

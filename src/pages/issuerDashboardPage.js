@@ -871,7 +871,7 @@ export default function IssuerDashboard() {
       : entry?.value?.assignedDate && entry?.value?.holderID
         ? "issued"
         : entry?.value?.isTemplate === true || entry?.value?.holderID === ""
-          ? "created template"
+          ? "created credential"
           : "updated";
     const status = String(entry?.status || entry?.value?.status || "").toLowerCase();
     const credentialType = String(entry?.credentialType || entry?.value?.credentialType || "").toLowerCase();

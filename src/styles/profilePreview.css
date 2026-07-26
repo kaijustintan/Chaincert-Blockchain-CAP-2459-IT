@@ -471,7 +471,7 @@ html {
 .badge-order-num {
   font-size: 1.4rem;
   font-weight: 700;
-  color: rgba(147, 51, 234, 0.8);
+  color: var(--accent-strong);
   min-width: 32px;
   text-align: center;
 }
@@ -498,7 +498,7 @@ html {
 .badge-info .issuer {
   margin: 0;
   font-size: 0.85rem;
-  color: rgba(147, 51, 234, 0.9);
+  color: var(--accent-strong);
 }
 
 .badge-info .date {

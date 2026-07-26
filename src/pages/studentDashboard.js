@@ -28,6 +28,10 @@ import apiService from "../services/apiService";
 import "../styles/studentDashboard.css";
 import "../styles/analytics.css";
 import { exportCredentialToPDF, exportAllCredentialsToPDF } from '../services/pdfExportService';
+import {
+  getRenewalCount as getRenewalCountShared,
+  getRenewalDates as getRenewalDatesShared,
+} from '../utils/credentialLineage';
 import DonutChart from "../components/analytics/DonutChart";
 import InterpretationBox from "../components/analytics/InterpretationBox";
 import CredentialHistory from "../components/analytics/CredentialHistory";
@@ -230,29 +234,11 @@ export default function StudentDashboard() {
     return [...passthrough, ...groups.values()];
   }, [credentials]);
 
-  // D2 / 3.2: how many times a credential line (same template + same holder) has been renewed.
-  // Reused by the wallet "Renewed N×" badge AND stamped onto the PDF export.
-  const getRenewalCount = (cred) => {
-    if (!cred || !cred.templateId) return 0;
-    const key = `${cred.templateId}|${cred.holderID || cred.holderId || ''}`;
-    return credentials.filter((c) => `${c.templateId || ''}|${c.holderID || c.holderId || ''}` === key).length - 1;
-  };
-
-  // PDF (UAT): for a renewed credential line, the ORIGINAL issuance date + the CURRENT instance's
-  // date, so the export shows "Originally issued X · Current since Y" (not a full history).
-  const getRenewalDates = (cred) => {
-    if (!cred || !cred.templateId) return {};
-    const key = `${cred.templateId}|${cred.holderID || cred.holderId || ''}`;
-    const line = credentials.filter((c) => `${c.templateId || ''}|${c.holderID || c.holderId || ''}` === key);
-    if (line.length < 2) return {};
-    const t = (c) => new Date(c.assignedDate || c.savedToUserWalletAt || c.createdAt || 0).getTime();
-    const sorted = [...line].sort((a, b) => t(a) - t(b));
-    const first = sorted[0], last = sorted[sorted.length - 1];
-    return {
-      originalIssuedDate: first.assignedDate || first.savedToUserWalletAt || first.createdAt || null,
-      currentSinceDate: last.assignedDate || last.savedToUserWalletAt || last.createdAt || null,
-    };
-  };
+  // D2 / 3.2: how many times a credential line (same template + same holder) has been renewed,
+  // and the first/current issuance dates for the PDF. Shared with profilePage via
+  // utils/credentialLineage so both export paths stamp identical renewal data onto the PDF.
+  const getRenewalCount = (cred) => getRenewalCountShared(cred, credentials);
+  const getRenewalDates = (cred) => getRenewalDatesShared(cred, credentials);
 
   const filtered = useMemo(() => {
     let result = collapsedCredentials.filter((c) => {

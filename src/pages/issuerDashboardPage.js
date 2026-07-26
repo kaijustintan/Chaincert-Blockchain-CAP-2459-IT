@@ -1739,7 +1739,7 @@ export default function IssuerDashboard() {
             <div className="no-results"><p>{credentials.length === 0 ? "No credentials found. Issue your first credential." : "No credentials match your filters."}</p></div>
           ) : (
             <div className="table-container">
-              <table className="template-table">
+              <table className="template-table has-sticky-actions">
                 <thead><tr><th>Credential ID</th><th>Holder Name</th><th>Credential Name</th><th>Type</th><th>Created Date</th><th>Status</th><th>Visibility</th><th>Revoked Date</th><th>Expiry Date</th><th>Actions</th></tr></thead>
                 <tbody>
                   {issuedPg.pageItems.map((credential) => {
@@ -1802,7 +1802,7 @@ export default function IssuerDashboard() {
             {filteredAllCredentialRows.length === 0 ? (
               <div className="no-results"><p>No credentials match your filters.</p></div>
             ) : (
-              <table className="template-table">
+              <table className="template-table has-sticky-actions">
                 <thead><tr><th>Name</th><th>Type</th><th>Status</th><th>Holder Name</th><th>Visibility</th><th>Created Date</th><th>Expiry Date</th><th>Actions</th></tr></thead>
                 <tbody>
                   {allCredsPg.pageItems.map((row, index) => (
@@ -1885,7 +1885,7 @@ export default function IssuerDashboard() {
             {revokeTableCredentials.length === 0 ? (
               <div className="no-results"><p>{credentials.length === 0 ? "No issued credentials found." : "No credentials match your filters."}</p></div>
             ) : (
-              <table className="template-table">
+              <table className="template-table has-sticky-actions">
                 <thead><tr><th style={{ width: 34 }}><input type="checkbox" aria-label="Select all revocable credentials" checked={revocableVisibleIds.length > 0 && revocableVisibleIds.every((id) => batchSelected.has(id))} disabled={revocableVisibleIds.length === 0} onChange={toggleBatchSelectAll} /></th><th>Credential ID</th><th>Name</th><th>Holder</th><th>Type</th><th>Status</th><th>Issued Date</th><th>Revoked Date</th><th>Actions</th></tr></thead>
                 <tbody>
                   {revokePg.pageItems.map((credential) => {
@@ -2008,7 +2008,7 @@ export default function IssuerDashboard() {
             : subordinateDirectoryError ? <div className="no-results"><p style={{ color: "var(--danger)" }}>{subordinateDirectoryError}</p></div>
             : filteredSubordinates.length === 0 ? <div className="no-results"><p>No subordinate issuers found for this filter.</p></div>
             : (
-              <table className="template-table subordinate-table">
+              <table className="template-table subordinate-table has-sticky-actions">
                 <thead><tr><th>Issuer ID</th><th>Org Name</th><th>Email</th><th>Category</th><th>Root Approval</th><th>Admin Approval</th><th>Overall Status</th><th>Created</th><th>Actions</th></tr></thead>
                 <tbody>
                   {subsPg.pageItems.map((issuer) => {
@@ -2234,7 +2234,7 @@ export default function IssuerDashboard() {
           <div className="modal" style={{ maxWidth: 460 }}>
             <div className="modal-header">
               <h3>{renewalDecide.action === "approve" ? "Approve renewal?" : "Decline renewal?"}</h3>
-              <button type="button" className="modal-close" onClick={() => !renewalActionLoading && setRenewalDecide(null)}>✕</button>
+              <button type="button" className="modal-close" aria-label="Close" onClick={() => !renewalActionLoading && setRenewalDecide(null)}>✕</button>
             </div>
             <p style={{ margin: "8px 0 12px", fontSize: 13, color: "var(--text-muted)", lineHeight: 1.5 }}>
               {renewalDecide.action === "approve" ? (
@@ -2282,7 +2282,7 @@ export default function IssuerDashboard() {
                   : batchConfirmStep ? "Confirm batch revocation"
                   : `Revoke ${batchSelected.size} credential(s)`}
               </h3>
-              {!batchRunning && <button type="button" className="modal-close" onClick={closeBatchRevokeModal}>✕</button>}
+              {!batchRunning && <button type="button" className="modal-close" aria-label="Close" onClick={closeBatchRevokeModal}>✕</button>}
             </div>
 
             {!batchRunning && !batchDone && !batchConfirmStep && (
@@ -2375,7 +2375,7 @@ export default function IssuerDashboard() {
                   : batchIssueConfirmStep ? "Confirm batch issuance"
                   : "Issuance (Batch)"}
               </h3>
-              {!batchIssueRunning && <button type="button" className="modal-close" onClick={closeBatchIssueModal}>✕</button>}
+              {!batchIssueRunning && <button type="button" className="modal-close" aria-label="Close" onClick={closeBatchIssueModal}>✕</button>}
             </div>
 
             {!batchIssueRunning && !batchIssueDone && !batchIssueConfirmStep && (
@@ -2505,7 +2505,7 @@ export default function IssuerDashboard() {
           <div className="modal modal-wide">
             <div className="modal-header">
               <h3>Create Credential</h3>
-              <button type="button" className="modal-close" onClick={closeCreateModal}>✕</button>
+              <button type="button" className="modal-close" aria-label="Close" onClick={closeCreateModal}>✕</button>
             </div>
             <form onSubmit={handleCreateCredential}>
               <div className="modal-two-col">
@@ -2602,7 +2602,7 @@ export default function IssuerDashboard() {
       {showIssueModal && (
         <div className="modal-overlay">
           <div className="modal modal-wide">
-            <div className="modal-header"><h3>Issue Credential</h3><button type="button" className="modal-close" onClick={closeIssueModal}>✕</button></div>
+            <div className="modal-header"><h3>Issue Credential</h3><button type="button" className="modal-close" aria-label="Close" onClick={closeIssueModal}>✕</button></div>
             <form onSubmit={handleIssueCredential}>
               <div className="modal-section-heading" style={{ marginTop: "12px" }}>Choose a credential and recipient to issue quickly.</div>
               <div className="issue-modal-grid">
@@ -2886,7 +2886,7 @@ export default function IssuerDashboard() {
           <div className="modal modal-wide">
             <div className="modal-header">
               <h3>Subordinate BC History — {subHistorySubordinate?.orgName || subHistorySubordinate?.email || "Subordinate"}</h3>
-              <button type="button" className="modal-close" onClick={closeSubordinateHistory}>✕</button>
+              <button type="button" className="modal-close" aria-label="Close" onClick={closeSubordinateHistory}>✕</button>
             </div>
             <div className="modal-section-heading" style={{ marginTop: 8 }}>
               Immutable root-authority decisions recorded on the blockchain for this subordinate.
@@ -3009,7 +3009,7 @@ export default function IssuerDashboard() {
           <div className="modal" style={{ maxWidth: "600px", padding: "24px" }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "16px" }}>
               <h3 style={{ margin: 0, fontSize: "18px" }}>{descriptionModal.name}</h3>
-              <button type="button" className="modal-close" onClick={() => setDescriptionModal(null)}>✕</button>
+              <button type="button" className="modal-close" aria-label="Close" onClick={() => setDescriptionModal(null)}>✕</button>
             </div>
             <div style={{ fontSize: "14px", lineHeight: "1.7", color: "rgba(255,255,255,0.85)", whiteSpace: "pre-wrap" }}>
               {descriptionModal.description}

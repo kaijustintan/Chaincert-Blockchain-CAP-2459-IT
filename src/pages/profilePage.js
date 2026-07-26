@@ -1151,7 +1151,9 @@ const [showAll, setShowAll] = useState(false);
                 </div>
               </div>
               <div style={{ overflowX: 'auto' }}>
-              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.85rem' }}>
+              {/* has-sticky-actions pins the trailing Action column so Revoke stays reachable
+                  when this 9-column table scrolls sideways on a narrow viewport. */}
+              <table className="share-links-table has-sticky-actions" style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.85rem' }}>
                 <thead>
                   <tr style={{ borderBottom: '1px solid var(--accent-weak)' }}>
                     {['Recipient', 'Source', 'Description', 'Created', 'Expires', 'Share Link', 'Views', 'Status', 'Action'].map(h => (
@@ -1250,7 +1252,7 @@ const [showAll, setShowAll] = useState(false);
           <div className="modal detail-modal" onClick={(e) => e.stopPropagation()} style={{ maxWidth: 480 }}>
             <div className="modal-header">
               <h2>Share Profile</h2>
-              <button className="close-btn" onClick={handleCloseShareModal}>✕</button>
+              <button className="close-btn" aria-label="Close" onClick={handleCloseShareModal}>✕</button>
             </div>
             <div className="modal-body">
               {/* Share type toggle — always visible for holders (issuers are public-only). */}
@@ -1391,7 +1393,7 @@ const [showAll, setShowAll] = useState(false);
           <div className="modal detail-modal" onClick={(e) => e.stopPropagation()}>
             <div className="modal-header">
               <h2>{selectedCred.credentialName}</h2>
-              <button className="close-btn" onClick={closeCredModal}>✕</button>
+              <button className="close-btn" aria-label="Close" onClick={closeCredModal}>✕</button>
             </div>
             <div className="modal-body">
               {selectedCred.badgeImage && (

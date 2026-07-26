@@ -82,7 +82,11 @@
 /* Profile button + avatar */
 .profile-dropdown-container { position: relative; display: flex; align-items: center; }
 .profile-btn { background: none; border: none; cursor: pointer; margin-left: var(--s2); padding: 0; display: flex; outline: none; box-shadow: none; }
-.profile-btn:hover, .profile-btn:focus { background: none; outline: none; box-shadow: none; }
+/* A11Y: only suppress the ring on HOVER/mouse press. The previous rule also matched :focus,
+   which out-specified the global :focus-visible ring (index.css) and left the account menu
+   with no keyboard focus indicator at all. */
+.profile-btn:hover { background: none; outline: none; box-shadow: none; }
+.profile-btn:focus-visible { box-shadow: var(--focus-ring); border-radius: 50%; }
 .profile-icon {
   width: 34px; height: 34px; border-radius: 50%;
   border: 1px solid var(--border-strong);

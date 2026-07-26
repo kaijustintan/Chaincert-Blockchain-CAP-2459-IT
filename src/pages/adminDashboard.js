@@ -574,6 +574,21 @@ const handleDownloadIssuerDocument = async (doc) => {
   const usersPg = usePagination(sortedVisibleUsers, 10);
   const auditPg = usePagination(auditLogs, 10);
   const verifyPg = usePagination(sortedVerificationLogs, 10);
+  // Root-subordinate decision logs: filter the SORTED list (the previous inline filter
+  // searched the raw unsorted array, so an active search silently ignored the Sort control),
+  // then paginate like every other log table.
+  const filteredRootSubordinateLogs = useMemo(() => {
+    const query = rootSubordinateSearchQuery.trim().toLowerCase();
+    if (!query) return sortedRootSubordinateLogs;
+    return sortedRootSubordinateLogs.filter((log) =>
+      [log.rootAuthorityName, log.issuerEmail, log.orgName]
+        .filter(Boolean)
+        .join(" ")
+        .toLowerCase()
+        .includes(query)
+    );
+  }, [sortedRootSubordinateLogs, rootSubordinateSearchQuery]);
+  const rootSubPg = usePagination(filteredRootSubordinateLogs, 10);
 
   // Phase 4: Analytics & Reports tab — Verification Result Summary + Suspicious Activity
   const verificationOutcomes = useMemo(() => computeVerificationOutcomes(verificationLogs), [verificationLogs]);
@@ -2046,6 +2061,7 @@ const handleDownloadIssuerDocument = async (doc) => {
                 <h3 style={{ margin: 0, fontSize: "18px" }}>{descriptionModal.name}</h3>
                 <button
                   type="button"
+                  aria-label="Close"
                   onClick={() => setDescriptionModal(null)}
                   style={{
                     background: "transparent",
@@ -2919,7 +2935,7 @@ const handleDownloadIssuerDocument = async (doc) => {
               <div className="tab-placeholder">{adminCredentialsError}</div>
             ) : sortedAdminCredentials.length > 0 ? (
               <div className="table-wrapper">
-                <table className="admin-table">
+                <table className="admin-table has-sticky-actions">
                   <thead>
                     <tr>
                       <th>Issuer</th>
@@ -3150,7 +3166,9 @@ const handleDownloadIssuerDocument = async (doc) => {
             <SpinnerBlock label="Loading issuers…" />
           ) : sortedVisibleIssuers.length > 0 ? (
             <div className="table-wrapper">
-              <table className="admin-table">
+              {/* Columns are view-dependent here: the Rejected view has no Actions column,
+                  so only pin when Actions is genuinely the last one. */}
+              <table className={`admin-table${activeIssuerColumns[activeIssuerColumns.length - 1] === "actions" ? " has-sticky-actions" : ""}`}>
                 <thead>
                   <tr>
                     {activeIssuerColumns.map((column) => (
@@ -3469,7 +3487,7 @@ const handleDownloadIssuerDocument = async (doc) => {
             <SpinnerBlock label="Loading users…" />
           ) : sortedVisibleUsers.length > 0 ? (
             <div className="table-wrapper">
-              <table className="admin-table">
+              <table className="admin-table has-sticky-actions">
                 <thead>
                   <tr>
                     <th>User ID</th>
@@ -3766,23 +3784,8 @@ const handleDownloadIssuerDocument = async (doc) => {
             <>
               {rootSubordinateLogsError ? (
                 <div className="tab-placeholder">{rootSubordinateLogsError}</div>
-              ) : (() => {
-                const query = rootSubordinateSearchQuery.trim().toLowerCase();
-                const filtered = query
-                  ? rootSubordinateLogs.filter((log) => {
-                      const searchable = [
-                        log.rootAuthorityName,
-                        log.issuerEmail,
-                        log.orgName,
-                      ]
-                        .filter(Boolean)
-                        .join(" ")
-                        .toLowerCase();
-                      return searchable.includes(query);
-                    })
-                  : sortedRootSubordinateLogs;
-
-                return filtered.length > 0 ? (
+              ) : (
+                filteredRootSubordinateLogs.length > 0 ? (
                   <div className="table-wrapper">
                     <table className="admin-table">
                       <thead>
@@ -3798,7 +3801,7 @@ const handleDownloadIssuerDocument = async (doc) => {
                         </tr>
                       </thead>
                       <tbody>
-                        {filtered.map((log, index) => {
+                        {rootSubPg.pageItems.map((log, index) => {
                           const isApproved =
                             String(log.decision || "").toLowerCase() === "approved";
                           return (
@@ -3827,8 +3830,9 @@ const handleDownloadIssuerDocument = async (doc) => {
                   </div>
                 ) : (
                   <div className="tab-placeholder">No root subordinate logs found.</div>
-                );
-              })()}
+                )
+              )}
+              <Pagination {...rootSubPg} />
             </>
           ) : logCategory === "verification" ? (
             <>

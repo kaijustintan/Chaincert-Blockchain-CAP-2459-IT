@@ -369,10 +369,14 @@
   border-spacing: 0;
   background: var(--border);
   border-radius: var(--radius-card);
-  overflow: hidden;
   border: 1px solid var(--border);
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25);
 }
+/* `overflow:hidden` removed: it makes the table its own scroll container, silently disabling
+   `position:sticky` on cells (see the sticky action column rule). Rounded top corners are
+   restored on the header cells instead. */
+.template-table thead tr:first-child th:first-child { border-top-left-radius: var(--radius-card); }
+.template-table thead tr:first-child th:last-child { border-top-right-radius: var(--radius-card); }
 
 .template-table th {
   background: linear-gradient(180deg, var(--accent-weak) 0%, var(--accent-weak) 100%);

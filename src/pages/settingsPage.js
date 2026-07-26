@@ -207,7 +207,7 @@ export default function SettingsPage() {
           <div className="modal-content password-modal" onClick={(e) => e.stopPropagation()}>
             <div className="modal-header">
               <h3>Change Password</h3>
-              <button className="close-btn" onClick={() => setIsPasswordModalOpen(false)}>✕</button>
+              <button className="close-btn" aria-label="Close" onClick={() => setIsPasswordModalOpen(false)}>✕</button>
             </div>
             <form onSubmit={handleSubmitPasswordChange}>
               <div className="modal-body">

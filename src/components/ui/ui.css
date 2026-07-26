@@ -264,3 +264,46 @@ select.cc-input {
   .cc-sidebar-item { width: auto; white-space: nowrap; }
   .cc-sidebar-item.is-active::before { display: none; }
 }
+
+/* ── Sticky action column ──────────────────────────────────────────────────────
+   Wide tables live inside an `overflow-x:auto` wrapper with `min-width:max-content`
+   columns, so on a narrow viewport the LAST column scrolls off-screen. Every table
+   in the app puts its row actions there, which made them easy to miss entirely.
+
+   Add `has-sticky-actions` to any table whose last column is Actions. The column
+   then pins to the right edge while the rest of the row scrolls underneath it.
+
+   Requirements (already handled in adminDashboard.css / issuerDashboardPage.css):
+   the table itself must NOT have `overflow:hidden`, or it becomes its own scroll
+   container and sticky silently stops working. */
+.has-sticky-actions th:last-child,
+.has-sticky-actions td:last-child {
+  position: sticky;
+  right: 0;
+  z-index: 2;
+  /* Opaque so scrolling content passes cleanly beneath, plus a seam so the pinned
+     column reads as separate rather than as a rendering glitch. */
+  background: var(--surface-2, #12082d);
+  box-shadow: -6px 0 8px -6px rgba(0, 0, 0, 0.55);
+}
+.has-sticky-actions th:last-child { z-index: 3; }
+
+/* Keep the header cell's own background (it is a gradient, not a flat token). */
+.admin-table.has-sticky-actions th:last-child,
+.template-table.has-sticky-actions th:last-child {
+  background: linear-gradient(180deg, var(--accent-weak) 0%, var(--accent-weak) 100%);
+  background-color: var(--surface-2, #12082d);
+}
+
+/* Zebra striping would show through the pinned cell, so match the row backgrounds. */
+.admin-table.has-sticky-actions tbody tr:nth-child(odd) td:last-child { background: var(--accent-weaker); }
+.admin-table.has-sticky-actions tbody tr:nth-child(even) td:last-child { background: rgba(10, 6, 28, 0.6); }
+.template-table.has-sticky-actions tbody tr:nth-child(odd) td:last-child { background: var(--accent-weaker); }
+.template-table.has-sticky-actions tbody tr:nth-child(even) td:last-child { background: rgba(10, 6, 28, 0.6); }
+
+@media (max-width: 768px) {
+  /* On a phone the table stacks rather than scrolling sideways, so pinning is
+     unnecessary and would fight the stacked layout. */
+  .has-sticky-actions th:last-child,
+  .has-sticky-actions td:last-child { position: static; box-shadow: none; }
+}

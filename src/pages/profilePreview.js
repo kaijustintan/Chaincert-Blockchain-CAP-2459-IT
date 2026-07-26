@@ -689,8 +689,21 @@ export default function ProfilePreview() {
             // Use effective (end-of-day-Manila) status so a cron-lagged past-expiry credential
             // reads "Expired" here, matching what the live "Verify all" check returns.
             const eff = effectiveCredentialStatus(cred);
+            // A11Y: clickable card needs a keyboard path, otherwise the credential
+            // detail is unreachable without a mouse.
             return (
-            <div key={cred._id} className={`badge-list-item ${eff === 'revoked' ? 'revoked-card' : eff === 'expired' ? 'expired-card' : ''}`} onClick={() => setSelectedPreviewCred(cred)} style={{ cursor: 'pointer' }}>
+            <div
+              key={cred._id}
+              className={`badge-list-item ${eff === 'revoked' ? 'revoked-card' : eff === 'expired' ? 'expired-card' : ''}`}
+              onClick={() => setSelectedPreviewCred(cred)}
+              role="button"
+              tabIndex={0}
+              aria-label={`View details for ${cred.credentialName || 'credential'}`}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setSelectedPreviewCred(cred); }
+              }}
+              style={{ cursor: 'pointer' }}
+            >
               <div className="badge-order-num">{index + 1}</div>
               <div className="badge-img-small">
                 {cred.badgeImage ? (
@@ -849,7 +862,7 @@ export default function ProfilePreview() {
           <div className="modal detail-modal preview-detail-modal" onClick={(e) => e.stopPropagation()}>
             <div className="modal-header">
               <h2>{selectedPreviewCred.credentialName || 'Credential'}</h2>
-              <button className="close-btn" onClick={() => setSelectedPreviewCred(null)}>✕</button>
+              <button className="close-btn" aria-label="Close" onClick={() => setSelectedPreviewCred(null)}>✕</button>
             </div>
             <div className="modal-body">
               {selectedPreviewCred.badgeImage && (

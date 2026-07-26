@@ -331,9 +331,14 @@
 
 .admin-table {
   width: 100%; border-collapse: separate; border-spacing: 0;
-  background: rgba(10,6,28,0.96); border-radius: 14px; overflow: hidden;
+  background: rgba(10,6,28,0.96); border-radius: 14px;
   border: 1px solid var(--accent-weak); box-shadow: 0 4px 24px rgba(0,0,0,0.4); table-layout: auto;
 }
+/* `overflow:hidden` was removed above: it makes the table its own scroll container, which
+   silently disables `position:sticky` on cells (see the sticky action column below). The
+   rounded top corners it provided are restored on the header cells instead. */
+.admin-table thead tr:first-child th:first-child { border-top-left-radius: 14px; }
+.admin-table thead tr:first-child th:last-child { border-top-right-radius: 14px; }
 .admin-table th {
   background: linear-gradient(180deg, var(--accent-weak) 0%, var(--accent-weak) 100%);
   font-weight: 700; color: var(--accent-strong); text-transform: uppercase; font-size: var(--fs-caption);

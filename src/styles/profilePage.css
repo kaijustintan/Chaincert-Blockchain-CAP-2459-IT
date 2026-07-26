@@ -416,3 +416,11 @@
   border-color: var(--accent);
   box-shadow: 0 0 0 3px var(--accent-weak);
 }
+
+/* Share-links table: the sticky Action column (ui.css .has-sticky-actions) needs an opaque
+   backdrop. This table is inline-styled with a transparent background, so give the pinned
+   cells the surrounding panel colour and keep the header cell readable. */
+.share-links-table.has-sticky-actions th:last-child,
+.share-links-table.has-sticky-actions td:last-child {
+  background: var(--surface-2, #12082d);
+}

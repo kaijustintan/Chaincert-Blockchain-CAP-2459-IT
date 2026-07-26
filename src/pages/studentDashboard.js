@@ -802,8 +802,20 @@ export default function StudentDashboard() {
                     </tr>
                   </thead>
                   <tbody>
+                    {/* A11Y: a clickable row must be reachable and activatable by keyboard,
+                        otherwise the credential detail is mouse-only. */}
                     {walletPg.pageItems.map((cred) => (
-                      <tr key={cred._id} className="holder-row-clickable" onClick={() => handleCardClick(cred)}>
+                      <tr
+                        key={cred._id}
+                        className="holder-row-clickable"
+                        onClick={() => handleCardClick(cred)}
+                        role="button"
+                        tabIndex={0}
+                        aria-label={`View details for ${cred.credentialName}`}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter" || e.key === " ") { e.preventDefault(); handleCardClick(cred); }
+                        }}
+                      >
                         <td>{cred.credentialName}</td>
                         <td>{cred.issuerName || "N/A"}</td>
                         <td>{formatDate(cred.savedToUserWalletAt)}</td>

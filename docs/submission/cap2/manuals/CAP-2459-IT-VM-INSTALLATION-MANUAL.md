@@ -788,7 +788,7 @@ These two are intentional demo affordances, not security holes — every OTHER c
 
 ## Appendix A: VM Gotchas & Troubleshooting
 
-*(Items 1-6 were debugged live on 2026-07-04; item 7 is a recurring operational issue. Repo fixes are committed, so a fresh clone shouldn't hit
+*(Items 1-6 were debugged live on 2026-07-04; items 7-8 are recurring operational issues. Repo fixes are committed, so a fresh clone shouldn't hit
 them — but a stale clone or different box might.)*
 
 1. **`deployCC` → "dial unix /host/var/run/docker.sock: no such file or directory."** The peer's socket
@@ -823,6 +823,25 @@ them — but a stale clone or different box might.)*
    *(Note: all mail sends from one platform mailbox on behalf of issuers, not from each issuer's own
    domain — sending as an unauthorized domain without SPF/DKIM gets flagged as spam. Per-issuer
    sending addresses are future work.)*
+
+8. **`pm2 logs` repeats the same error forever / the site is down after a sync.** The repetition is
+   **not** a logging glitch — it is PM2 restarting a process that dies instantly, over and over. Read
+   the restart counter: `pm2 status`. A climbing `↺` with `uptime` stuck near `0s` is a **crash loop**.
+   The usual cause after a `git pull` + `deploy-sync.sh` is a **backend file that the sync did not
+   copy**, most often a newly added shared module:
+   ```
+   Error: Cannot find module '../utils/nameSimilarity'
+   code: 'MODULE_NOT_FOUND'
+   requireStack: [ …/controllers/issuerCredentialController.js, …/sdk-server-fixed.js ]
+   ```
+   *Fix:* copy the missing file and restart —
+   `mkdir -p ~/chaincert-api/utils && cp ~/chaincert-src/src/utils/nameSimilarity.js ~/chaincert-api/utils/ && pm2 restart chaincert-api`.
+   Then add it to `deploy-sync.sh` so the next sync carries it (it is handled there as of 2026-07-26,
+   step 3b). *Expected result:* `pm2 status` shows `online` with `↺` static and `uptime` climbing, and
+   `pm2 logs chaincert-api --lines 20 --nostream` ends with `✅ API running on :4000`.
+   **Note:** the old error text stays in the log file after the fix, so `pm2 logs` will still *show* it —
+   run `pm2 flush chaincert-api` to clear the backlog, or judge health from `pm2 status` and the
+   `✅ API running` line rather than from the presence of old errors.
 
 ---
 

@@ -1192,6 +1192,20 @@ cp "<PROJECT_ROOT>/src/controllers/walletController.js" ~/chaincert-api/controll
 cp "<PROJECT_ROOT>/src/controllers/verifierController.js" ~/chaincert-api/controllers/
 ```
 
+### A.3b Shared utils
+
+> **IMPORTANT:** `issuerCredentialController.js` requires this file. **The API will not start without
+> it** — it exits immediately with `Error: Cannot find module '../utils/nameSimilarity'`.
+>
+> `nameSimilarity.js` is the **only** file under `src/utils/` that is backend code (it is CommonJS and
+> dependency-free). Every other file in that directory is frontend ES-module code that uses
+> `window`/`localStorage` — do **not** copy the directory wholesale.
+
+```bash
+mkdir -p ~/chaincert-api/utils
+cp "<PROJECT_ROOT>/src/utils/nameSimilarity.js" ~/chaincert-api/utils/
+```
+
 ### A.4 Routes
 
 > **IMPORTANT:** Create the `routes/` directory before copying route files: `mkdir -p ~/chaincert-api/routes`
@@ -1540,6 +1554,35 @@ JWT_SECRET=<paste the generated value>
 ```
 
 **Expected result.** The API boots and `curl http://localhost:4000/api/health` responds.
+
+---
+
+#### B.5.1b API exits immediately with `Cannot find module '../utils/nameSimilarity'`
+
+**Symptom.** The API dies the instant it starts. Under a process manager it restarts endlessly, so
+the log appears to repeat the same block forever:
+```
+Error: Cannot find module '../utils/nameSimilarity'
+code: 'MODULE_NOT_FOUND'
+requireStack: [ …/controllers/issuerCredentialController.js, …/sdk-server-fixed.js ]
+```
+
+**Cause.** `~/chaincert-api/utils/nameSimilarity.js` is missing. `issuerCredentialController.js`
+requires it for the duplicate and near-match credential-name rules. It is the only file under
+`src/utils/` that is backend code, so a copy routine written before it existed will not carry it —
+and older installs have no `utils/` directory at all.
+
+**Fix.**
+```bash
+mkdir -p ~/chaincert-api/utils
+cp "<PROJECT_ROOT>/src/utils/nameSimilarity.js" ~/chaincert-api/utils/
+```
+Then restart the API. Do **not** copy the rest of `src/utils/` — those are frontend ES modules that
+use `window`/`localStorage` and will not load under Node.
+
+**Expected result.** The API boots normally and `curl http://localhost:4000/api/health` responds. The
+old error text remains in the log file; judge success by a fresh successful startup, not by the
+absence of historical errors.
 
 ---
 

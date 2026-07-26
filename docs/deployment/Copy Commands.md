@@ -41,6 +41,13 @@
 - `verifierController.js`
 - `adminDashboardController.js`
 
+### 4b. API shared utils (Ubuntu `~/chaincert-api/utils/`)
+
+- `nameSimilarity.js` — **REQUIRED.** The API will not boot without it.
+
+> The **only** file under `src/utils/` that is backend code. Everything else there is frontend-only
+> ES-module code (`window`/`localStorage`) — never `cp src/utils/*.js`.
+
 ### 5. API routes (Ubuntu `~/chaincert-api/routes/`)
 
 - `authRoutes.js`
@@ -170,6 +177,21 @@ cp "/mnt/c/Users/kaita/OneDrive/Desktop/CAP-2459-IT-AFTER-RESET/src/controllers/
 
 # adminDashboardController.js
 cp "/mnt/c/Users/kaita/OneDrive/Desktop/CAP-2459-IT-AFTER-RESET/src/controllers/adminDashboardController.js" ~/chaincert-api/controllers/adminDashboardController.js
+```
+
+### `[~/chaincert-api/utils/]`
+
+> **REQUIRED — the API crash-loops at boot without this file** with
+> `Error: Cannot find module '../utils/nameSimilarity'`. `issuerCredentialController.js` requires it.
+> Create the directory on first deploy; it does not exist in older installs.
+
+```bash
+mkdir -p ~/chaincert-api/utils
+
+# nameSimilarity.js — duplicate / near-match credential-name rules (CommonJS, zero deps).
+# The ONLY src/utils/ file that is backend code. Do NOT copy the rest of that directory —
+# they are frontend ES modules that use window/localStorage.
+cp "/mnt/c/Users/kaita/OneDrive/Desktop/CAP-2459-IT-AFTER-RESET/src/utils/nameSimilarity.js" ~/chaincert-api/utils/nameSimilarity.js
 ```
 
 ### `[~/chaincert-api/routes/]`

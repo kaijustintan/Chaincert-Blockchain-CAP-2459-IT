@@ -10,6 +10,8 @@ CAP-2459-IT
 This manual is for **issuing organisations**: universities, government bodies, training
 providers, and professional certifiers who create and award credentials on ChainCert.
 
+*Screenshots are noted inline as* `[Screenshot: ...]`.
+
 For other roles, see:
 
 | Your role | Manual |
@@ -70,20 +72,20 @@ altered afterwards. This also means issuing and revoking are permanent actions.
 
 **Prerequisite:** your supporting documents ready as PDF or image files.
 
-1. Select **Create Account**, then **Register as Issuer**.
+1. Select **Create Account**, then **Register as Issuer**. [Screenshot: Create Account, Register as Issuer option]
 2. **Part 1, Basic Details.** Organisation name, contact person, email, and password (twice).
-   Select **Next**.
+   Select **Next**. [Screenshot: Issuer registration Part 1, Basic Details]
 3. **Part 2, Governance Details.**
    - Choose your **Issuer Type**: Root Authority or Subordinate Issuer.
    - Choose your **Category**: University, Government, Training Provider, Industry Certifier,
      or Others.
-   - If you chose Subordinate, search for and select your **Root Authority**.
+   - If you chose Subordinate, search for and select your **Root Authority**. [Screenshot: Issuer registration Part 2, Governance Details]
 4. **Part 3, Required Documents.** The list shown depends on the category you chose. Attach
    every document listed. Subordinates also attach an authorisation letter from their root
-   authority.
+   authority. [Screenshot: Issuer registration Part 3, Required Documents]
 5. Select **Submit Issuer Registration**.
 
-You will see a confirmation headed **Application Pending Review**, explaining what happens next.
+You will see a confirmation headed **Application Pending Review**, explaining what happens next. [Screenshot: Application Pending Review confirmation]
 
 > **Important.** Changing your Category or Issuer Type after attaching files clears the
 > attachments, because a different category requires a different set of documents. Attach your
@@ -100,7 +102,7 @@ You will be notified by email once a decision is made.
 
 ## 3. Signing in and finding your way around
 
-Sign in at **Login**. You land on your issuer dashboard.
+Sign in at **Login**. [Screenshot: Issuer login] You land on your issuer dashboard. [Screenshot: Issuer dashboard]
 
 The sidebar is your main navigation:
 
@@ -115,7 +117,7 @@ The sidebar is your main navigation:
 | **History** | The full blockchain audit trail, searchable |
 | **Subordinates** | Approve and manage subordinate issuers (root authorities only) |
 
-The bell icon shows notifications. Select **Mark all as read** to clear them.
+The bell icon shows notifications. Select **Mark all as read** to clear them. [Screenshot: Notifications panel]
 
 ---
 
@@ -124,8 +126,8 @@ The bell icon shows notifications. Select **Mark all as read** to clear them.
 **What this does.** Creates the definition of a credential. Nothing is awarded to anyone yet.
 Until you issue it, it appears with the status **Draft**.
 
-1. Select **Credentials** in the sidebar, then **Create New Credential**.
-2. Fill in the form:
+1. Select **Credentials** in the sidebar, then **Create New Credential**. [Screenshot: Credentials view, Create New Credential button]
+2. Fill in the form: [Screenshot: Create Credential form fields]
 
    | Field | Required | Notes |
    |---|---|---|
@@ -138,14 +140,14 @@ Until you issue it, it appears with the status **Draft**.
    | Badge Image | No | PNG, JPEG, or GIF. Appears on the credential and its PDF |
 
 3. **Adding skills.** Type a skill and select **Add Skill**, or press Enter. Skills appear as
-   removable tags.
+   removable tags. [Screenshot: Skills input with removable tags]
 
    If you have issued credentials before, a row of suggestions appears under the input, headed
    **From your past credentials**. These are drawn from your own previous credentials, narrowed
    to the credential type you selected. Select any suggestion to add it. You can still type
-   anything you want; the suggestions are a shortcut, not a restriction.
+   anything you want; the suggestions are a shortcut, not a restriction. [Screenshot: Skill suggestions from past credentials]
 
-4. Select **Create Credential**, review the confirmation, then select **Confirm Create**.
+4. Select **Create Credential**, review the confirmation, then select **Confirm Create**. [Screenshot: Create Credential confirmation dialog]
 
 ### Name warnings
 
@@ -163,13 +165,13 @@ ChainCert checks the name you type against your existing active credentials as y
 **Prerequisite:** at least one credential created (section 4), and the recipient has a ChainCert
 holder account.
 
-1. Select **Issue** in the sidebar, then **Issue Credential**.
+1. Select **Issue** in the sidebar, then **Issue Credential**. [Screenshot: Issue view, Issue Credential option]
 2. Optionally narrow the list using the **Credential Type** dropdown.
 3. Select the **Credential** field, type to search, and choose one.
 4. Select the **Recipient** field, type to search, and choose the holder. This field only
-   unlocks after a credential is chosen.
+   unlocks after a credential is chosen. [Screenshot: Issue Credential form, recipient selected]
 5. Optionally set an **Expiry Date**. Leaving it blank means the credential never expires.
-6. Select **Issue Credential**, then **Confirm Issue**.
+6. Select **Issue Credential**, then **Confirm Issue**. [Screenshot: Confirm Issue dialog]
 
 > **Only eligible recipients are listed.** Someone who already holds an active copy of this
 > credential is filtered out, which prevents accidental duplicates. If your intended recipient
@@ -185,12 +187,12 @@ holder account.
 **Prerequisite:** a list of recipient emails or holder IDs in a `.csv` or `.txt` file, one per
 line or separated by commas.
 
-1. Select **Issue**, then **Batch issue from list**.
+1. Select **Issue**, then **Batch issue from list**. [Screenshot: Batch issue from list option]
 2. Choose the **Credential** to award.
 3. Optionally set an **Expiry date** for all of them.
-4. Select **Import recipients** and choose your file.
-5. Review the list. Each row is marked **Eligible** or **Not eligible**, with a summary count.
-6. Select **Continue**, then **Confirm**.
+4. Select **Import recipients** and choose your file. [Screenshot: Batch issue, Import recipients file picker]
+5. Review the list. Each row is marked **Eligible** or **Not eligible**, with a summary count. [Screenshot: Batch issue recipient list with eligibility status]
+6. Select **Continue**, then **Confirm**. [Screenshot: Batch issue confirmation]
 
 Progress runs one recipient at a time and cannot be cancelled once started. A results summary
 appears at the end.
@@ -213,11 +215,11 @@ holder's exported PDF, a clear reason protects both the holder and your institut
 
 **To revoke one credential:**
 
-1. Select **Revoke** in the sidebar.
+1. Select **Revoke** in the sidebar. [Screenshot: Revoke view]
 2. Find the credential in the table and select **Revoke** on its row. (Alternatively select
-   **Revoke a credential** and pick the holder and credential from dropdowns.)
-3. Enter a **Revocation Reason**. This is required.
-4. Select **Revoke**, then **Confirm Revoke**.
+   **Revoke a credential** and pick the holder and credential from dropdowns.) [Screenshot: Revoke table, Revoke button on row]
+3. Enter a **Revocation Reason**. This is required. [Screenshot: Revocation Reason field]
+4. Select **Revoke**, then **Confirm Revoke**. [Screenshot: Confirm Revoke dialog]
 
 > **Only active credentials can be revoked.** A credential that has already expired shows a dash
 > instead of a Revoke button, because expiry has already ended its validity.
@@ -228,10 +230,10 @@ holder's exported PDF, a clear reason protects both the holder and your institut
 
 1. Select **Revoke** in the sidebar.
 2. Select the credentials, either by ticking their checkboxes, or by selecting **Import IDs**
-   and choosing a `.csv` or `.txt` file of credential IDs.
+   and choosing a `.csv` or `.txt` file of credential IDs. [Screenshot: Revoke view checkboxes and Import IDs option]
 3. Select **Revoke selected**.
-4. Enter one **Revocation reason**. It applies to every credential in the batch.
-5. Select **Continue**, then **Confirm**.
+4. Enter one **Revocation reason**. It applies to every credential in the batch. [Screenshot: Batch revoke reason field]
+5. Select **Continue**, then **Confirm**. [Screenshot: Batch revoke confirmation]
 
 After an import, a message reports how many were selected, how many were skipped because they
 were already revoked or expired, and how many were not found among your issued credentials.
@@ -247,23 +249,23 @@ When a holder's credential is expiring, they can ask you to renew it, provided y
 **Allow holders to request renewal** switched on.
 
 1. Select **Issue** in the sidebar.
-2. Select the **Renewal Requests** card header to expand it. A count shows how many are pending.
+2. Select the **Renewal Requests** card header to expand it. A count shows how many are pending. [Screenshot: Renewal Requests card expanded]
 3. Filter by status or search if the list is long.
 
 **To approve:**
 
-1. Select **Approve** on the row.
+1. Select **Approve** on the row. [Screenshot: Renewal request row, Approve action]
 2. Optionally set a **New expiry date**. Blank means no expiry.
-3. Select **Approve and issue**.
+3. Select **Approve and issue**. [Screenshot: Approve and issue confirmation]
 
 A renewed credential is issued to the holder, linked to the original so the history shows the
 full chain.
 
 **To decline:**
 
-1. Select **Decline** on the row.
+1. Select **Decline** on the row. [Screenshot: Renewal request row, Decline action]
 2. Enter a **Reason**. This is required, and the holder will see it.
-3. Select **Decline**.
+3. Select **Decline**. [Screenshot: Decline confirmation]
 
 Both decisions are recorded on the blockchain.
 
@@ -273,12 +275,12 @@ Both decisions are recorded on the blockchain.
 
 **Credentials** shows your credential definitions: name, type, ID, description, skills,
 visibility, and creation date. Each row has a visibility toggle controlling whether the
-credential appears on your public issuer profile.
+credential appears on your public issuer profile. [Screenshot: Credentials view with definitions list]
 
-**Issue** shows everything you have issued: recipient, status, dates, and actions.
+**Issue** shows everything you have issued: recipient, status, dates, and actions. [Screenshot: Issue view, issued credentials list]
 
 **All Credentials** shows both together. Use the **Record Kind** filter to switch between
-definitions and issued copies. Definitions that have never been issued show as **Draft**.
+definitions and issued copies. Definitions that have never been issued show as **Draft**. [Screenshot: All Credentials view with Record Kind filter]
 
 All three views support searching, filtering by type and status, and sorting. Lists are
 paginated at 10 rows per page.
@@ -289,21 +291,21 @@ paginated at 10 rows per page.
 
 ### One credential's history
 
-In the Issue, Revoke, or All Credentials views, select **View BC History** on any issued row.
+In the Issue, Revoke, or All Credentials views, select **View BC History** on any issued row. [Screenshot: View BC History option on issued row]
 This shows the full timeline: created, issued, renewed, expired, or revoked, each with its
-blockchain transaction ID and any reason given.
+blockchain transaction ID and any reason given. [Screenshot: Credential history timeline]
 
 If a credential was issued to the same person more than once, a **Credential Lineage** section
 lists every issuance. It is collapsed by default; select **Show** to expand it, and **View** on
-any row to switch the timeline to that copy.
+any row to switch the timeline to that copy. [Screenshot: Credential Lineage section expanded]
 
 ### The full audit trail
 
 Select **History** in the sidebar for every transaction your organisation has made.
 
-1. Choose what to search by: Credential ID, Holder ID, Holder Name, or Credential Name.
+1. Choose what to search by: Credential ID, Holder ID, Holder Name, or Credential Name. [Screenshot: History view, search-by field]
 2. Type your search term and select **Search**, or select **Show All**.
-3. Narrow further with the status, type, and sort controls.
+3. Narrow further with the status, type, and sort controls. [Screenshot: History view filtered results table]
 
 Columns include the timestamp, credential details, holder details, and the blockchain
 transaction ID for each action.
@@ -313,7 +315,7 @@ transaction ID for each action.
 ## 12. Reports and performance
 
 Select **Performance** in the sidebar. Reports load when you first open this view, so allow a
-moment.
+moment. [Screenshot: Performance view]
 
 Every report includes a plain-language summary explaining what the numbers mean.
 
@@ -324,16 +326,16 @@ how many checks returned valid, and which credentials are checked most.
 
 It also highlights **revoked or expired credentials still being checked**, showing who holds
 each one. This tells you an out-of-date copy is still circulating, so you can contact the holder
-if it matters.
+if it matters. [Screenshot: Verification Reach report]
 
 ### Issuance Performance
 
 Total issued, how many credential types you use, this month's activity, a breakdown by type,
-and a six-month trend.
+and a six-month trend. [Screenshot: Issuance Performance report]
 
 ### Credentials in Circulation
 
-The mix of active, expiring, expired, and revoked credentials among everything you have issued.
+The mix of active, expiring, expired, and revoked credentials among everything you have issued. [Screenshot: Credentials in Circulation report]
 
 A high inactive share is not automatically a problem. For short-duration credentials it is
 normal turnover; for long-lived qualifications it may be worth reviewing whether your validity
@@ -347,7 +349,7 @@ revocations follow issuance.
 Revocations are grouped into bands of 14 days or fewer, 15 to 30 days, and more than 30 days.
 Where a large share falls into the first band, the summary flags it as unusual and worth
 reviewing. It does not conclude that anything is wrong: what counts as normal depends on your
-organisation's own process.
+organisation's own process. [Screenshot: Revocation Self-Audit report]
 
 > **About the thresholds.** The boundaries used in these reports (for example the 14-day band,
 > and the 60-day "expiring soon" window) are design choices made by the ChainCert team. They
@@ -364,11 +366,11 @@ see this in your sidebar.
 When an organisation applies as a subordinate under you, you decide first. Only after you
 approve does the platform administrator review the application.
 
-1. Select **Subordinates** in the sidebar.
-2. Set the **View** filter to **Pending Root Approval**.
+1. Select **Subordinates** in the sidebar. [Screenshot: Subordinates view]
+2. Set the **View** filter to **Pending Root Approval**. [Screenshot: Subordinates view filtered to Pending Root Approval]
 3. Select **Documents** on the application to review the supporting files. Use **View** to open
-   one, or **Download** to save it.
-4. Select **Approve**, or **Reject** and give a reason (required).
+   one, or **Download** to save it. [Screenshot: Subordinate application documents review]
+4. Select **Approve**, or **Reject** and give a reason (required). [Screenshot: Approve or Reject subordinate dialog]
 
 The application then moves to the platform administrator for final approval.
 
@@ -383,27 +385,27 @@ Your public profile lets people confirm your organisation is a recognised issuer
 credentials you offer.
 
 **To control what appears:** each credential has a visibility toggle in the Credentials view and
-on your Profile page. Public credentials appear on your profile; private ones do not.
+on your Profile page. Public credentials appear on your profile; private ones do not. [Screenshot: Credential visibility toggle]
 
 **To share your profile:** open the avatar menu, select **Profile**, then **Share Profile**. Your
-permanent public link is prepared automatically. Select **Copy Link**.
+permanent public link is prepared automatically. Select **Copy Link**. [Screenshot: Share Profile, Copy Link]
 
 Your organisation also appears in the public **Issuer Directory**, which anyone can browse and
-search.
+search. [Screenshot: Public Issuer Directory]
 
 ---
 
 ## 15. Account settings
 
-Open the avatar menu, then **Settings**.
+Open the avatar menu, then **Settings**. [Screenshot: Settings menu]
 
-**Account.** Your email, organisation, contact name, issuer ID, and account type.
+**Account.** Your email, organisation, contact name, issuer ID, and account type. [Screenshot: Account settings tab]
 
 **Security.** To change your password, select **Change Password**, enter your current password
-and your new one twice, then select **Change Password**.
+and your new one twice, then select **Change Password**. [Screenshot: Change Password dialog]
 
 To change your organisation's display name or profile picture, go to **Profile**, select **Edit
-Profile**, make your changes, and select **Save Changes**.
+Profile**, make your changes, and select **Save Changes**. [Screenshot: Edit Profile form]
 
 ---
 

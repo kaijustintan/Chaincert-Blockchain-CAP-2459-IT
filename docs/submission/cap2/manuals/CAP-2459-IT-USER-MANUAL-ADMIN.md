@@ -19,6 +19,8 @@ For other roles, see:
 | Institution issuing credentials | `CAP-2459-IT-USER-MANUAL-ISSUER.md` |
 | Employer or verifier checking a credential | `CAP-2459-IT-USER-MANUAL-VERIFIER.md` |
 
+*Screenshots are noted inline as* `[Screenshot: ...]`.
+
 ---
 
 ## Contents
@@ -68,9 +70,9 @@ is missing. It is not a fault in their account or a bug.
 
 ## 2. Signing in and the dashboard layout
 
-Sign in at **Login** with your administrator account. You land on **Manage Issuers**, filtered
-to **Pending Issuers**, because reviewing waiting applications is usually the most
-time-sensitive task.
+Sign in at **Login** with your administrator account. [Screenshot: Login page] You land on
+**Manage Issuers**, filtered to **Pending Issuers**, because reviewing waiting applications is
+usually the most time-sensitive task. [Screenshot: Admin Dashboard, Manage Issuers Pending queue]
 
 The sidebar has five tabs:
 
@@ -93,7 +95,7 @@ the table below, which is usually faster than setting the filters by hand.
 already approved it (see section 4).
 
 1. Select **Manage Issuers**. The view opens on **Pending Issuers**.
-2. Use **Pending Type** to narrow the list:
+2. Use **Pending Type** to narrow the list: [Screenshot: Pending Type filter dropdown]
 
    | Option | Shows |
    |---|---|
@@ -103,10 +105,12 @@ already approved it (see section 4).
 
 3. Before deciding, select **See Documents** to review the organisation's supporting files. Use
    **View** to open one in a new tab, or **Download** to save it.
+   [Screenshot: Issuer application, See Documents list]
 4. Select **Approve** or **Reject** on the application row.
    - **Approve** opens a confirmation naming the organisation. Select **Confirm Approve**.
+     [Screenshot: Approve issuer confirmation dialog]
    - **Reject** requires a reason. It is recorded on the issuer's record and shown to them.
-     Select **Confirm Reject**.
+     Select **Confirm Reject**. [Screenshot: Reject issuer reason dialog]
 
 Both decisions are written to the blockchain.
 
@@ -114,6 +118,7 @@ Both decisions are written to the blockchain.
 
 Above the pending table, a panel shows how many applications are waiting, how long the oldest
 has waited, and your average time to decide.
+[Screenshot: Approval queue panel with waiting count and average decision time]
 
 Sort the table by **Oldest First** and work from the top. The oldest-waiting figure is
 highlighted once it passes 14 days. That threshold is a prompt to look, not a deadline: review
@@ -139,6 +144,7 @@ Subordinate issuers require **two approvals in sequence**: their root authority 
 
 This matters because the Approve and Reject buttons will not appear for a subordinate until its
 root authority has acted. Instead, the row shows **Awaiting Root Approval**.
+[Screenshot: Subordinate application row showing Awaiting Root Approval]
 
 | Application type | Root Approval column | Your options |
 |---|---|---|
@@ -150,6 +156,7 @@ root authority has acted. Instead, the row shows **Awaiting Root Approval**.
 > **A quirk worth knowing.** A subordinate rejected by its root authority is displayed as
 > **rejected**, with **Rejected By** showing **Root Authority** rather than an administrator's
 > email. This is correct: the rejection was theirs, not yours.
+> [Screenshot: Rejected subordinate row showing Rejected By Root Authority]
 
 If a subordinate has been waiting a long time on root approval, the delay is with that root
 authority. Contact them rather than the applicant.
@@ -162,12 +169,14 @@ Disabling suspends an issuer's access without deleting anything. Credentials the
 remain valid and verifiable.
 
 1. Select **Manage Issuers**, then set **View** to **Approved Issuers**.
+   [Screenshot: Manage Issuers, Approved Issuers view]
 2. Find the organisation and select **Disable**.
 3. Enter a reason. This is required and is recorded for audit.
+   [Screenshot: Disable issuer reason dialog]
 4. Select **Confirm Disable**.
 
 To restore access, set **View** to **Disabled Issuers**, select **Enable**, give a reason, and
-confirm.
+confirm. [Screenshot: Manage Issuers, Disabled Issuers view with Enable button]
 
 > The Approved view also lists issuers who were approved and later disabled, so you may see an
 > **Enable** button there too.
@@ -181,11 +190,11 @@ a request from the organisation itself.
 ## 6. Reviewing issuer documents and history
 
 **See Documents** opens the files submitted with an application: type, filename, format, and
-size, each with **View** and **Download**.
+size, each with **View** and **Download**. [Screenshot: Issuer See Documents panel]
 
 **See History** opens a complete record of every status change for that issuer: the previous
 status, the new status, the reason given, who performed it, the blockchain transaction ID, and
-the timestamp.
+the timestamp. [Screenshot: Issuer See History log]
 
 Use the history when an issuer disputes a decision, or when you need to establish who approved
 an organisation and when.
@@ -195,7 +204,7 @@ an organisation and when.
 ## 7. Managing user accounts
 
 Select **Manage Users**. This lists credential holders and administrators. Issuers are managed
-separately, on the Manage Issuers tab.
+separately, on the Manage Issuers tab. [Screenshot: Manage Users list]
 
 Filter with **View** (Active Users, Disabled Users, All Users), sort, or search by email,
 username, or user ID.
@@ -203,7 +212,7 @@ username, or user ID.
 **To disable an account:**
 
 1. Find the user and select **Disable**.
-2. Enter a reason. This is required.
+2. Enter a reason. This is required. [Screenshot: Disable user reason dialog]
 3. Select **Confirm Disable**.
 
 Re-enable the same way from the Disabled Users view.
@@ -212,12 +221,14 @@ Re-enable the same way from the Disabled Users view.
 > the blockchain and remain verifiable. Disabling does not and cannot erase a credential.
 
 **See History** shows every status change on the account, with reasons and transaction IDs.
+[Screenshot: User account See History log]
 
 ---
 
 ## 8. Reviewing credentials across the platform
 
 Select **Credentials** for a unified view across every approved issuer.
+[Screenshot: Admin Credentials tab, unified view]
 
 The summary cards (Total Records, Issued, Revoked, Expired, Drafts) double as filters.
 
@@ -233,9 +244,10 @@ The summary cards (Total Records, Issued, Revoked, Expired, Drafts) double as fi
 
 > The columns change with the Status filter. Selecting **Revoked** adds the holder, the
 > revocation date, and the revocation reason, which is the fastest way to review revocation
-> activity across the platform.
+> activity across the platform. [Screenshot: Credentials table filtered to Revoked]
 
 Two charts sit above the table: credentials by issuer, and a status breakdown.
+[Screenshot: Admin Credentials tab, issuer and status breakdown charts]
 
 ---
 
@@ -246,9 +258,9 @@ you need to establish exactly what happened to one credential and when.
 
 1. Select **Credentials**.
 2. Find the credential. Searching by Credential ID is fastest if you have it.
-3. Select **View BC History** on its row.
+3. Select **View BC History** on its row. [Screenshot: Credential row, View BC History button]
 
-The dossier shows:
+The dossier shows: [Screenshot: Credential dossier, full view]
 
 - **Header:** blockchain ID, credential name, issuer, and holder.
 - **Provenance timeline:** every action taken, newest first, each with its blockchain
@@ -263,10 +275,11 @@ Together these answer both "what did the issuer do" and "who has checked this cr
 ## 10. Audit logs
 
 Select **Logs**. Choose a category from the **Category** dropdown.
+[Screenshot: Logs tab, Category dropdown]
 
 ### Verification Logs
 
-Every verification attempt on the platform.
+Every verification attempt on the platform. [Screenshot: Verification Logs table]
 
 Filter by **Result** (Valid, Revoked, Expired, Not Found, Invalid) and search by verifier,
 holder, or credential ID.
@@ -277,8 +290,8 @@ holder, or credential ID.
 
 ### Audit Logs
 
-Governance actions: status changes and issuer decisions. Filter by **Type** to separate the two,
-and search by email, reason, or who performed the action.
+Governance actions: status changes and issuer decisions. [Screenshot: Audit Logs table] Filter
+by **Type** to separate the two, and search by email, reason, or who performed the action.
 
 Each entry shows the target, the action, the reason, who did it, and the blockchain transaction
 ID.
@@ -286,7 +299,7 @@ ID.
 ### Root Subordinate Decision Logs
 
 Every decision a root authority made about a subordinate: which root, which subordinate, the
-decision, the reason, and the transaction ID.
+decision, the reason, and the transaction ID. [Screenshot: Root Subordinate Decision Logs table]
 
 Use this when a subordinate disputes a root authority's rejection.
 
@@ -299,7 +312,7 @@ Use this when a subordinate disputes a root authority's rejection.
 ## 11. Analytics and reports
 
 Select **Analytics and Reports**. These are processed insights rather than raw logs, and each
-carries a plain-language summary.
+carries a plain-language summary. [Screenshot: Analytics and Reports tab landing]
 
 Four figures head the tab: total verifications, issuers with credentials, credentials issued,
 and revocations.
@@ -307,6 +320,7 @@ and revocations.
 ### 1. Verification Result Summary
 
 The outcome breakdown of every verification attempt: valid, revoked, expired, or not found.
+[Screenshot: Verification Result Summary chart]
 
 This is an awareness view. It tells you how the platform is being used and whether verification
 is producing sensible results. No specific action follows from it.
@@ -316,6 +330,7 @@ is producing sensible results. No specific action follows from it.
 Every active issuer ranked by their recent revocation rate, with a band marking those at or
 above 25 percent over the last 30 days. Issuers with fewer than four credentials are not banded,
 because a single revocation out of two credentials is not a meaningful rate.
+[Screenshot: Revocation Rate by Issuer ranked list]
 
 Select **View this issuer** on any banded row to jump to their record.
 
@@ -329,7 +344,7 @@ Select **View this issuer** on any banded row to jump to their record.
 ### 3. Integrity-Check Insight
 
 The result of the most recent comparison between the platform's fast-read database and the
-blockchain. See section 12.
+blockchain. See section 12. [Screenshot: Integrity-Check Insight card]
 
 > **About the thresholds in these reports.** The boundaries used (the 25 percent band, the
 > 30-day window, the four-credential minimum) are design choices made by the ChainCert team,
@@ -349,8 +364,9 @@ could be a failed write, or it could indicate the database was modified outside 
 
 1. Select **Analytics and Reports**.
 2. On the **Integrity-Check Insight** card, select **Run integrity check**.
-3. Confirm. Large datasets take a moment.
-4. Review the results.
+   [Screenshot: Run integrity check button]
+3. Confirm. Large datasets take a moment. [Screenshot: Integrity check confirmation dialog]
+4. Review the results. [Screenshot: Integrity check results, Total/Matched/Mismatched/Missing/Errors]
 
 **Reading the results:**
 
@@ -379,7 +395,7 @@ correcting, never the other way around.
 ## 13. Notifications
 
 The bell icon shows platform events: new issuer applications, integrity check results, and other
-system notices. A badge shows the unread count.
+system notices. A badge shows the unread count. [Screenshot: Notifications bell dropdown]
 
 Select **Mark All as Read** to clear them.
 
@@ -390,13 +406,13 @@ running a new check.
 
 ## 14. Account settings
 
-Open the avatar menu, then **Settings**.
+Open the avatar menu, then **Settings**. [Screenshot: Avatar menu, Settings option]
 
-**Account.** Your email, name, user ID, and account type.
+**Account.** Your email, name, user ID, and account type. [Screenshot: Account settings tab]
 
 **Security.** To change your password, select **Change Password**, enter your current password
 and your new one twice, then select **Change Password**. Administrator password changes are
-recorded on the blockchain.
+recorded on the blockchain. [Screenshot: Change Password form]
 
 ---
 

@@ -88,7 +88,12 @@ CAP-2459-IT-AFTER-RESET/
 │   │       │   └── CHAPTER 7.md
 │   │       │
 │   │       ├── defense-presentation/
-│   │       │   └── CAP2 - Final Defense Deck (Restructured + Script).md
+│   │       │   ├── CAP2 - Final Defense Deck (Restructured + Script).md   ← CAP2 defense deck (~30 min, with live demo)
+│   │       │   ├── CAP2 - 10-Minute Presentation (Contents + Script).md  ← NEW: DLSU final-submission deliverable
+│   │       │   │   (CAP-2459-IT-PRESENT.pptx source — no demo, whole-capstone summary, distinct from the defense deck)
+│   │       │   └── CAP2 - System Demo 15 Minutes.md          ← NEW: DLSU final-submission deliverable
+│   │       │       (CAP-2459-IT-DEMOVIDEO.mp4 source — 19-clip OBS recording plan + narration script,
+│   │       │        per-clip problem mapping, recording order, pre-seed checklist. 15:10 runtime)
 │   │       │
 │   │       ├── references/                     ← post-hoc change logs / defense-prep notes (COMMITTED — keep sanitized)
 │   │       │   ├── CAP2 - Final Game Plan.md   ← NEW: sanitized S-1…S-8 + U-1…U-9 execution record (no names/grade/transcript)

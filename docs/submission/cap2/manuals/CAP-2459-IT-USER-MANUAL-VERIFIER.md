@@ -13,6 +13,8 @@ recruiters, registrars, licensing bodies, or anyone handed a certificate they wa
 **You do not need a ChainCert account.** Verification is open to the public. You confirm your
 email address once per session so that the check can be recorded, and that is all.
 
+*Screenshots are noted inline as* `[Screenshot: ...]`.
+
 For other roles, see:
 
 | Your role | Manual |
@@ -67,13 +69,13 @@ issuers can see their credential was checked. Confirming your email keeps that r
 meaningful, and stops anyone recording checks under someone else's name.
 
 1. From the top menu, select **Verification Dashboard**.
-2. Enter **Your Name** and **Your Email**.
+2. Enter **Your Name** and **Your Email**. [Screenshot: Email confirmation form with name and email fields]
 3. Select **Send verification code**.
-4. Open your email and find the 6-digit code.
-5. Enter it and select **Verify and continue**.
+4. Open your email and find the 6-digit code. [Screenshot: Email inbox showing 6-digit verification code]
+5. Enter it and select **Verify and continue**. [Screenshot: OTP code entry field before continuing]
 
 You now see a line confirming who you are verifying as. It notes that your email is verified and
-your name is self-reported.
+your name is self-reported. [Screenshot: Confirmed verifier name and email banner]
 
 **This lasts about two hours** and survives a page reload. Closing the browser window ends it.
 To verify as someone else, select **Change** beside your name.
@@ -88,7 +90,7 @@ To verify as someone else, select **Change** beside your name.
 **Prerequisite:** you have confirmed your email (section 2).
 
 1. Ask the credential holder for the **Credential ID**. They can copy it from their wallet.
-2. Paste it into the search bar reading **Enter credential ID or code**.
+2. Paste it into the search bar reading **Enter credential ID or code**. [Screenshot: Credential ID search bar on Verification Dashboard]
 3. Select **Verify**, or press Enter.
 
 The result appears immediately below.
@@ -98,7 +100,7 @@ The result appears immediately below.
 ## 4. Reading the result
 
 Every result opens with a clear verdict banner, followed by a one-line explanation and the
-credential's details.
+credential's details. [Screenshot: Verification result verdict banner with credential details]
 
 | Verdict | What it means | What to do |
 |---|---|---|
@@ -127,12 +129,12 @@ once instead of one at a time.
 - You have confirmed your email (section 2)
 - You have the **original digital PDF**, as exported from ChainCert
 
-1. On the Verification Dashboard, find the card **Bulk verify from a ChainCert PDF**.
-2. Select **Choose PDF** and pick the file.
-3. Verification starts automatically. A progress line shows how many are done.
+1. On the Verification Dashboard, find the card **Bulk verify from a ChainCert PDF**. [Screenshot: Bulk verify from a ChainCert PDF card]
+2. Select **Choose PDF** and pick the file. [Screenshot: PDF file picker for bulk verification]
+3. Verification starts automatically. A progress line shows how many are done. [Screenshot: Bulk verification progress indicator]
 
 Each credential appears as its own full result card, and the batch is headed with a summary such
-as "5 checked: 4 valid, 1 revoked".
+as "5 checked: 4 valid, 1 revoked". [Screenshot: Bulk verification batch results with summary]
 
 **Uploading a second PDF adds a new batch** above the first, so you can work through several
 candidates without losing earlier results. Select **Clear results** to reset.
@@ -149,13 +151,13 @@ If the holder sent you a link to their profile rather than a file:
 
 1. Open the link.
    - If it was sent to you specifically, you are asked to confirm your email with a code first.
-   - If it is a public link, the profile opens straight away.
-2. The profile lists the holder's public credentials, each with its status.
+   - If it is a public link, the profile opens straight away. [Screenshot: Shared profile page after opening link]
+2. The profile lists the holder's public credentials, each with its status. [Screenshot: Shared profile credential list with status labels]
 3. To check them all against the blockchain, select **Verify all on the blockchain** in the
-   Credentials and Badges header.
+   Credentials and Badges header. [Screenshot: Verify all on the blockchain button on shared profile]
    - On a public link you confirm your email first, if you have not already.
    - On a link sent to you specifically, your earlier email confirmation is reused.
-4. Results appear in a popup with a summary line.
+4. Results appear in a popup with a summary line. [Screenshot: Verify all results popup with summary]
 
 > A shared profile deliberately shows revoked and expired credentials too, each clearly labelled.
 > This is intentional transparency rather than an oversight.
@@ -166,8 +168,8 @@ If the holder sent you a link to their profile rather than a file:
 
 Every credential PDF carries a QR code and a verification link.
 
-1. Open the QR code with your phone's camera, or select the link in the PDF.
-2. The Verification Dashboard opens with the credential ID already filled in.
+1. Select the link in the PDF, or open the QR code with any standard phone camera app, which recognizes the code and offers to open its encoded link. [Screenshot: QR code and verification link in credential PDF]
+2. The Verification Dashboard opens with the credential ID already filled in. [Screenshot: Verification Dashboard with credential ID pre-filled]
 3. Confirm your email if you have not already this session. The check then runs automatically.
 
 ---

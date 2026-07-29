@@ -19,6 +19,8 @@ that was shown to you, use the manual for your role instead:
 | Platform administrator | `CAP-2459-IT-USER-MANUAL-ADMIN.md` |
 | Employer or verifier checking a credential | `CAP-2459-IT-USER-MANUAL-VERIFIER.md` |
 
+*Screenshots are noted inline as* `[Screenshot: ...]`.
+
 ---
 
 ## Contents
@@ -62,9 +64,9 @@ you by an approved institution. Your wallet stays empty until an issuer sends yo
 
 **Prerequisite:** an email address you can open right now.
 
-1. Go to the ChainCert site and select **Create Account**.
-2. On the role screen, choose **Register as User**.
-3. Fill in the form. All four fields are required.
+1. Go to the ChainCert site and select **Create Account**. `[Screenshot: Landing page, Create Account button]`
+2. On the role screen, choose **Register as User**. `[Screenshot: Role selection screen]`
+3. Fill in the form. All four fields are required. `[Screenshot: Create Account form]`
 
    | Field | Notes |
    |---|---|
@@ -73,11 +75,11 @@ you by an approved institution. Your wallet stays empty until an issuer sends yo
    | Password | At least 10 characters. The checklist below the field updates as you type |
    | Confirm Password | Must match |
 
-4. Select **Create User Account**. A message confirms a code was sent to your email.
-5. Open your email and find the 6-digit code.
+4. Select **Create User Account**. A message confirms a code was sent to your email. `[Screenshot: Confirmation code sent message]`
+5. Open your email and find the 6-digit code. `[Screenshot: ChainCert confirmation email]`
 6. Enter the code in the field labelled **Enter the 6-digit code we emailed to your address**,
-   then select **Verify and Create Account**.
-7. You are redirected to the login page with a confirmation banner.
+   then select **Verify and Create Account**. `[Screenshot: Enter confirmation code screen]`
+7. You are redirected to the login page with a confirmation banner. `[Screenshot: Login page with confirmation banner]`
 
 **If the code does not arrive**, select **Resend code**. If the address was wrong, select
 **Use a different email** to start again.
@@ -89,22 +91,23 @@ you by an approved institution. Your wallet stays empty until an issuer sends yo
 
 ## 3. Signing in
 
-1. Select **Login**.
-2. Enter your email and password. Use the eye icon to check what you typed.
-3. Select **Login**. You land on your wallet.
+1. Select **Login**. `[Screenshot: Login page]`
+2. Enter your email and password. Use the eye icon to check what you typed. `[Screenshot: Login form, password eye icon]`
+3. Select **Login**. You land on your wallet. `[Screenshot: Wallet after login]`
 
 **Forgot your password?**
 
-1. On the login page, select **Forgot Password?**
-2. Enter your email, then select **Send Verification Code**.
-3. Enter the 6-digit code from your email, then your new password twice.
-4. Select **Reset Password**, then **Return to Login**.
+1. On the login page, select **Forgot Password?** `[Screenshot: Forgot Password link on login page]`
+2. Enter your email, then select **Send Verification Code**. `[Screenshot: Forgot Password, email entry]`
+3. Enter the 6-digit code from your email, then your new password twice. `[Screenshot: Forgot Password, code and new password entry]`
+4. Select **Reset Password**, then **Return to Login**. `[Screenshot: Password reset confirmation]`
 
 ---
 
 ## 4. Your wallet
 
 Your wallet is the default view at **My Dashboard**. It lists every credential issued to you.
+`[Screenshot: Wallet view (My Dashboard)]`
 
 ### Finding a credential
 
@@ -129,6 +132,8 @@ status pill. A card may also show:
   available (see section 6).
 - A globe icon if the credential is currently visible on your public profile.
 
+`[Screenshot: Wallet card showing Renewed badge and visibility icon]`
+
 Long lists are paginated at 10 per page.
 
 ---
@@ -144,7 +149,7 @@ Select any card or row to open the detail view. It shows:
 - **Blockchain ID**, with a copy button beside it
 - **Skills** attached to the credential
 
-Two buttons at the bottom: **See history** and **Export PDF**.
+Two buttons at the bottom: **See history** and **Export PDF**. `[Screenshot: Credential details view]`
 
 ---
 
@@ -164,10 +169,12 @@ transaction ID from the blockchain, and a reason where one applies.
 
 If your credential was renewed, the timeline merges the full chain, so you see the original
 issue, its expiry, and the reissue in one place, rather than a partial history.
+`[Screenshot: Blockchain History timeline]`
 
 **Verification Proof Trail.** A list of every time someone verified this credential: when, and
 which verified email address checked it. This is your evidence that a credential was actually
 used and accepted.
+`[Screenshot: Verification Proof Trail list]`
 
 If the trail is still loading, you will see a loading indicator rather than an empty message.
 
@@ -182,7 +189,7 @@ Public credentials appear on your shared profile and can be included in a portfo
 
 1. Open the credential (section 5).
 2. Select the **Visibility** button. It switches between **Public** and **Private** and saves
-   immediately.
+   immediately. `[Screenshot: Visibility toggle in credential details]`
 
 You can also do this from your Profile page, on any credential card.
 
@@ -202,18 +209,18 @@ There are two ways to share, and they suit different situations.
 
 ### 8.1 Share with anyone
 
-1. Open the avatar menu, then select **Profile**.
-2. Select **Share Profile**.
-3. Select the **Anyone with Link** tab. The link is prepared automatically.
-4. Select **Copy Link**.
+1. Open the avatar menu, then select **Profile**. `[Screenshot: Avatar menu, Profile option]`
+2. Select **Share Profile**. `[Screenshot: Share Profile option]`
+3. Select the **Anyone with Link** tab. The link is prepared automatically. `[Screenshot: Anyone with Link tab]`
+4. Select **Copy Link**. `[Screenshot: Copy Link button]`
 
 ### 8.2 Share with one named person
 
 **Prerequisite:** the recipient's email address.
 
 1. Open the avatar menu, then **Profile**, then **Share Profile**.
-2. Select the **Specific Recipient** tab.
-3. Fill in the form:
+2. Select the **Specific Recipient** tab. `[Screenshot: Specific Recipient tab]`
+3. Fill in the form: `[Screenshot: Specific Recipient form]`
 
    | Field | Required | Notes |
    |---|---|---|
@@ -222,7 +229,7 @@ There are two ways to share, and they suit different situations.
    | Description | No | A note to yourself, up to 200 characters |
 
 4. Select **Generate and Send Link**. ChainCert emails the link to the recipient, and shows it
-   so you can copy it too.
+   so you can copy it too. `[Screenshot: Generate and Send Link confirmation]`
 
 When the recipient opens the link, they are asked to confirm their email with a code before the
 profile loads.
@@ -231,6 +238,7 @@ profile loads.
 
 Your Profile page has a **My Share Links** section listing every link you have created, with
 its recipient, source, creation date, expiry, view count, and status.
+`[Screenshot: My Share Links list]`
 
 To cancel a link, select **Revoke** on its row. The link stops working immediately.
 
@@ -243,20 +251,22 @@ You can filter this list by status and source, sort it, and search it.
 ### 9.1 A single credential
 
 1. Open the credential (section 5).
-2. Select **Export PDF**.
+2. Select **Export PDF**. `[Screenshot: Export PDF button]`
 
 The PDF contains the credential details, the badge image, the skills, and a QR code that links
 to live verification. Anyone scanning it sees the credential's current status, not a snapshot.
+`[Screenshot: Exported credential PDF]`
 
 ### 9.2 Your whole portfolio
 
 **Prerequisite:** at least one credential set to Public. The **Export all** button is disabled
 otherwise, and explains why when you hover over it.
 
-1. On your wallet, select **Export all**.
+1. On your wallet, select **Export all**. `[Screenshot: Export all button]`
 
 The portfolio PDF includes **only your public credentials**, each with its own QR code, and a
 cover page with a link to your public profile.
+`[Screenshot: Portfolio PDF export]`
 
 > Exporting a portfolio creates a public share link automatically so the cover page link works.
 > It will appear in **My Share Links** as "Portfolio Export". You can revoke it like any other
@@ -266,6 +276,7 @@ cover page with a link to your public profile.
 
 If your export includes a revoked credential, a confirmation appears first, listing which ones
 and warning that anyone verifying will see the revoked status.
+`[Screenshot: Revoked credential export confirmation]`
 
 You can still proceed. Select **Export anyway**, or **Cancel** to go back.
 
@@ -273,23 +284,27 @@ A revoked credential's PDF shows a clear **REVOKED** banner, the revocation date
 the issuer gave. This is deliberate: revocation is not always a mark against you (a credential
 may be revoked because it was reissued with a correction, or because a membership ended), and
 showing the reason lets the reader tell the difference.
+`[Screenshot: Exported PDF with REVOKED banner]`
 
 ---
 
 ## 10. Insights and renewal alerts
 
-Select the **Insights** tab on your dashboard.
+Select the **Insights** tab on your dashboard. `[Screenshot: Insights tab]`
 
 **Credential Health.** A breakdown of your credentials by state, with a plain-language summary.
 It includes a "Before you share" note pointing out anything revoked or expiring soon.
+`[Screenshot: Credential Health breakdown]`
 
 **Renewal alerts.** Appears only when you have a credential expiring within 60 days, or already
 expired. Each row shows how long is left (or how long ago it expired), with a **View** button
 and a **Request renewal** button.
+`[Screenshot: Renewal alerts list]`
 
 **Verification Insights.** How many times your credentials have been checked, by how many
 distinct verifiers, and how many checks returned valid. It also lists your most-checked
 credentials.
+`[Screenshot: Verification Insights panel]`
 
 ---
 
@@ -300,9 +315,10 @@ requests when they created it.
 
 1. Go to the **Insights** tab.
 2. Find the credential under **Renewal alerts**.
-3. Select **Request renewal**.
+3. Select **Request renewal**. `[Screenshot: Request renewal button]`
 
 The button changes to **Renewal requested** and stays that way, including after you reload.
+`[Screenshot: Renewal requested state]`
 
 The issuer sees your request in their queue. If they approve it, a renewed credential appears
 in your wallet, and your wallet card shows a "Renewed" badge.
@@ -318,14 +334,15 @@ in your wallet, and your wallet card shows a "Renewed" badge.
 Your public profile is what someone sees when they open a share link.
 
 To see it as others will, go to **Profile**, then select **Preview Public Profile**.
+`[Screenshot: Preview Public Profile]`
 
 ### Editing your profile
 
-1. Go to **Profile**, then select **Edit Profile**.
+1. Go to **Profile**, then select **Edit Profile**. `[Screenshot: Edit Profile]`
 2. You can change your Full Name, your Personal Summary (up to 600 characters), and whether
-   your profile is public.
-3. To change your picture, select the pencil button on your avatar and choose an image.
-4. Select **Save Changes**, or **Cancel** to discard.
+   your profile is public. `[Screenshot: Edit Profile form]`
+3. To change your picture, select the pencil button on your avatar and choose an image. `[Screenshot: Avatar picture upload]`
+4. Select **Save Changes**, or **Cancel** to discard. `[Screenshot: Profile changes saved confirmation]`
 
 Your picture is only uploaded when you select Save Changes.
 
@@ -333,10 +350,10 @@ Your picture is only uploaded when you select Save Changes.
 
 By default your profile lists credentials most-recent-first. To arrange them yourself:
 
-1. Go to **Profile**, then the **Credential Wallet** section.
-2. Set the sort dropdown to **Custom order**.
+1. Go to **Profile**, then the **Credential Wallet** section. `[Screenshot: Credential Wallet section on profile]`
+2. Set the sort dropdown to **Custom order**. `[Screenshot: Custom order sort dropdown]`
 3. Clear the search box and both filters.
-4. Drag credentials by the handle on each card.
+4. Drag credentials by the handle on each card. `[Screenshot: Dragging credential by handle]`
 
 The order saves automatically. Dragging is only available when sorting is set to Custom order
 and no filters are active, because a filtered list cannot define a full order.
@@ -345,23 +362,25 @@ and no filters are active, because a filtered list cannot define a full order.
 
 Below your credentials, ChainCert collects the skills from all of them into one list. Select any
 skill to see which credentials it came from.
+`[Screenshot: Skills Wallet list]`
 
 ---
 
 ## 13. Account settings
 
-Open the avatar menu, then **Settings**.
+Open the avatar menu, then **Settings**. `[Screenshot: Settings page, Account tab]`
 
 **Account.** Your email, name, user ID, and account type. These are read-only here; change your
 name from the Profile page.
 
 **Notifications.** Preference toggles are visible but not yet active. This is noted on the page.
+`[Screenshot: Settings, Notifications tab]`
 
 **Security.** To change your password:
 
-1. Select **Change Password**.
-2. Enter your current password, then your new password twice.
-3. Select **Change Password**.
+1. Select **Change Password**. `[Screenshot: Settings, Security tab]`
+2. Enter your current password, then your new password twice. `[Screenshot: Change Password form]`
+3. Select **Change Password**. `[Screenshot: Password changed confirmation]`
 
 Your new password must be different from your current one.
 

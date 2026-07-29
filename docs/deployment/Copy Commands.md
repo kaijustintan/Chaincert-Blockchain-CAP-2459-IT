@@ -16,7 +16,6 @@
 - `enrollAdmin.js`
 - `enrollOrg2Admin.js`
 - `enrollChaincertAdmin.js`
-- `authenticationService.js`
 - `couchDB_service.js`
 - `mailerService.js`
 - `securityHelpers.js`
@@ -109,9 +108,6 @@ cp "/mnt/c/Users/kaita/OneDrive/Desktop/CAP-2459-IT-AFTER-RESET/backend/setupWal
 
 # enrollChaincertAdmin.js
 cp "/mnt/c/Users/kaita/OneDrive/Desktop/CAP-2459-IT-AFTER-RESET/backend/enrollChaincertAdmin.js" ~/chaincert-api/enrollChaincertAdmin.js
-
-# authenticationService.js
-cp "/mnt/c/Users/kaita/OneDrive/Desktop/CAP-2459-IT-AFTER-RESET/src/services/authenticationService.js" ~/chaincert-api/authenticationService.js
 
 # couchDB_service.js
 cp "/mnt/c/Users/kaita/OneDrive/Desktop/CAP-2459-IT-AFTER-RESET/backend/couchDB_service.js" ~/chaincert-api/couchDB_service.js

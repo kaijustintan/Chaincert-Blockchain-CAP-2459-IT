@@ -2,6 +2,46 @@ import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 
 /*
+  DEV-SERVER CommonJS interop for src/utils/nameSimilarity.js.
+
+  The build handles this file via build.commonjsOptions.include below — but that option configures
+  ROLLUP, which only runs for `npm run build`. The dev server (`npm start`) is a different pipeline
+  entirely: esbuild plus native browser ES modules, with no CommonJS interop applied to source files.
+  So the browser received a file whose only export statement was `module.exports = {...}`, found no
+  ESM exports on it, and refused to link the module:
+
+    Uncaught SyntaxError: The requested module '/src/utils/nameSimilarity.js'
+    does not provide an export named 'default'
+
+  That crashed the whole SPA to a white screen, because issuerDashboardPage.js imports it and App.js
+  loads that page eagerly. Webpack (CRA) applied the interop in both modes, which is why the gap only
+  appeared after the Vite migration — and why a green `npm run build` did not catch it.
+
+  The file must stay CommonJS: deploy-sync.sh copies it verbatim to ~/chaincert-api/utils/, where the
+  Express controller loads it with require(). Converting it to ESM would break the backend at boot.
+
+  So instead of touching the shared file, wrap it at dev-serve time in the same shim Rollup's commonjs
+  plugin produces for the build: give it the `module`/`exports` objects CommonJS expects, then re-export
+  the result as an ESM default. apply:'serve' keeps this out of the build (where commonjsOptions already
+  handles it), and enforce:'pre' runs it on the raw source before Vite's esbuild pass.
+*/
+function nameSimilarityDevInterop() {
+  const target = /src[\\/]utils[\\/]nameSimilarity\.js$/;
+  return {
+    name: 'dev-cjs-interop-name-similarity',
+    apply: 'serve',
+    enforce: 'pre',
+    transform(code, id) {
+      if (!target.test(id.split('?')[0])) return null;
+      return {
+        code: `const module = { exports: {} };\nconst exports = module.exports;\n${code}\nexport default module.exports;`,
+        map: null
+      };
+    }
+  };
+}
+
+/*
   Vite configuration — replaces Create React App (react-scripts).
 
   Why the migration: react-scripts@5.0.1 shipped in January 2022 and CRA was formally deprecated by
@@ -13,7 +53,7 @@ import react from '@vitejs/plugin-react';
   rewrites. Each is explained at its option.
 */
 export default defineConfig({
-  plugins: [react()],
+  plugins: [nameSimilarityDevInterop(), react()],
 
   /*
     (1) KEEP the REACT_APP_ prefix.

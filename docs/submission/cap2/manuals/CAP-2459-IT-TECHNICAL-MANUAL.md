@@ -417,7 +417,7 @@ The backend exposes a collection of RESTful API endpoints grouped by domain.
 | `GET /api/credentials/issued` | Retrieve issued credentials |
 | `GET /api/credentials/issuer/:issuerID` | Get credentials by issuer ID |
 | `GET /api/credentials/:id/history` | Get blockchain history of credential |
-| `POST /api/credentials/:credentialId/issue` | Issue credential to holder |
+| `POST /api/credentials/:credentialId/issue` | Issue credential to holder. Returns **409** if the holder already has an active copy of this credential, **400** if the expiry date is in the past (unless `ALLOW_PAST_EXPIRY=true`), **403** if the template belongs to another issuer, and **503** if the duplicate check itself cannot be completed (fail-closed — see below) |
 | `POST /api/credentials/:credentialId/revoke` | Revoke credential |
 | `POST /api/credentials/verify/request-otp` | Verifier email OTP — send code (proves email before logging) |
 | `POST /api/credentials/verify/confirm-otp` | Verifier email OTP — confirm code, return proof token |
@@ -439,8 +439,8 @@ The backend exposes a collection of RESTful API endpoints grouped by domain.
 | `GET /api/admin/pending-subordinate-root-approved` | Get root-approved subordinates |
 | `POST /api/admin/approve-issuer/:issuerId` | Approve issuer application |
 | `POST /api/admin/reject-issuer/:issuerId` | Reject issuer application |
-| `POST /api/admin/disable-issuer/:issuerId` | Disable an issuer |
-| `POST /api/admin/enable-issuer/:issuerId` | Enable an issuer |
+| `POST /api/admin/disable-issuer/:issuerId` | Disable an issuer. Returns **409** unless the issuer is currently `approved` or `active` |
+| `POST /api/admin/enable-issuer/:issuerId` | Enable an issuer. Returns **409** unless the issuer is currently `disabled` — enable is a re-activation, not an approval shortcut, so it cannot be used to promote an issuer that was never approved or was explicitly rejected |
 | `POST /api/admin/disable-user/:userId` | Disable a user |
 | `POST /api/admin/enable-user/:userId` | Enable a user |
 | `GET /api/admin/root/subordinates/pending` | Root: pending subordinates |
@@ -756,11 +756,22 @@ This design improves: frontend response speed, dashboard query efficiency, separ
 Security mechanisms include:
 
 - **Identity Security** — Hyperledger Fabric identities use X.509 certificates issued by Fabric Certificate Authorities.
-- **Authentication** — API authentication uses JWT tokens. Tokens are attached via the Authorization header and decoded by Express middleware on every request.
-- **Password Security** — Passwords are hashed using bcrypt (bcryptjs). Forgot-password flow uses time-limited OTP codes sent via email.
+- **Authentication** — API authentication uses JWT tokens. Tokens are attached via the Authorization header and decoded by Express middleware on every request. The signing secret is mandatory: the server refuses to boot without `JWT_SECRET`, and there is no fallback value.
+- **Authorization** — Route-level guards (`requireAuth`, `requireRole`, `requireAdmin`, `requireAnyRole`) are applied at the router, not left to individual handlers. Resource ownership is always derived from the authenticated `req.user.id` rather than from a URL parameter, so a holder cannot read another holder's wallet by changing an id.
+- **Ownership of credentials** — Issuing from, or revoking, a credential template is checked against the template's owning issuer at both the API layer and in the chaincode, so one issuer cannot act in another's name.
+- **Password Security** — Passwords are hashed using bcrypt (bcryptjs). A strength policy (minimum length plus a common-password blocklist) is applied at every point where a password is set. Forgot-password flow uses time-limited OTP codes sent via email.
+- **One-time passcodes** — All OTP flows (forgot-password, profile access, verifier email proof, signup email proof) generate codes with a cryptographic random source and compare them in constant time, with a cap on wrong guesses per window.
+- **Rate Limiting** — Per-IP limiting on login, forgot-password, and reset endpoints, plus per-account counters on OTP requests.
+- **Uploads** — Size-capped and validated by file signature rather than by the client-supplied content type.
+- **Error Handling** — Server errors return a generic message plus a correlation id; exception messages and stack traces are not sent to the client.
 - **Ledger Integrity** — Hyperledger Fabric ensures immutable ledger storage. The admin can trigger a CouchDB vs blockchain integrity check that performs field-by-field comparison of credential records.
 - **Audit Logging** — All major governance actions (issuer approval/rejection, user enable/disable, subordinate decisions, admin password changes, credential verifications) are recorded on the blockchain.
-- **Email Validation** — Email validation uses regex on registration to prevent invalid email addresses.
+- **Email Validation** — Email validation uses regex on registration to prevent invalid email addresses. Outbound mail additionally rejects recipient addresses containing separators or line breaks, which prevents a user-supplied address from being used to inject extra recipients or forge mail headers.
+- **State-transition guards** — Governance actions validate the current state before acting, so an operation cannot be used to reach a state it was not meant to grant. Enabling an issuer, for example, only re-activates a `disabled` account; it cannot promote one that was never approved.
+
+> These describe what the system does. For what it deliberately does **not** do — including the fact
+> that the chaincode performs no authorization of its own and trusts the API's identity claims — see
+> `LIMITATIONS.md` in the repository root, and §15 below.
 
 ### 13.1 Environment Configuration
 
@@ -779,6 +790,11 @@ The backend reads its configuration from `~/chaincert-api/.env`, which is not co
 | `DISABLE_PASSWORD_POLICY` | No | Testing toggle that bypasses the password-strength policy. Must be unset for production. |
 | `DISABLE_SIGNUP_OTP` | No | Testing toggle that bypasses the signup email-OTP gate. Must be unset for production. |
 | `DISABLE_ISSUER_TOGGLE` | No | Testing toggle that freezes issuer enable/disable actions. Must be unset for production. |
+| `ALLOW_PAST_EXPIRY` | No | Testing toggle that bypasses the guard rejecting issuance with a same-day or past expiry date, so already-expired credentials can be created for UAT. Must be unset for production. |
+
+Each of the five testing toggles prints an individual warning at startup, followed by a single
+consolidated line listing every toggle currently active — so an operator can confirm at a glance that
+none are enabled, rather than having to know in advance which ones exist.
 
 The React frontend reads two build-time variables, baked into the bundle at `npm run build`:
 
@@ -786,6 +802,11 @@ The React frontend reads two build-time variables, baked into the bundle at `npm
 |---|---|
 | `REACT_APP_API_URL` | Backend API base URL (default `http://localhost:4000/api`). |
 | `REACT_APP_FRONTEND_URL` | Public site base used for the verification link in exported credential PDFs (default `http://localhost:3000`). |
+
+The `REACT_APP_` prefix is retained under Vite (configured through `envPrefix` in `vite.config.js`)
+so that existing `.env` files, deployment scripts, and manuals continue to work unchanged. As with
+any build-time variable, these are **baked into the published bundle and are therefore public** —
+never place a secret in one.
 
 ---
 
@@ -829,7 +850,6 @@ The ChainCert backend requires the following npm packages, installed via `npm in
 | multer | Handles multipart file uploads (issuer document submissions) |
 | nodemailer | Email delivery for OTP codes (forgot password, share link verification) |
 | node-cron | Scheduled job execution (midnight credential expiry check) |
-| dockerode | Docker API client for container management |
 | fabric-network | Hyperledger Fabric SDK for gateway connections and transaction submission |
 | fabric-ca-client | Fabric Certificate Authority client for identity enrollment |
 | nano | CouchDB client library for database operations |
@@ -840,14 +860,16 @@ The ChainCert backend requires the following npm packages, installed via `npm in
 |---|---|
 | react / react-dom | Core UI library (React 19) |
 | react-router-dom | Client-side routing across all role dashboards |
+| vite / @vitejs/plugin-react | Build system and development server. Replaced `react-scripts` (Create React App) in August 2026, after CRA was deprecated upstream and its build chain became the source of most of the project's unresolvable dependency advisories. **Requires Node 20.19+ or 22.12+.** |
 | axios | HTTP client for backend API calls (via `axiosInstance.js`) |
 | recharts | Charting library for the dashboard analytics and reports |
 | framer-motion | Page-transition animations |
 | lucide-react | Icon set used throughout the interface |
 | jspdf | Generates downloadable PDF files for credential export |
 | qrcode | Generates QR codes embedded in exported credential PDFs |
-| pdfjs-dist | Parses uploaded credential PDFs for bulk verification |
+| pdfjs-dist | Parses uploaded credential PDFs for bulk verification. Loaded with `isEvalSupported: false` to close CVE-2024-4367, since the PDFs it parses are supplied by whoever is verifying and are therefore untrusted. |
 | dompurify | Sanitizes user-supplied text before rendering |
+| vitest / jsdom / @testing-library/* | Test runner and DOM environment (development only). Replaced the Jest runner that came bundled with `react-scripts`. |
 
 **Chaincode Dependencies** (installed in `~/chaincert-chaincode`):
 
@@ -877,13 +899,22 @@ The following are known limitations, trade-offs, and areas for improvement that 
 > Additional Phase 5 measures: object-level authorization on wallet endpoints (BOLA fix), centralized
 > admin auth guards, login anti-enumeration, helmet security headers, file-upload magic-number
 > validation, a password-strength policy, centralized error handling, and a daily automated integrity
-> check with admin alerts. The remaining limitations:
+> check with admin alerts.
+>
+> **Further updated after the pre-publication hardening pass (August 2026),** which closed four
+> unauthenticated holes (self-registration as an administrator, an open endpoint returning all user
+> records including password hashes and live reset codes, an open verification log, and cross-issuer
+> issue/revoke), plus several authorization-layer gaps that were only reachable by an already-authorised
+> caller. The full record — including what was deliberately left open and why — is in `LIMITATIONS.md`
+> at the repository root. The remaining limitations:
 
-- CouchDB credentials hardcoded as `admin:adminpw` across all files. Production: use environment variables.
+- CouchDB connection URL is now environment-driven (`COUCHDB_URL`), but the default credentials remain the shared `admin:adminpw` pair. Production: issue per-service credentials and rotate them.
 - JWT tokens stored in `localStorage` (XSS-vulnerable). Production: migrate to httpOnly cookies.
 - All traffic over HTTP, not HTTPS. Production: add TLS termination.
 - Disabled users' JWT tokens remain valid up to 24 hours (no token blacklist).
 - Shared Fabric admin identity — no per-admin cryptographic attribution. Individual accountability via logged metadata.
+- The chaincode performs no authorization of its own. It trusts the identity claims the API passes in, so the API is the only enforcement point. Production: derive the issuer identity from the submitting client certificate inside the contract.
+- Automated test coverage is minimal, and the backend cannot be unit-tested from a clean checkout because its module paths only resolve after the deployment sync reshapes the directory tree.
 
 ### Architecture
 
@@ -894,7 +925,7 @@ The following are known limitations, trade-offs, and areas for improvement that 
 
 ### Data & Operations
 
-- Dual-write pattern with no multi-database transaction support — partial failures handled by warnings, not automatic rollback.
+- Dual-write pattern with no multi-database transaction support — partial failures handled by warnings, not automatic rollback. Because the blockchain write happens first and cannot be undone, a failed mirror write leaves the ledger correct and the CouchDB copy stale; the API reports this through a `warning` field on an otherwise successful response. There is no reconciliation or repair path, and the one-directional integrity check (above) cannot detect this particular case, because it walks from CouchDB to the ledger and a missing mirror row leaves it nothing to walk from.
 - Credential expiry IS re-checked in real time at verification: `VerifyCredential` compares against end-of-day Manila (+08:00), so a past-expiry credential reads EXPIRED immediately without waiting for any job. The remaining timing gap is only in the persisted `status` field: a credential's stored status stays 'valid'/'issued' on the blockchain until the daily expiry cron (or an admin manual trigger) flips it to 'expired' for dashboards and list views.
 - No notification on credential expiry — holder's credential silently becomes expired.
 - Duplicate prevention relies on CouchDB, not blockchain-level check — partial write failure could allow duplicate issuance.

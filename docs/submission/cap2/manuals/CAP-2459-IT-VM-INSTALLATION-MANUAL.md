@@ -67,8 +67,21 @@ distinguish the four identity types (mixing them up is the #1 cause of setup fai
 
 > **⚠️ Difference from Local Installation:** The local manual's Phase 1 installs **WSL2 + Ubuntu** on
 > Windows because Docker/Fabric need Linux. On the VM this is **skipped entirely** — the server is
-> already native **Ubuntu 22.04 LTS**, and Docker 29, Node 18, Nginx, and PM2 were pre-provisioned by
+> already native **Ubuntu 22.04 LTS**, and Docker 29, Node, Nginx, and PM2 were pre-provisioned by
 > the CCSCloud team. Phase 1 here is **connect + verify**, not install.
+
+> 🔴 **Node must be 20.19+ before the frontend will build.** The VM was originally provisioned with
+> **Node 18**, which was sufficient while the frontend used Create React App. The project has since
+> migrated to **Vite**, which declares `engines: ^20.19.0 || >=22.12.0` — on Node 18 `npm run build`
+> fails outright. Check with `node --version` in step 1.3 and upgrade first if needed:
+>
+> ```bash
+> curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -
+> sudo apt-get install -y nodejs
+> ```
+>
+> The Express API and chaincode run fine on 18 — only the frontend build breaks — so an existing
+> deployment keeps serving its already-built `build/` until you next rebuild.
 
 ### 1.1 SSH into the VM
 
@@ -105,7 +118,7 @@ out-of-band (never in git or a committed file).
 
 ```bash
 docker --version        # expect 29.x
-node --version          # expect v18.x
+node --version          # MUST be v20.19+ (or v22.12+) — see the Node callout above
 npm --version
 nginx -v
 pm2 --version
@@ -589,18 +602,26 @@ cat > .env.production <<EOF
 REACT_APP_API_URL=/api
 REACT_APP_FRONTEND_URL=http://ccscloud.dlsu.edu.ph:20173
 EOF
-npm install
-npm install dompurify           # Gotcha #4 — jspdf@4 needs it; skip if already in package.json
-CI=false npm run build
-ls ~/chaincert-src/build         # index.html + static/
+npm install                      # dompurify is now a declared dependency — no separate install
+npm run build
+ls ~/chaincert-src/build         # index.html + assets/
 ```
 
-**Expected Output:** `Compiled … The build folder is ready to be deployed`; `build/` contains
-`index.html` + `static/js` + `static/css`.
+**Expected Output:** `✓ built in …s`; `build/` contains `index.html` + `assets/` (hashed JS, CSS,
+and images) + the static files copied from `public/`.
 
 **Rationale:** `REACT_APP_API_URL=/api` (relative) makes the SPA call the backend same-origin through
-Nginx — no CORS, no hardcoded IP. CRA bakes `REACT_APP_*` at build time. `CI=false` treats lint
-warnings as warnings, not errors.
+Nginx — no CORS, no hardcoded IP. Vite bakes `REACT_APP_*` into the bundle at build time (the
+`REACT_APP_` prefix is preserved deliberately via `envPrefix` in `vite.config.js`, so no `.env` file
+or manual anywhere needed renaming during the migration).
+
+> **Changed from CRA:** the old `CI=false npm run build` prefix is **no longer needed** — that was a
+> Create React App behaviour where `CI=true` promoted lint warnings to build errors. Vite does not
+> lint during build, so the prefix is inert. Output layout also changed: assets are emitted to
+> `build/assets/` with content hashes, not `build/static/js` + `build/static/css`. The output
+> **directory** is still `build/` (set via `build.outDir`), so the Nginx root and `deploy-sync.sh`
+> are unaffected. Gotcha #4's separate `npm install dompurify` is also obsolete — it is declared in
+> `package.json` now.
 
 ---
 

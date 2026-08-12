@@ -17,8 +17,18 @@ CAP-2459-IT-AFTER-RESET/
 │
 ├── CLAUDE.md                     Project guide for Claude Code: architecture, conventions, change log
 ├── README.md                     Repo readme
-├── package.json / package-lock   Frontend (React 19 / CRA) dependencies + scripts
+├── ARCHITECTURE.md               System architecture overview (layers, data flow, trust boundaries)
+├── LIMITATIONS.md                Accepted limitations + known gaps, with rationale per item
+├── LICENSE                       MIT
+├── package.json / package-lock   Frontend (React 19 / Vite 7) dependencies + scripts
+├── .eslintrc.backend.json        Backend-only ESLint config (CommonJS; the React config does not apply)
 ├── deploy-sync.sh                VM deploy script: clones canonical repo → runtime API + chaincode dirs, patches paths
+│
+├── .github/                      Repo automation + policy
+│   ├── workflows/ci.yml              Lint + build + test on push/PR
+│   ├── workflows/codeql.yml          CodeQL static analysis
+│   ├── dependabot.yml                Dependency update automation
+│   └── SECURITY.md                   Vulnerability reporting policy
 │
 ├── .claude/                      Claude Code configuration for this repo
 │   ├── commands/                 Project slash commands (/new-controller, /sync-backend-only, etc.)
@@ -51,15 +61,19 @@ CAP-2459-IT-AFTER-RESET/
 │
 ├── chaincode/... (channel: chaincert-channel, contract: chaincert)
 │
-├── public/                       CRA static root
-│   ├── index.html                    HTML shell
+├── index.html                    Vite HTML entry point (REPO ROOT — moved out of public/ by the
+│                                     Vite migration; public/index.html was deleted)
+├── vite.config.js                Build config: build/ output dir, REACT_APP_ env prefix, JSX-in-.js
+│                                     loader, CommonJS interop for nameSimilarity.js, Vitest block
+│
+├── public/                       Static assets copied verbatim into build/ (no longer the HTML root)
 │   ├── manifest.json / robots.txt / favicon.ico
 │   └── assets/                        Static images/assets served as-is
 │
 ├── src/                          React frontend SPA (EXCEPT controllers/ + routes/, which are backend)
 │   ├── App.js                        The only router: public / protected / admin routes + page transitions
 │   ├── index.js                      React entry point
-│   ├── App.test.js / setupTests.js / reportWebVitals.js   CRA test + metrics scaffolding
+│   ├── setupTests.js / reportWebVitals.js   Test setup + metrics scaffolding
 │   ├── logo.svg
 │   │
 │   ├── assets/                       Frontend images, logos, badge art
@@ -70,16 +84,16 @@ CAP-2459-IT-AFTER-RESET/
 │   │   ├── adminDashboard.js             Admin: issuer queues, users, audit, analytics & reports
 │   │   ├── verifierDashboard.js          Verifier: single + bulk credential verification
 │   │   ├── loginPage.js / createAccount.js / forgotPassword.js   Auth flows (with signup OTP)
-│   │   ├── profilePage.js / profilePreview.js / shareCredentialPage.js   Profile + public share links
+│   │   ├── profilePage.js / profilePreview.js   Profile + public share links
 │   │   ├── credentialHistoryPage.js      Per-credential blockchain history / provenance
 │   │   ├── issuerDirectory.js            Public searchable issuer directory
 │   │   ├── landingHomePage.js / aboutUsPage.js / helpPage.js   Marketing / info pages
-│   │   ├── notifPage.js / settingsPage.js / requestAccessPage.js   Notifications, settings, access requests
-│   │   ├── BadgeDetailsProfilePreviewPage.js   Public badge detail view
-│   │   └── transcript.js                 Unrouted / legacy (not wired into App.js)
+│   │   ├── settingsPage.js               Account settings
+│   │   └── BadgeDetailsProfilePreviewPage.js   Public badge detail view
 │   │
 │   ├── components/                   Shared React components
-│   │   ├── ui/                            Design-system primitives (cc-* Button, Card, Modal, DataTable, etc.)
+│   │   ├── ui/                            Design-system primitives (cc-* Button, Card, Modal, StatusPill,
+│   │   │                                    Field, EmptyState, Pagination, InfoHint, AppShell/Sidebar)
 │   │   ├── analytics/                     Analytics layer: aggregation helpers + chart wrappers
 │   │   │   ├── analytics.js                   Pure aggregation helpers (compute* functions, null-tolerant)
 │   │   │   ├── DonutChart.jsx / TrendBars.jsx / Sparkline.jsx   recharts wrappers
@@ -87,7 +101,6 @@ CAP-2459-IT-AFTER-RESET/
 │   │   │   └── CredentialHistory.jsx          Shared blockchain-history timeline (holder/issuer/admin)
 │   │   ├── navBar_User.js / navBar_Guest/     Navigation bars (authenticated vs guest)
 │   │   ├── protectedRoutes.js / adminProtectedRoutes.js   Route guards (JWT / admin role)
-│   │   ├── credentialCard.js              Wallet credential card
 │   │   ├── passwordInput.jsx / passwordCriteria.jsx   Password field with reveal + strength UI
 │   │   ├── welcomeModal.jsx               First-visit role/nav primer
 │   │   ├── appToast.js / footer.js        Toast notifications, footer
@@ -119,10 +132,15 @@ CAP-2459-IT-AFTER-RESET/
 │   │   ├── authenticationService.js       FRONTEND auth helper (localStorage/window) — NOT a backend file
 │   │   └── pdfExportService.js            Credential PDF rendering (jsPDF + qrcode)
 │   │
-│   ├── utils/                       Small frontend utilities
+│   ├── utils/                       Small frontend utilities — EXCEPT nameSimilarity.js (see below)
 │   │   ├── credentialStatus.js            Effective status (effective expiry, badge computation)
 │   │   ├── credentialLineage.js           Reissue/renewal lineage derivation
-│   │   ├── formatDate.js / userDisplay.js / clipboard.js   Formatting + clipboard helpers
+│   │   ├── userDisplay.js / clipboard.js  Display-name + clipboard helpers
+│   │   ├── nameSimilarity.js              ⚠️ CommonJS — the ONE file here that ALSO deploys to the
+│   │   │                                    backend (~/chaincert-api/utils/). Shared by the issuer
+│   │   │                                    near-match name check on both sides. Never glob src/utils/
+│   │   │                                    when syncing; copy this file by name.
+│   │   ├── nameSimilarity.test.js         Vitest unit tests for the near-match rules (15 cases)
 │   │   └── cryptoPolyfill.js              Crypto polyfill for the browser
 │   │
 │   └── styles/                      CSS: design tokens + per-page/component stylesheets (~25 files)

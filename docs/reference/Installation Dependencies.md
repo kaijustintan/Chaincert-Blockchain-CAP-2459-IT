@@ -29,13 +29,13 @@ The development and deployment environment requires the following system-level c
 - Windows Subsystem for Linux (WSL2)
 - Docker Desktop (with WSL integration enabled)
 - Git
-- Node.js (version 18 or compatible)
+- Node.js (version 20.19+ or 22.12+ — required by the Vite build; Node 18 cannot build the frontend)
 - npm (Node Package Manager)
 
 #### Ubuntu Environment (WSL)
 
 - Ubuntu distribution installed through WSL
-- Node.js (version 18 or compatible)
+- Node.js (version 20.19+ or 22.12+ — required by the Vite build; Node 18 cannot build the frontend)
 - npm
 - curl
 - wget
@@ -68,7 +68,8 @@ The ChainCert frontend is implemented as a React-based web application and runs 
 | `react` | JavaScript library for building the user interface |
 | `react-dom` | DOM renderer used by React |
 | `react-router-dom` | Handles routing between application pages |
-| `react-scripts` | Build system and development scripts for React applications |
+| `vite` | Build system and development server. **Replaced `react-scripts` (Create React App)**, which was deprecated upstream and was the source of most of the project's unfixable dependency advisories. Requires Node 20.19+. |
+| `@vitejs/plugin-react` | Vite plugin providing React Fast Refresh and JSX transformation. |
 | `axios` | HTTP client used for communication with the backend API |
 
 ### User Interface Libraries
@@ -93,6 +94,9 @@ The ChainCert frontend is implemented as a React-based web application and runs 
 
 The following libraries are used for testing and development validation but are not required for production deployment:
 
+- `vitest` — test runner. Replaced the Jest runner that came bundled with `react-scripts`; configured in the `test` block of `vite.config.js`.
+- `@vitest/coverage-v8` — coverage reporting for Vitest.
+- `jsdom` — browser-like DOM environment the tests run against.
 - `@testing-library/react`
 - `@testing-library/dom`
 - `@testing-library/jest-dom`
@@ -100,16 +104,17 @@ The following libraries are used for testing and development validation but are 
 
 ### Frontend Installation Command
 
-Run the following command inside the frontend project directory:
+In practice, run `npm install` in the repo root — `package.json` and `package-lock.json` pin every
+version, and an explicit install list drifts out of date. The command below is kept for reference only:
 
 ```bash
-npm install react react-dom react-router-dom react-scripts axios jspdf dompurify qrcode pdfjs-dist lucide-react framer-motion recharts web-vitals
+npm install react react-dom react-router-dom vite @vitejs/plugin-react axios jspdf dompurify qrcode pdfjs-dist lucide-react framer-motion recharts web-vitals
 ```
 
 Optional testing libraries may be installed using:
 
 ```bash
-npm install @testing-library/react @testing-library/dom @testing-library/jest-dom @testing-library/user-event
+npm install -D vitest @vitest/coverage-v8 jsdom @testing-library/react @testing-library/dom @testing-library/jest-dom @testing-library/user-event
 ```
 
 ## 5. Backend API Dependencies
@@ -154,7 +159,7 @@ The ChainCert backend server is implemented using Node.js and Express and runs w
 
 | Library | Purpose |
 |---|---|
-| `dockerode` | Allows the backend to programmatically interact with Docker containers |
+| ~~`dockerode`~~ | **REMOVED (August 2026) — do not reinstate.** The API instantiated the client but never called it, and that dead instantiation held an open handle to the root-equivalent Docker socket. It granted full host control to any code-execution flaw in the API process, in exchange for no functionality. |
 
 ### Blockchain Integration
 
@@ -169,7 +174,7 @@ Run the following commands in the backend directory:
 
 ```bash
 cd ~/chaincert-api
-npm install express cors dotenv helmet bcryptjs jsonwebtoken multer nodemailer node-cron dockerode fabric-network fabric-ca-client
+npm install express cors dotenv helmet bcryptjs jsonwebtoken multer nodemailer node-cron nano fabric-network fabric-ca-client
 ```
 
 ### Backend Environment Variables (`~/chaincert-api/.env`)

@@ -239,9 +239,20 @@ nothing about behavior.
 variables, `react-hooks/exhaustive-deps`). CI deliberately does not fail on them, because a
 permanently red pipeline gets ignored. Clean them up, then turn enforcement on.
 
-**A green build does not mean the app runs.** This repository has been bitten twice by hook and
-render-order mistakes that compile cleanly and throw only at runtime. Load the affected page before
-believing a change works.
+**A green build does not mean the app runs.** This repository has been bitten three times now by
+changes that compile cleanly and fail only at runtime — twice by hook and render-order mistakes, and
+once by the Vite migration itself, where `npm run build` passed while `npm start` crashed the entire
+SPA to a white screen.
+
+That third case is worth stating precisely, because it generalises: **the build and the dev server
+are separate pipelines that share almost nothing.** `build.commonjsOptions` configures Rollup, which
+only runs for `npm run build`. The dev server uses esbuild plus native browser ES modules and applies
+no CommonJS interop to source files. So `src/utils/nameSimilarity.js` — which must remain CommonJS
+because the Express backend loads the same file with `require()` — linked fine in the build and threw
+`does not provide an export named 'default'` in dev, taking the whole app down with it because an
+eagerly-loaded page imports it. It is now handled in both pipelines (`commonjsOptions` for the build,
+a dev-only Vite plugin for serve). **Verify both commands after any build-config change.** Load the
+affected page.
 
 ---
 
@@ -269,8 +280,18 @@ Fixed in the production-readiness pass that followed:
 
 - **A template ID verifying as a valid credential.** `VerifyCredential` never checked `isTemplate`,
   and templates carry `status: 'active'`, so any template ID — discoverable through the public
-  issuer directory — returned `valid: true` from the public verify endpoint. *(Requires the
-  chaincode redeploy to take effect.)*
+  issuer directory — returned `valid: true` from the public verify endpoint. *(This one needed a
+  chaincode redeploy, not just a source change; deployed locally at version 25.0 / sequence 25 on
+  2026-08-12. Each environment's counters are independent, so confirm with `peer lifecycle chaincode
+  querycommitted` before assuming any other environment has it.)*
+- **Duplicate issuance being unenforced on the write path.** `getBlockedHolderIDsByTemplate` was
+  called from exactly one place — the endpoint that populates the recipient dropdown — so the rule
+  only ever filtered a UI list. A direct POST, or the batch-issue loop, wrote a second live copy
+  without objection, and the chaincode was no backstop because `IssueCredential` mints a key
+  containing the transaction timestamp and therefore never collides. The check now runs inside
+  `Issue_Credential` itself and fails **closed** (503) if the lookup errors, on the reasoning that a
+  retry costs the issuer a minute whereas proceeding writes an immutable duplicate that cannot be
+  withdrawn.
 - **`Enable_Issuer` bypassing the entire approval chain.** The service had no status guard and
   unconditionally set `status = "approved"`, letting an admin promote a subordinate the root
   authority never approved (or explicitly rejected), while skipping Fabric identity provisioning

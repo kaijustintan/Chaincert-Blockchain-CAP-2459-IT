@@ -166,24 +166,31 @@ Setting up git...
 
 Source: OG SETUP
 
-### 1.6 Install Node.js v18
+### 1.6 Install Node.js v20
 
 **Directory:** Ubuntu Terminal (WSL)
 
 ```bash
-curl -fsSL https://deb.nodesource.com/setup_18.x | sudo -E bash -
+curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -
 sudo apt-get install -y nodejs
 ```
 
-**What it does:** Adds the NodeSource repository and installs Node.js version 18, including npm.
+**What it does:** Adds the NodeSource repository and installs Node.js version 20, including npm.
 
 **Expected Output:**
 ```
-node --version  v18.x.x
-npm --version   9.x.x
+node --version  v20.x.x
+npm --version   10.x.x
 ```
 
 **Rationale:** Node.js is required for running Fabric chaincode written in JavaScript and running the ChainCert backend API.
+
+> ⚠️ **Version 20 is a hard floor, not a preference.** The frontend build tool (Vite) declares
+> `engines: ^20.19.0 || >=22.12.0`. On Node 18, `npm run build` fails outright. Earlier revisions
+> of this manual specified Node 18, which was correct while the frontend used Create React App —
+> the project migrated to Vite after that, so any environment provisioned from the older
+> instructions must upgrade Node before it can build the frontend. The Express API and the
+> chaincode themselves still run fine on 18; only the build breaks.
 
 Source: OG SETUP
 
@@ -318,14 +325,23 @@ Source: OG SETUP
 **Directory:** `~/chaincert-api`
 
 ```bash
-npm install express cors fabric-network fabric-ca-client jsonwebtoken bcryptjs multer dockerode node-cron nodemailer nano dotenv
-# Install frontend dependencies (run from Windows project folder)
-npm install jspdf qrcode
+npm install express cors helmet fabric-network fabric-ca-client jsonwebtoken bcryptjs multer node-cron nodemailer nano dotenv
+# Install frontend dependencies (run from the Windows project folder)
+npm install
 ```
 
-**What it does:** Installs backend dependencies: Express (REST API server), Fabric SDK (blockchain interaction), JWT (authentication), bcrypt (password hashing), multer (file uploads), dockerode (Docker control), node-cron (credential expiry automation), nodemailer (email OTP), nano (CouchDB client), dotenv (environment variables).
+**What it does:** Installs backend dependencies: Express (REST API server), helmet (security response headers), Fabric SDK (blockchain interaction), JWT (authentication), bcrypt (password hashing), multer (file uploads), node-cron (credential expiry automation), nodemailer (email OTP), nano (CouchDB client), dotenv (environment variables).
 
-**Rationale:** These libraries enable the backend API to authenticate users, interact with blockchain, manage document uploads, and control Docker containers. Node-cron allows the system to periodically check for credentials whose expiration date has passed.
+**Rationale:** These libraries enable the backend API to authenticate users, interact with the blockchain, and manage document uploads. Node-cron allows the system to periodically check for credentials whose expiration date has passed.
+
+> **`dockerode` was removed and must not be reinstated.** It was listed here historically, but the API
+> only ever instantiated the client and never called it. That dead instantiation held an open handle to
+> the Docker socket, which is root-equivalent on the host — so any code-execution flaw in the API
+> process would have escalated to full host control, in exchange for no functionality at all. It was
+> deleted in the August 2026 hardening pass.
+
+> **Frontend dependencies: run a bare `npm install`.** `package.json` and `package-lock.json` pin every
+> version, so listing packages by hand here would drift out of date the moment one changes.
 
 Source: COPY COMMANDS / OG SETUP
 

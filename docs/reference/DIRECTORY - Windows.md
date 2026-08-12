@@ -1,6 +1,8 @@
 # Directory Structure — Windows Working Copy
 `CAP-2459-IT-AFTER-RESET/` (root)
-> `node_modules/`, `.git/`, and `build/` excluded. Regenerated 2026-07-24 (post `docs/` reorg).
+> `node_modules/`, `.git/`, and `build/` excluded. Regenerated 2026-07-24 (post `docs/` reorg),
+> updated 2026-08-12 for the pre-publication cleanup + Vite migration (see the change note at the
+> bottom of this file).
 
 ```
 CAP-2459-IT-AFTER-RESET/
@@ -140,7 +142,7 @@ CAP-2459-IT-AFTER-RESET/
 │   ├── Review-Checklists.md
 │   └── Reference.md
 │
-├── public/
+├── public/                                   ← static passthrough only; no longer the HTML root
 │   ├── assets/
 │   │   ├── background.png
 │   │   ├── background2.png
@@ -148,9 +150,10 @@ CAP-2459-IT-AFTER-RESET/
 │   │   ├── landing-bg.png
 │   │   └── logo512.png
 │   ├── favicon.ico
-│   ├── index.html
 │   ├── manifest.json
 │   └── robots.txt
+│                                             ← public/index.html DELETED (Vite migration): the HTML
+│                                               entry point is now /index.html at the repo root
 │
 ├── src/
 │   ├── assets/
@@ -188,7 +191,6 @@ CAP-2459-IT-AFTER-RESET/
 │   │   ├── navBar_Guest/                     ← empty placeholder dir (no files yet)
 │   │   ├── adminProtectedRoutes.js
 │   │   ├── appToast.js
-│   │   ├── credentialCard.js
 │   │   ├── footer.js
 │   │   ├── navBar_User.js
 │   │   ├── passwordCriteria.jsx              ← password-rule checklist + live confirm-match
@@ -220,15 +222,16 @@ CAP-2459-IT-AFTER-RESET/
 │   │   ├── issuerDirectory.js
 │   │   ├── landingHomePage.js
 │   │   ├── loginPage.js
-│   │   ├── notifPage.js
 │   │   ├── profilePage.js
 │   │   ├── profilePreview.js
-│   │   ├── requestAccessPage.js
 │   │   ├── settingsPage.js
-│   │   ├── shareCredentialPage.js
 │   │   ├── studentDashboard.js
-│   │   ├── transcript.js                     ← unrouted (no route wired in App.js)
 │   │   └── verifierDashboard.js
+│   │   (DELETED in the pre-publication cleanup — all confirmed 0 consumers first:
+│   │    notifPage.js, requestAccessPage.js — comment-only stubs;
+│   │    transcript.js — 208 lines of fake lecture data, never routed;
+│   │    shareCredentialPage.js — hardcoded third-party mockup badges, WAS live under
+│   │      ProtectedRoutes at /share-credential/:id; route removed from App.js too)
 │   │
 │   ├── routes/                               ← Express routes (deploy → ~/chaincert-api/routes/)
 │   │   ├── adminRoutes.js
@@ -254,7 +257,6 @@ CAP-2459-IT-AFTER-RESET/
 │   │   ├── appToast.css
 │   │   ├── badgeDetailsPage.css
 │   │   ├── createAccount.css
-│   │   ├── dashboard.css
 │   │   ├── footer.css
 │   │   ├── helpPage.css
 │   │   ├── index.css
@@ -266,34 +268,48 @@ CAP-2459-IT-AFTER-RESET/
 │   │   ├── profilePage.css
 │   │   ├── profilePreview.css
 │   │   ├── settingsPage.css
-│   │   ├── shareCredentialPage.css
+│   │   ├── shareCredentialPage.css           ← ⚠️ ORPHANED: its page was deleted; 0 importers, so it
+│   │   │                                       contributes nothing to the bundle. Safe to delete.
 │   │   ├── studentDashboard.css
-│   │   ├── transcript.css
 │   │   └── verifierDashboard.css
+│   │   (dashboard.css + transcript.css DELETED in the pre-publication cleanup — empty / 620 lines
+│   │    of dead CSS for the unrouted transcript page respectively)
 │   │
 │   ├── utils/
 │   │   ├── clipboard.js                      ← HTTP-safe copy-to-clipboard helper
 │   │   ├── credentialLineage.js              ← renewal/reissue lineage (getCredentialLineage + getRenewalCount/getRenewalDates, shared by both PDF export paths)
 │   │   ├── credentialStatus.js               ← effective-status + maxIssueExpiryDate helpers
 │   │   ├── cryptoPolyfill.js                 ← crypto.randomUUID polyfill for plain-HTTP
-│   │   ├── formatDate.js
-│   │   ├── nameSimilarity.js                 ← NEW: duplicate/near-match credential-name rules. CommonJS — the ONLY src/utils file that ALSO deploys to ~/chaincert-api/utils/
+│   │   ├── nameSimilarity.js                 ← duplicate/near-match credential-name rules. CommonJS — the ONLY src/utils file that ALSO deploys to ~/chaincert-api/utils/
+│   │   ├── nameSimilarity.test.js            ← NEW: Vitest unit tests (15 cases) for the near-match rules
 │   │   └── userDisplay.js
+│   │   (formatDate.js DELETED — was a comment-only stub, which is why three pages had each
+│   │    hand-rolled their own formatDate instead of importing it)
 │   │
 │   ├── App.js
-│   ├── App.test.js
 │   ├── index.js
 │   ├── logo.svg
 │   ├── reportWebVitals.js
 │   └── setupTests.js
+│   (App.test.js DELETED — CRA boilerplate test asserting on a "learn react" link that no
+│    longer existed anywhere in the app)
 │
-├── .env
+├── .env                                      ← ⚠️ CHOKIDAR_USEPOLLING + FAST_REFRESH only, both
+│                                               CRA-specific and DEAD since the Vite migration
+├── .env.development                          ← local REACT_APP_* values (git-tracked, no secrets)
 ├── .env.production.example                   ← REACT_APP_* build-time env template
+├── .eslintrc.backend.json                    ← NEW: backend/chaincode-only ESLint config (CommonJS)
+├── .github/                                  ← NEW: CI, CodeQL, Dependabot, SECURITY.md
 ├── .gitignore
+├── ARCHITECTURE.md                           ← NEW: system architecture overview
 ├── CLAUDE.md
+├── LICENSE                                   ← NEW: MIT
+├── LIMITATIONS.md                            ← NEW: accepted limitations + known gaps, with rationale
 ├── deploy-sync.sh                             ← VM day-2-update sync script (git pull → deploy-sync → build/restart)
+├── index.html                                ← NEW: Vite HTML entry point (replaces public/index.html)
 ├── package.json
 ├── package-lock.json
+├── vite.config.js                            ← NEW: Vite build config (replaces react-scripts)
 └── README.md
 ```
 
@@ -307,6 +323,7 @@ CAP-2459-IT-AFTER-RESET/
 | `src/components/` | Shared UI components + design system | React bundle |
 | `src/services/` | Frontend HTTP + PDF (except `authenticationService.js`, also frontend-only) | React bundle |
 | `src/styles/` | Design tokens + per-page CSS | React bundle |
+| `src/utils/` | Frontend helpers — **except `nameSimilarity.js`** | React bundle; that one file ALSO → `~/chaincert-api/utils/` |
 | `src/controllers/` | Express controllers | `~/chaincert-api/controllers/` |
 | `src/routes/` | Express route definitions | `~/chaincert-api/routes/` |
 | `backend/` | API server, CouchDB service, wallet scripts | `~/chaincert-api/` |
@@ -318,3 +335,27 @@ CAP-2459-IT-AFTER-RESET/
 | `.claude/` | Claude Code config (commands, skills, settings) | Synced to WSL home |
 
 > For the Ubuntu-side equivalent paths, see `docs/reference/Directory - Ubuntu.md` (currently stale — flagged for regen).
+
+---
+
+## Change note — 2026-08-12 (pre-publication cleanup + Vite migration)
+
+**Added at the repo root:** `index.html` (Vite entry point), `vite.config.js`, `LICENSE`,
+`ARCHITECTURE.md`, `LIMITATIONS.md`, `.eslintrc.backend.json`, `.env.development`, and `.github/`
+(CI, CodeQL, Dependabot, SECURITY.md). **Added under `src/`:** `utils/nameSimilarity.test.js`.
+
+**Deleted** — every one verified to have zero consumers before removal:
+
+| File | Why |
+|---|---|
+| `public/index.html` | Vite's HTML entry point lives at the repo root instead |
+| `src/App.test.js` | CRA boilerplate asserting on a "learn react" link that no longer existed |
+| `src/pages/shareCredentialPage.js` + route | Hardcoded third-party mockup badges on a **live** authenticated route |
+| `src/pages/transcript.js`, `src/styles/transcript.css` | 208 lines of fake lecture data + 620 lines of CSS, never routed |
+| `src/pages/notifPage.js`, `src/pages/requestAccessPage.js` | Comment-only stubs |
+| `src/components/credentialCard.js` | 0 bytes |
+| `src/utils/formatDate.js` | Comment-only stub — which is why three pages each hand-rolled their own |
+| `src/styles/dashboard.css` | Empty |
+
+**Still orphaned, not yet deleted:** `src/styles/shareCredentialPage.css` (0 importers) and the root
+`.env` (only `CHOKIDAR_USEPOLLING` + `FAST_REFRESH`, both CRA-specific and dead under Vite).

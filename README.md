@@ -45,12 +45,12 @@ Hyperledger Fabric Network (Docker containers)
 ## Prerequisites
 
 **Windows side:**
-- Node.js 18+
+- Node.js 20.19+ (or 22.12+) — required by Vite 7; Node 18 will fail to build
 - Git
 
 **Ubuntu/WSL2 side:**
 - Docker Engine (via Docker Desktop for Windows)
-- Node.js 18+
+- Node.js 20.19+ (or 22.12+) for the frontend build; the Express API itself runs on 18+
 - Hyperledger Fabric 2.5.14 binaries + Docker images
 - `fabric-samples` at `~/fabric-samples/fabric-samples/`
 - Chaincode at `~/chaincert-chaincode/`
@@ -99,10 +99,17 @@ node setup_Wallet_DLSU_Subordinate_LASALLECOMPUTERSOCIETY.js
 
 | Command | Where | What it does |
 |---|---|---|
-| `npm start` | Windows | React dev server on :3000 |
+| `npm start` | Windows | Vite dev server on :3000 (`npm run dev` is an alias) |
 | `npm run build` | Windows | Production bundle to `build/` |
+| `npm run preview` | Windows | Serve the built `build/` locally to sanity-check a production bundle |
+| `npm test` | Windows | Vitest, single run (`npm run test:watch` for watch mode) |
+| `npm run lint:backend` | Windows | ESLint over the CommonJS backend + chaincode files |
 | `node sdk-server-fixed.js` | Ubuntu | Start the Express API |
 | `curl http://localhost:4000/api/health` | Ubuntu | Verify API is up |
+
+> The build system is **Vite**, not Create React App. `build/` (not `dist/`) is kept as the output
+> directory and `REACT_APP_` is kept as the env prefix, so Nginx config, `deploy-sync.sh`, and every
+> existing `.env` continue to work unchanged. See `vite.config.js` for why each choice was made.
 
 ---
 
@@ -149,7 +156,13 @@ src/routes/         Express routes — deploys to ~/chaincert-api/routes/
 src/services/       Frontend API helpers + authenticationService (backend)
 src/pages/          Role-scoped dashboard pages
 src/components/     Shared UI components
+src/utils/          Frontend helpers — EXCEPT nameSimilarity.js, which is CommonJS and
+                    also deploys to ~/chaincert-api/utils/ (shared with the backend)
 docs/               Reference docs (.md mirrors preferred over PDFs)
+index.html          Vite entry point (repo root, not public/)
+vite.config.js      Build config — output dir, env prefix, JSX-in-.js, CJS interop
+ARCHITECTURE.md     System architecture overview
+LIMITATIONS.md      Accepted limitations and known gaps, with rationale
 ```
 
 > ⚠️ `src/controllers/` and `src/routes/` are Express backend files — not React. They live here for repo organization but deploy to Ubuntu.
@@ -197,4 +210,15 @@ All paths below are relative to the repo root.
 | `CAP-2459-IT-VM-INSTALLATION-MANUAL.md` | `docs/submission/cap2/manuals/` | CCSCloud VM deploy + day-2 update runbook |
 | `Redeploy CC Instructions.md` | `docs/deployment/` | Chaincode redeploy procedure |
 | `Copy Commands.md` | `docs/deployment/` | Windows → Ubuntu cp commands |
+| `CAP2 - Ops Cheat Sheet (VM vs Local).md` | `docs/deployment/` | Day-to-day ops, VM and local side by side |
 | `Final Design.md` | `docs/reference/` | Governance model, subordinate creation workflow |
+| `ARCHITECTURE.md` | repo root | System architecture overview |
+| `LIMITATIONS.md` | repo root | Accepted limitations and known gaps |
+
+---
+
+## Security
+
+This is a **capstone prototype**, not production software. Known gaps and the reasoning behind each
+accepted limitation are documented in `LIMITATIONS.md`. To report a vulnerability, see
+`.github/SECURITY.md`.

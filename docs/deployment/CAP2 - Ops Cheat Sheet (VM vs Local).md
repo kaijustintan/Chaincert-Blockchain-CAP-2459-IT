@@ -17,7 +17,7 @@
 |---|---|---|
 | Site URL | `http://ccscloud.dlsu.edu.ph:20173/` | `http://localhost:3000` |
 | API | `:4000`, behind Nginx at `/api` | `:4000`, direct (no proxy) |
-| Frontend served by | Nginx (static `build/`) | CRA dev server (`npm start`) |
+| Frontend served by | Nginx (static `build/`) | Vite dev server (`npm start`) |
 | Process manager | PM2 (`chaincert-api`) | none — plain `node`, foreground |
 | Git clone lives at | `~/chaincert-src` | `/mnt/c/Users/kaita/OneDrive/Desktop/CAP-2459-IT-AFTER-RESET` (the Windows repo, read in place) |
 | API runtime | `~/chaincert-api` | `~/chaincert-api` (same) |
@@ -27,6 +27,8 @@
 | DLSU subordinate | ARCHERSNETWORK | **INNOCENCIO** (the rename never reached local; deliberate, see §6) |
 | SSH | `ssh -p 20172 -o ServerAliveInterval=60 chaincert@ccscloud.dlsu.edu.ph` | n/a |
 | CouchDB access | SSH tunnel required (§4) | direct, no tunnel |
+| Node | **must be 20.19+** — VM was provisioned with 18, upgrade before building | 20.19+ (24.x in use) |
+| Build tool | Vite 7 (`build/` output, `REACT_APP_` prefix preserved) | same |
 
 **Shared by both** (identical in each environment): channel `chaincert-channel`, contract `chaincert`,
 orderer `:7050`, Org1 peer/CA `:7051`/`:7054`, Org2 `:9051`/`:8054`, DLSU `:12051`/`:12054`,
@@ -156,7 +158,7 @@ The frontend needs no sync at all — `npm start` reads the Windows repo live an
 | Changed what | What applies it |
 |---|---|
 | `~/chaincert-api/.env` (backend) | restart the API (`pm2 restart chaincert-api` / `Ctrl+C` + rerun) — dotenv reads it at boot only |
-| `REACT_APP_*` (frontend) | **rebuild**, not restart — CRA bakes these in at build time. VM: edit `~/chaincert-src/.env.production` then `npm run build`. Local: edit `.env.development` then restart `npm start`. |
+| `REACT_APP_*` (frontend) | **rebuild**, not restart — Vite bakes these in at build time (the `REACT_APP_` prefix is kept via `envPrefix` in `vite.config.js`). VM: edit `~/chaincert-src/.env.production` then `npm run build`. Local: edit `.env.development` then restart `npm start`. |
 | `package.json` | `npm install` in the affected directory first |
 
 ---
@@ -177,8 +179,12 @@ pagkatapos mag-deploy, ibabalik at pipirma siya mano-mano.
 peer lifecycle chaincode querycommitted --channelID chaincert-channel --name chaincert
 ```
 
-Whatever version/sequence it reports, **increment both** for the new deploy. As of 2026-07-29 local is at
-`Version: 24.0, Sequence: 24`, so the next local redeploy is `-ccv 25.0` at `--sequence 25`.
+Whatever version/sequence it reports, **increment both** for the new deploy. As of 2026-08-12 local is at
+`Version: 25.0, Sequence: 25`, so the next local redeploy is `-ccv 26.0` at `--sequence 26`.
+
+> The 25.0 redeploy carried the `VerifyCredential` template guard and the `IssueCredential` input
+> validation from the security pass (see `LIMITATIONS.md`). Counters are **per-environment** — local's
+> 25 has no relationship to whatever the VM is at, so always run Step 0 rather than assuming.
 
 ### Step 1 — stop the API
 

@@ -138,3 +138,16 @@ $RECYCLE.BIN/
 # CLAUDE.md aggregates the live host, credentials, testing toggles and the full weakness list in
 # one file. Useful locally, unwise to publish.
 CLAUDE.md
+
+# ── Post-submission divergence record (local only) ──
+# Tracks where the frozen capstone paper disagrees with the current code. Deliberately NOT published:
+# it enumerates each security hole that was closed, and the CCSCloud VM still runs the pre-fix
+# chaincode, so publishing it would be a roadmap to an unpatched host. Personal reference.
+docs/submission/cap2/references/CAP2 - Post-Submission Changes*
+
+# ── CAP1 submitted PDFs ──
+# The originally submitted CAP1 manuals. WALKTHROUGH.pdf carries the full demo-account table with
+# live passwords; INSTALLATION, TECHNICAL and Defense Knowledge carry the CouchDB admin credentials.
+# The readable .md mirrors alongside them stay tracked, so nothing of substance is lost by excluding
+# the PDFs. Keep the local copies — these are the formal submission record.
+docs/submission/cap1/*.pdf

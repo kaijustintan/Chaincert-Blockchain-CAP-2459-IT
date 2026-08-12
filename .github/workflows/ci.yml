@@ -1,0 +1,75 @@
+name: CI
+
+on:
+  push:
+    branches: [main, AFTER-Defense]
+  pull_request:
+  workflow_dispatch:
+
+# Read-only by default. Nothing here needs write access to the repo.
+permissions:
+  contents: read
+
+jobs:
+  frontend:
+    name: Frontend build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      # `npm ci` (not `npm install`) so the committed lockfile is authoritative and the build is
+      # reproducible. It fails loudly if package.json and package-lock.json have drifted apart.
+      - run: npm ci
+
+      # The production bundle is what actually ships. A green build here catches import errors,
+      # syntax breakage, and missing modules before they reach the VM.
+      #
+      # NOTE: deliberately NOT setting CI=true. Create React App treats CI=true as
+      # "warnings are errors", and this codebase carries ~50 pre-existing lint warnings
+      # (unused vars, react-hooks/exhaustive-deps). Failing the build on those would make CI
+      # permanently red and therefore ignored, which is worse than no CI. The goal here is to catch
+      # things that BREAK the bundle. Clean up the warnings first, then turn CI=true back on.
+      #
+      # KNOWN GAP: a green build does NOT prove the app runs. Hook/render-order mistakes compile
+      # fine and only fail at runtime (this repo has been bitten twice by exactly that — a
+      # temporal-dead-zone ReferenceError in a useMemo). Treat this as a smoke test, not a pass.
+      - run: npm run build
+
+      # The test suite was previously installed, configured, and never executed by CI — so a
+      # regression in the one module that IS covered would have merged silently.
+      - run: npm test
+
+  backend-syntax:
+    name: Backend syntax + lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      # backend/ and chaincode/ have no committed lockfile, so their dependencies cannot be
+      # installed reproducibly in CI and their modules cannot be required here. What we CAN do
+      # without installing anything is parse every file and catch scope errors — which is the
+      # class of bug that reaches production looking like a working build.
+      - name: Parse-check all backend sources
+        run: |
+          set -e
+          for f in backend/*.js src/controllers/*.js src/routes/*.js chaincode/*.js; do
+            node --check "$f"
+          done
+          echo "All backend sources parse cleanly."
+
+      # no-undef catches the exact failure mode that syntax checking misses: a variable that was
+      # removed from a destructure but is still referenced further down, which throws only on the
+      # branch that reaches it. Config lives in .eslintrc.backend.json so the same check runs
+      # locally (`npm run lint:backend`) and here — no ad-hoc rule flags that can drift apart.
+      - run: npm ci
+
+      - run: npm run lint:backend

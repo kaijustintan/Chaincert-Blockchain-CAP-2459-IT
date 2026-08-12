@@ -1,6 +1,16 @@
 # ChainCert
 
-Blockchain-backed academic and professional credential platform built on Hyperledger Fabric 2.5.14. Issuers (universities, organizations) issue tamper-proof digital credentials to holders, who can share them with verifiers via a unique credential ID.
+Blockchain-backed academic and professional credential platform built on Hyperledger Fabric. Issuers (universities, organizations) issue tamper-evident digital credentials to holders, who can share them with verifiers via a unique credential ID.
+
+> **Academic capstone project (CAP-2459-IT).** Published for reference and study — not production
+> software. Read **[LIMITATIONS.md](LIMITATIONS.md)** before deploying it anywhere that handles real
+> credentials.
+
+| | |
+|---|---|
+| **[ARCHITECTURE.md](ARCHITECTURE.md)** | How the three layers fit together, the authorization model, governance, and the dual-write pattern |
+| **[LIMITATIONS.md](LIMITATIONS.md)** | Known constraints and accepted tradeoffs, with the reasoning for each |
+| **[.github/SECURITY.md](.github/SECURITY.md)** | How to report a security issue |
 
 ---
 
@@ -19,7 +29,7 @@ Hyperledger Fabric Network (Docker containers)
 
 | Component | Address | Notes |
 |---|---|---|
-| React frontend | :3000 | Create React App, Windows |
+| React frontend | :3000 | React 19 + Vite |
 | Express API | :4000 | Node.js, Ubuntu/WSL2 |
 | Orderer | :7050 | Single Raft orderer |
 | Org1 peer / CA | :7051 / :7054 | |
@@ -110,20 +120,22 @@ node setup_Wallet_DLSU_Subordinate_LASALLECOMPUTERSOCIETY.js
 
 ## Demo Accounts
 
-| Email | Password | Role |
-|---|---|---|
-| admin1@email.com | pw123 | Admin |
-| admin2@email.com | pw123 | Admin |
-| dlsu@email.com | pw123 | Issuer (Root — DLSU) |
-| lasallecomputersociety@email.com | pw123 | Issuer (Subordinate) |
-| kylejustin.tan7@gmail.com | pw123 | Holder |
+The demo environment seeds one account per role. Passwords are **not** published here.
 
-> Full demo walkthrough: `docs/submission/cap2/manuals/CAP-2459-IT-WALKTHROUGH.md`
+| Account | Role |
+|---|---|
+| `admin1@email.com`, `admin2@email.com` | Admin |
+| `dlsu@email.com` | Issuer (Root Authority — DLSU) |
+| `lasallecomputersociety@email.com` | Issuer (Subordinate) |
+| A seeded holder account | Holder / Student |
+
+> Credentials are shared out-of-band with the team. Full demo walkthrough:
+> `docs/submission/cap2/manuals/CAP-2459-IT-WALKTHROUGH.md`
 >
-> ⚠️ **These accounts/passwords are the local-dev demo set.** The `pw123` password (5 chars) is now
-> **rejected by the password policy (M8, min 10 chars)** — it only works if `DISABLE_PASSWORD_POLICY` is
-> set. On the **VM**, the seeded admin accounts are `admin@email.com` / `admin2@email.com` with password
-> **`<ADMIN_PASSWORD — shared out-of-band>`**; other accounts are seeded during UAT (see the VM manual, Phase 15).
+> ⚠️ Seeded demo accounts are for the local development environment. Set your own strong passwords
+> when standing up an environment — the password policy requires at least 10 characters, and the
+> `DISABLE_PASSWORD_POLICY` / `DISABLE_RATE_LIMIT` / `DISABLE_SIGNUP_OTP` toggles must be unset for
+> any deployment.
 
 ---
 

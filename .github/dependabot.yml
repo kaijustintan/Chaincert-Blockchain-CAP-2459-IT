@@ -1,0 +1,56 @@
+version: 2
+
+# Three separate npm ecosystems live in this repo. They are deliberately listed individually
+# rather than relying on a single root entry, because backend/ and chaincode/ have their own
+# package.json and are deployed to a different machine than the frontend.
+#
+# NOTE: backend/ and chaincode/ currently have no committed package-lock.json (both are
+# gitignored). Dependabot can still read package.json, but version resolution there is not
+# reproducible and `npm audit` cannot run. Committing those two lockfiles is the follow-up.
+updates:
+  # Frontend (React SPA) — the only ecosystem with a committed lockfile today.
+  - package-ecosystem: "npm"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 5
+    groups:
+      # Patch/minor bumps are low-risk and noisy individually — batch them.
+      minor-and-patch:
+        update-types:
+          - "minor"
+          - "patch"
+    ignore:
+      # react-scripts is deprecated upstream and unfixable in place; the migration off Create
+      # React App is tracked separately. Dependabot PRs against it are pure noise until then.
+      - dependency-name: "react-scripts"
+
+  # Express API (deploys to ~/chaincert-api on the Ubuntu host)
+  - package-ecosystem: "npm"
+    directory: "/backend"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 5
+    ignore:
+      # Pinned against the deployed Fabric network version. Bumping the SDK without bumping
+      # Fabric itself breaks chaincode invocation — treat as a coordinated migration, not a
+      # dependency bump.
+      - dependency-name: "fabric-network"
+      - dependency-name: "fabric-ca-client"
+
+  # Hyperledger Fabric chaincode (deploys to ~/chaincert-chaincode)
+  - package-ecosystem: "npm"
+    directory: "/chaincode"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 3
+    ignore:
+      # Must match the Fabric runtime the chaincode is deployed against.
+      - dependency-name: "fabric-contract-api"
+      - dependency-name: "fabric-shim"
+
+  # Keep the CI actions themselves current.
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "monthly"

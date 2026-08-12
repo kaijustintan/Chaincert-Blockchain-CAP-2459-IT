@@ -33,9 +33,9 @@ ALWAYS prefer reading the `.md` mirrors over the original PDFs. Cheaper on token
 ## Hard factual constraints — these are not opinions
 
 ### Things ChainCert actually IS
-- Hyperledger Fabric 2.5.14
+- Hyperledger Fabric **2.5.16 for defense/paper purposes** (the submitted/deployed VM's version — Ch5 was corrected to say this; cite 2.5.16 to a panelist). A local WSL dev environment may run 2.5.14 instead (Docker-28-vs-29 compatibility reason, not a defense fact) — don't cite that number in docs or defense answers, it's an implementation detail of one dev machine, not the system.
 - JavaScript chaincode (in `chaincode/index.js`)
-- Multi-org Fabric network: Org1, Org2, DLSU (with subordinates ARCHERSNETWORK and LASALLECOMPUTERSOCIETY), plus Orderer
+- Multi-org Fabric network: Org1, Org2, DLSU (with subordinates **ARCHERSNETWORK** and LASALLECOMPUTERSOCIETY), plus Orderer. ARCHERSNETWORK is the current/correct name (renamed from an earlier "INNOCENCIO") — INNOCENCIO is a stale artifact that only still exists inside one local dev wallet/CouchDB and must NEVER appear in docs, manuals, or defense answers.
 - Single channel: `chaincert-channel`
 - Contract name: `chaincert`
 - DLSU CouchDB port: **9084** (NEVER 9984 — common typo trap)
@@ -54,7 +54,7 @@ ALWAYS prefer reading the `.md` mirrors over the original PDFs. Cheaper on token
 
 ### Numbers to memorize
 - 5-10 day manual verification baseline (from real interviews with Avesco Marketing Corporation and Sunlife Philippines HR — defensible, citable)
-- Fabric version: 2.5.14
+- Fabric version: **2.5.16** (defense/paper answer — see note above; do not answer "2.5.14" to a panelist)
 
 ## Tone guidance
 - **Tropang Explanation sections:** casual mixed EN/TL, "yung", "kasi", "naman" natural, use analogies.

@@ -764,7 +764,7 @@ const handleDownloadIssuerDocument = async (doc) => {
   // Group 5 (UAT): env toggle to hide issuer enable/disable during UAT so testers can't lock
   // out an issuer account. Set REACT_APP_DISABLE_ISSUER_TOGGLE=true (build-time); the backend
   // also enforces it (403). REMOVE before demo/prod.
-  const ISSUER_TOGGLE_DISABLED = process.env.REACT_APP_DISABLE_ISSUER_TOGGLE === 'true';
+  const ISSUER_TOGGLE_DISABLED = import.meta.env.REACT_APP_DISABLE_ISSUER_TOGGLE === 'true';
 
   const openIssuerStatusModal = (issuer, action) => {
     if (ISSUER_TOGGLE_DISABLED) {

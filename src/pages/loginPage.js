@@ -82,7 +82,9 @@ function LoginPage() {
     <div
       className="login-wrapper"
       style={{
-        backgroundImage: `linear-gradient(rgba(10, 14, 28, 0.40), rgba(10, 14, 28, 0.60)), url(${process.env.PUBLIC_URL}/assets/background3.png)`,
+        // Vite serves public/ from the site root, so this is a plain absolute path.
+        // (CRA's process.env.PUBLIC_URL resolved to '' at the root anyway.)
+        backgroundImage: `linear-gradient(rgba(10, 14, 28, 0.40), rgba(10, 14, 28, 0.60)), url(/assets/background3.png)`,
       }}
     >
       {/* Left Side - Branding / Tagline */}

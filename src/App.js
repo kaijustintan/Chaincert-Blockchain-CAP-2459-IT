@@ -22,7 +22,6 @@ import ProfilePage from './pages/profilePage';
 import ProfilePreview from './pages/profilePreview';
 import IssuerDirectory from './pages/issuerDirectory';
 import BadgeDetailsProfilePreviewPage from './pages/BadgeDetailsProfilePreviewPage';
-import ShareCredentialPage from './pages/shareCredentialPage';
 import CredentialHistoryPage from './pages/credentialHistoryPage';
 import WelcomeModal from './components/welcomeModal';
 
@@ -70,7 +69,11 @@ function AnimatedRoutes() {
           <Route path="/settings" element={<SettingsPage />} />
           <Route path="/profile" element={<ProfilePage />} />
           <Route path="/profile-preview/badge-details/:id" element={<BadgeDetailsProfilePreviewPage />} />
-          <Route path="/share-credential/:id" element={<ShareCredentialPage />} />
+          {/* REMOVED: /share-credential/:id -> ShareCredentialPage.
+              It was a reachable authenticated route rendering a hardcoded mockup — three Cisco CCNA
+              badges keyed 1/2/3, dead `href="#"` links, and seven share buttons with no handlers.
+              Any real credential id rendered "Badge not found", so it could only ever show another
+              company's branding. Real sharing lives in the profile share-link flow. */}
         </Route>
 
         {/* ========== ADMIN-ONLY ROUTES ========== */}

@@ -1,0 +1,34 @@
+name: CodeQL
+
+on:
+  push:
+    branches: [main, AFTER-Defense]
+  pull_request:
+    branches: [main, AFTER-Defense]
+  schedule:
+    # Weekly, so newly-published queries run against the existing code even when nothing is pushed.
+    - cron: "0 3 * * 1"
+
+jobs:
+  analyze:
+    name: Analyze JavaScript
+    runs-on: ubuntu-latest
+    permissions:
+      actions: read
+      contents: read
+      security-events: write
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: github/codeql-action/init@v3
+        with:
+          languages: javascript-typescript
+          # security-and-quality is broader than the default security-only pack. For a project
+          # whose subject matter IS credential security, the extra signal is worth the noise.
+          queries: security-and-quality
+
+      # No build step: the JS analyzer works directly on source, and building is unnecessary here.
+      - uses: github/codeql-action/analyze@v3
+        with:
+          category: "/language:javascript-typescript"

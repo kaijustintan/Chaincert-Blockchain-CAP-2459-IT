@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+
+    <!--
+      Vite serves everything in public/ from the site root, so these are plain absolute paths.
+      The Create React App URL placeholder that used to prefix them no longer applies.
+
+      The previous file pointed apple-touch-icon and the manifest icons at logo192.png and
+      logo512.png, NEITHER of which exists in public/ — both were 404s inherited from the template.
+      The real asset is /assets/logo512.png.
+    -->
+    <link rel="icon" href="/favicon.ico" />
+    <link rel="apple-touch-icon" href="/assets/logo512.png" />
+    <link rel="manifest" href="/manifest.json" />
+
+    <meta name="theme-color" content="#1a1f36" />
+    <meta
+      name="description"
+      content="ChainCert — blockchain-backed academic and professional credential platform. Issue, hold, share, and verify tamper-evident digital credentials."
+    />
+
+    <!--
+      Share pages carry a per-recipient token in the URL. Send only the origin on cross-origin
+      navigations so a token is never leaked to a third party through the Referer header.
+    -->
+    <meta name="referrer" content="strict-origin-when-cross-origin" />
+
+    <title>ChainCert</title>
+  </head>
+  <body>
+    <noscript>You need to enable JavaScript to run this app.</noscript>
+    <div id="root"></div>
+    <!-- Vite entry point. CRA injected this automatically; Vite requires it to be explicit. -->
+    <script type="module" src="/src/index.js"></script>
+  </body>
+</html>

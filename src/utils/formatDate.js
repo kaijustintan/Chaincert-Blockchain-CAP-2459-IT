@@ -1,1 +1,0 @@
-// Function to format date on credentials (e.g., issuedAt)

@@ -7,22 +7,21 @@
     "start": "node sdk-server-fixed.js"
   },
   "keywords": [],
-  "author": "",
-  "license": "ISC",
-  "description": "",
+  "author": "CAP-2459-IT",
+  "license": "MIT",
+  "description": "ChainCert Express API — bridges the React SPA to Hyperledger Fabric and CouchDB.",
   "dependencies": {
     "bcryptjs": "^3.0.3",
     "cors": "^2.8.6",
-    "dockerode": "^4.0.9",
     "dotenv": "^17.3.1",
     "express": "^5.1.0",
     "fabric-ca-client": "^2.2.20",
     "fabric-network": "^2.2.20",
     "helmet": "^8.0.0",
     "jsonwebtoken": "^9.0.2",
-    "multer": "^2.0.2",
+    "multer": "^2.2.0",
     "nano": "^10.0.0",
     "node-cron": "^4.2.1",
-    "nodemailer": "^8.0.2"
+    "nodemailer": "^9.0.5"
   }
 }

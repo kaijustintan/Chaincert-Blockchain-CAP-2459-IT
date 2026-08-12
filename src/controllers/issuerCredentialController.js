@@ -160,7 +160,8 @@ exports.Create_CredentialTemplate = async (req, res, getContractAndGateway) => {
 
     // Connect to ADMIN CouchDB (issuers DB)
     let identityName, orgName, issuerDoc;
-    const adminNano = nano('http://admin:adminpw@localhost:5985'); 
+    // M11: env-driven (see backend/.env.example COUCHDB_URL).
+    const adminNano = nano(process.env.COUCHDB_URL || 'http://admin:adminpw@localhost:5985');
     const issuersDB = adminNano.use('issuers');
 
     // Fetch issuerDoc using issuerId (req.user.id)
@@ -437,20 +438,25 @@ exports.Issue_Credential = async (req, res, getContractAndGateway) => {
        expires "today" makes it valid for only the remainder of the day — which
        is what produced the active-but-already-expired confusion. Require the
        expiry to be at least the day AFTER today (Manila). Empty = never expires. */
-    // ===== TEMP-TEST (F01/F02 expiry & revoke testing): same-day/past block DISABLED
-    //       so a past-dated (already-expired) credential can be ISSUED onto the
-    //       ledger to test VerifyCredential + revoke-expired guard.
-    //       RESTORE (uncomment) before demo — this is what A3 verifies. =====
-    // if (expiryDate && String(expiryDate).trim() !== '') {
-    //   const datePart = String(expiryDate).slice(0, 10);
-    //   const todayManila = new Date(Date.now() + 8 * 60 * 60 * 1000).toISOString().slice(0, 10);
-    //   if (!/^\d{4}-\d{2}-\d{2}$/.test(datePart) || datePart <= todayManila) {
-    //     return res.status(400).json({
-    //       success: false,
-    //       error: 'Expiry date must be at least the day after today.'
-    //     });
-    //   }
-    // }
+    /* RESTORED. This block was commented out with a "RESTORE (uncomment) before demo" note so that
+       already-expired credentials could be minted for UAT. Shipping it disabled meant an issuer
+       could write a permanently-useless record to an IMMUTABLE ledger — it verifies as EXPIRED the
+       instant it exists, and per the chaincode's own guard an expired credential can never be
+       revoked, so it cannot even be withdrawn.
+
+       It is now ON by default and opt-out via ALLOW_PAST_EXPIRY, matching how every other testing
+       toggle in this project works (and, unlike the commented-out version, it announces itself at
+       startup so nobody can leave it on by accident). */
+    if (process.env.ALLOW_PAST_EXPIRY !== 'true' && expiryDate && String(expiryDate).trim() !== '') {
+      const datePart = String(expiryDate).slice(0, 10);
+      const todayManila = new Date(Date.now() + 8 * 60 * 60 * 1000).toISOString().slice(0, 10);
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(datePart) || datePart <= todayManila) {
+        return res.status(400).json({
+          success: false,
+          error: 'Expiry date must be at least the day after today.'
+        });
+      }
+    }
 
     /* Step 3: Check if user is authenticated (JWT middleware attaches req.user)
 
@@ -520,6 +526,99 @@ exports.Issue_Credential = async (req, res, getContractAndGateway) => {
       });
     }
 
+    /* Step 4D: OWNERSHIP GATE — load the TEMPLATE before the ledger write. (M1)
+
+      Technical:
+      The template was previously loaded only at Step 9A, AFTER submitTransaction, inside a
+      best-effort try/catch that swallowed every error — so NOTHING ever verified the template
+      belonged to the caller. An approved Issuer B could POST /api/credentials/<A's templateId>/issue
+      and mint a credential the ledger permanently attributes to Issuer A, because the chaincode
+      copies template.issuerID onto the new credential (chaincode/index.js:239). Template ids are
+      discoverable through the public issuer directory. The ledger entry is immutable, so there is
+      no after-the-fact remedy: the check MUST precede submitTransaction.
+
+      Admin is exempt from the ownership comparison (platform operator, no couchDBUrl of its own),
+      but the template must still exist — issuing against a non-existent template should be a clean
+      404, not a chaincode error.
+
+      Tropang Ex:
+      Bago tayo sumulat sa blockchain, tinitingnan muna natin kung SA'YO ba talaga yung template na
+      gagamitin mo. Kapag hindi, 403 agad — walang maisusulat sa ledger, kaya walang permanenteng
+      pekeng record na mabubura pa.
+    */
+    const templateDoc = await couchdbService.getCredentialDocById(
+      credentialId,
+      user.role === 'issuer' ? issuerDoc.couchDBUrl : null
+    );
+
+    if (!templateDoc) {
+      return res.status(404).json({
+        success: false,
+        error: 'Credential template not found.'
+      });
+    }
+
+    if (user.role === 'issuer' && String(templateDoc.issuerID) !== String(user.id)) {
+      console.warn(`[ISSUE] BLOCKED cross-issuer issuance: user=${user.id} template=${credentialId} owner=${templateDoc.issuerID}`);
+      return res.status(403).json({
+        success: false,
+        error: 'You can only issue credentials from your own templates.'
+      });
+    }
+
+    if (templateDoc.isTemplate !== true) {
+      return res.status(400).json({
+        success: false,
+        error: 'That credential id is not an issuable template.'
+      });
+    }
+
+    /* Step 4E: DUPLICATE-ISSUANCE GATE.
+
+      Technical:
+      getBlockedHolderIDsByTemplate() already encodes the rule for who may still receive this
+      credential (it un-blocks holders whose copy is expired or revoked, so renewals and re-issues
+      still work). Until now it was called from exactly ONE place — getEligibleUsersForTemplate,
+      the endpoint that populates the recipient DROPDOWN. So the rule only ever filtered a UI list.
+
+      Nothing enforced it on the write path: a direct POST to this endpoint with an already-holding
+      holderID succeeded, and batch issue loops this same endpoint. The chaincode is no backstop
+      either — IssueCredential mints a key containing the tx timestamp, so it is unique by
+      construction and putState never collides.
+
+      Note this narrows but does not eliminate the race: two concurrent requests can both read the
+      blocked list before either writes. Closing that fully needs a uniqueness constraint on-chain
+      (a composite key of templateId+holderID), which is a redeploy. This turns "unenforced" into
+      "enforced except under a genuine race", which is the meaningful part.
+
+      Admin is NOT exempt — a duplicate is a duplicate regardless of who submits it.
+
+      Tropang Ex:
+      Dati, yung "hindi pwedeng ma-duplicate" rule ay pang-dropdown lang — kung direkta kang
+      mag-POST, dedma. Ngayon, tinitingnan na talaga bago sumulat sa ledger. Permanent kasi yun
+      kapag nakapasok na.
+    */
+    try {
+      const blockedHolderIDs = await couchdbService.getBlockedHolderIDsByTemplate(credentialId);
+      if (Array.isArray(blockedHolderIDs) && blockedHolderIDs.includes(holderID)) {
+        console.warn(`[ISSUE] BLOCKED duplicate issuance: template=${credentialId} holder=${holderID}`);
+        return res.status(409).json({
+          success: false,
+          error: 'This holder already has an active copy of this credential.'
+        });
+      }
+    } catch (dupErr) {
+      // FAIL CLOSED. The pre-existing duplicate-name check deliberately warns-and-continues on a
+      // read failure, but this is different: proceeding writes an IMMUTABLE duplicate to the
+      // ledger that cannot be withdrawn. Refusing costs the issuer a retry; proceeding costs a
+      // permanent bad record.
+      console.error('[ISSUE] duplicate-check read failed, refusing to issue:', dupErr.message);
+      return res.status(503).json({
+        success: false,
+        error: 'Could not verify whether this holder already has this credential. Please try again.'
+      });
+    }
+
     /* Step 5: Connect to blockchain as resolved identity/org
 
       Tropang Ex:
@@ -567,31 +666,22 @@ exports.Issue_Credential = async (req, res, getContractAndGateway) => {
       After blockchain, gumawa tayo ng fast-copy sa databases for dashboards + verification.
     */
     try {
-      /* Step 9A: Optional enrichment (badgeImage + skills) from issuer template cache
+      /* Step 9A: Optional enrichment (badgeImage + skills) from the template
          Technical:
-         These fields may not exist in blockchain, so we pull from issuer CouchDB template doc.
+         These fields do not live on the blockchain record, so they come from the template doc.
+         Step 4D already loaded AND authorized that document, so this reuses it instead of doing a
+         second round-trip.
+
+         This also fixes a silent data-loss bug: the old code re-fetched the template inside a
+         swallow-all try/catch, so ANY hiccup (subordinate CouchDB blip, a getApprovedIssuer miss)
+         made badge images and skills vanish from the issued credential with only a console.warn.
 
          Tropang Ex:
-         Kumuha tayo ng extra fields pang display (badge image, skills list).
+         Yung extra fields pang-display (badge image, skills) — nasa template doc na nabasa natin
+         kanina pa sa Step 4D, kaya hindi na natin uulitin ang pagkuha.
       */
-      let templateBadgeImage = '';
-      let templateSkills = [];
-
-      try {
-        const nano = require('nano');
-        const approvedIssuer = await couchdbService.getApprovedIssuer(user.email);
-
-        if (approvedIssuer && approvedIssuer.couchDBUrl) {
-          const issuerCouch = nano(approvedIssuer.couchDBUrl);
-          const issuerWalletDb = issuerCouch.use('wallet_issuer_credentials');
-          const templateDoc = await issuerWalletDb.get(credentialId);
-
-          templateBadgeImage = templateDoc.badgeImage || '';
-          templateSkills = templateDoc.skills || [];
-        }
-      } catch (tErr) {
-        console.warn('[ISSUE] Could not fetch template for badgeImage/skills:', tErr.message);
-      }
+      const templateBadgeImage = templateDoc.badgeImage || '';
+      const templateSkills = templateDoc.skills || [];
 
       /* Step 9A.5: Fetch holder info snapshot for CouchDB display (NEW)
          Technical:
@@ -1015,7 +1105,8 @@ exports.Get_CredentialHistory = async (req, res, getContractAndGateway) => {
          - orgName (pang select ng network config)
     */
     let identityName, orgName, issuerDoc;
-    const adminNano = nano('http://admin:adminpw@localhost:5985');
+    // M11: env-driven (see backend/.env.example COUCHDB_URL).
+    const adminNano = nano(process.env.COUCHDB_URL || 'http://admin:adminpw@localhost:5985');
     const issuersDB = adminNano.use('issuers');
 
     // Fetch issuerDoc using issuerId
@@ -1144,7 +1235,8 @@ exports.Get_CredentialHistory = async (req, res, getContractAndGateway) => {
       - Kung wala (old records), fallback sa users DB.
     */
     try {
-      const adminNano2 = nano('http://admin:adminpw@localhost:5985');
+      // M11: env-driven (see backend/.env.example COUCHDB_URL).
+      const adminNano2 = nano(process.env.COUCHDB_URL || 'http://admin:adminpw@localhost:5985');
       const walletDb = adminNano2.use('wallet_user_credentials');
 
       // Collect unique holderIDs
@@ -1345,6 +1437,50 @@ exports.revoke_Credential = async (req, res, getContractAndGateway) => {
       return res.status(403).json({
         success: false,
         error: 'Not authorized to revoke credentials.'
+      });
+    }
+
+    /* Step 3B: OWNERSHIP GATE — load the CREDENTIAL before the ledger write. (M1)
+
+       Technical:
+       This handler previously read NOTHING about the credential before
+       submitTransaction('RevokeCredential', ...). The only pre-submit read was
+       getApprovedIssuer(user.email), which returns the ISSUER doc — that proves the CALLER is an
+       approved issuer, not that the CREDENTIAL is theirs. The credential first entered scope at
+       Step 5, parsed from the transaction RESULT. And the chaincode is no second line of defence:
+       RevokeCredential checks only status and expiry, never ctx.clientIdentity against
+       credential.issuerID. So any approved issuer could revoke ANY credential on the platform,
+       and it was already immutable on-chain by the time anyone could notice — plus the holder got
+       a revocation email in the victim issuer's name.
+
+       Credential ids are printed in exported PDFs, share links, and the public verify endpoint,
+       so targets were trivially discoverable.
+
+       Tropang Ex:
+       Dati, basta approved issuer ka, kaya mong i-revoke kahit credential ng ibang issuer — tapos
+       permanent na agad sa blockchain, walang undo. Ngayon, binabasa muna natin yung credential at
+       tinitingnan kung sa'yo nga ba, bago tayo sumulat.
+    */
+    const credentialDoc = await couchdbService.getCredentialDocById(
+      credentialId,
+      user.role === 'issuer' ? issuerDoc.couchDBUrl : null
+    );
+
+    if (!credentialDoc) {
+      // Deliberately 404 and NOT 403: with no doc we cannot attribute ownership, and answering
+      // "exists but not yours" versus "does not exist" would turn this endpoint into an
+      // enumeration oracle over the whole credential space. Fail closed either way.
+      return res.status(404).json({
+        success: false,
+        error: 'Credential not found.'
+      });
+    }
+
+    if (user.role === 'issuer' && String(credentialDoc.issuerID) !== String(user.id)) {
+      console.warn(`[REVOKE] BLOCKED cross-issuer revoke: user=${user.id} cred=${credentialId} owner=${credentialDoc.issuerID}`);
+      return res.status(403).json({
+        success: false,
+        error: 'You can only revoke credentials you issued.'
       });
     }
 
@@ -1643,14 +1779,48 @@ exports.getCredentialTemplates = async (req, res, getContractAndGateway) => {
 
 
 
+/*
+  Function Name: getIssuerCredentials
+
+  LAYMAN (Tropang Ex): Kinukuha ang lahat ng credential ng ISANG issuer. Dati, kahit sino — kahit
+  hindi naka-login — pwedeng humingi ng credential list ng KAHIT SINONG issuer, basta alam nila ang
+  issuer id. At ang issuer id ay libreng nakukuha sa public na /root-authorities list. Ngayon,
+  kailangan naka-login ka, at sarili mo lang na credentials ang makikita mo (maliban kung admin ka).
+
+  TECHNICAL: Was the only handler in this file with NO auth check of any kind, on a router that was
+  itself mounted without a guard — so it read any issuer's full credential set anonymously. Issuer
+  ids are public (issuerOnboardingController.getPublicRootAuthorities returns id: doc._id), so the
+  attack was: GET /api/issuer/root-authorities -> pick an id -> GET .../issuer/<id>/credentials.
+
+  Now: an issuer may only read their OWN id; admin may read any. The param is still accepted (the
+  frontend sends it) but it must match the token for role 'issuer'. This mirrors the scoping already
+  used by getCredentialTemplates (~line 1614) in this same file.
+
+  PARAMS: req (req.params.issuerId, req.user), res.
+  RETURNS: 200 { success, message, data:{...} } | 401 | 403 | 400 | 500 via sendServerError.
+*/
 exports.getIssuerCredentials = async (req, res) => {
   try {
     const { issuerId } = req.params;
+    const user = req.user;
+
+    if (!user || !user.id) {
+      return res.status(401).json({ success: false, message: 'Authentication required.' });
+    }
 
     if (!issuerId) {
       return res.status(400).json({
         success: false,
         message: 'Issuer ID is required'
+      });
+    }
+
+    // Ownership gate: an issuer sees only their own credentials. Admin is the platform operator
+    // and may read any issuer's set (the admin dashboard's all-credentials view depends on it).
+    if (user.role !== 'admin' && String(issuerId) !== String(user.id)) {
+      return res.status(403).json({
+        success: false,
+        message: 'You can only access your own credentials.'
       });
     }
 
@@ -1682,11 +1852,9 @@ exports.getIssuerCredentials = async (req, res) => {
       }
     });
   } catch (error) {
-    console.error('Error fetching issuer credentials:', error);
-    return res.status(500).json({
-      success: false,
-      message: `Error fetching credentials: ${error.message}`
-    });
+    // M9: was returning `Error fetching credentials: ${error.message}` straight to the client,
+    // leaking CouchDB/Fabric internals. Every other handler in this file already uses sendServerError.
+    return sendServerError(res, error, 'ISSUER-CREDENTIAL');
   }
 };
 

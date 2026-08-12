@@ -300,8 +300,12 @@ const rootAuthorityController = {
         await contract.submitTransaction(
           'LogRootSubordinateApproval',
           issuerId,
-          subordinateDoc.email,
-          subordinateDoc.orgName,
+          // `?.` + fallback to match every other subordinateDoc use in this file. getIssuerById
+          // now returns null on 404 instead of throwing, and a raw dereference here would throw a
+          // TypeError that the surrounding blockchain catch reports as "blockchain log failed" —
+          // an actively misleading diagnosis for what is really a missing issuer record.
+          subordinateDoc?.email || '',
+          subordinateDoc?.orgName || '',
           rootAuthorityId,
           rootAuthorityDoc.orgName || rootAuthorityDoc.contactName || rootAuthorityDoc.email,
           approvalReason || 'Approved by root authority'
@@ -461,8 +465,12 @@ const rootAuthorityController = {
         await contract.submitTransaction(
           'LogRootSubordinateRejection',
           issuerId,
-          subordinateDoc.email,
-          subordinateDoc.orgName,
+          // `?.` + fallback to match every other subordinateDoc use in this file. getIssuerById
+          // now returns null on 404 instead of throwing, and a raw dereference here would throw a
+          // TypeError that the surrounding blockchain catch reports as "blockchain log failed" —
+          // an actively misleading diagnosis for what is really a missing issuer record.
+          subordinateDoc?.email || '',
+          subordinateDoc?.orgName || '',
           rootAuthorityId,
           rootAuthorityDoc.orgName || rootAuthorityDoc.contactName || rootAuthorityDoc.email,
           rejectionReason

@@ -780,6 +780,10 @@ const adminIssuerController = {
     } catch (error) {
       console.error('Disable_Issuer error:', error);
       if (res.headersSent) return;
+      // Surface the service's 409 (approved-only status guard) rather than masking it as a 500.
+      if (error.statusCode) {
+        return res.status(error.statusCode).json({ success: false, message: error.message });
+      }
       return sendServerError(res, error, 'ADMIN-ISSUER'); // M9
     }
   },
@@ -959,6 +963,13 @@ const adminIssuerController = {
     } catch (error) {
       console.error('Enable_Issuer error:', error);
       if (res.headersSent) return;
+      // Match Approve_Issuer / Reject_Issuer: surface a service-thrown 4xx as itself. Without this,
+      // the 409 from Enable_Issuer's disabled-only status guard would reach the user as a generic
+      // 500 "Something went wrong", which is actively misleading — the request was refused for a
+      // specific, actionable reason.
+      if (error.statusCode) {
+        return res.status(error.statusCode).json({ success: false, message: error.message });
+      }
       return sendServerError(res, error, 'ADMIN-ISSUER'); // M9
     }
   }

@@ -51,7 +51,6 @@ const fs = require('fs');
 const jwt = require('jsonwebtoken');
 const bcryptjs = require('bcryptjs');
 const multer = require('multer');
-const Docker = require('dockerode');
 const nano = require('nano');
 
 // ------------------------------------------------------------------------------------------------
@@ -71,7 +70,16 @@ const JWT_SECRET = process.env.JWT_SECRET;
 const upload = multer({ storage: multer.memoryStorage() });
 
 const couchdb = require('./couchDB_service');
-const { sendServerError } = require('./securityHelpers');
+// M2: the authorization guards now live in securityHelpers so the route files can import them too.
+// They used to be file-local declarations here, which is why four of six routers ended up mounted
+// with no guard at all — a router had no way to reach them.
+const {
+  sendServerError,
+  requireAuth,
+  requireRole,
+  createRateLimiter,
+  RATE_LIMIT_DISABLED
+} = require('./securityHelpers');
 
 const issuerCredentialController = require('./controllers/issuerCredentialController');
 const verifierController = require('./controllers/verifierController');
@@ -83,6 +91,19 @@ const app = express();
 // ==========================================================================================================================================================================
 // MIDDLEWARE SECTION - ORDER MATTERS!
 // ==========================================================================================================================================================================
+
+// M5 (prerequisite): trust ONE reverse proxy hop.
+// On the VM, Nginx fronts this API, so without this every request arrives with Nginx's own IP as
+// the socket peer. req.ip would be identical for every client, meaning the per-IP rate limiter
+// would either never trigger (one shared bucket that no single user fills) or, once filled, lock
+// out EVERYONE at once — a self-inflicted DoS. With 'trust proxy' set to 1, Express reads the
+// rightmost X-Forwarded-For entry, which is the value Nginx itself appends.
+//
+// The literal 1 (rather than `true`) matters: it trusts exactly one hop. `true` would trust the
+// whole chain, letting a client forge X-Forwarded-For and evade the limiter entirely. This is only
+// safe while the API is not directly reachable from outside — confirm the VM firewall exposes the
+// Nginx port and NOT :4000.
+app.set('trust proxy', 1);
 
 app.use(cors({
   origin: process.env.CORS_ORIGIN || 'http://localhost:3000',
@@ -135,44 +156,15 @@ app.use((req, res, next) => {
 // M2 (Phase 5 hardening): CENTRALIZED AUTHORIZATION GUARDS
 // --------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 // The middleware above only DECODES the token into req.user (or null). It never blocks anyone.
-// These two guards are the gate. They are applied once at the router-mount points below so every
-// route under a guarded prefix is protected in a single place (KB Z-2: centralized authorization —
-// one fix applies everywhere, instead of copy-pasting a check into every handler and forgetting one).
-//   requireAuth        — reject any request that has no valid token.
-//   requireRole(role)  — reject any request whose token role doesn't match.
+// The guards are the gate, and they now live in securityHelpers.js (imported at the top of this
+// file) so the route files can import the SAME copies. While they were declared here they were
+// unreachable from any router, which is why /api/auth, /api/issuer, /api/credentials and
+// /api/verify were all mounted unguarded.
+//   requireAuth            — reject any request that has no valid token.
+//   requireRole(role)      — reject any request whose token role doesn't match.
+//   requireAnyRole(...r)   — allow any one of several roles (issuer OR admin).
+//   requireAdmin / requireIssuer — named shorthands.
 // ==========================================================================================================================================================================
-
-/*
-  Function Name: requireAuth
-  LAYMAN (Tropang Ex): Guard — kung walang valid na token, bawal pumasok (401).
-  TECHNICAL: Express middleware. 401 if req.user is null; else next(). Applied at guarded mount points (M2).
-  PARAMS: req, res, next. RETURNS: 401 JSON or calls next().
-*/
-function requireAuth(req, res, next) {
-  if (!req.user) {
-    return res.status(401).json({ success: false, message: 'Authentication required.' });
-  }
-  next();
-}
-
-/*
-  Function Name: requireRole
-  LAYMAN (Tropang Ex): Guard factory — gumagawa ng middleware na pumapayag lang sa isang partikular na
-  role (hal. 'admin').
-  TECHNICAL: Returns an Express middleware. 401 if no token, 403 if req.user.role !== role, else next().
-  PARAMS: role — required role string. RETURNS: an (req,res,next) middleware.
-*/
-function requireRole(role) {
-  return (req, res, next) => {
-    if (!req.user) {
-      return res.status(401).json({ success: false, message: 'Authentication required.' });
-    }
-    if (req.user.role !== role) {
-      return res.status(403).json({ success: false, message: 'Forbidden: insufficient privileges.' });
-    }
-    next();
-  };
-}
 
 // ==========================================================================================================================================================================
 // M5 (Phase 5 hardening): LIGHTWEIGHT IN-MEMORY RATE LIMITER
@@ -185,54 +177,9 @@ function requireRole(role) {
 // a persisted, cross-restart limit tied to identity rather than IP.
 // ==========================================================================================================================================================================
 
-// Temporary testing escape hatch: set DISABLE_RATE_LIMIT=true in ~/chaincert-api/.env to turn OFF
-// all rate limiting (handy when repeatedly testing wrong-password logins). MUST be unset / false
-// for any demo or deployment — a loud warning is logged at startup whenever it is on.
-const RATE_LIMIT_DISABLED = process.env.DISABLE_RATE_LIMIT === 'true';
-
-/*
-  Function Name: createRateLimiter
-  LAYMAN (Tropang Ex): Gumagawa ng "bouncer" na nagbibilang ng request kada IP. Kapag sobra na sa loob
-  ng takdang panahon, 429 muna (Too many requests) hangga't hindi naka-reset ang window.
-  TECHNICAL: Factory returning an Express middleware backed by an in-memory Map(ip → {count, resetAt}),
-  with an unref'd interval sweep so it can't grow unbounded. Honors DISABLE_RATE_LIMIT (testing bypass).
-  Sends Retry-After + 429 when count exceeds max within windowMs. Per-process (single-VM scope).
-  PARAMS: { windowMs, max, message }.
-  RETURNS: an (req,res,next) middleware.
-*/
-function createRateLimiter({ windowMs, max, message }) {
-  const hits = new Map(); // ip -> { count, resetAt }
-
-  // Periodic sweep so the Map can't grow unbounded with unique IPs. unref() lets the process exit.
-  const sweep = setInterval(() => {
-    const now = Date.now();
-    for (const [ip, entry] of hits) {
-      if (now > entry.resetAt) hits.delete(ip);
-    }
-  }, windowMs);
-  if (typeof sweep.unref === 'function') sweep.unref();
-
-  return (req, res, next) => {
-    if (RATE_LIMIT_DISABLED) return next(); // testing bypass — see DISABLE_RATE_LIMIT above
-    const now = Date.now();
-    const ip = req.ip || (req.connection && req.connection.remoteAddress) || 'unknown';
-    let entry = hits.get(ip);
-    if (!entry || now > entry.resetAt) {
-      entry = { count: 0, resetAt: now + windowMs };
-      hits.set(ip, entry);
-    }
-    entry.count += 1;
-    if (entry.count > max) {
-      const retryAfterSec = Math.ceil((entry.resetAt - now) / 1000);
-      res.set('Retry-After', String(retryAfterSec));
-      return res.status(429).json({
-        success: false,
-        message: message || 'Too many requests. Please try again later.'
-      });
-    }
-    next();
-  };
-}
+// createRateLimiter + RATE_LIMIT_DISABLED now live in securityHelpers.js (imported at the top of
+// this file) so route files can build their own limiters — needed for the share-link OTP routes,
+// whose paths contain a :token parameter and therefore cannot be matched by an app.use prefix.
 
 // 10 attempts per IP per 15 minutes on the sensitive auth routes (login / forgot / reset).
 const authLimiter = createRateLimiter({
@@ -251,8 +198,25 @@ const checkEmailLimiter = createRateLimiter({
   message: 'Too many email checks from this IP. Please wait a few minutes and try again.'
 });
 
+// OTP request/confirm endpoints. Deliberately more generous than authLimiter because a single
+// legitimate flow legitimately makes several calls (send, mistype, resend, confirm) and the
+// per-code wrong-guess budget in securityHelpers is the real brake on guessing. This is the
+// per-IP backstop that stops a script from working through many accounts in parallel.
+const otpLimiter = createRateLimiter({
+  windowMs: 15 * 60 * 1000,
+  max: 20,
+  message: 'Too many verification-code requests from this IP. Please wait a few minutes and try again.'
+});
+
 if (RATE_LIMIT_DISABLED) {
   console.warn('⚠️  ⚠️  RATE LIMITING IS DISABLED (DISABLE_RATE_LIMIT=true in .env). FOR TESTING ONLY — remove it before any demo or deployment.  ⚠️  ⚠️');
+}
+
+// The signup email-proof gate had NO startup warning, which made it the one security toggle you
+// could not detect by reading the logs — you had to open .env. Now it announces itself like the
+// others.
+if (process.env.DISABLE_SIGNUP_OTP === 'true') {
+  console.warn('⚠️  ⚠️  SIGNUP EMAIL VERIFICATION IS DISABLED (DISABLE_SIGNUP_OTP=true in .env). Accounts can be created with unverified emails. FOR TESTING ONLY — remove it before any demo or deployment.  ⚠️  ⚠️');
 }
 
 // M8 (Phase 5 hardening): same testing escape hatch for the password-strength policy.
@@ -265,11 +229,41 @@ if (process.env.DISABLE_ISSUER_TOGGLE === 'true') {
   console.warn('⚠️  ⚠️  ISSUER ENABLE/DISABLE IS FROZEN (DISABLE_ISSUER_TOGGLE=true in .env). FOR UAT ONLY — remove it before any demo or deployment.  ⚠️  ⚠️');
 }
 
-// ==========================================================================================================================================================================
-// DOCKER & DB INIT
-// ==========================================================================================================================================================================
+// F01: the past/same-day expiry guard used to be COMMENTED OUT in source, which is the worst
+// possible form of a toggle — invisible in .env, invisible in the logs, and only discoverable by
+// reading the controller. It is now on by default and opt-out here.
+if (process.env.ALLOW_PAST_EXPIRY === 'true') {
+  console.warn('⚠️  ⚠️  PAST-DATED EXPIRY IS ALLOWED (ALLOW_PAST_EXPIRY=true in .env). Credentials can be issued already-expired, permanently, onto an immutable ledger. FOR TESTING ONLY — remove it before any demo or deployment.  ⚠️  ⚠️');
+}
 
-const docker = new Docker({ socketPath: '/var/run/docker.sock' });
+/* One consolidated line so an operator can confirm the security posture from a single log entry
+   instead of scanning for the absence of four separate warnings. Absence of evidence was being
+   treated as evidence of absence — this makes the safe state explicit. */
+{
+  const activeToggles = [
+    ['DISABLE_RATE_LIMIT', RATE_LIMIT_DISABLED],
+    ['DISABLE_SIGNUP_OTP', process.env.DISABLE_SIGNUP_OTP === 'true'],
+    ['DISABLE_PASSWORD_POLICY', process.env.DISABLE_PASSWORD_POLICY === 'true'],
+    ['DISABLE_ISSUER_TOGGLE', process.env.DISABLE_ISSUER_TOGGLE === 'true'],
+    ['ALLOW_PAST_EXPIRY', process.env.ALLOW_PAST_EXPIRY === 'true']
+  ].filter(([, on]) => on).map(([name]) => name);
+
+  if (activeToggles.length === 0) {
+    console.log('🔒 Security toggles: none active (production-safe).');
+  } else {
+    console.warn(`🔓 Security toggles ACTIVE (${activeToggles.length}): ${activeToggles.join(', ')} — NOT production-safe.`);
+  }
+}
+
+// ==========================================================================================================================================================================
+// DB INIT
+// ==========================================================================================================================================================================
+// REMOVED: `const docker = new Docker({ socketPath: '/var/run/docker.sock' })`.
+// It was instantiated here and never referenced again — dead code that handed the API process a
+// handle to the Docker socket, which is root-equivalent access to the host. Keeping an unused
+// capability of that magnitude is strictly worse than not having it: it widens the blast radius of
+// any RCE in this process for zero functionality. The `dockerode` dependency was dropped with it.
+// Fabric's chaincode builder uses the socket from the PEER container, not from this API.
 
 couchdb.initializeDatabases().catch(err => {
   console.error('⚠️  CouchDB init error:', err.message);
@@ -277,34 +271,64 @@ couchdb.initializeDatabases().catch(err => {
 
 /*
   Function Name: setupDatabaseIndexes
-  LAYMAN (Tropang Ex): Gumagawa ng "index" sa issuers database para mabilis ang paghahanap/filter ng
-  issuer by type/status/date. Idempotent — kung meron na, ok lang.
-  TECHNICAL: Creates the Mango index idx-type-status-created on issuers (fields type/status/createdAt).
-  Swallows a 409/"already exists" as success. Runs once at boot (setTimeout) after a short delay.
-  PARAMS: (none). RETURNS: void (logs result).
+  LAYMAN (Tropang Ex): Gumagawa ng mga "index" — parang index ng libro — para hindi kailangang
+  basahin ng database ang LAHAT ng records tuwing may hahanapin. Dati isa lang (issuers); ang
+  dalawang pinaka-abalang database (wallet at notifications) ay walang index kaya bawat hanap ay
+  full scan. Idempotent — kung meron na, ok lang.
+  TECHNICAL: Creates 5 Mango indexes across issuers, wallet_user_credentials and user_notifications.
+  Each is attempted independently so one failure does not skip the others; 409/"already exists"
+  counts as success. A failure is logged but non-fatal — an unindexed query still returns correct
+  results, just with a full-collection scan. Runs once at boot (setTimeout) after a short delay.
+  PARAMS: (none). RETURNS: void (logs a created/existing/failed summary).
 */
 const setupDatabaseIndexes = async () => {
-  try {
-    await new Promise(resolve => setTimeout(resolve, 1500));
+  await new Promise(resolve => setTimeout(resolve, 1500));
 
-    const db = couchdb.couch.use('issuers');
+  /* The `issuers` index was the ONLY one in the project. The two busiest collections had none, so
+     every read against them was a full document scan — CouchDB answers them, but it scans every
+     doc and logs "no matching index found" each time. They are scanned on essentially every page
+     load, and they are also the collections that grow fastest:
 
-    await db.createIndex({
-      index: {
-        fields: ['type', 'status', 'createdAt']
-      },
-      name: 'idx-type-status-created',
-      ddoc: 'indexes'
-    });
+       wallet_user_credentials  — read on every wallet/profile/verify load, keyed by holderID
+       user_notifications       — read on every dashboard load, keyed by type + owner
 
-    console.log('✅ Database indexes created successfully');
-  } catch (error) {
-    if (error.statusCode === 409 || (error.message || '').includes('already')) {
-      console.log('✅ Indexes already exist');
-    } else {
-      console.error('⚠️  Index creation error:', error.message);
+     Each entry is created independently so one failure does not skip the rest, and a 409/"already
+     exists" is treated as success (this runs on every boot). */
+  const indexes = [
+    { db: 'issuers',                 fields: ['type', 'status', 'createdAt'], name: 'idx-type-status-created' },
+    // Backs getUserCredentialsByHolderId — the holder wallet fetch.
+    { db: 'wallet_user_credentials', fields: ['holderID'],                    name: 'idx-holderID' },
+    // Backs getBlockedHolderIDsByTemplate, now on the issuance write path (duplicate gate).
+    { db: 'wallet_user_credentials', fields: ['templateId'],                  name: 'idx-templateId' },
+    // Backs the holder notification queries (type + holderID).
+    { db: 'user_notifications',      fields: ['type', 'holderID'],            name: 'idx-type-holderID' },
+    // Backs the issuer notification queries (type + issuerId).
+    { db: 'user_notifications',      fields: ['type', 'issuerId'],            name: 'idx-type-issuerId' }
+  ];
+
+  let created = 0, existing = 0, failed = 0;
+
+  for (const spec of indexes) {
+    try {
+      await couchdb.couch.use(spec.db).createIndex({
+        index: { fields: spec.fields },
+        name: spec.name,
+        ddoc: 'indexes'
+      });
+      created++;
+    } catch (error) {
+      if (error.statusCode === 409 || (error.message || '').includes('already')) {
+        existing++;
+      } else {
+        failed++;
+        // Not fatal: the queries still work unindexed, just slowly. Worth surfacing, not worth
+        // refusing to boot over — a missing index degrades performance, it does not break behavior.
+        console.error(`⚠️  Index ${spec.db}/${spec.name} failed:`, error.message);
+      }
     }
   }
+
+  console.log(`✅ Database indexes ready (${created} created, ${existing} already existed${failed ? `, ${failed} FAILED` : ''})`);
 };
 
 setTimeout(setupDatabaseIndexes, 2000);
@@ -315,9 +339,29 @@ setTimeout(setupDatabaseIndexes, 2000);
 
 const walletPath = path.join(__dirname, 'wallet');
 
-let cachedGateway = null;
-let lastConnectionTime = 0;
-const CONNECTION_CACHE_TTL = 5 * 60 * 1000;
+/* ---------------------------------------------------------------------------------------------
+   Connection-profile cache.
+
+   WHAT THIS REPLACES: `cachedGateway` / `lastConnectionTime` / `CONNECTION_CACHE_TTL`, which were
+   abandoned scaffolding. `CONNECTION_CACHE_TTL` was never read anywhere, and `cachedGateway` was
+   overwritten on every call but only ever read by the SIGINT handler — so it did no caching, and
+   under concurrency it tracked only the most recent gateway.
+
+   WHY GATEWAYS ARE STILL NOT POOLED: every caller in this codebase owns its gateway and calls
+   `gateway.disconnect()` when done (now reliably, via finally). Handing several callers the same
+   cached Gateway would mean the first disconnect tears the connection out from under the others.
+   Pooling would require removing ~37 disconnect sites and introducing refcounting or a real pool —
+   a change that must be validated against a live Fabric network, not reasoned about. Deliberately
+   out of scope here.
+
+   WHAT THIS DOES FIX: the connection profile was read from disk with fs.readFileSync and JSON
+   .parse'd on EVERY blockchain request. Both are synchronous, so they blocked the entire event
+   loop — for all users — once per request, to re-read a file that never changes at runtime. It is
+   now read once per path and reused. The Fabric discovery handshake in gateway.connect() remains
+   per-request; that is the part pooling would remove.
+   --------------------------------------------------------------------------------------------- */
+const ccpCache = new Map();   // absolute ccp path -> parsed connection profile
+let cachedWallet = null;      // the file-system wallet handle (stateless reader, safe to share)
 
 /*
   Function Name: getContractAndGateway
@@ -388,14 +432,27 @@ async function getContractAndGateway(identityName, orgName) {
     );
   }
 
-  if (!fs.existsSync(ccpPath)) {
-    throw new Error(`Connection profile not found at: ${ccpPath}`);
+  // Read + parse the connection profile ONCE per path, then reuse. The sync fs calls below used to
+  // run on every request and block the event loop process-wide; the file does not change while the
+  // server is running. A miss still surfaces the same clear error as before.
+  let ccp = ccpCache.get(ccpPath);
+  if (!ccp) {
+    if (!fs.existsSync(ccpPath)) {
+      throw new Error(`Connection profile not found at: ${ccpPath}`);
+    }
+    ccp = JSON.parse(fs.readFileSync(ccpPath, 'utf8'));
+    ccpCache.set(ccpPath, ccp);
+    console.log(`[FABRIC] Loaded connection profile: ${path.basename(ccpPath)} (cached)`);
   }
 
-  const ccpJSON = fs.readFileSync(ccpPath, 'utf8');
-  const ccp = JSON.parse(ccpJSON);
+  // The wallet is a stateless reader over the same directory — building a new one per request bought
+  // nothing. Identity lookup still happens per call, so a newly-enrolled identity is picked up
+  // without a restart.
+  if (!cachedWallet) {
+    cachedWallet = await Wallets.newFileSystemWallet(walletPath);
+  }
+  const wallet = cachedWallet;
 
-  const wallet = await Wallets.newFileSystemWallet(walletPath);
   const identity = await wallet.get(identityName);
   if (!identity) throw new Error(`Identity ${identityName} not found`);
 
@@ -410,8 +467,8 @@ async function getContractAndGateway(identityName, orgName) {
   const network = await gateway.getNetwork('chaincert-channel');
   const contract = network.getContract('chaincert');
 
-  cachedGateway = gateway;
-  lastConnectionTime = Date.now();
+  // NOTE: the caller owns this gateway and must disconnect it (all call sites now do so in a
+  // `finally`). Nothing is cached here on purpose — see the comment above ccpCache.
   return { gateway, contract };
 }
 
@@ -443,7 +500,24 @@ app.use('/api/auth/login', authLimiter);
 app.use('/api/auth/forgot-password', authLimiter);
 app.use('/api/auth/reset-password', authLimiter);
 app.use('/api/issuer/login', authLimiter);
+// Issuer registration is unauthenticated AND expensive (multipart upload + magic-number checks +
+// an admin-notification email per admin account), so it gets the same per-IP cap.
+app.use('/api/issuer/register', authLimiter);
 app.use('/api/auth/check-email', checkEmailLimiter); // anti-enumeration on the email-availability probe
+
+// Coverage gaps closed in the OTP pass. Every one of these either creates an account, changes a
+// password, or verifies a one-time code — and all of them were previously unlimited, which meant
+// an attacker could simply move off /login (limited) onto /change-password (not limited) and get
+// the same brute-force surface back.
+app.use('/api/auth/register', authLimiter);
+app.use('/api/auth/change-password', authLimiter);
+app.use('/api/auth/signup/request-otp', otpLimiter);
+app.use('/api/auth/signup/confirm-otp', otpLimiter);
+app.use('/api/credentials/verify/request-otp', otpLimiter);
+app.use('/api/credentials/verify/confirm-otp', otpLimiter);
+// NOTE: /api/auth/profile-share/:token/{request-otp,verify-otp} cannot be matched by a literal
+// app.use prefix (the :token segment sits in the middle), so they carry a per-route limiter
+// declared in authRoutes.js instead.
 
 app.use('/api/auth', authRoutes);
 
@@ -484,14 +558,12 @@ async function sleep(ms) {
 
 process.on('SIGINT', async () => {
   console.log('\n🛑 Shutting down...');
-  if (cachedGateway) {
-    try {
-      await cachedGateway.disconnect();
-      console.log('✅ Gateway disconnected');
-    } catch (e) {
-      console.error('Error disconnecting:', e.message);
-    }
-  }
+  /* Previously this disconnected `cachedGateway` — the single most recently created gateway. That
+     was misleading rather than useful: under any concurrency it closed one arbitrary connection and
+     left the rest, while implying an orderly shutdown.
+
+     Every gateway is now owned and released by its caller in a `finally`, so there is nothing
+     server-scoped left to tear down here. */
   process.exit(0);
 });
 

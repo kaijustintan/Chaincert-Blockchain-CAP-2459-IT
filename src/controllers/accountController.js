@@ -39,7 +39,14 @@
 const couchDB = require('../couchDB_service');
 const mailerService = require('../mailerService'); // - polo
 const crypto = require('crypto'); // - polo
-const { validateUploadedFile, validatePasswordStrength, sendServerError } = require('../securityHelpers'); // Phase 5 Tier 2
+const {
+  validateUploadedFile,
+  validatePasswordStrength,
+  sendServerError,
+  generateOtp,      // CSPRNG 6-digit code (replaces Math.random)
+  otpEquals,        // constant-time compare
+  OTP_MAX_FAILURES  // wrong guesses before the code is burned
+} = require('../securityHelpers'); // Phase 5 Tier 2
 
 /*
   Function Name: buildShareProfilePayload
@@ -74,9 +81,17 @@ const buildShareProfilePayload = async (ownerId) => {
   if (role === 'issuer') {
     // PROFILE3/PROFILE4: an issuer's public profile shows their templates, each with
     // how many times it's been issued, plus issuer-level credibility stats.
+    /* `issued` is PROJECTED: the loop below reads only templateId and holderID from it, and
+       issuedList.length. Without the projection this pulled every issued credential document —
+       each carrying a copy of the template's base64 badgeImage — for two tallies and a count.
+       This runs on getUserInfo, which is a PUBLIC unauthenticated route, so an anonymous caller
+       could force that dump on demand.
+
+       `templates` deliberately stays FULL: the results are spread into sharedCredentials below and
+       rendered on the profile, badge images included. */
     const [templates, issued] = await Promise.all([
       couchDB.getIssuerTemplatesByIssuerId(ownerId),
-      couchDB.getIssuerIssuedByIssuerId(ownerId),
+      couchDB.getIssuerIssuedByIssuerId(ownerId, ['templateId', 'holderID']),
     ]);
     const issuedList = Array.isArray(issued) ? issued : [];
     const countByTemplate = {};
@@ -150,6 +165,24 @@ const accountController = {
       // so the owner "Preview Public Profile" path renders the same as a share link.
       const shareProfile = await buildShareProfilePayload(id);
 
+      /* Confidentiality gate (M1-adjacent).
+
+         This route is intentionally PUBLIC — profilePreview.js calls it with no token for the
+         share-link profile fallback and the public issuer-directory view, so adding requireAuth
+         would break the directory. What it must NOT do is hand a personal email address to an
+         anonymous caller who merely guessed or enumerated a user id.
+
+         So: the owner (and admin) sees the full record; everyone else gets the public-facing
+         subset. Issuer ORGANISATION contact details stay visible for any approved issuer, because
+         a public directory listing whose whole purpose is "who issued this, how do I reach them"
+         is meaningless without them — that is published business contact info, not personal PII.
+      */
+      const viewerId = req.user?.id || req.user?._id || null;
+      const isOwner = viewerId && String(viewerId) === String(user._id);
+      const isAdmin = req.user?.role === 'admin';
+      const isIssuerOrg = user.role === 'issuer';
+      const canSeePrivate = isOwner || isAdmin || isIssuerOrg;
+
       return res.status(200).json({
         success: true,
         user: {
@@ -158,9 +191,9 @@ const accountController = {
           username: user.username || '',
           orgName: user.orgName || '',
           organizationName: user.organizationName || user.orgName || '',
-          contactName: user.contactName || '',
+          contactName: canSeePrivate ? (user.contactName || '') : '',
           fullName: user.fullName || user.username || user.orgName || '',
-          email: user.email,
+          email: canSeePrivate ? user.email : '',
           role: user.role,
           summary: user.summary || '',
           isPublic: user.isPublic,
@@ -177,8 +210,23 @@ const accountController = {
 
   /*
     Function Name: getAllUsers
-    LAYMAN (Tropang Ex): Listahan ng mga regular na user (holder) — hindi kasama ang issuer/admin.
-    TECHNICAL: Read wrapper — couchDB.getAllUsers() filtered to (!role || role === 'user').
+
+    LAYMAN (Tropang Ex): Listahan ng mga regular na user (holder) para sa admin dashboard. Dati,
+    IBINABALIK NITO ANG BUONG DOCUMENT ng bawat user — kasama ang naka-hash na password at ang
+    live na reset OTP kapag may kasalukuyang password-reset. At walang auth. Kaya kahit sino,
+    kahit hindi naka-login, pwedeng humingi ng reset code ng kahit sinong account, basahin ito
+    rito, tapos i-reset ang password nila. Ngayon: admin-only, at piling-piling field lang.
+
+    TECHNICAL: couchDB.getAllUsers() returns RAW docs (usersDb.list({include_docs:true}) ->
+    rows.map(row => row.doc)), which carry `password` (bcrypt hash, set in saveUser) plus
+    `resetOtp` / `resetOtpExpiresAt` / `resetOtpUsed` written by forgotPassword. This handler
+    forwarded them verbatim. Route is now requireAdmin (authRoutes.js) and the response is an
+    explicit allow-list — new sensitive fields added to the user doc cannot leak by default.
+
+    NOTE the pre-existing role mismatch, deliberately NOT changed here: this filters
+    (!role || role === 'user') while register() writes role 'student'. Both values exist in the
+    deployment. Fixing that is a data-consistency question, not a security one — audit separately.
+
     PARAMS: req, res. RETURNS: 200 { success, message, users:[], count } | 500.
   */
   getAllUsers: async (req, res) => {
@@ -186,11 +234,25 @@ const accountController = {
       const users = await couchDB.getAllUsers();
       const filteredUsers = users.filter(u => !u.role || u.role === 'user');
 
+      // Allow-list projection. Never spread the raw doc — it carries password/resetOtp.
+      const safeUsers = filteredUsers.map(u => ({
+        _id: u._id,
+        email: u.email,
+        username: u.username || '',
+        fullName: u.fullName || u.username || '',
+        firstName: u.firstName || '',
+        lastName: u.lastName || '',
+        role: u.role || 'user',
+        isActive: u.isActive !== false,
+        createdAt: u.createdAt || null,
+        profilePicture: u.profilePicture || null
+      }));
+
       return res.status(200).json({
         success: true,
         message: 'Users retrieved successfully',
-        users: filteredUsers,
-        count: filteredUsers.length
+        users: safeUsers,
+        count: safeUsers.length
       });
     } catch (error) {
       return sendServerError(res, error, 'ACCOUNT'); // M9
@@ -199,14 +261,35 @@ const accountController = {
 
   /*
     Function Name: updateProfile
-    LAYMAN (Tropang Ex): Ina-update ang profile fields ng user — summary, public/private toggle, username.
-    TECHNICAL: Write wrapper — couchDB.updateProfile(userId, { summary, isPublic, username }).
-    PARAMS: req (req.body.userId, summary, isPublic, username), res.
-    RETURNS: 200 { success, message, data } | 500 via sendServerError.
+
+    LAYMAN (Tropang Ex): Ina-update ang profile fields ng user — summary, public/private toggle,
+    username. Dati, yung userId ay galing sa REQUEST BODY at walang auth, kaya kahit sino kayang
+    palitan ang pangalan o summary ng kahit sinong user o issuer, o gawing PUBLIC ang isang
+    private na profile. Ngayon, sarili mo lang ang kaya mong baguhin — galing sa token ang id.
+
+    TECHNICAL: Identity is now derived from req.user (M1 pattern, matching walletController). The
+    body's userId is IGNORED for ownership; it is only honored for an admin acting on another
+    account. updateProfile itself is field-limited in couchDB_service, so this was never mass
+    assignment — but it was an unauthenticated write to an arbitrary document.
+
+    PARAMS: req (req.user, req.body.summary/isPublic/username, optional req.body.userId for admin), res.
+    RETURNS: 200 { success, message, data } | 401 | 500 via sendServerError.
   */
   updateProfile: async (req, res) => {
     try {
-      const { userId, summary, isPublic, username } = req.body;
+      const authedId = req.user?.id || req.user?._id;
+      if (!authedId) {
+        return res.status(401).json({ success: false, message: 'Unauthorized.' });
+      }
+
+      const { summary, isPublic, username } = req.body;
+
+      // Admin may target another account; everyone else is pinned to their own id regardless of
+      // what the body says.
+      const userId = (req.user.role === 'admin' && req.body.userId)
+        ? req.body.userId
+        : authedId;
+
       const result = await couchDB.updateProfile(userId, { summary, isPublic, username });
 
       return res.status(200).json({
@@ -427,8 +510,8 @@ const accountController = {
         return res.status(403).json({ success: false, message: 'This link is not accessible with your email.' });
       }
 
-      // Generate 6-digit OTP - polo
-      const otp = String(Math.floor(100000 + Math.random() * 900000));
+      // Generate 6-digit OTP - polo  (now CSPRNG-backed; was Math.random)
+      const otp = generateOtp();
       const otpExpiresAt = new Date(Date.now() + 10 * 60 * 1000).toISOString(); // 10 minutes
 
       await couchDB.saveOTPToShareLink(token, otp, otpExpiresAt);
@@ -527,6 +610,11 @@ const accountController = {
         'Code has expired. Request a new one.',
         'Share link not found'
       ];
+      // The wrong-guess budget (OTP pass) throws its own message and is a 429, not a 400 — it must
+      // be listed here or the generic branch would turn a normal rate-limit response into a 500.
+      if (error.message === 'Too many incorrect codes. Request a new one.') {
+        return res.status(429).json({ success: false, message: error.message });
+      }
       const status = knownErrors.includes(error.message) ? 400 : 500;
       return res.status(status).json({ success: false, message: error.message });
     }
@@ -575,7 +663,9 @@ const accountController = {
       // so password reset is only meaningful for approved issuer accounts.
       // couchDB.updateUser routes by _id prefix (issuer_ → issuersDB), so both account types
       // share the same downstream OTP-save and password-update path.
-      const nano = require('nano')('http://admin:adminpw@localhost:5985');
+      // M11: env-driven so a CouchDB password rotation takes effect everywhere, not just in
+      // couchDB_service.js. The literal remains only as the local-dev default.
+      const nano = require('nano')(process.env.COUCHDB_URL || 'http://admin:adminpw@localhost:5985');
       const usersDb = nano.use('users');
 
       let foundDoc = null;
@@ -627,15 +717,17 @@ const accountController = {
         otpAttemptsAt = user.resetOtpAttemptsAt; // keep the same window anchor
       }
 
-      // Generate 6-digit OTP
-      const otp = String(Math.floor(100000 + Math.random() * 900000));
+      // Generate 6-digit OTP  (now CSPRNG-backed; was Math.random)
+      const otp = generateOtp();
       const otpExpiresAt = new Date(Date.now() + 10 * 60 * 1000).toISOString(); // 10 minutes
 
       // Save OTP + rate-limit counters to user doc (single write).
+      // resetOtpFailures resets to 0 with each new code — the budget is per-code, not per-account.
       await couchDB.updateUser(user._id, {
         resetOtp: otp,
         resetOtpExpiresAt: otpExpiresAt,
         resetOtpUsed: false,
+        resetOtpFailures: 0,
         resetOtpAttempts: otpAttempts,
         resetOtpAttemptsAt: otpAttemptsAt
       });
@@ -707,7 +799,9 @@ const accountController = {
       }
 
       // Look up account by email — check users first, then approved issuers only.
-      const nano = require('nano')('http://admin:adminpw@localhost:5985');
+      // M11: env-driven so a CouchDB password rotation takes effect everywhere, not just in
+      // couchDB_service.js. The literal remains only as the local-dev default.
+      const nano = require('nano')(process.env.COUCHDB_URL || 'http://admin:adminpw@localhost:5985');
       const usersDb = nano.use('users');
 
       let foundDoc = null;
@@ -726,8 +820,10 @@ const accountController = {
 
       const user = foundDoc;
 
-      // Validate OTP 
-      if (!user.resetOtp || user.resetOtp !== otp) {
+      // Validate OTP
+      // Order matters: used/expired are checked BEFORE the code compare so a stale entry does not
+      // consume a failure slot, and so the failure budget only ever counts real wrong guesses.
+      if (!user.resetOtp) {
         return res.status(400).json({ success: false, message: 'Invalid reset code.' });
       }
       if (user.resetOtpUsed) {
@@ -735,6 +831,27 @@ const accountController = {
       }
       if (!user.resetOtpExpiresAt || new Date() > new Date(user.resetOtpExpiresAt)) {
         return res.status(400).json({ success: false, message: 'Reset code has expired. Please request a new one.' });
+      }
+      if (!otpEquals(user.resetOtp, otp)) {
+        /* Wrong-guess budget. Previously a failed attempt wrote NOTHING, so the code stayed valid
+           for its full 10 minutes against unlimited guesses — and this is the flow that ends in a
+           password change. The per-IP authLimiter (10 per 15 min) was the only brake, and it is
+           per-IP, not per-account. On the 5th wrong guess the code is invalidated; the user
+           requests a new one (subject to the existing 3-sends-per-10-minutes cap). */
+        const failures = (user.resetOtpFailures || 0) + 1;
+        if (failures >= OTP_MAX_FAILURES) {
+          await couchDB.updateUser(user._id, {
+            resetOtp: null,
+            resetOtpExpiresAt: null,
+            resetOtpFailures: 0
+          });
+          return res.status(429).json({
+            success: false,
+            message: 'Too many incorrect codes. Please request a new reset code.'
+          });
+        }
+        await couchDB.updateUser(user._id, { resetOtpFailures: failures });
+        return res.status(400).json({ success: false, message: 'Invalid reset code.' });
       }
 
       // Hash new password
@@ -752,7 +869,8 @@ const accountController = {
         resetOtpExpiresAt: null,
         resetOtpUsed: true,
         resetOtpAttempts: 0,
-        resetOtpAttemptsAt: null
+        resetOtpAttemptsAt: null,
+        resetOtpFailures: 0
       });
 
       // F28: password-change security receipt (best-effort, non-fatal).
@@ -911,14 +1029,22 @@ const accountController = {
   */
   uploadProfilePicture: async (req, res) => {
     try {
-      const { userId } = req.body;
+      const authedId = req.user?.id || req.user?._id;
+      if (!authedId) {
+        return res.status(401).json({ success: false, message: 'Unauthorized.' });
+      }
+
       const file = req.file;
+
+      // Identity from the token, not the body. This was previously unauthenticated with a
+      // body-supplied userId, so anyone could overwrite any account's avatar — including an
+      // institution's public issuer profile picture. Admin may still target another account.
+      const userId = (req.user.role === 'admin' && req.body.userId)
+        ? req.body.userId
+        : authedId;
 
       if (!file) {
         return res.status(400).json({ success: false, message: 'No file uploaded.' });
-      }
-      if (!userId) {
-        return res.status(400).json({ success: false, message: 'User ID is missing.' });
       }
 
       const fileBuffer = file.buffer;

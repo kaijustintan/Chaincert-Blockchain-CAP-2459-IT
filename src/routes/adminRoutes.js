@@ -5,8 +5,6 @@ const adminAuditController = require('../controllers/adminAuditController');
 const rootAuthorityController = require('../controllers/rootAuthorityController');
 const adminDashboardController = require('../controllers/adminDashboardController');
 
-const router = express.Router();
-
 // ==========================================================================================
 // M2 (Phase 5 hardening): admin-only role guard.
 // The /api/admin mount already enforces requireAuth (a valid token), so req.user is present here.
@@ -15,16 +13,15 @@ const router = express.Router();
 // rootAuthorityController) — this admin router serves both audiences, so the guard is per-route,
 // not blanket. Previously these listing/data endpoints had NO role check at all, so any logged-in
 // user (even a student) could read the entire issuer pipeline and audit logs.
+//
+// requireAdmin used to be declared locally in this file, duplicating the identical rule in
+// sdk-server-fixed.js. Both copies now come from securityHelpers so they cannot drift.
+// (The old local copy said 'Forbidden: admin access required.'; the shared one says
+// 'Forbidden: insufficient privileges.' — no frontend matches on either string.)
 // ==========================================================================================
-function requireAdmin(req, res, next) {
-  if (!req.user) {
-    return res.status(401).json({ success: false, message: 'Authentication required.' });
-  }
-  if (req.user.role !== 'admin') {
-    return res.status(403).json({ success: false, message: 'Forbidden: admin access required.' });
-  }
-  next();
-}
+const { requireAdmin } = require('../securityHelpers');
+
+const router = express.Router();
 
 // =========================
 // ISSUER LISTING / FILTERS  (admin-only)
@@ -82,15 +79,31 @@ router.get('/root/subordinates/disabled', rootAuthorityController.getDisabledSub
 // =========================
 // ADMIN ACTIONS ON ISSUERS / USERS
 // =========================
+// Every route in this block now carries requireAdmin at the ROUTE level. Most of these handlers
+// already do their own `req.user.role !== 'admin'` check inside the controller
+// (adminIssuerController.js:381/531/674/827, adminAuditController.js:328), so for those this is
+// defense in depth, not a fix — but relying on ~40 handlers to each remember the check is exactly
+// how trigger-expiry-check below ended up with no check at all. The guard belongs on the route.
+
+/* NOTE ON `return` IN EVERY HANDLER BELOW.
+   Each wrapper RETURNS the controller's promise. Express 5 auto-forwards a rejected promise to the
+   error middleware, but only if the promise actually reaches Express — a brace body that calls the
+   controller and returns undefined discards it.
+
+   Before this, all 29 handlers in this file dropped their promise (every other router in the
+   project returned it — this file was the outlier). Any throw escaping a controller's own
+   try/catch — realistically a second res.json() after headers were sent — became an unhandled
+   rejection: the client hung until timeout and the global handler in sdk-server-fixed.js never
+   saw it. Keep the `return`. */
 
 // POST /api/admin/approve-issuer/:issuerId
-router.post('/approve-issuer/:issuerId', (req, res) => {
-  adminIssuerController.Approve_Issuer(req, res, req.app.locals.getContractAndGateway);
+router.post('/approve-issuer/:issuerId', requireAdmin, (req, res) => {
+  return adminIssuerController.Approve_Issuer(req, res, req.app.locals.getContractAndGateway);
 });
 
 // POST /api/admin/reject-issuer/:issuerId
-router.post('/reject-issuer/:issuerId', (req, res) => {
-  adminIssuerController.Reject_Issuer(req, res, req.app.locals.getContractAndGateway);
+router.post('/reject-issuer/:issuerId', requireAdmin, (req, res) => {
+  return adminIssuerController.Reject_Issuer(req, res, req.app.locals.getContractAndGateway);
 });
 
 // Group 5 (UAT): env toggle to freeze issuer enable/disable so testers can't lock out an
@@ -103,23 +116,23 @@ const issuerToggleFrozen = (req, res, next) => {
 };
 
 // POST /api/admin/disable-issuer/:issuerId
-router.post('/disable-issuer/:issuerId', issuerToggleFrozen, (req, res) => {
-  adminIssuerController.Disable_Issuer(req, res, req.app.locals.getContractAndGateway);
+router.post('/disable-issuer/:issuerId', requireAdmin, issuerToggleFrozen, (req, res) => {
+  return adminIssuerController.Disable_Issuer(req, res, req.app.locals.getContractAndGateway);
 });
 
 // POST /api/admin/enable-issuer/:issuerId
-router.post('/enable-issuer/:issuerId', issuerToggleFrozen, (req, res) => {
-  adminIssuerController.Enable_Issuer(req, res, req.app.locals.getContractAndGateway);
+router.post('/enable-issuer/:issuerId', requireAdmin, issuerToggleFrozen, (req, res) => {
+  return adminIssuerController.Enable_Issuer(req, res, req.app.locals.getContractAndGateway);
 });
 
 // POST /api/admin/disable-user/:userId
-router.post('/disable-user/:userId', (req, res) => {
-  adminAuditController.Disable_User(req, res, req.app.locals.getContractAndGateway);
+router.post('/disable-user/:userId', requireAdmin, (req, res) => {
+  return adminAuditController.Disable_User(req, res, req.app.locals.getContractAndGateway);
 });
 
 // POST /api/admin/enable-user/:userId
-router.post('/enable-user/:userId', (req, res) => {
-  adminAuditController.Enable_User(req, res, req.app.locals.getContractAndGateway);
+router.post('/enable-user/:userId', requireAdmin, (req, res) => {
+  return adminAuditController.Enable_User(req, res, req.app.locals.getContractAndGateway);
 });
 
 // =========================
@@ -128,12 +141,12 @@ router.post('/enable-user/:userId', (req, res) => {
 
 // POST /api/admin/root-approve-subordinate/:issuerId
 router.post('/root-approve-subordinate/:issuerId', (req, res) => {
-  rootAuthorityController.rootApproveSubordinateIssuer(req, res, req.app.locals.getContractAndGateway);
+  return rootAuthorityController.rootApproveSubordinateIssuer(req, res, req.app.locals.getContractAndGateway);
 });
 
 // POST /api/admin/root-reject-subordinate/:issuerId
 router.post('/root-reject-subordinate/:issuerId', (req, res) => {
-  rootAuthorityController.rootRejectSubordinateIssuer(req, res, req.app.locals.getContractAndGateway);
+  return rootAuthorityController.rootRejectSubordinateIssuer(req, res, req.app.locals.getContractAndGateway);
 });
 
 // =========================
@@ -156,23 +169,27 @@ router.patch('/notifications/read-all', requireAdmin, adminDashboardController.m
 router.get('/credentials/all', requireAdmin, adminDashboardController.getAllIssuerCredentialsAdminController);
 
 // POST /api/admin/trigger-expiry-check
-router.post('/trigger-expiry-check', (req, res) => {
-  adminDashboardController.triggerExpiryCheck(req, res, req.app.locals.getContractAndGateway);
+// THE genuine hole in this router: adminDashboardController.triggerExpiryCheck has NO role check of
+// its own (unlike its sibling triggerIntegrityCheck, which calls ensureAdminRequest). With only the
+// mount-level requireAuth, ANY logged-in user — a student — could fire a full-ledger expiry sweep
+// that submits an ExpireCredential transaction per expired credential, repeatedly.
+router.post('/trigger-expiry-check', requireAdmin, (req, res) => {
+  return adminDashboardController.triggerExpiryCheck(req, res, req.app.locals.getContractAndGateway);
 });
 
 // POST /api/admin/integrity-check
-router.post('/integrity-check', (req, res) => {
-  adminDashboardController.triggerIntegrityCheck(req, res, req.app.locals.getContractAndGateway);
+router.post('/integrity-check', requireAdmin, (req, res) => {
+  return adminDashboardController.triggerIntegrityCheck(req, res, req.app.locals.getContractAndGateway);
 });
 
 // POST /api/admin/trigger-integrity-check
-router.post('/trigger-integrity-check', (req, res) => {
-  adminDashboardController.triggerIntegrityCheck(req, res, req.app.locals.getContractAndGateway);
+router.post('/trigger-integrity-check', requireAdmin, (req, res) => {
+  return adminDashboardController.triggerIntegrityCheck(req, res, req.app.locals.getContractAndGateway);
 });
 
 // POST /api/admin/change-password
-router.post('/change-password', (req, res) => {
-  adminAuditController.changeAdminPasswordSecure(req, res, req.app.locals.getContractAndGateway);
+router.post('/change-password', requireAdmin, (req, res) => {
+  return adminAuditController.changeAdminPasswordSecure(req, res, req.app.locals.getContractAndGateway);
 });
 
 // =========================
@@ -181,36 +198,36 @@ router.post('/change-password', (req, res) => {
 
 // GET /api/admin/status-logs
 router.get('/status-logs', requireAdmin, (req, res) => {
-  adminAuditController.getAllStatusLogs(req, res, req.app.locals.getContractAndGateway);
+  return adminAuditController.getAllStatusLogs(req, res, req.app.locals.getContractAndGateway);
 });
 
 // GET /api/admin/status-logs/issuers
 router.get('/status-logs/issuers', requireAdmin, (req, res) => {
-  adminAuditController.getAllIssuerStatusLogs(req, res, req.app.locals.getContractAndGateway);
+  return adminAuditController.getAllIssuerStatusLogs(req, res, req.app.locals.getContractAndGateway);
 });
 
 // GET /api/admin/status-logs/users
 router.get('/status-logs/users', requireAdmin, (req, res) => {
-  adminAuditController.getAllUserStatusLogs(req, res, req.app.locals.getContractAndGateway);
+  return adminAuditController.getAllUserStatusLogs(req, res, req.app.locals.getContractAndGateway);
 });
 
 // GET /api/admin/status-logs/issuer/:issuerEmail
 router.get('/status-logs/issuer/:issuerEmail', requireAdmin, (req, res) => {
-  adminAuditController.getIssuerStatusLogs(req, res, req.app.locals.getContractAndGateway);
+  return adminAuditController.getIssuerStatusLogs(req, res, req.app.locals.getContractAndGateway);
 });
 
 // GET /api/admin/status-logs/user/:userEmail
 router.get('/status-logs/user/:userEmail', requireAdmin, (req, res) => {
-  adminAuditController.getUserStatusLogs(req, res, req.app.locals.getContractAndGateway);
+  return adminAuditController.getUserStatusLogs(req, res, req.app.locals.getContractAndGateway);
 });
 
 // Optional legacy aliases
 router.get('/status-logs/issuers/:issuerEmail', requireAdmin, (req, res) => {
-  adminAuditController.getIssuerStatusLogs(req, res, req.app.locals.getContractAndGateway);
+  return adminAuditController.getIssuerStatusLogs(req, res, req.app.locals.getContractAndGateway);
 });
 
 router.get('/status-logs/users/:userEmail', requireAdmin, (req, res) => {
-  adminAuditController.getUserStatusLogs(req, res, req.app.locals.getContractAndGateway);
+  return adminAuditController.getUserStatusLogs(req, res, req.app.locals.getContractAndGateway);
 });
 
 // =========================
@@ -219,22 +236,22 @@ router.get('/status-logs/users/:userEmail', requireAdmin, (req, res) => {
 
 // GET /api/admin/issuer-decision-logs
 router.get('/issuer-decision-logs', requireAdmin, (req, res) => {
-  adminAuditController.getAllIssuerDecisionLogs(req, res, req.app.locals.getContractAndGateway);
+  return adminAuditController.getAllIssuerDecisionLogs(req, res, req.app.locals.getContractAndGateway);
 });
 
 // GET /api/admin/issuer-decision-logs/approved
 router.get('/issuer-decision-logs/approved', requireAdmin, (req, res) => {
-  adminAuditController.getAllIssuerApprovalLogs(req, res, req.app.locals.getContractAndGateway);
+  return adminAuditController.getAllIssuerApprovalLogs(req, res, req.app.locals.getContractAndGateway);
 });
 
 // GET /api/admin/issuer-decision-logs/rejected
 router.get('/issuer-decision-logs/rejected', requireAdmin, (req, res) => {
-  adminAuditController.getAllIssuerRejectionLogs(req, res, req.app.locals.getContractAndGateway);
+  return adminAuditController.getAllIssuerRejectionLogs(req, res, req.app.locals.getContractAndGateway);
 });
 
 // GET /api/admin/issuer-decision-logs/:issuerEmail
 router.get('/issuer-decision-logs/:issuerEmail', requireAdmin, (req, res) => {
-  adminAuditController.getIssuerDecisionLogs(req, res, req.app.locals.getContractAndGateway);
+  return adminAuditController.getIssuerDecisionLogs(req, res, req.app.locals.getContractAndGateway);
 });
 
 // =========================
@@ -243,7 +260,7 @@ router.get('/issuer-decision-logs/:issuerEmail', requireAdmin, (req, res) => {
 
 // GET /api/admin/root-subordinate-logs
 router.get('/root-subordinate-logs', requireAdmin, (req, res) => {
-  adminAuditController.GetAllRootSubordinateLogs(
+  return adminAuditController.GetAllRootSubordinateLogs(
     req,
     res,
     req.app.locals.getContractAndGateway
@@ -252,7 +269,7 @@ router.get('/root-subordinate-logs', requireAdmin, (req, res) => {
 
 // GET /api/admin/root-subordinate-logs/approved
 router.get('/root-subordinate-logs/approved', requireAdmin, (req, res) => {
-  adminAuditController.GetAllRootSubordinateApprovalLogs(
+  return adminAuditController.GetAllRootSubordinateApprovalLogs(
     req,
     res,
     req.app.locals.getContractAndGateway
@@ -261,7 +278,7 @@ router.get('/root-subordinate-logs/approved', requireAdmin, (req, res) => {
 
 // GET /api/admin/root-subordinate-logs/rejected
 router.get('/root-subordinate-logs/rejected', requireAdmin, (req, res) => {
-  adminAuditController.GetAllRootSubordinateRejectionLogs(
+  return adminAuditController.GetAllRootSubordinateRejectionLogs(
     req,
     res,
     req.app.locals.getContractAndGateway
@@ -274,7 +291,7 @@ router.get('/root-subordinate-logs/rejected', requireAdmin, (req, res) => {
 
 // GET /api/admin/root/subordinate-logs
 router.get('/root/subordinate-logs', (req, res) => {
-  rootAuthorityController.GetRootSubordinateLogsByRootAuthority(
+  return rootAuthorityController.GetRootSubordinateLogsByRootAuthority(
     req,
     res,
     req.app.locals.getContractAndGateway
@@ -283,7 +300,7 @@ router.get('/root/subordinate-logs', (req, res) => {
 
 // GET /api/admin/root/subordinate-logs/approved
 router.get('/root/subordinate-logs/approved', (req, res) => {
-  rootAuthorityController.GetRootSubordinateApprovalLogsByRootAuthority(
+  return rootAuthorityController.GetRootSubordinateApprovalLogsByRootAuthority(
     req,
     res,
     req.app.locals.getContractAndGateway
@@ -292,7 +309,7 @@ router.get('/root/subordinate-logs/approved', (req, res) => {
 
 // GET /api/admin/root/subordinate-logs/rejected
 router.get('/root/subordinate-logs/rejected', (req, res) => {
-  rootAuthorityController.GetRootSubordinateRejectionLogsByRootAuthority(
+  return rootAuthorityController.GetRootSubordinateRejectionLogsByRootAuthority(
     req,
     res,
     req.app.locals.getContractAndGateway

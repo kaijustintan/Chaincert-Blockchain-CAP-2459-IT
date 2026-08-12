@@ -1,7 +1,13 @@
 const couchDB = require('../couchDB_service');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
-const { validatePasswordStrength, sendServerError } = require('../securityHelpers'); // Phase 5 Tier 2
+const {
+  validatePasswordStrength,
+  sendServerError,
+  generateOtp,      // CSPRNG 6-digit code (replaces Math.random)
+  otpEquals,        // constant-time compare
+  OTP_MAX_FAILURES  // wrong guesses before the code is burned
+} = require('../securityHelpers'); // Phase 5 Tier 2
 const mailerService = require('../mailerService'); // F28: password-change receipt
 
 // M4 (Phase 5 hardening): a real bcrypt hash used ONLY to equalize response timing when an email
@@ -19,7 +25,8 @@ const DUMMY_BCRYPT_HASH = bcrypt.hashSync('chaincert-timing-equalizer', 10);
 // re-request. Issuer applications are NOT gated here (they already pass admin review before going
 // live). TESTING TOGGLE: DISABLE_SIGNUP_OTP=true bypasses the gate in register().
 // ===========================================================================================
-const signupOtpStore = new Map(); // email -> { otp, expiresAt, attempts, windowStart }
+// `failures` counts WRONG GUESSES (see confirmSignupOtp); `attempts` counts SENDS.
+const signupOtpStore = new Map(); // email -> { otp, expiresAt, attempts, windowStart, failures }
 const SIGNUP_OTP_TTL_MS = 10 * 60 * 1000;      // code valid 10 min
 const SIGNUP_OTP_MAX = 3;                       // max sends per rate-limit window
 const SIGNUP_OTP_WINDOW_MS = 10 * 60 * 1000;    // rate-limit window
@@ -29,7 +36,8 @@ const SIGNUP_EMAIL_RE = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
 const authController = {
   register: async (req, res) => {
     try {
-      const { username, email, password, role, org } = req.body;
+      // `role` is deliberately NOT destructured from the body — see the userData block below.
+      const { username, email, password, org } = req.body;
 
       if (!username || !password || !email) {
         return res.status(400).json({
@@ -73,12 +81,31 @@ const authController = {
 
       const hashedPassword = await bcrypt.hash(password, 10);
 
+      /* PRIVILEGE-ESCALATION FIX.
+
+         LAYMAN (Tropang Ex): Dati, kung ano ang isinulat mo sa "role" ng request mo, yun ang
+         ibinibigay sa'yo. Kaya kahit sino sa internet, kayang gawin ang sarili niyang ADMIN
+         account — signup lang, tapos idagdag ang "role":"admin". Hindi nakatulong ang signup OTP,
+         kasi pinapatunayan lang niyon na sa'yo ang email na ginamit mo. Ngayon, laging 'student'
+         ang bagong account, kahit ano pa ang ipadala mo.
+
+         TECHNICAL: `role` was read from req.body and written straight through as
+         `role: role || 'student'`. The JWT is minted with `role: user.role` at login, so a
+         self-declared 'admin' satisfied requireAdmin and every other admin gate — full takeover
+         of the issuer-approval pipeline, audit logs, and user enable/disable, from an anonymous
+         HTTP request.
+
+         Public self-registration now always yields the lowest-privilege role. Issuer accounts are
+         created by the separate admin-reviewed onboarding flow (issuerOnboardingController), and
+         admin accounts are seeded out-of-band — neither goes through this endpoint. `org` is kept
+         client-supplied: it selects a Fabric org for read routing and confers no privilege.
+      */
       const userData = {
         type: 'user',
         username,
         email: normalizedEmail,
         password: hashedPassword,
-        role: role || 'student',
+        role: 'student',
         org: org || 'org1',
         createdAt: new Date(),
         isActive: true
@@ -117,8 +144,8 @@ const authController = {
         attempts = existing.attempts + 1;
         windowStart = existing.windowStart;
       }
-      const otp = String(Math.floor(100000 + Math.random() * 900000));
-      signupOtpStore.set(email, { otp, expiresAt: now + SIGNUP_OTP_TTL_MS, attempts, windowStart });
+      const otp = generateOtp(); // CSPRNG — was Math.random(), which is predictable from prior draws
+      signupOtpStore.set(email, { otp, expiresAt: now + SIGNUP_OTP_TTL_MS, attempts, windowStart, failures: 0 });
       try {
         await mailerService.sendMail({
           to: email,
@@ -151,12 +178,28 @@ const authController = {
         return res.status(400).json({ success: false, message: 'Email and code are required.' });
       }
       const entry = signupOtpStore.get(email);
-      if (!entry || entry.otp !== otp) {
+      if (!entry) {
         return res.status(400).json({ success: false, message: 'Invalid verification code.' });
       }
+      // Expiry is checked BEFORE the code compare so an expired entry is cleaned up rather than
+      // consuming a failure slot.
       if (Date.now() > entry.expiresAt) {
         signupOtpStore.delete(email);
         return res.status(400).json({ success: false, message: 'Code has expired. Please request a new one.' });
+      }
+      if (!otpEquals(entry.otp, otp)) {
+        // Count the wrong guess and burn the code once the budget is spent. Without this, the code
+        // stayed guessable for its full 10-minute life at whatever rate the attacker could send.
+        entry.failures = (entry.failures || 0) + 1;
+        if (entry.failures >= OTP_MAX_FAILURES) {
+          signupOtpStore.delete(email);
+          return res.status(429).json({
+            success: false,
+            message: 'Too many incorrect codes. Please request a new one.'
+          });
+        }
+        signupOtpStore.set(email, entry);
+        return res.status(400).json({ success: false, message: 'Invalid verification code.' });
       }
       signupOtpStore.delete(email); // single-use
       const signupToken = jwt.sign(
@@ -261,19 +304,46 @@ const authController = {
     }
   },
 
+  /*
+    Function Name: changePassword
+
+    LAYMAN (Tropang Ex): Pagpapalit ng sariling password. Dati, kung sinong email ang isulat mo sa
+    request, yun ang bini-baguhan — at walang kailangang login. Dalawa ang naging problema: (1)
+    sinasabi niya sa'yo kung existing ba ang isang email (404 kung wala, 401 kung meron pero mali
+    ang password), kaya nagiging listahan ng valid na accounts; at (2) walang limit ang pagsubok,
+    kaya pwedeng hulaan ang password nang walang hanggan — na siyang dumaan sa likod ng lahat ng
+    proteksyon na nilagay natin sa /login. Ngayon, kailangan naka-login ka, at ang sarili mo lang
+    na account ang kaya mong palitan.
+
+    TECHNICAL: The account is now resolved from req.user (route carries requireAuth), never from
+    req.body.email. This closes the account-enumeration oracle (the 404-vs-401 split) and removes
+    the unauthenticated brute-force surface that bypassed the M4 uniform-response work on /login
+    and the M5 authLimiter. The route also gains authLimiter in commit 7.
+
+    PARAMS: req (req.user, req.body.currentPassword/newPassword), res.
+    RETURNS: 200 | 400 | 401 | 500 via sendServerError.
+  */
   changePassword: async (req, res) => {
     try {
-      const { email, currentPassword, newPassword } = req.body;
+      const { currentPassword, newPassword } = req.body;
 
+      const authedId = req.user?.id || req.user?._id;
+      if (!authedId) {
+        return res.status(401).json({ success: false, message: 'Authentication required.' });
+      }
+
+      // Identity from the token. The email in the body (if any) is ignored.
       const allUsers = await couchDB.getAllUsers();
-      let user = allUsers.find(u => u.email === email);
+      let user = allUsers.find(u => String(u._id) === String(authedId));
 
-      if (!user) {
-        user = await couchDB.getApprovedIssuer(email);
+      if (!user && req.user.email) {
+        user = await couchDB.getApprovedIssuer(req.user.email);
       }
 
       if (!user) {
-        return res.status(404).json({ success: false, message: 'User not found' });
+        // The token verified but the account is gone (deleted mid-session). Not an enumeration
+        // signal — the caller already proved they hold a token for this id.
+        return res.status(401).json({ success: false, message: 'Authentication required.' });
       }
 
       const passwordMatch = await bcrypt.compare(currentPassword, user.password);
@@ -294,7 +364,10 @@ const authController = {
       // G3: fire-and-forget so the password change responds immediately.
       // Route by account type: holders use legit emails → real inbox; issuer/admin
       // accounts are test addresses → central inbox (SMTP_OVERRIDE_TO).
-      const acctEmail = user.email || email;
+      // NOTE: the old fallback here was `user.email || email`, reading the body-supplied email.
+      // That identifier no longer exists (identity comes from the token), so fall back to the
+      // token's own email claim instead.
+      const acctEmail = user.email || req.user.email;
       const acctIsTest = ['issuer', 'admin'].includes(String(user.role || '').toLowerCase()) || String(user._id || '').startsWith('issuer_');
       if (acctEmail) {
         mailerService.sendMailFireAndForget({

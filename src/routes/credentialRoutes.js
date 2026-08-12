@@ -4,8 +4,60 @@ const nano = require('nano');
 const issuerCredentialController = require('../controllers/issuerCredentialController');
 const verifierController = require('../controllers/verifierController');
 const couchdb = require('../couchDB_service');
+const { requireAuth, requireAnyRole, sendServerError } = require('../securityHelpers');
 
 const router = express.Router();
+
+// ======================================================
+// PUBLIC VERIFICATION ROUTES  (declared FIRST — see the auth boundary below)
+// ======================================================
+// Credential verification is public by design: that is the product. A verifier holding a
+// credential ID or a shared link checks it without an account.
+//
+// These four were previously declared at the BOTTOM of this file. They are hoisted above the auth
+// boundary so the rest of the router can be closed by default. Route-precedence was checked before
+// moving: every param route here has a distinct LITERAL second segment (/verify, /log-verification,
+// /history, /issue, /revoke), and the private routes below are either single-segment (/issued,
+// /templates) or literal-first (/issuer/:issuerID), so nothing is shadowed by the hoist.
+
+// V1: verifier email OTP (prove email ownership once per window before logging a verification).
+// Literal paths declared BEFORE the /:credentialId/* routes so they never get param-matched.
+// POST /api/credentials/verify/request-otp
+router.post('/verify/request-otp', (req, res) => verifierController.requestVerifierOtp(req, res));
+// POST /api/credentials/verify/confirm-otp
+router.post('/verify/confirm-otp', (req, res) => verifierController.confirmVerifierOtp(req, res));
+
+// GET /api/credentials/:credentialId/verify
+// Verify credential by id.
+router.get('/:credentialId/verify', (req, res) => {
+  return verifierController.Verify_Credential(
+    req,
+    res,
+    req.app.locals.getContractAndGateway
+  );
+});
+
+// POST /api/credentials/:credentialId/log-verification
+// Write verification log on-chain. Public, but logVerificationEvent itself REQUIRES a
+// 'verifier_email_proof' JWT and takes the email FROM that token, so the logged identity
+// cannot be spoofed by the request body (V1).
+router.post('/:credentialId/log-verification', (req, res) => {
+  return verifierController.logVerificationEvent(
+    req,
+    res,
+    req.app.locals.getContractAndGateway
+  );
+});
+
+// ======================================================
+// AUTH BOUNDARY — everything BELOW requires a valid token. (M2)
+// ------------------------------------------------------------------------------------------
+// /api/credentials was mounted with no guard, so all 10 routes were anonymous and two of them
+// hand-rolled their own `if (!req.user) return 401` inline. Those inline blocks are now redundant
+// and have been removed in favour of this single boundary — one place to read, and any route added
+// below is guarded automatically.
+// ======================================================
+router.use(requireAuth);
 
 // ======================================================
 // ISSUER / ADMIN CREDENTIAL ROUTES
@@ -36,6 +88,7 @@ router.get('/templates', (req, res) => {
 router.get('/issuer/:issuerID', async (req, res) => {
   try {
     const { issuerID } = req.params;
+    const user = req.user; // guaranteed by the router-level requireAuth above
 
     if (!issuerID || issuerID === 'ISSUER') {
       return res.status(400).json({
@@ -45,15 +98,22 @@ router.get('/issuer/:issuerID', async (req, res) => {
       });
     }
 
-    const user = req.user;
-    if (!user) {
-      return res.status(401).json({
+    // IDOR fix: the id came from the URL and was never compared to the caller. Any authenticated
+    // user — including a student — could read any issuer's full template catalogue by id, and
+    // issuer ids are public via GET /api/issuer/root-authorities. Issuers now see only their own;
+    // admin (platform operator) may read any.
+    if (user.role !== 'admin' && String(issuerID) !== String(user.id)) {
+      return res.status(403).json({
         success: false,
-        error: 'Unauthorized',
+        error: 'You can only access your own credentials.',
       });
     }
 
-    const adminNano = nano('http://admin:adminpw@localhost:5985');
+    // M11 (COMPLETE): this was the first of seven sites that hardcoded the CouchDB connection and
+    // bypassed COUCHDB_URL. The remaining six (accountController x2, issuerCredentialController x3,
+    // verifierController x1) are now env-driven too, so a password rotation takes effect on every
+    // code path rather than some of them — a partial rotation was the harder failure to diagnose.
+    const adminNano = nano(process.env.COUCHDB_URL || 'http://admin:adminpw@localhost:5985');
     const issuersDB = adminNano.use('issuers');
 
     let issuer;
@@ -89,11 +149,8 @@ router.get('/issuer/:issuerID', async (req, res) => {
       timestamp: new Date().toISOString(),
     });
   } catch (error) {
-    console.error(`❌ Error fetching issuer credentials: ${error.message}`);
-    return res.status(500).json({
-      success: false,
-      error: error.message,
-    });
+    // M9: was returning the raw error.message (CouchDB/Fabric internals) to the client.
+    return sendServerError(res, error, 'CREDENTIAL-ROUTE');
   }
 });
 
@@ -103,13 +160,7 @@ router.get('/:id/history', async (req, res) => {
   let gateway;
 
   try {
-    const user = req.user;
-    if (!user) {
-      return res.status(401).json({
-        success: false,
-        error: 'Unauthorized',
-      });
-    }
+    const user = req.user; // guaranteed by the router-level requireAuth above
 
     let identityName;
     let orgName;
@@ -158,11 +209,8 @@ router.get('/:id/history', async (req, res) => {
       timestamp: new Date().toISOString(),
     });
   } catch (error) {
-    console.error(`❌ Error: ${error.message}`);
-    return res.status(500).json({
-      success: false,
-      error: error.message,
-    });
+    // M9: was returning the raw error.message to the client.
+    return sendServerError(res, error, 'CREDENTIAL-HISTORY');
   } finally {
     try { if (gateway) await gateway.disconnect(); } catch (_) {}
   }
@@ -174,7 +222,9 @@ router.get('/:id/history', async (req, res) => {
 
 // POST /api/credentials/:credentialId/issue
 // Issue credential to a holder.
-router.post('/:credentialId/issue', (req, res) => {
+// requireAnyRole rejects a logged-in student at the route; the controller then enforces that the
+// TEMPLATE belongs to this issuer (Step 4D) before anything is written to the ledger.
+router.post('/:credentialId/issue', requireAnyRole('issuer', 'admin'), (req, res) => {
   return issuerCredentialController.Issue_Credential(
     req,
     res,
@@ -184,39 +234,10 @@ router.post('/:credentialId/issue', (req, res) => {
 
 // POST /api/credentials/:credentialId/revoke
 // Revoke credential.
-router.post('/:credentialId/revoke', (req, res) => {
+// Role at the route, per-credential ownership in the controller (Step 3B) — revocation is
+// immutable, so both gates run before submitTransaction.
+router.post('/:credentialId/revoke', requireAnyRole('issuer', 'admin'), (req, res) => {
   return issuerCredentialController.revoke_Credential(
-    req,
-    res,
-    req.app.locals.getContractAndGateway
-  );
-});
-
-// ======================================================
-// VERIFICATION-RELATED CREDENTIAL ROUTES
-// ======================================================
-
-// V1: verifier email OTP (prove email ownership once per window before logging a verification).
-// Literal paths declared BEFORE the /:credentialId/* routes so they never get param-matched.
-// POST /api/credentials/verify/request-otp
-router.post('/verify/request-otp', (req, res) => verifierController.requestVerifierOtp(req, res));
-// POST /api/credentials/verify/confirm-otp
-router.post('/verify/confirm-otp', (req, res) => verifierController.confirmVerifierOtp(req, res));
-
-// GET /api/credentials/:credentialId/verify
-// Verify credential by id.
-router.get('/:credentialId/verify', (req, res) => {
-  return verifierController.Verify_Credential(
-    req,
-    res,
-    req.app.locals.getContractAndGateway
-  );
-});
-
-// POST /api/credentials/:credentialId/log-verification
-// Write verification log on-chain.
-router.post('/:credentialId/log-verification', (req, res) => {
-  return verifierController.logVerificationEvent(
     req,
     res,
     req.app.locals.getContractAndGateway

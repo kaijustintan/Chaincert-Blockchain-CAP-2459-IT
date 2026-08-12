@@ -1,7 +1,10 @@
 import axios from 'axios';
 
 const instance = axios.create({
-  baseURL: process.env.REACT_APP_API_URL || 'http://localhost:4000/api',
+  // Vite exposes build-time env on import.meta.env (was process.env under CRA). The REACT_APP_
+  // prefix is preserved via envPrefix in vite.config.js, so the variable NAME is unchanged and no
+  // .env file or deploy runbook needed updating.
+  baseURL: import.meta.env.REACT_APP_API_URL || 'http://localhost:4000/api',
 });
 
 // Automatically attach the JWT token if it exists

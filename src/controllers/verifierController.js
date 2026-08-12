@@ -25,9 +25,17 @@ const nano = require('nano');
 const jwt = require('jsonwebtoken');                  // V1: proven-email token
 const mailerService = require('../mailerService');    // V1: OTP email
 const couchdbService = require('../couchDB_service'); // for future issuer/admin lookups if needed
+const { generateOtp, otpEquals, OTP_MAX_FAILURES } = require('../securityHelpers'); // OTP hardening
 
 // couchDB connection where wallet_user_credentials is
-const COUCHDB_URL = 'http://admin:adminpw@localhost:5985';
+/* M11: env-driven.
+
+   This was the most misleading of the seven hardcoded sites: it declared a constant NAMED
+   COUCHDB_URL with a hardcoded value, so anyone grepping for the env var found this line and
+   reasonably concluded the setting was honored here. It was not — rotating the CouchDB password
+   changed behavior on some code paths and silently not on others, which is far harder to diagnose
+   than a clean failure everywhere. */
+const COUCHDB_URL = process.env.COUCHDB_URL || 'http://admin:adminpw@localhost:5985';
 
 // End-of-day-Manila expiry (mirrors chaincode VerifyCredential + the frontend isEffectivelyExpired):
 // a bare "YYYY-MM-DD" expiryDate is valid THROUGH 23:59:59.999 of that day in Asia/Manila (+08:00).
@@ -45,7 +53,9 @@ function isExpiredManila(expiryDate) {
 // V1: VERIFIER EMAIL OTP (prove email ownership once per window before a verification is LOGGED)
 // ==========================================================================================================================================================================
 /*
-  In-memory transient OTP store, keyed by lowercased email → { otp, expiresAt, attempts, windowStart }.
+  In-memory transient OTP store, keyed by lowercased email →
+  { otp, expiresAt, attempts, windowStart, failures }.
+  `attempts` counts SENDS; `failures` counts WRONG GUESSES (see confirmVerifierOtp).
   Single-instance capstone scope: not persisted on purpose (no DB schema change). OTPs are short-lived,
   so a server restart just forces a re-request. On successful OTP confirm we issue a short-lived JWT
   ('verifier_email_proof') that the verify-LOG endpoint requires — so the logged verifier email is
@@ -75,8 +85,8 @@ const requestVerifierOtp = async (req, res) => {
       attempts = existing.attempts + 1;
       windowStart = existing.windowStart;
     }
-    const otp = String(Math.floor(100000 + Math.random() * 900000));
-    verifierOtpStore.set(email, { otp, expiresAt: now + VERIFIER_OTP_TTL_MS, attempts, windowStart });
+    const otp = generateOtp(); // CSPRNG — was Math.random(), predictable from prior draws
+    verifierOtpStore.set(email, { otp, expiresAt: now + VERIFIER_OTP_TTL_MS, attempts, windowStart, failures: 0 });
 
     try {
       await mailerService.sendMail({
@@ -111,12 +121,30 @@ const confirmVerifierOtp = async (req, res) => {
       return res.status(400).json({ success: false, message: 'Email and code are required.' });
     }
     const entry = verifierOtpStore.get(email);
-    if (!entry || entry.otp !== otp) {
+    if (!entry) {
       return res.status(400).json({ success: false, message: 'Invalid verification code.' });
     }
     if (Date.now() > entry.expiresAt) {
       verifierOtpStore.delete(email);
       return res.status(400).json({ success: false, message: 'Code has expired. Please request a new one.' });
+    }
+    if (!otpEquals(entry.otp, otp)) {
+      /* Wrong-guess budget. This flow was the most damaging of the four: a successful confirm mints
+         a 'verifier_email_proof' JWT for WHATEVER email was supplied, and logVerificationEvent
+         takes the logged verifier identity FROM that token. So unlimited guessing against any
+         address let an attacker obtain a token proving an email they do not control — exactly the
+         spoofing the V1 design exists to prevent — and then write permanent on-chain verification
+         records under it. */
+      entry.failures = (entry.failures || 0) + 1;
+      if (entry.failures >= OTP_MAX_FAILURES) {
+        verifierOtpStore.delete(email);
+        return res.status(429).json({
+          success: false,
+          message: 'Too many incorrect codes. Please request a new one.'
+        });
+      }
+      verifierOtpStore.set(email, entry);
+      return res.status(400).json({ success: false, message: 'Invalid verification code.' });
     }
     verifierOtpStore.delete(email); // single-use
     const token = jwt.sign(
@@ -180,18 +208,35 @@ const Verify_Credential = async (req, res, getContractAndGateway) => {
 
     // ✅ STEP 1: Try BLOCKCHAIN FIRST (trust anchor)
     if (getContractAndGateway) {
+      /* RESOURCE SAFETY: `gateway` is declared HERE, outside the try, and released in the
+         `finally` at the end of this block.
+
+         It used to be declared inside the try with `await gateway.disconnect()` on the happy path
+         only. evaluateTransaction throws for a credential that does not exist — the single most
+         common outcome on this endpoint, since it is the public verify surface anyone can hit with
+         any string — and JSON.parse can throw on a malformed response. On either, execution jumped
+         to the catch, where `gateway` was out of scope and therefore IMPOSSIBLE to clean up. Each
+         failed verification leaked a live gRPC connection plus its Fabric discovery state.
+
+         Unauthenticated + unthrottled + leaks-per-failure is a denial-of-service primitive: a loop
+         of garbage credential ids exhausts the API's connections. It presents as "the server died
+         on its own", not as an attack.
+
+         The other controllers (admin/root/wallet) already used try/finally — this file was the
+         outlier. */
+      let gateway = null;
       try {
         const identityName = 'admin';
         const orgName = 'Org1';
-        const { gateway, contract } = await getContractAndGateway(identityName, orgName);
+        const conn = await getContractAndGateway(identityName, orgName);
+        gateway = conn.gateway;
+        const contract = conn.contract;
         const bcResultBuffer = await contract.evaluateTransaction('VerifyCredential', credentialId);
         const bcResult = JSON.parse(bcResultBuffer.toString());
-        await gateway.disconnect();
 
         if (bcResult.valid !== undefined) {
           // Blockchain returned a definitive answer
           const c = bcResult.credential || {};
-          const now = new Date();
           let chainStatus = c.status || '';
           if (!chainStatus || String(chainStatus).toLowerCase() === 'unknown') {
             if (bcResult.valid) {
@@ -231,6 +276,14 @@ const Verify_Credential = async (req, res, getContractAndGateway) => {
         console.error('[VERIFY] Blockchain VerifyCredential failed:', bcErr.message);
         blockchainError = bcErr.message;
         // Fall through to CouchDB
+      } finally {
+        // Runs on BOTH paths — this is what stops the per-failure connection leak.
+        // Guarded because getContractAndGateway itself may have thrown before assigning.
+        if (gateway) {
+          try { await gateway.disconnect(); } catch (dErr) {
+            console.warn('[VERIFY] gateway.disconnect failed (non-fatal):', dErr.message);
+          }
+        }
       }
     }
 
@@ -307,7 +360,6 @@ const Verify_Credential = async (req, res, getContractAndGateway) => {
 
       if (couchResult.docs && couchResult.docs.length > 0) {
         const credential = couchResult.docs[0];
-        const now = new Date();
         let status = credential.status || '';
         if (!status || String(status).toLowerCase() === 'unknown') {
           if (credential.isRevoked === true || credential.revoked === true) status = 'revoked';
@@ -428,15 +480,23 @@ const getVerificationStats = async (req, res) => {
     const adminCouch = nano(COUCHDB_URL);
     const userWalletDb = adminCouch.use('wallet_user_credentials');
 
+    /* PROJECTED. This is a deliberate scan of every credential in the system — the `_id > null`
+       selector matches everything and cannot use an index — but it only needs to COUNT rows by
+       status. Before the projection it pulled every full document, base64 badgeImage included,
+       across the wire into Node purely to compute five integers.
+
+       `fields` cuts that to four scalars per row. The scan itself remains: producing these totals
+       without one requires either a CouchDB reduce view or maintained counters, both of which are
+       larger changes than this endpoint justifies. */
     const result = await userWalletDb.find({
       selector: {
         _id: { $gt: null },
       },
+      fields: ['_id', 'status', 'isRevoked', 'expiryDate'],
       limit: 100000,
     });
 
     const allCredentials = result.docs || [];
-    const now = new Date();
 
     const stats = {
       total: allCredentials.length,
@@ -600,18 +660,29 @@ const logVerificationEvent = async (req, res, getContractAndGateway) => {
     const identityName = 'admin';
     const orgName = 'Org1';
 
-    const { gateway, contract } = await getContractAndGateway(identityName, orgName);
+    // Hoisted out of the try below so `finally` can always release it (see Verify_Credential
+    // for the full rationale — a submit failure used to leak the connection permanently).
+    let gateway = null;
+    let logBuffer;
+    try {
+      const conn = await getContractAndGateway(identityName, orgName);
+      gateway = conn.gateway;
 
-    // Step 2: Submit LogVerification transaction
-    const logBuffer = await contract.submitTransaction(
-      'LogVerification',
-      credentialId,
-      resolvedName,
-      resolvedEmail,
-      serializedResultJson
-    );
-
-    await gateway.disconnect();
+      // Step 2: Submit LogVerification transaction
+      logBuffer = await conn.contract.submitTransaction(
+        'LogVerification',
+        credentialId,
+        resolvedName,
+        resolvedEmail,
+        serializedResultJson
+      );
+    } finally {
+      if (gateway) {
+        try { await gateway.disconnect(); } catch (dErr) {
+          console.warn('[VERIFY-LOG] gateway.disconnect failed (non-fatal):', dErr.message);
+        }
+      }
+    }
 
     const log = JSON.parse(logBuffer.toString());
     console.log('[VERIFY-LOG] On-chain verification log created:', log.id);
@@ -680,14 +751,23 @@ const getAllVerificationLogs = async (req, res, getContractAndGateway) => {
       identityName = 'admin';
     }
 
-    // Step 2: Connect to blockchain
-    const { gateway, contract } = await getContractAndGateway(identityName, orgName);
+    // Step 2: Connect to blockchain (gateway hoisted so `finally` always releases it)
+    let gateway = null;
+    let logs;
+    try {
+      const conn = await getContractAndGateway(identityName, orgName);
+      gateway = conn.gateway;
 
-    // Step 3: Call chaincode GetAllVerificationLogs (read-only)
-    const resultBuffer = await contract.evaluateTransaction('GetAllVerificationLogs');
-    const logs = JSON.parse(resultBuffer.toString());
-
-    await gateway.disconnect();
+      // Step 3: Call chaincode GetAllVerificationLogs (read-only)
+      const resultBuffer = await conn.contract.evaluateTransaction('GetAllVerificationLogs');
+      logs = JSON.parse(resultBuffer.toString());
+    } finally {
+      if (gateway) {
+        try { await gateway.disconnect(); } catch (dErr) {
+          console.warn('[VERIFY-LOGS] gateway.disconnect failed (non-fatal):', dErr.message);
+        }
+      }
+    }
 
     // Step 4: Best-effort enrichment from CouchDB users DB
     // Para mabigyan ng Holder Name based on holderID.
@@ -771,15 +851,26 @@ const getVerificationLogById = async (req, res, getContractAndGateway) => {
     const identityName = 'admin';
     const orgName = 'Org1';
 
-    const { gateway, contract } = await getContractAndGateway(identityName, orgName);
+    // Gateway hoisted so `finally` always releases it, even when the log id does not exist
+    // (evaluateTransaction throws) — previously that leaked the connection.
+    let gateway = null;
+    let log;
+    try {
+      const conn = await getContractAndGateway(identityName, orgName);
+      gateway = conn.gateway;
 
-    const resultBuffer = await contract.evaluateTransaction(
-      'GetVerificationLogById',
-      logId
-    );
-    const log = JSON.parse(resultBuffer.toString());
-
-    await gateway.disconnect();
+      const resultBuffer = await conn.contract.evaluateTransaction(
+        'GetVerificationLogById',
+        logId
+      );
+      log = JSON.parse(resultBuffer.toString());
+    } finally {
+      if (gateway) {
+        try { await gateway.disconnect(); } catch (dErr) {
+          console.warn('[VERIFY-LOG-BY-ID] gateway.disconnect failed (non-fatal):', dErr.message);
+        }
+      }
+    }
 
     return res.status(200).json({
       success: true,

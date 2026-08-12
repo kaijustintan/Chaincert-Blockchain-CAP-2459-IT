@@ -203,6 +203,10 @@ function renderOtpEmail({ heading, intro, otp, note }) {
   return renderEmail({ heading, bodyHtml });
 }
 
+// Single, ordinary email address. Deliberately strict: no commas, no semicolons, no angle
+// brackets, no whitespace, no CR/LF. See the validation in sendMail for why each matters.
+const SAFE_EMAIL_RE = /^[^\s<>,;:"\\()[\]]+@[^\s<>,;:"\\()[\]]+\.[A-Za-z]{2,}$/;
+
 async function sendMail({ to, subject, html, text, realRecipient = false }) {
   const transporter = getTransporter();
 
@@ -210,17 +214,40 @@ async function sendMail({ to, subject, html, text, realRecipient = false }) {
   // Otherwise honor the demo catch-all (issuer/admin emails are test addresses).
   const deliverTo = realRecipient ? to : (process.env.SMTP_OVERRIDE_TO || to);
 
+  /* Recipient validation.
+
+     LAYMAN (Tropang Ex): Tinitingnan muna natin kung ISANG normal na email address talaga ang
+     padadalhan. Dati, kung ano ang naipasa, yun ang dere-deretsong ibinibigay sa mail library.
+
+     TECHNICAL: `to` is user-INFLUENCED on at least two paths — the profile-share recipient address
+     (chosen by whoever creates the share link) and the signup/verifier OTP address (chosen by the
+     requester). Two concrete problems with passing it through unchecked:
+
+       1. A comma or semicolon turns one recipient into several, so a crafted address could fan a
+          credential email or an OTP out to addresses the system never intended to contact.
+       2. A CR/LF sneaks additional SMTP headers or commands into the message — the injection class
+          behind the nodemailer advisory that prompted the 8.x -> 9.x upgrade in this same change.
+
+     Rejecting anything that is not a single clean address closes both at the boundary, so the fix
+     does not depend solely on the library version staying patched. */
+  const target = String(deliverTo || '').trim();
+  if (!SAFE_EMAIL_RE.test(target)) {
+    throw new Error('Invalid recipient email address.');
+  }
+
   const mailOptions = {
     from: `"ChainCert" <${process.env.SMTP_USER}>`,
-    to: deliverTo,
-    subject
+    to: target,
+    // Strip CR/LF from the subject too: it lands in a header, so a newline there is the same
+    // header-injection primitive as in the recipient.
+    subject: String(subject || '').replace(/[\r\n]+/g, ' ')
   };
 
   if (html) mailOptions.html = html;
   if (text) mailOptions.text = text;
 
   const info = await transporter.sendMail(mailOptions);
-  console.log(`[MAILER] Sent to ${deliverTo}: ${subject}`);
+  console.log(`[MAILER] Sent to ${target}: ${mailOptions.subject}`);
   return info;
 }
 

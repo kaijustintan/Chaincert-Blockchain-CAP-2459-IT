@@ -41,7 +41,15 @@ import Pagination, { usePagination } from "../components/ui/Pagination";
 import StatusLegend from "../components/ui/StatusLegend";
 import CredentialHistory from "../components/analytics/CredentialHistory";
 import { effectiveCredentialStatus, minIssueExpiryDate, maxIssueExpiryDate } from "../utils/credentialStatus"; // F01
-import { findNameMatches } from "../utils/nameSimilarity"; // S3-a: exact + near-match name detection
+// S3-a: exact + near-match name detection.
+// nameSimilarity.js is the ONE file under src/utils/ that is CommonJS, because it is shared
+// verbatim with the Express backend (deploy-sync.sh copies it to ~/chaincert-api/utils/). Webpack
+// silently interoped `module.exports` into named ESM imports; Rollup (Vite) does not, and errors
+// with "findNameMatches is not exported by nameSimilarity.js".
+// Importing the default and destructuring works under both bundlers and leaves the shared file
+// untouched — converting it to ESM would break `require()` on the backend.
+import nameSimilarity from "../utils/nameSimilarity";
+const { findNameMatches } = nameSimilarity;
 import { getCredentialLineage, isSameInstance } from "../utils/credentialLineage"; // Q1
 import { LayoutDashboard, FilePlus, Award, Ban, List, BarChart3, Receipt, Building2, Bell, Check, X, ChevronDown } from "lucide-react";
 
@@ -206,6 +214,35 @@ export default function IssuerDashboard() {
   const showToast = (message, type = "success") => {
     setToast({ show: true, message, type });
     setTimeout(() => setToast({ show: false, message: "", type: "success" }), 3500);
+  };
+
+  /* Every credential lifecycle action is a DUAL WRITE: blockchain first, then the CouchDB mirror.
+     When the chain write succeeds and the mirror write fails, the backend deliberately does NOT
+     roll back — the ledger entry is immutable and already permanent — so it returns HTTP 200 with
+     the chain result plus a `warning` field describing what did not get mirrored.
+
+     Nothing on the frontend read that field. All three call sites below discarded the response and
+     showed an unconditional green "success" toast. The practical effect: an issuer revokes a
+     credential, the ledger records it permanently, the mirror write throws, the UI says "revoked
+     successfully" — and the holder's wallet still shows the credential as active, with nobody
+     aware the two disagree.
+
+     This surfaces it as a warning toast instead. It does not fix the divergence (that needs a
+     reconcile path, tracked separately) — it stops the divergence being invisible, which is the
+     part that makes it dangerous. Longer timeout because it needs to actually be read. */
+  const showResultToast = (response, successMessage) => {
+    const warning = response?.data?.warning || response?.warning;
+    if (warning) {
+      setToast({
+        show: true,
+        type: "warning",
+        message: `Saved to the blockchain, but the local copy did not update (${warning}). The record on-chain is correct; some screens may look out of date until this is reconciled.`
+      });
+      setTimeout(() => setToast({ show: false, message: "", type: "success" }), 9000);
+      console.warn("[DUAL-WRITE] chain write succeeded, mirror write failed:", warning);
+      return;
+    }
+    showToast(successMessage);
   };
 
   // Root Authority → Reject subordinate modal
@@ -928,8 +965,8 @@ export default function IssuerDashboard() {
   const confirmRevokeCredential = async () => {
     setRevokeLoading(true); setRevokeError("");
     try {
-      await apiService.Revoke_Credential(revokeForm.credentialId, revokeForm.rejectionReason);
-      showToast("Credential revoked successfully!"); closeRevokeModal(); fetchCredentials();
+      const revokeRes = await apiService.Revoke_Credential(revokeForm.credentialId, revokeForm.rejectionReason);
+      showResultToast(revokeRes, "Credential revoked successfully!"); closeRevokeModal(); fetchCredentials();
     } catch (err) {
       setRevokeError(err?.response?.data?.error || err?.response?.data?.message || err?.message || "Failed to revoke credential");
     } finally { setRevokeLoading(false); }
@@ -1251,11 +1288,14 @@ export default function IssuerDashboard() {
   const confirmCreateCredential = async () => {
     setCreateLoading(true); setCreateError("");
     try {
-      const credentialId = `cred_${Date.now()}_${Math.random().toString(36).substring(2, 17)}`;
+      // NOTE: no client-side id is generated here any more. The previous line built a
+      // `cred_<timestamp>_<random>` id and passed it as `id`, but Create_CredentialTemplate's POST
+      // body does not include that field and the server mints its own id regardless — so the value
+      // was computed, sent nowhere, and only served to imply that the client chooses ledger keys.
       // confirmSimilar: user has seen the near-match warning and clicked Confirm. Direct API
       // callers without this flag still get the backend's SIMILAR_NAME 409.
-      await apiService.Create_CredentialTemplate({ id: credentialId, credentialType: createForm.credentialType.trim(), credentialName: createForm.credentialName.trim(), description: createForm.description, metadata: createForm.metadata, renewable: createForm.renewable !== false, skills: skillsList, badgeImage: badgeImageBase64, visibility: 'private', confirmSimilar: nameClash.similar.length > 0 });
-      showToast("Credential created successfully!"); closeCreateModal(); fetchCredentials(); fetchTemplateOptions();
+      const createRes = await apiService.Create_CredentialTemplate({ credentialType: createForm.credentialType.trim(), credentialName: createForm.credentialName.trim(), description: createForm.description, metadata: createForm.metadata, renewable: createForm.renewable !== false, skills: skillsList, badgeImage: badgeImageBase64, visibility: 'private', confirmSimilar: nameClash.similar.length > 0 });
+      showResultToast(createRes, "Credential created successfully!"); closeCreateModal(); fetchCredentials(); fetchTemplateOptions();
     } catch (err) {
       // Keep the confirm modal open and surface the server message (e.g. duplicate-name 409).
       setCreateError(err?.response?.data?.error || err?.response?.data?.message || err?.message || "Failed to create credential");
@@ -1380,12 +1420,15 @@ export default function IssuerDashboard() {
     setIssueLoading(true);
     setIssueError("");
     try {
-      await apiService.Issue_Credential(issueForm.credentialId, issueForm.recipientId, issueForm.expiryDate);
-      showToast("Credential issued — a notification email was sent to the holder.");
+      const issueRes = await apiService.Issue_Credential(issueForm.credentialId, issueForm.recipientId, issueForm.expiryDate);
+      showResultToast(issueRes, "Credential issued — a notification email was sent to the holder.");
       closeIssueModal();
       fetchCredentials();
     } catch (err) {
-      setIssueError(err?.message || "Failed to issue credential");
+      // Was `err?.message` only, which rendered axios's "Request failed with status code 409"
+      // instead of the server's actual reason (cross-issuer block, duplicate holder, bad template).
+      // Matches the fallback chain every sibling handler in this file already uses.
+      setIssueError(err?.response?.data?.error || err?.response?.data?.message || err?.message || "Failed to issue credential");
     } finally {
       setIssueLoading(false);
     }

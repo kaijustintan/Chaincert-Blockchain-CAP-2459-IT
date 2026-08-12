@@ -40,6 +40,9 @@
 
 const nano = require('nano');
 const bcryptjs = require('bcryptjs');
+// OTP hardening: constant-time compare + the shared wrong-guess budget (used by the share-link
+// OTP in verifyOTPAndGetUserId). Same module the controllers use, so the policy is defined once.
+const { otpEquals, OTP_MAX_FAILURES } = require('./securityHelpers');
 // M11 (partial): admin-CouchDB URL is env-driven with the historical default as fallback.
 // Set COUCHDB_URL in ~/chaincert-api/.env to point at a secured/non-default instance.
 // (dotenv loads in sdk-server-fixed.js BEFORE this module is required — order verified.)
@@ -762,6 +765,24 @@ async function getAdminActionablePendingIssuers() {
   Technical: Retrieves a single issuer document by its CouchDB _id.
   Tropang Ex: Pangkuha ng specific issuer record using issuer ID.
 */
+/*
+  Returns the issuer document, or NULL when no issuer has that id.
+
+  WHY NULL AND NOT A THROW (this changed):
+  This used to rethrow on every error, including CouchDB's 404. Ten call sites across
+  adminIssuerController, rootAuthorityController and issuerOnboardingController are written as
+
+      const issuerDoc = await couchDB.getIssuerById(issuerId);
+      if (!issuerDoc) return res.status(404).json({ ... 'Issuer not found.' });
+
+  and every one of those branches was UNREACHABLE — the throw happened first, so a nonexistent
+  issuer id produced a generic 500 "Something went wrong" instead of a 404. The callers were
+  written against getUser()'s contract (couchDB_service.js:~134, returns null on 404); the two
+  lookup helpers simply disagreed. Aligning them makes the existing guards work as written.
+
+  Genuine failures (network, auth, a down database) still throw — only "not found" becomes null,
+  because that is a normal, expected answer to a lookup and not an error condition.
+*/
 async function getIssuerById(issuerId) {
   try {
 
@@ -774,6 +795,10 @@ async function getIssuerById(issuerId) {
     return await issuersDB.get(issuerId);
 
   } catch (error) {
+    // Not found is an answer, not a failure — let the caller's `if (!issuerDoc)` guard handle it.
+    if (error.statusCode === 404) {
+      return null;
+    }
     console.error('Error getting issuer by ID:', error.message);
     throw error;
   }
@@ -2823,7 +2848,7 @@ async function getDisabledIssuers() {
 
 // ==========================================================================================================================================================================
 
-async function getIssuerTemplatesByIssuerId(issuerId) {
+async function getIssuerTemplatesByIssuerId(issuerId, fields = null) {
   try {
     if (!issuersDB) await initializeDatabases();
     const issuer = await getIssuerById(issuerId);
@@ -2845,12 +2870,23 @@ async function getIssuerTemplatesByIssuerId(issuerId) {
     } catch (idxErr) {
       console.warn('[COUCHDB] wallet_issuer_credentials isTemplate index ensure failed (non-fatal):', idxErr.message);
     }
-    const result = await db.find({
+    /* PERF: `fields` is an optional PROJECTION. Template documents embed a base64 `badgeImage`,
+       which dominates their size. Callers that only need to COUNT templates or read a couple of
+       scalar fields were pulling every badge across the wire into Node and then discarding it.
+       Passing a field list makes CouchDB return just those keys.
+
+       Omitting the argument keeps the previous behavior (full documents), so existing callers that
+       genuinely render badges are unaffected. */
+    const query = {
       selector: { isTemplate: true },
       limit: 100000
-    });
+    };
+    if (Array.isArray(fields) && fields.length > 0) {
+      query.fields = fields.includes('_id') ? fields : ['_id', ...fields];
+    }
+    const result = await db.find(query);
 
-    console.log(`[COUCHDB] Found ${result.docs.length} TEMPLATE(s) for issuer ${issuerId}`);
+    console.log(`[COUCHDB] Found ${result.docs.length} TEMPLATE(s) for issuer ${issuerId}${query.fields ? ' (projected)' : ''}`);
     return result.docs;
 
   } catch (error) {
@@ -2918,7 +2954,7 @@ async function checkIssuerHasCredentialTemplates(issuerId) {
 }
 // ==========================================================================================================================================================================
 
-async function getIssuerIssuedByIssuerId(issuerId) {
+async function getIssuerIssuedByIssuerId(issuerId, fields = null) {
   try {
     if (!issuersDB) await initializeDatabases();
     const issuer = await getIssuerById(issuerId);
@@ -2931,20 +2967,118 @@ async function getIssuerIssuedByIssuerId(issuerId) {
     const db = issuerCouch.use('issued_credentials');
 
     // Based on your screenshot: issued copies have type: "credential_instance"
-    const result = await db.find({
+    /* PERF: optional projection — see getIssuerTemplatesByIssuerId. Issued credentials each carry
+       a copy of the template's base64 badgeImage, so a per-issuer fetch used for nothing but a
+       count was transferring the entire issued-credential corpus. Two callers do exactly that
+       (the PUBLIC issuer directory and the PUBLIC share-profile payload), which made an
+       unauthenticated request able to force a full dump. Omit `fields` for full documents. */
+    const query = {
       selector: { type: 'credential_instance' },
       limit: 100000
       // Optional strict filter (not required since per-issuer DB):
       // selector: { type: 'credential_instance', issuerID: issuerId }
-    });
+    };
+    if (Array.isArray(fields) && fields.length > 0) {
+      query.fields = fields.includes('_id') ? fields : ['_id', ...fields];
+    }
+    const result = await db.find(query);
 
-    console.log(`[COUCHDB] Found ${result.docs.length} ISSUED credential(s) for issuer ${issuerId}`);
+    console.log(`[COUCHDB] Found ${result.docs.length} ISSUED credential(s) for issuer ${issuerId}${query.fields ? ' (projected)' : ''}`);
     return result.docs;
 
   } catch (error) {
     console.error(`❌ Error fetching issued credentials for issuer ${issuerId}:`, error.message);
     return [];
   }
+}
+// ==========================================================================================================================================================================
+
+/*
+  Function Name: getCredentialDocById
+
+  Tropang Ex:
+  Kinukuha ang ISANG credential document — template man o issued — para matingnan kung KANINO ito
+  BAGO tayo sumulat sa blockchain. Kailangan ito kasi dati, si Issue_Credential binabasa lang ang
+  template PAGKATAPOS na maisulat sa ledger, at si revoke_Credential hindi man lang binabasa ang
+  credential kahit kailan. Ibig sabihin, kayang mag-issue o mag-revoke ng isang issuer gamit ang
+  credential ng IBANG issuer — at permanent na agad yun sa blockchain, walang bawian.
+
+  Technical:
+  Fetches ONE credential document and returns it, or null when it does not exist anywhere we look.
+  Exists so controllers can perform an OWNERSHIP check (doc.issuerID === req.user.id) BEFORE
+  submitting a blockchain transaction.
+
+  Lookup order (first hit wins; every 404 falls through to the next):
+    1. issuer CouchDB / wallet_issuer_credentials / <cleanId>
+         TEMPLATES. Create_CredentialTemplate_DB stores them under the RAW id with
+         issuerID + isTemplate:true.
+    2. issuer CouchDB / issued_credentials / issuer_cred_<cleanId>
+         ISSUED INSTANCES on the issuer's own node (Issue_Credential_DB).
+    3. admin CouchDB / wallet_user_credentials / user_cred_<cleanId>
+         The holder-side mirror. Also carries issuerID, and is the ONLY reachable source when the
+         actor is an ADMIN (admins have no couchDBUrl of their own).
+
+  Steps 1 and 2 are SKIPPED when issuerCouchDBUrl is falsy.
+
+  The per-issuer CouchDB is itself an ownership boundary: passing the ACTING issuer's couchDBUrl
+  means steps 1-2 can only ever return docs on that issuer's node. Step 3 can return a foreign doc,
+  which is exactly why the caller must still compare issuerID rather than just check existence.
+
+  ID handling: accepts the blockchain id ("cred_..."), or either storage-prefixed form
+  ("issuer_cred_..." / "user_cred_..."), mirroring walletController.stripCredPrefix — so the caller
+  never has to know which form the frontend sent.
+
+  404 behavior: a 404 from any source is NOT an error, it means "not here, try the next one". Only
+  the final miss returns null. Any NON-404 CouchDB error is RETHROWN: this backs an authorization
+  decision, so it must fail CLOSED (500) rather than be mistaken for "not yours" or swallowed
+  into an allow.
+
+  PARAMS:
+  - credentialId — blockchain id, issuer_cred_<id>, or user_cred_<id>.
+  - issuerCouchDBUrl — the ACTING issuer's couchDBUrl (issuerDoc.couchDBUrl). Pass null for admin.
+
+  RETURNS:
+  The raw CouchDB doc (issuerID, isTemplate, status, holderID, blockchainId, ...) or null.
+
+  EXAMPLE
+    const doc = await getCredentialDocById('cred_177..._abc', issuerDoc.couchDBUrl);
+    if (!doc) return res.status(404).json({ success:false, error:'Credential not found.' });
+    if (String(doc.issuerID) !== String(user.id)) return res.status(403).json(...);
+*/
+async function getCredentialDocById(credentialId, issuerCouchDBUrl) {
+  if (!credentialId) return null;
+
+  /* Step 1: Normalize to the bare blockchain id (mirrors walletController.stripCredPrefix). */
+  const cleanId = String(credentialId)
+    .replace(/^issuer_cred_/, '')
+    .replace(/^user_cred_/, '');
+
+  /* Step 2: Build the candidate (couchUrl, dbName, docId) list in priority order. */
+  const candidates = [];
+  if (issuerCouchDBUrl) {
+    candidates.push({ url: issuerCouchDBUrl, db: 'wallet_issuer_credentials', id: cleanId });
+    candidates.push({ url: issuerCouchDBUrl, db: 'issued_credentials', id: `issuer_cred_${cleanId}` });
+  }
+  candidates.push({ url: COUCHDB_URL, db: 'wallet_user_credentials', id: `user_cred_${cleanId}` });
+
+  /* Step 3: Try each in order. 404 -> next candidate; any other error -> rethrow (fail closed). */
+  for (const c of candidates) {
+    try {
+      const doc = await require('nano')(c.url).use(c.db).get(c.id);
+      if (doc) {
+        console.log(`[COUCHDB] getCredentialDocById: ${cleanId} resolved from ${c.db}/${c.id}`);
+        return doc;
+      }
+    } catch (err) {
+      if (err.statusCode === 404) continue;
+      console.error(`❌ getCredentialDocById(${cleanId}) failed on ${c.db}:`, err.message);
+      throw err;
+    }
+  }
+
+  /* Step 4: Nowhere to be found. */
+  console.warn(`[COUCHDB] getCredentialDocById: ${cleanId} not found in any credential store`);
+  return null;
 }
 // ==========================================================================================================================================================================
 
@@ -2964,11 +3098,16 @@ async function getPublicIssuerDirectory() {
   const entries = await Promise.all(list.map(async (iss) => {
     let publicTemplateCount = 0, issuedCount = 0, types = [];
     try {
-      const templates = await getIssuerTemplatesByIssuerId(iss._id);
+      /* PROJECTED. This directory is PUBLIC and unauthenticated, and it aggregates across EVERY
+         approved issuer — so before this it downloaded every template badge and every issued
+         credential in the entire system, per page load, to produce three numbers per issuer.
+         Only these fields are actually read below. */
+      const templates = await getIssuerTemplatesByIssuerId(iss._id, ['visibility', 'credentialType']);
       const publicTemplates = (templates || []).filter((t) => t?.visibility === 'public');
       publicTemplateCount = publicTemplates.length;
       types = [...new Set(publicTemplates.map((t) => t.credentialType).filter(Boolean))];
-      const issued = await getIssuerIssuedByIssuerId(iss._id);
+      // Only .length is used, so ask for the id alone.
+      const issued = await getIssuerIssuedByIssuerId(iss._id, ['_id']);
       issuedCount = (issued || []).length;
     } catch (e) {
       console.warn(`[DIRECTORY] aggregate failed for ${iss._id}:`, e.message);
@@ -3137,6 +3276,26 @@ async function getAllIssuerCredentialsAdmin(options = {}) {
   }
 }
 
+/*
+  Function Name: Disable_Issuer
+
+  Technical:
+  Suspends an ACTIVE issuer. Reversible via Enable_Issuer.
+
+  Tropang Ex:
+  Pang-suspend ng issuer na kasalukuyang gumagana. Hindi ito pang-reject ng application.
+
+  The status guard mirrors Enable_Issuer's: only a live issuer can be suspended. Without it,
+  disabling a 'pending' or 'rejected' application would move it into 'disabled', from which
+  Enable_Issuer would then promote it to 'approved' — reintroducing the exact approval bypass
+  the Enable_Issuer guard exists to close, just via two calls instead of one.
+
+  PARAMS:
+  - issuerId, adminEmail, reason (required, non-empty).
+
+  RETURNS:
+  nano insert result. THROWS with statusCode 409 when the issuer is not currently approved/active.
+*/
 async function Disable_Issuer(issuerId, adminEmail, reason) {
   if (!issuersDB) await initializeDatabases();
 
@@ -3146,6 +3305,17 @@ async function Disable_Issuer(issuerId, adminEmail, reason) {
 
   const issuerDoc = await issuersDB.get(issuerId);
 
+  // Only a live issuer can be suspended. 'active' is accepted alongside 'approved' because both
+  // appear as the post-approval state across the codebase.
+  if (issuerDoc.status !== "approved" && issuerDoc.status !== "active") {
+    const err = new Error(
+      `Only an approved issuer can be disabled (current status: '${issuerDoc.status || 'unknown'}'). ` +
+      `Use the rejection workflow for an application that has not been approved.`
+    );
+    err.statusCode = 409;
+    throw err;
+  }
+
   issuerDoc.status = "disabled";
   issuerDoc.disabledAt = new Date().toISOString();
   issuerDoc.disabledBy = adminEmail;
@@ -3154,6 +3324,39 @@ async function Disable_Issuer(issuerId, adminEmail, reason) {
   return await issuersDB.insert(issuerDoc);
 }
 
+/*
+  Function Name: Enable_Issuer
+
+  Technical:
+  Re-enables a DISABLED issuer. Enable is the strict inverse of Disable and nothing else — it is
+  NOT an approval path.
+
+  Tropang Ex:
+  Pang-BALIK lang ito ng issuer na na-disable. Hindi ito pang-approve ng bago.
+
+  WHY THE STATUS GUARD EXISTS (do not remove):
+  This function previously had NO status check and unconditionally wrote status = "approved" on
+  whatever document it was handed. The controller only rejected an already-'approved' issuer, so
+  POST /api/admin/enable-issuer/<id> against a pending or rejected issuer silently promoted it,
+  bypassing:
+    - the subordinate root-authority gate (a subordinate the root NEVER approved, or explicitly
+      REJECTED, could be promoted by an admin acting alone — the consortium model's core rule),
+    - ensureIssuerFabricIdentityExists (the wallet-identity precondition), and
+    - the assignment of fabricIdentity / couchDBUrl / walletId, which happens ONLY in
+      Approve_Issuer.
+  The result was an issuer marked 'approved' with no Fabric identity: every downstream action 403s,
+  and Approve_Issuer refuses to re-run because the status is no longer 'pending'. A permanently
+  wedged account recoverable only by hand-editing CouchDB.
+
+  Restricting the transition to disabled -> approved closes the governance bypass AND makes the
+  wedged-account state unreachable, because only an already-provisioned issuer can be disabled.
+
+  PARAMS:
+  - issuerId, adminEmail, reason (required, non-empty).
+
+  RETURNS:
+  nano insert result. THROWS with statusCode 409 when the issuer is not currently disabled.
+*/
 async function Enable_Issuer(issuerId, adminEmail, reason) {
   if (!issuersDB) await initializeDatabases();
 
@@ -3162,6 +3365,17 @@ async function Enable_Issuer(issuerId, adminEmail, reason) {
   }
 
   const issuerDoc = await issuersDB.get(issuerId);
+
+  // Only a DISABLED issuer may be enabled. Anything else is an approval decision and must go
+  // through Approve_Issuer / the root-authority flow, which carry the real gates.
+  if (issuerDoc.status !== "disabled") {
+    const err = new Error(
+      `Only a disabled issuer can be enabled (current status: '${issuerDoc.status || 'unknown'}'). ` +
+      `Use the approval workflow to approve a pending or rejected issuer.`
+    );
+    err.statusCode = 409;
+    throw err;
+  }
 
   issuerDoc.status = "approved";
   issuerDoc.enabledAt = new Date().toISOString();
@@ -3682,23 +3896,60 @@ async function saveOTPToShareLink(token, otp, otpExpiresAt) {
   doc.otp = otp;
   doc.otpExpiresAt = otpExpiresAt;
   doc.otpVerified = false;
+  doc.otpFailures = 0; // fresh code, fresh wrong-guess budget
   return await profileShareLinksDb.insert(doc);
 }
 
 /*
   Function Name: verifyOTPAndGetUserId
-  Technical: Validates OTP + expiry, marks otpVerified = true, returns userId.
-  Tropang Ex: Kapag nag-submit ng OTP si recipient, dito ini-check kung tama at hindi pa expired. // - polo
+
+  Technical:
+  Validates the share-link OTP + expiry, marks otpVerified = true, returns userId.
+
+  Hardened (OTP pass). Three defects were fixed here:
+    1. The comparison was `doc.otp !== otp` on an UNCOERCED req.body value — a JSON number or
+       object could reach it. Now goes through otpEquals, which String()-coerces and compares in
+       constant time.
+    2. The code was NEVER cleared — not on success, not on failure. Only otpVerified flipped, so
+       doc.otp kept the plaintext code and it stayed replayable for the rest of its 10-minute life
+       (and the field persisted on the document indefinitely afterwards). Now cleared on success.
+    3. No wrong-guess counter, and this flow has NO send throttle at all (requestOTP regenerates
+       unconditionally) and no per-IP limiter on its route. It was the least protected of the four.
+
+  Tropang Ex:
+  Kapag nag-submit ng OTP si recipient, dito ini-check kung tama at hindi pa expired. Dati, kahit
+  ilang beses ka pwedeng manghula, at hindi binubura ang code kahit tama ka na — kaya pwedeng
+  gamitin ulit. Ngayon, limitado ang mali, at burado agad ang code pagkatapos.
 */
 async function verifyOTPAndGetUserId(token, otp) {
   if (!profileShareLinksDb) await initializeDatabases();
   const doc = await getProfileShareLink(token);
   if (!doc) throw new Error('Share link not found');
-  if (doc.otp !== otp) throw new Error('Invalid verification code.');
+  if (!doc.otp) throw new Error('Invalid verification code.');
+
+  // Expiry before the compare, so a stale code does not spend a failure slot.
   if (new Date() > new Date(doc.otpExpiresAt)) throw new Error('Code has expired. Request a new one.');
+
+  if (!otpEquals(doc.otp, otp)) {
+    const failures = (doc.otpFailures || 0) + 1;
+    doc.otpFailures = failures;
+    if (failures >= OTP_MAX_FAILURES) {
+      // Burn the code. The recipient can request a new one.
+      doc.otp = null;
+      doc.otpExpiresAt = null;
+      doc.otpFailures = 0;
+      await profileShareLinksDb.insert(doc);
+      throw new Error('Too many incorrect codes. Request a new one.');
+    }
+    await profileShareLinksDb.insert(doc);
+    throw new Error('Invalid verification code.');
+  }
+
   const now = new Date().toISOString();
   doc.otpVerified = true;
   doc.otpVerifiedAt = now; // OTP verification timestamp
+  doc.otp = null;          // single-use: was previously left in place and replayable
+  doc.otpFailures = 0;
   doc.viewCount = (doc.viewCount || 0) + 1; // Increment view count
   if (!doc.firstViewedAt) doc.firstViewedAt = now; // Set only once
   doc.lastViewedAt = now; // Always update on each verify
@@ -4028,6 +4279,7 @@ module.exports = {
   getIssuerTemplatesByIssuerId,
   checkIssuerHasCredentialTemplates,
   getIssuerIssuedByIssuerId,
+  getCredentialDocById, // ownership gate for issue/revoke — see the function's doc block
   getAllIssuerCredentialsAdmin,
 
   Disable_Issuer,

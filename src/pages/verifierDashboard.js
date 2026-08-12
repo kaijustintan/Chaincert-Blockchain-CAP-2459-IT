@@ -282,7 +282,23 @@ export default function VerifierDashboard() {
     try {
       const pdfjsLib = await loadPdfjs();
       const buf = await file.arrayBuffer();
-      const pdf = await pdfjsLib.getDocument({ data: buf }).promise;
+      /* SECURITY (CVE-2024-4367): the PDF being parsed here is UNTRUSTED — a verifier uploads
+         whatever portfolio file they were handed. pdf.js historically allowed a crafted font
+         object to reach an eval() path, giving arbitrary script execution in the page context
+         simply from opening the document.
+
+         isEvalSupported:false closes that path. It costs nothing here because this code never
+         RENDERS the PDF — it only walks link annotations to pull credential ids — so none of the
+         functionality that flag enables is used.
+
+         The other two flags harden the same surface: no external XFA/JS execution, and no
+         network fetches for fonts or images while parsing an untrusted file. */
+      const pdf = await pdfjsLib.getDocument({
+        data: buf,
+        isEvalSupported: false,
+        disableAutoFetch: true,
+        disableStream: true
+      }).promise;
       const ids = new Set();
       for (let p = 1; p <= pdf.numPages; p++) {
         // eslint-disable-next-line no-await-in-loop

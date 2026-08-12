@@ -215,6 +215,16 @@ class ChainCertContract extends Contract {
 */
 async IssueCredential(ctx, templateId, holderID, expiryDate, renewedFrom) {
 
+  /* Step 0: Validate inputs.
+
+     holderID goes into the credential AND into the ledger key. An empty value produced a record
+     belonging to nobody, with a malformed key (`<templateId>__<ts>`), that VerifyCredential then
+     had to reject after the fact. Refusing it here is the actual fix — the ledger is immutable, so
+     a bad record written today is permanent. */
+  if (!holderID || String(holderID).trim() === '') {
+    throw new Error('holderID is required to issue a credential');
+  }
+
   /* Step 1: Load the template from the ledger */
   const templateJSON = await ctx.stub.getState(templateId);
   if (!templateJSON || templateJSON.length === 0) {
@@ -223,6 +233,15 @@ async IssueCredential(ctx, templateId, holderID, expiryDate, renewedFrom) {
 
   /* Step 2: Parse the template JSON */
   const template = JSON.parse(templateJSON.toString());
+
+  /* Step 2b: Refuse to issue from something that is not a template.
+
+     Without this, passing an ISSUED credential's id as templateId would mint a copy of it under a
+     new holder, inheriting the original's issuerID — a credential derived from a credential, which
+     the data model does not allow and which no UI can explain. */
+  if (template.isTemplate !== true) {
+    throw new Error(`${templateId} is not a credential template and cannot be issued from`);
+  }
 
   /* Step 3: Get blockchain timestamp and txId */
   const txTimestamp = ctx.stub.getTxTimestamp();
@@ -355,6 +374,48 @@ async IssueCredential(ctx, templateId, holderID, expiryDate, renewedFrom) {
        Gawing JS object para madali i-check yung fields like status at expiryDate.
     */
     const credential = JSON.parse(credentialJSON.toString());
+
+    /* Step 2b: Reject TEMPLATES.
+
+       Technical:
+       A template and an issued credential live in the SAME key namespace. CreateCredentialTemplate
+       stores its record with isTemplate: true, holderID: "" and status: 'active' — so without this
+       check every subsequent test passes and VerifyCredential returns valid: true for a template.
+
+       Why this matters more than it looks:
+       Template ids are not secret. They are handed out by the public issuer directory and the
+       public share-profile payload. So anyone could take a template id, submit it to the PUBLIC
+       verify endpoint, and receive a "valid credential" verdict for something that was never
+       issued to any person — the holder field comes back empty. That is the platform's core trust
+       claim ("this credential is real and belongs to this person") failing on its most public
+       surface, and it is trivially demonstrable by a third party.
+
+       Checked BEFORE revoked/expiry so the reason is accurate rather than incidental: a template
+       is not an expired credential, it is not a credential at all.
+
+       Tropang Ex:
+       Yung template ay yung BLANGKONG porma — parang blangkong diploma na wala pang pangalan.
+       Hindi mo pwedeng i-verify yun na parang totoong credential ng tao. Dapat tanggihan agad.
+    */
+    if (credential.isTemplate === true) {
+      return JSON.stringify({
+        valid: false,
+        reason: 'Not an issued credential (this ID refers to a credential template)'
+      });
+    }
+
+    /* Step 2c: Reject a record with no holder.
+
+       Separate from 2b on purpose — reporting "this is a template" for a malformed issued record
+       would be inaccurate and would send whoever investigates down the wrong path. IssueCredential
+       does not currently validate that holderID is non-empty, so this is the backstop: a credential
+       that belongs to nobody cannot be verified as belonging to somebody. */
+    if (!credential.holderID || String(credential.holderID).trim() === '') {
+      return JSON.stringify({
+        valid: false,
+        reason: 'Credential record is incomplete (no holder assigned)'
+      });
+    }
 
     /* Step 3: Explicit revoked check
 

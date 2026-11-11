@@ -9,7 +9,7 @@
     "framer-motion": "^12.42.0",
     "jspdf": "^4.2.1",
     "lucide-react": "^1.18.0",
-    "pdfjs-dist": "^3.11.174",
+    "pdfjs-dist": "^6.5.438",
     "qrcode": "^1.5.4",
     "react": "^19.1.1",
     "react-dom": "^19.1.1",

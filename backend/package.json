@@ -22,6 +22,6 @@
     "multer": "^2.2.0",
     "nano": "^10.0.0",
     "node-cron": "^4.2.1",
-    "nodemailer": "^9.0.5"
+    "nodemailer": "^10.4.0"
   }
 }

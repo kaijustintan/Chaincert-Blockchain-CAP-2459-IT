@@ -18,7 +18,7 @@
     "fabric-ca-client": "^2.2.20",
     "fabric-network": "^2.2.20",
     "helmet": "^8.0.0",
-    "jsonwebtoken": "^9.0.2",
+    "jsonwebtoken": "^9.0.3",
     "multer": "^2.2.0",
     "nano": "^10.0.0",
     "node-cron": "^4.2.1",
